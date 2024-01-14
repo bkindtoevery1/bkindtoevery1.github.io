@@ -1,65 +1,81 @@
-# cvless
+<h1 align="center">online-resume</h1>
 
-Cvless is a theme for static websites built with Jekyll. It aims for simplicity and readability by following best practices of graphic design, like the use of [high contrast](https://www.contrastrebellion.com), [law of proximity](https://lawsofux.com/law-of-proximity), and responsive layout. Its typography is based on the [Piazzolla system](https://piazzolla.huertatipografica.com/), which performs extremely well over a wide range of font sizes.
+<p align="center">
+  <a href="https://github.com/tarrex/online-resume/blob/master/LICENSE"><img src="https://img.shields.io/github/license/tarrex/online-resume?style=flat-square" alt="GitHub License"></a>
+  <a href="https://github.com/tarrex/online-resume/forks"><img src="https://img.shields.io/github/forks/tarrex/online-resume?style=flat-square" alt="GitHub forks"></a>
+  <a href="https://github.com/tarrex/online-resume/stargazers"><img src="https://img.shields.io/github/stars/tarrex/online-resume?style=flat-square" alt="GitHub Repo stars"></a>
+  <a href="https://tarrex.github.io/online-resume"><img src="https://img.shields.io/website?down_color=red&down_message=down&style=flat-square&up_color=green&up_message=up&url=https%3A%2F%2Ftarrex.github.io%2Fonline-resume" alt="Demo Website"></a>
+</p>
 
-The main aesthetic feature of the theme is the use of [particles.js](https://vincentgarreau.com/particles.js/) in the home and the 404 pages. In addition, the theme includes a well-designed CV page. Printing this from browser automatically adapts the layout for a more traditional appearance, so you no longer have to maintain a separate CV for offline distribution. Finally, the theme offers a simple and easily extensible blog.
+<h4 align="center">A minimalist Jekyll theme for your resume.</h4>
 
-Light and dark modes are available. The theme initializes based on system preferences and stores the user's preference for the duration of the session.
+---
 
-See the [demo](https://cvless.netlify.app) to get a better sense of what the theme looks like.
+## Live Demo
 
-![](https://github.com/piazzai/cvless/blob/master/screenshot.jpg)
+:point_right: [online-resume][Demo] :point_left:
 
-## Installation
+## Getting Started
 
-1.  Clone this repository.
-2.  Rename it to `[username].github.io`.
-3.  Start editing!
+Online-Resume is a Jekyll theme designed for creating resumes. It enables you to write your resume in YAML file using Markdown and manage it through Git. It can be displayed on a web page and printed as a PDF file directly from the browser.
 
-## Usage
+You can deploy it on various platforms that support Jekyll or static files, such as GitHub Pages, Cloudflare Pages, Vercel, Netlify, your own hosting service, and others.
 
-Configuration primarily occurs in four files. First, `_config.yml`, which contains site variables such as title, tagline, url, and repository address, as well as the author's name and email address for inclusion in blog posts. You can also specify the path to an avatar for inclusion in the home (optional).
+Features:
 
-Second, you should update icon links in `_includes/particles-home.html` and add/remove icons as needed. You might want to add icons that are not included in the theme by default. For more information on how to do this, see [this post](https://cvless.netlify.app/2022/08/01/on-the-use-of-icons/).
+- User-friendly and easy to deploy.
+- Built with Jekyll and Markdown.
+- Supports multiple languages.
+- Customizable theme color and basic styles.
+- Modular content design.
+- Responsive display.
 
-Third, you should customize the file `_includes/contact.html` by inputting your contact details and adding/removing lines as needed. This information is prepended to your CV.
+### Usage
 
-Fourth, you might want to edit the style variables specified in `_sass/_variables.scss`. These allow you to customize the theme's color scheme and typefaces. There are many resources on the web to learn the principles of good web design. I personally recommend Matthew Butterick's [Practical Typography](https://practicaltypography.com/websites.html).
+#### Quickly
 
-In addition to these files, you can customize favicons in the `assets` folder. For that, [favicon.io](https://favicon.io/) is an excellent tool. You can also change the particles.js configurations in `assets/json`. The [library homepage](https://vincentgarreau.com/particles.js/) features an interactive tool from which you can export a new configuration.
+- Fork the repository.
+- Click the `settings` option above.
+- Click `pages` in the Code and automation category on the left.
+- Set up github pages in the build and deployment category.
+  - find `source`, drop down and select `Deploy from a branch`.
+  - find `branch`, drop down and select `master` branch.
+  - Click the `save` button on the right.
+- Wait a little while for the successful building.
+- Open `https://YOUR_GITHUB_USERNAME.github.io/online-resume` in your browser.
+- Now you can see the resume page.
+- Edit the `_data/data.yml` file directly to update your resume.
 
-## Local Development
+#### Customization
 
-This repo includes a docker-compose file that allows you to quickly setup a container running Jekyll. If you don't already have Docker and docker-compose installed, you can install them using the following guides:
+- `_data/data.yml`: Edit the resume content.
+- `assets/images/profile.png`: Your profile photo.
+- `_config.yml`: Website and theme style settings.
 
-**Install Guides**
-* [Docker](https://docs.docker.com/get-docker/)
-* [docker-compose](https://docs.docker.com/compose/install/)
+## FAQ
 
-To start the container simply run:
+#### How to change the order of the sections in the resume?
 
-```
-docker-compose up
-```
+There is an `order` option in each section, you can adjust the order by modifying this, the smaller the value the more forward the position.
 
-Alternatively you can run the container without docker-compose using this command on iOS/Linux:
+#### How to hide the specified section in the resume?
 
-```
-docker run -p 4000:4000 -v $(pwd):/site bretfisher/jekyll-serve
-```
+If there is no content you want to keep in the section, you can remove it directly. If you want to keep the content, you can set the value of the `show` option of the section to `false`.
 
-## Credits
+#### How to create a resume in other languages?
 
-The theme draws in one way or another from the following projects:
+For example, if you already have an English version resume and you want to create a Chinese version. Copy a `data.yml` file in the `_data` folder named `cn.yml` and edit the content, then copy an `index.html` file in the root directory named `cn.html` and change the `{%- assign data = site.data.data %}` in the `cn.html` file to `{%- assign data = site.data.cn %}`. After successful building, you can preview the Chinese version of your resume by visiting `https://YOUR_GITHUB_USERNAME.github.io/online-resume/cn`.
 
--   [Bootstrap](https://getbootstrap.com/)
--   [Hack](https://sourcefoundry.org/hack/)
--   [Iconoir](https://iconoir.com/)
--   [Open Color](https://yeun.github.io/open-color/)
--   [Particles.js](https://vincentgarreau.com/particles.js/)
--   [Piazzolla](https://piazzolla.huertatipografica.com/)
--   [Poole](https://getpoole.com/)
+#### How to deploy on other platforms, like cloudflare, vercel?
 
-## Bugs
+You can read and follow [Cloudflare Pages][Cloudflare Pages], [Vercel][Vercel] documents.
 
-If you find any problem using this theme, please [open an issue](https://github.com/piazzai/cvless/issues).
+## Others
+
+- Hugo Version: [hugo-theme-online-resume][Other Version]
+
+
+[Demo]: https://tarrex.github.io/online-resume
+[Cloudflare Pages]: https://developers.cloudflare.com/pages/framework-guides/deploy-a-jekyll-site/
+[Vercel]: https://vercel.com/guides/deploying-jekyll-with-vercel
+[Other Version]: https://github.com/tarrex/hugo-theme-online-resume
