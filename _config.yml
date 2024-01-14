@@ -1,30 +1,28 @@
 # site settings
 
-title: cvless
-description: Jekyll theme for a beautiful online CV
-taglong: Jekyll theme for a beautiful online CV
-tagshort: Jekyll theme
-url: https://cvless.netlify.app
+title: Chaehyun Lim
+description: Do my best in what I want to do
+taglong: Do my best in what I want to do
+tagshort: Online CV
+url: https://bkindtoevery1.github.io
 baseurl: ""
 permalink: pretty
-repo: https://github.com/username/username.github.io
+repo: https://github.com/bkindtoevery1/bkindtoevery1.github.io
 
 # author settings
 
 author:
-  name: Place Holder
-  email: username@domain.com
-photo: /assets/jpg/photo.jpg
+  name: Chaehyun Lim
+  email: chayhyeon@gmail.com
+photo: /assets/jpg/profile_photo.jpg
 
 # social media links
 
 social:
-  facebook: username
-  github: username
-  instagram: username
-  linkedin: username
-  stackoverflow: 0000000/username
-  twitter: username
+  facebook: chayhyeon
+  github: bkindtoevery1
+  instagram: chayhyeon
+  linkedin: chaehyun-lim-3003142a1
 
 # build settings
 
