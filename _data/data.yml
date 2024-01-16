@@ -3,20 +3,20 @@ basic:
   title: Software Engineer           # job title
   avatar:
     show: true                       # show or hide avatar
-    path: /assets/images/profile.png # avatar file path
+    path: /assets/images/Profile_photo.png # avatar file path
 
 contact:
   # meta
   location: Berkeley, USA # location
   email: chayhyeon@gmail.com    # email address
-  phone: +1-510-365-0272 # phone number, format is "+[Country Code] [Area Code (if applicable)] [Local Phone Number]"
+  phone:        # phone number, format is "+[Country Code] [Area Code (if applicable)] [Local Phone Number]"
   website:      # site URL without schema, like example.com, will automatically prepand "https://"
 
-  gender: Male             # gender or pronoun
-  birthday: Sep, 9, 2000   # birthday
+  gender:             # gender or pronoun
+  birthday:             # birthday
   nationality: Korean      # nationality
-  visa: F-1                # passport visa
-  drivinglicense: Have      # driving licence
+  visa:                # passport visa
+  drivinglicense:       # driving licence
 
   # contact
   wechat: chayhyeon        # username
@@ -94,16 +94,6 @@ experience:
   description: |
 
   items:
-    - company: Devsisters
-      link: 'https://www.devsisters.com/'
-      tags: Internship
-      date: 2021.01 - 2021.07
-      role: Data Platform Engineer
-      location: Seoul, Korea
-      description: |
-        Managed data pipeline that delivers game data from massive users to data warehouse. The pipeline automatically preprocessed the data and passed to data consumers in near real-time.
-        + AWS EC2/S3, Kubernetes
-        + Airflow, Kafka, ELK Stack
     - company: Republic of Korea Air Force (ROKAF)
       link: 'https://rokaf.airforce.mil.kr/'
       tags: Full-time
@@ -114,6 +104,17 @@ experience:
         Protected the server from attacks 24/7. Blocked suspicious ip, prevented security incident and collected evidences from infected device. Also managed all electronic devices in brigade.
         + Firewall, IPS, NAC
         + Solving unexpected incidents fast and clearly
+
+    - company: Devsisters
+      link: 'https://www.devsisters.com/'
+      tags: Internship
+      date: 2021.01 - 2021.07
+      role: Data Platform Engineer
+      location: Seoul, Korea
+      description: |
+        Managed data pipeline that delivers game data from massive users to data warehouse. The pipeline automatically preprocessed the data and passed to data consumers in near real-time.
+        + AWS EC2/S3, Kubernetes
+        + Airflow, Kafka, ELK Stack
 
 project:
   show: true
@@ -160,13 +161,13 @@ skill:
       level: 4
     - name: Problem Solving
       level: 5
-    - name: Communication Skills
+    - name: Communication
       level: 4
     - name: Python
       level: 5
     - name: C/C++
       level: 4
-    - name: Tensorflow, Pytorch
+    - name: Pytorch
       level: 3
     - name: Docker / k8s
       level: 4
@@ -288,7 +289,7 @@ patent:
     + Foo Bar. 2022. Example patent name one. US 123456, filed Oct 3, 2022. Patent pending.
     + Foo Bar. 2022. Example patent name two. US 654321, filed Oct 3, 2022, and issued Nov 15, 2022.
 
-organization:
+reference:
   show: true
   order: 10
   title: Organizations
@@ -319,12 +320,6 @@ interest:
   show: true
   order: 12
   title: Interests
-  description: |
-    The interests section in a resume typically refers to a section where you can mention your hobbies, interests, and activities outside of work or school. This section can give potential employers a better idea of your personality, your values, and your interests beyond your professional experience.
-
-    Including an interest section in your resume can be helpful if your interests are relevant to the job you are applying for, such as if you are applying for a job in a creative field and your hobbies include painting or writing. It can also be useful if you are applying for a job where teamwork or social skills are important, and you can mention interests that demonstrate those qualities.
-
-    However, it is important to be selective when including an interest section in your resume, and to choose interests that are appropriate and professional. Avoid including controversial or potentially offensive interests, and focus on interests that showcase your positive qualities and strengths.
 
   items:
     - item: Table Tennis
@@ -344,39 +339,3 @@ evaluation:
     In this section, you can highlight your achievements, areas of expertise, and any unique qualities or experiences that set you apart from other candidates. You can also mention areas where you are looking to improve or gain further experience.
 
     A well-crafted self-evaluation section can demonstrate your self-awareness and confidence in your abilities, as well as your willingness to continuously learn and grow. However, it is important to be honest and avoid over-inflating your skills or qualifications, as this can negatively impact your credibility and the hiring manager's impression of you.
-
-reference:
-  show: false
-  order: 14
-  title: References
-  description: |
-    A reference section in a resume is a list of individuals who can vouch for your skills, work ethic, and character. These individuals are typically former managers, colleagues, or mentors who have worked closely with you in the past and can provide insight into your abilities and work style.
-
-    It's important to note that including a reference section in a resume is not always necessary, and some employers may prefer to request references separately. If you do choose to include a reference section, it should typically be located at the end of your resume.
-
-    When listing references, be sure to include the individual's name, job title, company name, phone number, and email address. It's also a good idea to ask for the individual's permission before listing them as a reference, and to let them know what kind of job you are applying for so they can speak to your relevant skills and experience.
-
-    It's important to choose references who can provide a positive and comprehensive evaluation of your work. Avoid listing family members or friends as references, and instead focus on individuals who can speak to your professional abilities and accomplishments.
-
-  items:
-    - name: Foo One
-      link: '#'
-      title: Backend Developer
-      institution: Second Company
-      address: 1234 Example St, XXX, XY 11111
-      email: foo.one@example.com
-      phone: 111-222-333
-      description: |
-        Foo One was my colleague in Second Company.
-
-    - name: Bar Two
-      link:
-      title: Professor
-      institution: Example University
-      address: 4321 Example St, YYY, XY 22222
-      email: bar.two@example.com
-      phone: 444-555-666
-      description: |
-        Bar Two was my advisor at Example University.
-
-close: <strong>Sorry, my resume has been hidden.</strong>
