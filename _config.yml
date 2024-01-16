@@ -1,5 +1,5 @@
 # Welcome to Jekyll!
-title: Online Resume
+title: Resume - Chaehyun Lim
 url:
 baseurl:
 
@@ -34,6 +34,6 @@ section_title: uppercase    # section title style, 'uppercase', 'lowercase', 'ca
 section_align: start        # section title align, 'start', 'end' or 'center'
 section_line: dashed        # section title line, 'solid', 'dashed' or 'none'
 section_background: false   # section title backound, 'true' or 'false'
-skill_level_icon: lightbulb # skill rate icon, 'heart', 'star', 'circle' or 'lightbulb'
+skill_level_icon: star # skill rate icon, 'heart', 'star', 'circle' or 'lightbulb'
 link_icon: true             # show link icon, 'true' or 'false'
 site_footer: true           # show site footer, 'true' or 'false'
