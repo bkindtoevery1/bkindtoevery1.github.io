@@ -22,7 +22,7 @@ analytics:
 description:
 open_graph:
   enable: true                        # enable open graph meta tags
-  image: /assets/images/profile.png   # open graph image path
+  image: /assets/images/Profile_photo.jpg   # open graph image path
 
 # Style
 text_direction: ltr         # text direction, 'ltr' or 'rtl'
