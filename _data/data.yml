@@ -250,18 +250,18 @@ award:
   title: Awards
 
   items:
-    - name: 8th ROKAF Cyber Soldier Competition
-      awarder: Planning Informatization Department Chief, Brigadier
-      date: July 26th, 2022
-      # link: '#'
-      description: |
-        Awarded 2nd place in CTF held in ROKAF.
     - name: 44th ROKAF Information and Signal Competition
       awarder: Air Force Information and Signal School Principal, Colonel
       date: Oct 26th, 2022
       # link:
       description: |
         Won special award in the Cyber Security department of the competition.
+    - name: 8th ROKAF Cyber Soldier Competition
+      awarder: Planning Informatization Department Chief, Brigadier
+      date: July 26th, 2022
+      # link: '#'
+      description: |
+        Awarded 2nd place in CTF held in ROKAF.
     - name: 35th Korea Olympiad in Informatics
       awarder: Chief of Korean Institute of Information Scientists and Engineers
       date: Aug 1th, 2018
