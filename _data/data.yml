@@ -168,7 +168,7 @@ skill:
     - name: Pytorch
       level: 3
     - name: Docker / k8s
-      level: 4
+      level: 3
 
 education:
   show: true
@@ -315,10 +315,6 @@ language:
       level: Native
     - idiom: English
       level: Advanced
-    - idiom: Japanese
-      level: Beginner
-    - idiom: Chinese
-      level: Beginner
 
 interest:
   show: true
@@ -328,9 +324,9 @@ interest:
   items:
     - item: Table Tennis
       link:
-    - item: Homo Ludens
-      link: 
     - item: Piano
+      link: 
+    - item: Online Games
       link:
 
 evaluation:
