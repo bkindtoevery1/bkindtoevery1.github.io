@@ -2,14 +2,14 @@ basic:
   name: Chaehyun Lim                      # name
   title: Software Engineer           # job title
   avatar:
-    show: true                       # show or hide avatar
+    show: false                       # show or hide avatar
     path: /assets/images/Profile_photo.jpg # avatar file path
 
 contact:
   # meta
-  location: Berkeley, USA # location
+  location: Daejeon, Korea # location
   email: chayhyeon@gmail.com    # email address
-  phone:        # phone number, format is "+[Country Code] [Area Code (if applicable)] [Local Phone Number]"
+  phone: +82 10-4386-0909       # phone number, format is "+[Country Code] [Area Code (if applicable)] [Local Phone Number]"
   website:      # site URL without schema, like example.com, will automatically prepand "https://"
 
   gender:             # gender or pronoun
@@ -19,7 +19,7 @@ contact:
   drivinglicense:       # driving licence
 
   # contact
-  wechat: chayhyeon        # username
+  wechat:                  # username
   whatsapp:                # 8611122223333     | https://wa.me/8611122223333
   telegram:                # username          | https://t.me/username
   messenger:               # username          | https://m.me/username
@@ -59,7 +59,7 @@ contact:
   artstation:              # username          | https://www.artstation.com/username
 
   # other cv
-  linkedin: chaehyun-lim-3003142a1 # username          | https://linkedin.com/in/username
+  linkedin: chaehyun-lim   # username          | https://linkedin.com/in/username
   indeed:                  # resumeid          | https://my.indeed.com/p/resumeid
   xing:                    # username          | https://www.xing.com/profile/username
   fiverr:                  # username          | https://www.fiverr.com/username
@@ -83,11 +83,11 @@ profile:
   order: 1
   title: Profile
   description: |
-    6th semester Bachelor, More experiences to improve myself. I want to be passionate and professional for every challenges I had. I have studied problem solving for 3 years, cyber security for 2 years. Challenging to study AI next.
+    A 6th-semester Bachelor's student with a fervent drive for growth and excellence, I am committed to seizing every opportunity for personal and professional development. With three years dedicated to mastering problem-solving methodologies and two years immersed in cyber security, I bring a blend of resilience and expertise to the table. Eager to embark on the next chapter of my journey, I am poised to explore the transformative realm of artificial intelligence, driven by a passion to contribute meaningfully to its evolution while embracing every challenge along the way.
 
 experience:
   show: true
-  order: 2
+  order: 5
   title: Experiences
   description: |
 
@@ -99,9 +99,11 @@ experience:
       role: Cyber Security Specialist
       location: Seoul, Korea
       description: |
-        Protected the server from attacks 24/7. Blocked suspicious ip, prevented security incident and collected evidences from infected device. Also managed all electronic devices in brigade.
-        + Firewall, IPS, NAC
-        + Solving unexpected incidents fast and clearly
+        + Protected the server from attacks with monitoring 24/7.
+        + Blocked suspicious ip, prevented security incident using Firewall, IPS, NAC.
+        + Collected evidences from infected device using TCP dump, registry gathering program.
+        + Managed all electronic devices in brigade.
+        + Solving unexpected incidents fast and clearly.
 
     - company: Devsisters
       link: 'https://www.devsisters.com/'
@@ -110,13 +112,12 @@ experience:
       role: Data Platform Engineer
       location: Seoul, Korea
       description: |
-        Managed data pipeline that delivers game data from massive users to data warehouse. The pipeline automatically preprocessed the data and passed to data consumers in near real-time.
-        + AWS EC2/S3, Kubernetes
-        + Airflow, Kafka, ELK Stack
+        + Managed data pipeline that delivers game data from massive users to data warehouse using AWS EC2/S3, Kubernetes.
+        + The pipeline automatically preprocessed the data and passed to data consumers in near real-time with Airflow, Kafka, ELK Stack.
 
 project:
   show: true
-  order: 3
+  order: 4
   title: Projects
   description: |
 
@@ -126,9 +127,8 @@ project:
       tags:
       date: Mar, 2023 - Oct, 2023
       description: |
-        Learned introduction to AI and participated in ROKAF AI competition.
-        + Machine Learning, Modeling, Regression/Classification
-        + Deep Learning, CNN
+        + Learned introduction to AI from Machine learning, Regression/Classification to Deep Learning, CNN
+        + Participated in ROKAF AI competition.
 
     - name: Google Developer Student Clubs(GDSC) Algorithm Restaurant
       link: 'https://chayhyeon.notion.site/GDSC-8aff469b8a074b76aa125a7fc4fc29ea?pvs=4'
@@ -150,7 +150,7 @@ project:
 
 skill:
   show: true
-  order: 4
+  order: 5
   title: Skills
   description: |
 
@@ -172,7 +172,7 @@ skill:
 
 education:
   show: true
-  order: 5
+  order: 2
   title: Education
   description: |
 
@@ -180,7 +180,7 @@ education:
     - institution: Gwangju Institute of Science and Technology (GIST)
       link: 'https://www.gist.ac.kr/en/main.html'
       date: Mar, 2019 - Aug, 2025
-      major: Electrical Engineering and Computer Science (EECS)
+      major: Electrical Engineering and Computer Science (EECS)  (GPA 3.92/4.5)
       degree: Bachelor
 
     - institution: UC Berkeley
@@ -230,7 +230,7 @@ certificate:
 
 publication:
   show: true
-  order: 7
+  order: 3
   title: Publications
 
   items:
@@ -314,11 +314,7 @@ language:
     - idiom: Korean
       level: Native
     - idiom: English
-      level: Advanced
-    - idiom: Japanese
-      level: Beginner
-    - idiom: Chinese
-      level: Beginner
+      level: Advanced, TOEFL 90
 
 interest:
   show: true
@@ -328,7 +324,7 @@ interest:
   items:
     - item: Table Tennis
       link:
-    - item: Homo Ludens
+    - item: Poker
       link: 
     - item: Piano
       link:
