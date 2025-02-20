@@ -175,11 +175,9 @@ education:
     - institution: Gwangju Institute of Science and Technology (GIST)
       link: 'https://www.gist.ac.kr/en/main.html'
       date: Mar, 2019 - Feb, 2026
-      major: |
-            Electrical Engineering and Computer Science (EECS)  (GPA 3.71/4.5)
-      
-            Mathematics, Economics & Business
+      major: Electrical Engineering and Computer Science (EECS)  (GPA 3.71/4.5) \n
       degree: Bachelor
+      description: Minor in Mathematics, Economics & Business
 
     - institution: UC Berkeley
       link: 'https://www.berkeley.edu/'
