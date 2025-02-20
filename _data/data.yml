@@ -32,7 +32,7 @@ contact:
   gitlab:                  # username          | https://gitlab.com/username
   bitbucket:               # username          | https://bitbucket.com/username
   stackoverflow:           # id or id/username | https://stackoverflow.com/users/id/username
-  leetcode:                # username          | https://leetcode.com/username
+  leetcode: bkindtoevery1  # username          | https://leetcode.com/username
   codeforces:              # username          | https://codeforces.com/profile/username
   codewars:                # username          | https://www.codewars.com/users/username
   codepen:                 # username          | https://codepen.io/username
@@ -79,21 +79,20 @@ contact:
   strava:                  # useid             | https://www.strava.com/athletes/userid
 
 profile:
-  show: true
+  show: false
   order: 1
   title: Profile
   description: |
-    A 6th-semester Bachelor's student with a fervent drive for growth and excellence, I am committed to seizing every opportunity for personal and professional development. With three years dedicated to mastering problem-solving methodologies and two years immersed in cyber security, I bring a blend of resilience and expertise to the table. Eager to embark on the next chapter of my journey, I am poised to explore the transformative realm of artificial intelligence, driven by a passion to contribute meaningfully to its evolution while embracing every challenge along the way.
+    A 7th-semester Bachelor's student with a fervent drive for growth and excellence, I am committed to seizing every opportunity for personal and professional development. With three years dedicated to mastering problem-solving methodologies and two years immersed in cyber security, I bring a blend of resilience and expertise to the table. Eager to embark on the next chapter of my journey, I am poised to explore the transformative realm of artificial intelligence, driven by a passion to contribute meaningfully to its evolution while embracing every challenge along the way.
 
 experience:
   show: true
-  order: 5
+  order: 3
   title: Experiences
   description: |
 
   items:
     - company: Republic of Korea Air Force (ROKAF)
-      link: 'https://rokaf.airforce.mil.kr/'
       tags: Full-time
       date: 2022.03 - 2023.12
       role: Cyber Security Specialist
@@ -101,7 +100,7 @@ experience:
       description: |
         + Protected the server from attacks with monitoring 24/7.
         + Blocked suspicious ip, prevented security incident using Firewall, IPS, NAC.
-        + Collected evidences from infected device using TCP dump, registry gathering program.
+        + Collected evidences from a hacked device using TCP dump, registry gathering program.
         + Managed all electronic devices in brigade.
         + Solving unexpected incidents fast and clearly.
 
@@ -150,23 +149,19 @@ project:
 
 skill:
   show: true
-  order: 5
+  order: 7
   title: Skills
   description: |
 
   items:
-    - name: Harmonization
-      level: 4
     - name: Problem Solving
+      level: 5
+    - name: Python
       level: 5
     - name: Communication
       level: 4
-    - name: Python
-      level: 5
     - name: C/C++
       level: 4
-    - name: Pytorch
-      level: 3
     - name: Docker / k8s
       level: 4
 
@@ -179,8 +174,8 @@ education:
   items:
     - institution: Gwangju Institute of Science and Technology (GIST)
       link: 'https://www.gist.ac.kr/en/main.html'
-      date: Mar, 2019 - Aug, 2025
-      major: Electrical Engineering and Computer Science (EECS)  (GPA 3.92/4.5)
+      date: Mar, 2019 - Feb, 2026
+      major: Electrical Engineering and Computer Science (EECS)  (GPA 3.71/4.5)
       degree: Bachelor
 
     - institution: UC Berkeley
@@ -230,7 +225,7 @@ certificate:
 
 publication:
   show: true
-  order: 3
+  order: 6
   title: Publications
 
   items:
@@ -246,7 +241,7 @@ publication:
 
 award:
   show: true
-  order: 8
+  order: 5
   title: Awards
 
   items:
