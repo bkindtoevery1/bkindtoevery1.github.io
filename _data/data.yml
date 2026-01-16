@@ -87,7 +87,7 @@ profile:
 
 experience:
   show: true
-  order: 3
+  order: 2
   title: Experiences
   description: |
 
@@ -176,7 +176,7 @@ skill:
 
 education:
   show: true
-  order: 2
+  order: 3
   title: Education
   description: |
 
@@ -260,7 +260,7 @@ award:
       date: Aug 30th, 2024
       link: 'https://www.inven.co.kr/webzine/news/?news=298876'
       description: |
-        Won special award in the Cyber Security department of the competition.
+       Winner of the PvPvE game South Pole Bebop tournament for global university students.
     - name: 44th ROKAF Information and Signal Competition
       awarder: Air Force Information and Signal School Principal, Colonel
       date: Oct 26th, 2022
