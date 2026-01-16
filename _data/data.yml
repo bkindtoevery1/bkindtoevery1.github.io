@@ -1,13 +1,13 @@
 basic:
   name: Chaehyun Lim                      # name
-  title: Software Engineer           # job title
+  title: DevOps Engineer           # job title
   avatar:
     show: false                       # show or hide avatar
     path: /assets/images/Profile_photo.jpg # avatar file path
 
 contact:
   # meta
-  location: Daejeon, Korea # location
+  location: Seoul, Korea # location
   email: chayhyeon@gmail.com    # email address
   phone: +82 10-4386-0909       # phone number, format is "+[Country Code] [Area Code (if applicable)] [Local Phone Number]"
   website:      # site URL without schema, like example.com, will automatically prepand "https://"
@@ -92,6 +92,15 @@ experience:
   description: |
 
   items:
+    - company: LG Uplus
+      link: 'https://www.lguplus.com/about/en/career/human-resources'
+      tags: Full-time
+      date: 2026.01 - Present
+      role: DevOps Engineer
+      location: Seoul, Korea
+      description: |
+        + UCube DAX Team
+        
     - company: Republic of Korea Air Force (ROKAF)
       tags: Full-time
       date: 2022.03 - 2023.12
@@ -175,9 +184,9 @@ education:
     - institution: Gwangju Institute of Science and Technology (GIST)
       link: 'https://www.gist.ac.kr/en/main.html'
       date: Mar, 2019 - Feb, 2026
-      major: Electrical Engineering and Computer Science (EECS)  (GPA 3.71/4.5)
+      major: Electrical Engineering and Computer Science (EECS)  (GPA 3.67/4.5)
       degree: Bachelor
-      description: Minor in Mathematics, Economics & Business
+      description: Minor in Mathematics
 
     - institution: UC Berkeley
       link: 'https://www.berkeley.edu/'
@@ -246,6 +255,12 @@ award:
   title: Awards
 
   items:
+    - name: South Pole Bebop Invitational Tournament
+      awarder: CEO of Sentience (AI Start-up company)
+      date: Aug 30th, 2024
+      link: 'https://www.inven.co.kr/webzine/news/?news=298876'
+      description: |
+        Won special award in the Cyber Security department of the competition.
     - name: 44th ROKAF Information and Signal Competition
       awarder: Air Force Information and Signal School Principal, Colonel
       date: Oct 26th, 2022
