@@ -9,6 +9,12 @@
     padding: $spacing-unit / 2;
     box-shadow: none;
 
+    .language-switcher {
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: $spacing-unit / 2;
+    }
+
     section {
       .section-content {
         .items {

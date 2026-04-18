@@ -1,0 +1,324 @@
+basic:
+  name: 임채현
+  title: DevOps 엔지니어
+  avatar:
+    show: false
+    path: /assets/images/Profile_photo.jpg
+
+contact:
+  location: 서울, 대한민국
+  email: chayhyeon@gmail.com
+  phone: +82 10-4386-0909
+  website:
+
+  gender:
+  birthday:
+  nationality: 대한민국
+  visa:
+  drivinglicense:
+
+  wechat:
+  whatsapp:
+  telegram:
+  messenger:
+  line:
+  viber:
+  threema:
+
+  github: bkindtoevery1
+  gitlab:
+  bitbucket:
+  stackoverflow:
+  leetcode: bkindtoevery1
+  codeforces:
+  codewars:
+  codepen:
+  tryhackme:
+
+  googlescholar:
+  researchgate:
+  kaggle:
+  orcid:
+  figshare:
+
+  devto:
+  medium:
+  wordpress:
+  blogger:
+  wikipedia:
+
+  figma:
+  behance:
+  dribble:
+  artstation:
+
+  linkedin: chaehyun-lim
+  indeed:
+  xing:
+  fiverr:
+  freelancer:
+
+  twitter:
+  mastodon:
+  instagram: chayhyeon
+  unsplash:
+  _500px:
+  youtube:
+  tiktok:
+  quora:
+  zhihu:
+  goodreads:
+  strava:
+
+profile:
+  show: false
+  order: 1
+  title: 소개
+  description: |
+    성장과 탁월함을 향한 강한 의지를 바탕으로, 개인적·전문적 발전의 모든 기회를 놓치지 않으려 노력해 왔습니다. 3년간 문제 해결 역량을 집중적으로 다져 왔고, 2년간 사이버 보안 분야를 경험하며 끈기와 실무 역량을 함께 쌓았습니다. 이제 다음 단계에서는 인공지능 분야의 가능성을 탐구하며, 변화의 흐름에 의미 있게 기여하는 엔지니어로 성장하고자 합니다.
+
+experience:
+  show: true
+  order: 2
+  title: 경력
+  description: |
+
+  items:
+    - company: LG Uplus
+      link: 'https://www.lguplus.com/about/en/career/human-resources'
+      tags: 정규직
+      date: 2026.01 - 현재
+      role: DevOps 엔지니어
+      location: 서울, 대한민국
+      description: |
+        + UCube DAX 팀
+
+    - company: Republic of Korea Air Force (ROKAF)
+      tags: 정규직
+      date: 2022.03 - 2023.12
+      role: 사이버 보안 담당
+      location: 서울, 대한민국
+      description: |
+        + 24시간 365일 모니터링으로 서버를 공격으로부터 보호했습니다.
+        + Firewall, IPS, NAC를 활용해 의심 IP를 차단하고 보안 사고를 예방했습니다.
+        + TCP dump와 레지스트리 수집 프로그램을 사용해 침해 장비의 증거를 확보했습니다.
+        + 여단 내 전자 장비 전반을 관리했습니다.
+        + 예기치 않은 사고와 장애를 빠르고 명확하게 해결했습니다.
+
+    - company: Devsisters
+      link: 'https://www.devsisters.com/'
+      tags: 인턴십
+      date: 2021.01 - 2021.07
+      role: 데이터 플랫폼 엔지니어
+      location: 서울, 대한민국
+      description: |
+        + AWS EC2/S3, Kubernetes를 활용해 대규모 사용자 게임 데이터를 데이터 웨어하우스로 전달하는 파이프라인을 운영했습니다.
+        + Airflow, Kafka, ELK Stack 기반으로 데이터를 자동 전처리하고, 데이터 소비자에게 준실시간으로 전달하는 파이프라인을 구축했습니다.
+
+project:
+  show: true
+  order: 4
+  title: 프로젝트
+  description: |
+
+  items:
+    - name: AI 자기주도 학습
+      link: 'https://army.goorm.io/'
+      tags:
+      date: 2023.03 - 2023.10
+      description: |
+        + 머신러닝, 회귀/분류, 딥러닝, CNN까지 AI 기초를 학습했습니다.
+        + 대한민국 공군 AI 경진대회에 참가했습니다.
+
+    - name: Google Developer Student Clubs(GDSC) Algorithm Restaurant
+      link: 'https://chayhyeon.notion.site/GDSC-8aff469b8a074b76aa125a7fc4fc29ea?pvs=4'
+      tags:
+      date: 2023.01 - 2023.02
+      description: |
+        GDSC X GIST 클럽 알고리즘 스터디 리드를 맡았습니다.
+        + 코드 리뷰 및 문제 해결 과정 설명
+        + 알고리즘, 자료구조 스터디 진행
+
+    - name: 웹 개발
+      link: 'https://github.com/bkindtoevery1/Mentoring'
+      tags:
+      date: 2020.10 - 2021.01
+      description: |
+        Devsisters 멘토와 함께 웹 페이지를 제작했습니다. 회원가입, 로그인, 세션 기능을 구현했습니다.
+        + Python, Flask, Jinja, SQLite3 기반 백엔드 개발
+        + HTML5 기반 프론트엔드 구현
+
+skill:
+  show: true
+  order: 7
+  title: 기술
+  description: |
+
+  items:
+    - name: 문제 해결
+      level: 5
+    - name: Python
+      level: 5
+    - name: 커뮤니케이션
+      level: 4
+    - name: C/C++
+      level: 4
+    - name: Docker / k8s
+      level: 4
+
+education:
+  show: true
+  order: 3
+  title: 학력
+  description: |
+
+  items:
+    - institution: 광주과학기술원 (GIST)
+      link: 'https://www.gist.ac.kr/en/main.html'
+      date: 2019.03 - 2026.02
+      major: 전기전자컴퓨터공학 (EECS) (평점 3.67/4.5)
+      degree: 학사
+      description: 수학 부전공
+
+    - institution: 캘리포니아 대학교 버클리 (UC Berkeley)
+      link: 'https://www.berkeley.edu/'
+      date: 2024.01 - 2024.05
+      major: 컴퓨터과학
+      degree: 교환학생
+
+    - institution: 한국과학기술원 (KAIST)
+      link: 'https://www.kaist.ac.kr/'
+      date: 2021.09 - 2021.12
+      major: 컴퓨터과학
+      degree: 교환학생
+
+    - institution: 대전과학고등학교
+      link: 'https://djshs.djsch.kr/'
+      date: 2016.03 - 2019.02
+      major: 컴퓨터과학
+      degree: 고등학교
+
+certificate:
+  show: false
+  order: 6
+  title: 자격 및 인증
+  description: |
+    자격 및 인증 섹션은 추가적인 전문성이나 교육 이수 내역을 보여줄 수 있는 공간입니다. 직무와 관련된 인증을 정리하면 지원자의 기술 수준과 학습 의지를 더 명확하게 전달할 수 있습니다.
+
+    온라인 강의, 워크숍, 전문 교육 과정 등 다양한 출처의 인증을 포함할 수 있습니다. 특정 기술, 산업 도메인, 혹은 직무 역량과 직접 연결되는 항목을 중심으로 선별하는 것이 좋습니다.
+
+    이 섹션에는 인증명, 발급 기관, 발급 시점, 필요 시 간단한 설명을 함께 적을 수 있습니다.
+
+  items:
+    - name: Example Certificate One
+      issuer: by Example
+      date: 2020
+      link: '#'
+      description: |
+        Example에서 발급한 예시 인증서입니다.
+    - name: Example Certificate Two
+      issuer: by Example
+      date: 2020
+      link:
+      description: |
+        Example에서 발급한 두 번째 예시 인증서입니다.
+
+publication:
+  show: true
+  order: 6
+  title: 논문 및 발표
+
+  items:
+    - title: Study on user behavior pattern using smart device acceleration sensor
+      authors: Jeongeun Sim, Chaehyun Lim, Seongwoo Han, Jihoon Park, Gangsik Shin
+      conference: Korea Institute of Information Scientists and Engineers, 2017
+      link: 'https://www.dbpia.co.kr/journal/articleDetail?nodeId=NODE07322860'
+
+    - title: Study of Selective Adsorption of Natural Products Using Mesoporous Silica Nanoparticles
+      authors: Johyun Park, Jiwoo Lee, Chaehyun Lim
+      conference: Research and Education Center for Gifted in Science, 2016
+      link: 'http://rne.or.kr/gnuboard5/teen_search/70?sfl=wr_10%7C%7Cwr_name%7C%7Cwr_content&stx=%EB%8B%A4%EA%B3%B5%EC%84%B1&sop=and'
+
+award:
+  show: true
+  order: 5
+  title: 수상
+
+  items:
+    - name: South Pole Bebop Invitational Tournament
+      awarder: Sentience 대표 (AI 스타트업)
+      date: 2024.08.30
+      link: 'https://www.inven.co.kr/webzine/news/?news=298876'
+      description: |
+        글로벌 대학생 대상 PvPvE 게임 South Pole Bebop 토너먼트 우승.
+    - name: 제44회 대한민국 공군 정보·통신 경연대회
+      awarder: 공군정보통신학교장 대령
+      date: 2022.10.26
+      description: |
+        사이버 보안 부문 특별상을 수상했습니다.
+    - name: 제8회 대한민국 공군 사이버 전사 경연대회
+      awarder: 계획참모부 정보화기획과장 준장
+      date: 2022.07.26
+      description: |
+        대한민국 공군 CTF 대회에서 2위를 수상했습니다.
+    - name: 제35회 한국정보올림피아드
+      awarder: 한국정보과학회장
+      date: 2018.08.01
+      description: |
+        전국 규모 프로그래밍 대회에서 동상을 수상했습니다.
+
+patent:
+  show: false
+  order: 9
+  title: 특허
+  description: |
+    특허 섹션은 보유 중이거나 출원 중인 특허를 정리하는 공간입니다. 과학, 공학, 기술 기반 직무에서는 연구 개발 역량과 문제 해결 능력을 보여주는 데 도움이 됩니다.
+
+    이 섹션에는 특허명, 발명자, 특허 번호, 출원일과 등록일 등을 정리할 수 있습니다. 출원 중인 경우에는 "출원 중" 또는 "심사 중"과 같이 상태를 표시하면 됩니다.
+
+    특허가 없다면 이 섹션은 생략해도 무방합니다.
+
+reference:
+  show: true
+  order: 10
+  title: 활동 및 단체
+
+  items:
+    - name: Google Developer Student Clubs (GDSC)
+      date: 2022.06 - 2023.03
+      link: 'https://gdsc.community.dev/gwangju-institute-of-science-and-technology/'
+      description: |
+        GDSC에서 2년차 알고리즘 분야 멘토로 활동했습니다.
+
+language:
+  show: true
+  order: 11
+  title: 언어
+
+  items:
+    - idiom: 한국어
+      level: 모국어
+    - idiom: 영어
+      level: 상급, TOEFL 90
+
+interest:
+  show: true
+  order: 12
+  title: 관심사
+
+  items:
+    - item: 탁구
+      link:
+    - item: 포커
+      link:
+    - item: 피아노
+      link:
+
+evaluation:
+  show: false
+  order: 13
+  title: 자기 평가
+  description: |
+    자기 평가는 자신의 강점, 약점, 성장 방향을 간단히 정리하는 섹션입니다. 보유한 역량이 지원하는 역할과 어떻게 맞닿아 있는지를 짧게 설명하는 데 활용할 수 있습니다.
+
+    주요 성과, 전문 분야, 차별화되는 경험을 강조할 수 있으며, 앞으로 더 발전시키고 싶은 영역을 함께 적어도 좋습니다.

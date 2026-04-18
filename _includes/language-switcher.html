@@ -1,0 +1,14 @@
+{%- assign languages = site.resume_languages -%}
+{%- if languages and languages.size > 1 -%}
+<nav class="language-switcher" aria-label="{{ ui.language_switcher_label | default: 'Resume language' }}">
+  {%- for language in languages -%}
+  <a
+    class="language-tab{% if language.code == page.resume_lang %} active{% endif %}"
+    href="{{ language.url | relative_url }}"
+    {% if language.code == page.resume_lang %}aria-current="page"{% endif %}
+  >
+    {{ language.label }}
+  </a>
+  {%- endfor -%}
+</nav>
+{%- endif -%}

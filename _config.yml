@@ -10,6 +10,13 @@ sass:
 
 # Custom
 lang: en
+resume_languages:
+  - code: en
+    label: English
+    url: /
+  - code: ko
+    label: 한국어
+    url: /ko/
 open: true                  # show or hide your resume
 allow_search_engines: true  # allow your resume indexing by search engine, 'true' or 'false'
 analytics:

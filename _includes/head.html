@@ -1,20 +1,22 @@
+{%- assign page_title = page.title | default: site.title -%}
+{%- assign page_description = page.description | default: site.description | default: page_title -%}
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="{% if site.open %}{% if site.description %}{{ site.description }}{% else %}{{ site.title }}{% endif %}{% else %}Online Resume{% endif %}">
+<meta name="description" content="{% if site.open %}{{ page_description }}{% else %}Online Resume{% endif %}">
 
 {%- if site.open and site.open_graph.enable %}
-<meta property="og:title" content="{{ site.title }}">
+<meta property="og:title" content="{{ page_title }}">
 <meta property="og:type" content="profile">
 <meta property="og:image" content="{{ site.url }}{{ site.open_graph.image | relative_url }}">
 <meta property="og:url" content="{{ site.url }}{{ site.baseurl }}{{ page.url }}">
-{%- if site.description %}
-<meta property="og:description" content="{{ site.description }}">
+{%- if page_description %}
+<meta property="og:description" content="{{ page_description }}">
 {%- endif %}
 {%- endif %}
 
 {%- if site.open %}
-<title>{{ site.title }}</title>
+<title>{{ page_title }}</title>
 {%- else %}
 <title>Online Resume</title>
 {%- endif %}
