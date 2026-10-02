@@ -16,8 +16,8 @@ function bird(svg){
 function eightBamboo(svg){
  svg.setAttribute('data-design','bamboo-eight');
  // Joined, angular tips keep each V readable even on a small river tile.
- // Two stems per chevron, with a clear gap between the left and right pairs.
- for(const points of [[[5,43],[24,18],[43,43]],[[57,43],[76,18],[95,43]],[[5,67],[24,92],[43,67]],[[57,67],[76,92],[95,67]]]){
+ // Two stems per chevron: upper V and lower ∧ tips face the middle.
+ for(const points of [[[5,18],[24,43],[43,18]],[[57,18],[76,43],[95,18]],[[5,92],[24,67],[43,92]],[[57,92],[76,67],[95,92]]]){
   svg.append(element('path',{d:points.map(([x,y],i)=>`${i?'L':'M'}${x} ${y}`).join(' '),fill:'none',stroke:'#166b46','stroke-width':8,'stroke-linecap':'butt','stroke-linejoin':'miter','stroke-miterlimit':2}));
   for(let i=0;i<2;i++){
    const [x1,y1]=points[i],[x2,y2]=points[i+1],length=Math.hypot(x2-x1,y2-y1),dx=(y2-y1)/length*3.5,dy=-(x2-x1)/length*3.5,g=element('g',{'data-bamboo-stem':'true'});

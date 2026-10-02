@@ -27,10 +27,31 @@
 .riichi-stick::after{content:"";position:absolute;left:50%;top:50%;width:5px;height:5px;transform:translate(-50%,-50%);border-radius:50%;background:#b51f2c}
 /* Rivers keep six tiles per row and grow into reserved table space. */
 .board .table-surface{min-height:var(--table-required-height,640px)}
-.board .river{overflow:visible;max-height:none;height:auto;min-height:var(--river-min-depth,109px)}
+.board .river{--river-tile-width:25px;--river-tile-height:35px;--river-gap:2px;display:flex;flex-direction:column;align-items:flex-start;gap:var(--river-gap);width:max-content;min-width:calc(var(--river-tile-width) * 6 + var(--river-gap) * 5);overflow:visible;max-height:none;height:auto;min-height:var(--river-min-depth,109px)}
+.river-row{display:flex;align-items:flex-end;gap:var(--river-gap);height:var(--river-tile-height);flex:none}
+.board .river .tile-small{width:var(--river-tile-width);height:var(--river-tile-height)}
+.river .riichi-discard{--riichi-extra:calc((var(--river-tile-height) - var(--river-tile-width)) / 2);margin-inline:var(--riichi-extra);transform:translateY(var(--riichi-extra)) rotate(90deg);transform-origin:center}
 .board .river-top{top:var(--top-river-y,114px);transform-origin:50% 50%}
-.board .river-bottom{bottom:14px}
+.board .river-bottom{bottom:var(--bottom-river-y,14px)}
 .board .table-center,.board .opponent-left,.board .opponent-right{top:var(--table-center-y,320px)}
 .board .river-left{left:var(--left-river-x,calc(50% - 150px));top:var(--table-center-y,320px);transform:translate(-50%,-50%) rotate(90deg) scale(var(--left-river-scale,1))}
 .board .river-right{left:var(--right-river-x,calc(50% + 150px));top:var(--table-center-y,320px);transform:translate(-50%,-50%) rotate(-90deg) scale(var(--right-river-scale,1))}
 @media(max-width:760px){.board .opponent-left,.board .opponent-right{top:var(--side-card-y,150px)}.opponent .riichi-status{gap:4px;font-size:12px}.opponent .riichi-stick{width:27px;height:8px}.opponent .riichi-stick::after{width:4px;height:4px}}
+@media(max-width:760px){.board .river{--river-tile-width:19px;--river-tile-height:27px;--river-gap:1px}}
+@media(max-width:480px){.board .river{--river-tile-width:17px;--river-tile-height:24px}}
+/* Tournament etiquette §6: place exposed groups on the player's own left. */
+.table-melds{display:contents}
+.meld-zone{position:absolute;z-index:1;--meld-angle:0deg;--meld-scale:1}
+.meld-rack{position:absolute;left:50%;top:50%;display:flex;gap:8px;width:max-content;transform:translate(-50%,-50%) rotate(var(--meld-angle)) scale(var(--meld-scale));transform-origin:center}
+.meld-rack .meld{margin:0;gap:1px;flex:none;flex-wrap:nowrap}
+.meld-rack .meld-label{display:none}
+.meld-rack .tile-small{width:25px;height:35px;font-size:16px}
+.meld-zone-bottom{left:var(--meld-edge,14px);bottom:var(--meld-edge,14px)}
+.meld-zone-top{right:var(--meld-edge,14px);top:var(--meld-edge,14px);--meld-angle:180deg}
+.meld-zone-left{left:var(--meld-edge,14px);top:calc(var(--meld-edge,14px) + var(--top-meld-band,0px));--meld-angle:90deg}
+.meld-zone-right{right:var(--meld-edge,14px);bottom:calc(var(--meld-edge,14px) + var(--bottom-meld-band,0px));--meld-angle:-90deg}
+.board .opponent-top{top:var(--top-card-y,14px)}
+.board .opponent-left{left:var(--left-card-x,14px)}
+.board .opponent-right{right:var(--right-card-x,14px)}
+@media(max-width:760px){.meld-rack .tile-small{width:19px;height:27px;font-size:13px}.meld-rack{gap:6px}}
+@media(max-width:480px){.meld-rack .tile-small{width:17px;height:24px;font-size:12px}}

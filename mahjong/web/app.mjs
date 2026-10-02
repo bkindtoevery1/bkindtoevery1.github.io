@@ -1535,7 +1535,7 @@ function bird(svg) {
 }
 function eightBamboo(svg) {
   svg.setAttribute("data-design", "bamboo-eight");
-  for (const points of [[[5, 43], [24, 18], [43, 43]], [[57, 43], [76, 18], [95, 43]], [[5, 67], [24, 92], [43, 67]], [[57, 67], [76, 92], [95, 67]]]) {
+  for (const points of [[[5, 18], [24, 43], [43, 18]], [[57, 18], [76, 43], [95, 18]], [[5, 92], [24, 67], [43, 92]], [[57, 92], [76, 67], [95, 92]]]) {
     svg.append(element("path", { d: points.map(([x, y], i) => `${i ? "L" : "M"}${x} ${y}`).join(" "), fill: "none", stroke: "#166b46", "stroke-width": 8, "stroke-linecap": "butt", "stroke-linejoin": "miter", "stroke-miterlimit": 2 }));
     for (let i = 0; i < 2; i++) {
       const [x1, y1] = points[i], [x2, y2] = points[i + 1], length = Math.hypot(x2 - x1, y2 - y1), dx = (y2 - y1) / length * 3.5, dy = -(x2 - x1) / length * 3.5, g = element("g", { "data-bamboo-stem": "true" });
@@ -2371,19 +2371,35 @@ function updateSelection() {
 function renderMeld(m) {
   const el = node("div", void 0, "meld");
   el.setAttribute("aria-label", meldText(m));
+  el.title = meldText(m);
   el.append(node("span", m.type === "kan" ? m.open ? "\uAE61" : "\uC548\uAE61" : m.type === "pon" ? "\uD401" : "\uCE58", "meld-label"));
   tiles(el, m.ids.map(typeOf));
   return el;
 }
+function renderMeldZone(player, position, seat) {
+  if (!player.melds.length) return;
+  const zone = node("div", void 0, `meld-zone meld-zone-${position}`), rack = node("div", void 0, "meld-rack");
+  zone.setAttribute("aria-label", `${seatName(seat)} \uACF5\uAC1C \uBAB8\uD1B5 \xB7 \uC790\uAE30 \uAE30\uC900 \uC67C\uCABD`);
+  for (const m of player.melds) rack.append(renderMeld(m));
+  zone.append(rack);
+  $("melds").append(zone);
+}
 function renderRiver(parent, player) {
   parent.replaceChildren();
-  for (const d of player.river) {
+  let row;
+  for (const [index, d] of player.river.entries()) {
+    if (index % 6 === 0) {
+      row = node("div", void 0, "river-row");
+      parent.append(row);
+    }
     const t = tileFace(typeOf(d.id), { small: true });
     t.classList.toggle("claimed", !!d.claimed);
     t.classList.toggle("riichi-discard", !!d.riichi);
     t.classList.toggle("last-discard", state.phase === "reaction" && state.reaction.id === d.id);
-    if (d.claimed) t.setAttribute("aria-label", `${tileName(typeOf(d.id))}, \uD6C4\uB85C\uC5D0 \uC0AC\uC6A9\uB428`);
-    parent.append(t);
+    const label = [tileName(typeOf(d.id)), d.riichi ? "\uB9AC\uCE58 \uC120\uC5B8 \uD328" : null, d.claimed ? "\uD6C4\uB85C\uC5D0 \uC0AC\uC6A9\uB428" : null].filter(Boolean).join(", ");
+    t.setAttribute("aria-label", label);
+    t.title = label;
+    row.append(t);
   }
 }
 function discardMetrics(discard) {
@@ -2480,17 +2496,19 @@ function render() {
   $("win-count").textContent = `\uD654\uB8CC ${state.winners.length} / ${variant === "S" ? 1 : 3}\uBA85`;
   $("opponents").replaceChildren();
   $("rivers").replaceChildren();
+  $("melds").replaceChildren();
   for (const [position, i] of Object.entries(positions)) {
+    const pl = state.players[i];
+    renderMeldZone(pl, position, i);
     const windElement = $(`wind-${position}`);
     windElement.textContent = wind(i);
     windElement.classList.toggle("active-wind", i === shownTurn);
     if (position === "bottom") continue;
-    const pl = state.players[i], card = node("div", void 0, `opponent opponent-${position}${pl.won ? " won" : ""}${shownTurn === i ? " active" : ""}`), title = node("div", void 0, "player-title"), who = node("span", void 0, "player-seat");
+    const card = node("div", void 0, `opponent opponent-${position}${pl.won ? " won" : ""}${shownTurn === i ? " active" : ""}`), title = node("div", void 0, "player-title"), who = node("span", void 0, "player-seat");
     who.append(node("span", wind(i), "seat-badge"), node("span", online ? remote.members.find((m) => m.seat === i)?.name ?? "\uD50C\uB808\uC774\uC5B4" : "AI", "player-name"));
     title.append(who, node("span", match ? `${match.totals[i].toLocaleString()}\uC810` : signedPoints(pl.score), "player-score"));
     card.append(title, node("p", pl.won ? `${pl.win.order}\uBC88\uC9F8 ${pl.win.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 ${pl.win.score.name}` : `${seatName(i)} \xB7 \uC190\uD328 ${pl.handSize ?? pl.hand.length}\uC7A5`, "player-sub"));
     if (pl.riichi) card.append(riichiMarker(i));
-    for (const m of pl.melds) card.append(renderMeld(m));
     if (state.end || pl.won) {
       const revealed = node("div", void 0, "revealed-hand");
       tiles(revealed, pl.hand.filter((id) => state.end || pl.win.method !== "tsumo" || id !== pl.win.tile).map(typeOf));
@@ -2517,8 +2535,6 @@ function render() {
     result.append(node("strong", settlement.title), node("p", settlement.calculation));
     if (settlement.previousNet !== 0) result.append(node("p", `\uD654\uB8CC \uC804 \uB204\uC801 ${signedPoints(settlement.previousNet)}\uC810 \u2192 \uAD6D \uB204\uC801 ${signedPoints(settlement.net)}\uC810`));
   }
-  $("melds").replaceChildren();
-  for (const m of p.melds) $("melds").append(renderMeld(m));
   const legal = a === humanSeat ? legalActions4(state) : [], hand = handDisplay(state, humanSeat), automaticPass = needsPass(state, humanSeat);
   $("hand").replaceChildren();
   for (const id of hand.held) $("hand").append(handTile(id, legal));
@@ -2567,24 +2583,47 @@ function render() {
 function updateTableLayout() {
   const surface = document.querySelector(".table-surface"), center = surface?.querySelector(".table-center"), own = $("self-river");
   if (!surface?.clientWidth || !center || !state) return;
-  const style = getComputedStyle(own), rowHeight = parseFloat(style.gridAutoRows), gap = parseFloat(style.rowGap), riverWidth = own.offsetWidth;
+  const style = getComputedStyle(own), rowHeight = parseFloat(style.getPropertyValue("--river-tile-height")), gap = parseFloat(style.rowGap), riverWidth = Math.max(...Array.from(surface.querySelectorAll(".river"), (el) => el.offsetWidth));
   if (!Number.isFinite(rowHeight) || !Number.isFinite(gap)) return;
   const depth = (position) => {
     const el = surface.querySelector(".river-" + position);
-    return Math.max(3, Math.ceil((el?.children.length ?? 0) / 6)) * (rowHeight + gap) - gap;
+    return Math.max(3, el?.children.length ?? 0) * (rowHeight + gap) - gap;
   };
   const compact = matchMedia("(max-width:760px)").matches, topCard = surface.querySelector(".opponent-top"), leftCard = surface.querySelector(".opponent-left"), rightCard = surface.querySelector(".opponent-right");
+  const set = (name, value) => surface.style.setProperty(name, `${value}px`), edge = compact ? 8 : 14, meldSizes = {};
+  for (const position of ["bottom", "right", "top", "left"]) {
+    const zone = surface.querySelector(".meld-zone-" + position), rack = zone?.querySelector(".meld-rack");
+    if (!rack) {
+      meldSizes[position] = { width: 0, height: 0 };
+      continue;
+    }
+    const sideways = position === "left" || position === "right", scale = sideways ? 1 : Math.min(1, (surface.clientWidth - 2 * edge) / rack.offsetWidth);
+    const width = (sideways ? rack.offsetHeight : rack.offsetWidth) * scale, height = (sideways ? rack.offsetWidth : rack.offsetHeight) * scale;
+    zone.style.width = `${width}px`;
+    zone.style.height = `${height}px`;
+    zone.style.setProperty("--meld-scale", String(scale));
+    meldSizes[position] = { width, height };
+  }
+  const topMeldBand = meldSizes.top.height ? meldSizes.top.height + 12 : 0, bottomMeldBand = meldSizes.bottom.height ? meldSizes.bottom.height + 12 : 0;
+  const leftInset = edge + (meldSizes.left.width ? meldSizes.left.width + 12 : 0), rightInset = edge + (meldSizes.right.width ? meldSizes.right.width + 12 : 0);
+  set("--meld-edge", edge);
+  set("--top-meld-band", topMeldBand);
+  set("--bottom-meld-band", bottomMeldBand);
+  set("--top-card-y", 14 + topMeldBand);
+  set("--left-card-x", leftInset);
+  set("--right-card-x", rightInset);
+  set("--bottom-river-y", 14 + bottomMeldBand);
   const sideCardHeight = Math.max(leftCard?.offsetHeight ?? 0, rightCard?.offsetHeight ?? 0), sideCardWidth = Math.max(leftCard?.offsetWidth ?? 0, rightCard?.offsetWidth ?? 0);
-  const topOffset = Math.max(compact ? 112 : 114, (topCard?.offsetTop ?? 14) + (topCard?.offsetHeight ?? 80) + 14), topDepth = depth("top"), bottomDepth = depth("bottom");
-  const topBand = Math.max(topDepth, compact ? sideCardHeight : 0), sideSpace = Math.max(20, (surface.clientWidth - center.offsetWidth) / 2 - 12 - (compact ? 12 : sideCardWidth + 30));
-  const leftScale = Math.min(1, sideSpace / depth("left")), rightScale = Math.min(1, sideSpace / depth("right"));
+  const separateCards = compact && (meldSizes.left.width > 0 || meldSizes.right.width > 0), cardsTop = Math.max(compact ? 112 : 114, (topCard?.offsetTop ?? 14) + (topCard?.offsetHeight ?? 80) + 14);
+  const topOffset = cardsTop + (separateCards ? sideCardHeight + 14 : 0), topDepth = depth("top"), bottomDepth = depth("bottom");
+  const topBand = Math.max(topDepth, compact && !separateCards ? sideCardHeight : 0), sideSpace = (inset) => Math.max(20, (surface.clientWidth - center.offsetWidth) / 2 - 12 - inset - (compact ? 0 : sideCardWidth + 16));
+  const leftScale = Math.min(1, sideSpace(leftInset) / depth("left")), rightScale = Math.min(1, sideSpace(rightInset) / depth("right"));
   const middleBand = Math.max(center.offsetHeight + 8, riverWidth * leftScale, riverWidth * rightScale, compact ? 0 : sideCardHeight), centerY = topOffset + topBand + 14 + middleBand / 2;
-  const set = (name, value) => surface.style.setProperty(name, `${value}px`);
   set("--river-min-depth", 3 * (rowHeight + gap) - gap);
   set("--top-river-y", topOffset + (topBand - topDepth) / 2);
-  set("--side-card-y", topOffset + topBand / 2);
+  set("--side-card-y", separateCards ? cardsTop + sideCardHeight / 2 : topOffset + topBand / 2);
   set("--table-center-y", centerY);
-  set("--table-required-height", centerY + middleBand / 2 + 14 + bottomDepth + 14);
+  set("--table-required-height", Math.max(centerY + middleBand / 2 + 14 + bottomDepth + 14 + bottomMeldBand, topMeldBand + bottomMeldBand + Math.max(meldSizes.left.height, meldSizes.right.height) + 2 * edge));
   set("--left-river-x", surface.clientWidth / 2 - center.offsetWidth / 2 - 12 - depth("left") * leftScale / 2);
   set("--right-river-x", surface.clientWidth / 2 + center.offsetWidth / 2 + 12 + depth("right") * rightScale / 2);
   surface.style.setProperty("--left-river-scale", String(leftScale));
