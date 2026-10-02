@@ -9,11 +9,13 @@ export const actor=s=>s.phase==='turn'?s.turn:s.phase==='reaction'?s.reaction.pe
 export const indicators=(s,ura=false)=>Array.from({length:s.kans+1},(_,n)=>typeOf(s.dead[4+2*n+(ura?1:0)]));
 function context(s,seat,method,tile){const p=s.players[seat];return {method,winTile:tile,seatWind:27+(seat-s.dealer+4)%4,dealer:seat===s.dealer,riichi:p.riichi,ippatsu:p.ippatsu,
   rinshan:p.drawSource==='kan',lastTile:s.wall.length===0,chankan:method==='ron'&&s.reaction?.kind==='kakan',doraIndicators:indicators(s),uraIndicators:indicators(s,true)};}
-export function createGame({seed=1,rules={},dealer=0,wall=null,pot=0}={}){
+export function createGame({seed=1,rules={},dealer=0,wall=null,pot=0,startingScores=null}={}){
   if(!Number.isInteger(seed)||seed<0||seed>0xffffffff||!Number.isInteger(dealer)||dealer<0||dealer>3||!Number.isSafeInteger(pot)||pot<0||pot%1000)throw new Error('Invalid seed/dealer/pot');
+  if(startingScores!==null&&(!Array.isArray(startingScores)||startingScores.length!==4||startingScores.some(n=>!Number.isSafeInteger(n))))throw new Error('Invalid starting scores');
   const w=wall?[...wall]:shuffledWall(seed);
   if(w.length!==136||new Set(w).size!==136||w.some(id=>!Number.isInteger(id)||id<0||id>=136))throw new Error('Invalid wall');
   const s={version:1,seed,rules:sRules(rules),dealer,wall:w,dead:w.splice(122),pot,initialPot:pot,
+    ...startingScores?{startingScores:[...startingScores]}:{},
     players:Array.from({length:4},()=>({hand:[],melds:[],river:[],score:0,won:false,win:null,passLock:false,drawn:null,drawSource:null,forbidden:[],
       riichi:false,riichiFuriten:false,riichiWaits:[],ippatsu:false,pao:null,stats:{winReceipt:0,dealInLoss:0,tsumoPaid:0,drawLoss:0,drawGain:0,ronDeclined:0,closedKans:0,riichiPaid:0}})),
     phase:'init',turn:dealer,draws:0,kans:0,winners:[],events:[],reaction:null,ledger:[],end:null};
@@ -84,7 +86,7 @@ export function legalActions(s,seat=actor(s)){
     }
     for(let t=0;t<34;t++)if(c[t]&&!p.forbidden.includes(t)&&(!p.riichi||t===typeOf(p.drawn))){
       out.push({type:'discard',tile:t});
-      if(!p.riichi&&p.melds.every(m=>!m.open)&&s.rules.startingPoints+p.score>=1000&&s.wall.length>=4){const next=[...tiles];next.splice(next.indexOf(t),1);if(shapeWaits(next,p.melds,s.rules).length)out.push({type:'riichi',tile:t});}
+      if(!p.riichi&&p.melds.every(m=>!m.open)&&(s.startingScores?.[seat]??s.rules.startingPoints)+p.score>=1000&&s.wall.length>=4){const next=[...tiles];next.splice(next.indexOf(t),1);if(shapeWaits(next,p.melds,s.rules).length)out.push({type:'riichi',tile:t});}
     }
   }else{
     const r=s.reaction,t=typeOf(r.id);if(canRon(s,seat))out.push({type:'ron'});out.push({type:'pass'});

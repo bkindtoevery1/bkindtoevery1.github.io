@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#102b32"><title>웰니스 마작 · H/S룰 연습</title><meta name="description" content="AI 3명과 H룰·S룰 마작을 연습하세요. 전략별 추천, 무작위 자리와 실제 10,000국 실험 결과를 제공합니다."><link rel="stylesheet" href="./web/style.css?v=b3d5e4a6000c51be"></head>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#102b32"><title>웰니스 마작 · H/S룰 연습</title><meta name="description" content="AI 3명과 H룰·S룰 마작을 연습하세요. 전략별 추천, 무작위 자리와 실제 10,000국 실험 결과를 제공합니다."><link rel="stylesheet" href="./web/style.css?v=7b84d4b5e7a4edde"></head>
 <body>
 <header class="site-header"><a class="brand" href="./" aria-label="웰니스 마작 연습실"><span class="brand-mark" aria-hidden="true">發</span><span><small>WELLNESS MAHJONG</small><h1>웰니스 마작 연습실</h1></span></a><a class="header-link" href="#results">전략 실험 결과 ↗</a></header>
 <main>
-<nav class="play-modes" aria-label="대국 모드"><button id="practice-mode" aria-pressed="true">혼자 연습</button><button id="online-mode" aria-pressed="false">친구와 4인 대국</button></nav>
+<nav class="play-modes" aria-label="대국 모드"><button id="practice-mode" aria-pressed="true">혼자 연습</button><button id="online-mode" aria-pressed="false">친구와 4인 대국</button><button id="resume-s-match" hidden>저장된 S룰 반장 이어하기</button></nav>
 <section class="rule-controls" aria-label="규칙과 추천 설정"><span>다음 대국 규칙</span><div role="group" aria-label="룰 선택"><button id="rule-h" aria-pressed="true">H룰</button><button id="rule-s" aria-pressed="false">S룰</button></div><small>새 대국·방 만들기에 적용</small><button id="toggle-recommendations" aria-pressed="true" aria-controls="recommendation-panel">전략 추천 켜짐</button></section>
 <section id="room-panel" class="room-panel" aria-label="4인 대국 방" hidden>
   <div class="room-heading"><h2>친구와 4인 대국</h2><span id="room-connection" role="status">방을 만들거나 코드를 입력하세요.</span></div>
@@ -17,9 +17,16 @@
 <label>내 자동 대국 전략<select id="policy"></select></label><button id="autoplay" aria-pressed="false">내 자리도 AI로</button>
 <details class="game-settings"><summary>배패 번호 · 패보</summary><div class="settings-content"><label>배패 번호 (재현 시드)<input id="seed" type="number" value="1000051" min="0" max="4294967295"></label><button id="new-game">이 번호로 다시 시작</button><button id="export">패보 저장 ↓</button><p>같은 번호는 배패와 내 자리를 함께 재현합니다.</p></div></details>
 </section>
+<section id="match-panel" class="match-panel" aria-label="S룰 반장 점수" hidden>
+<div class="match-heading"><h2 id="match-title">S룰 반장</h2><span id="match-save-status" role="status"></span></div>
+<div id="match-scores" class="match-scores"></div><div class="match-actions"><button id="next-s-hand" class="primary" hidden>다음 국 시작</button><button id="download-match-json">반장 점수표 JSON ↓</button><button id="download-match-csv">반장 점수표 CSV ↓</button></div>
+<details><summary>동1국부터의 점수 변화</summary><p id="match-seat-note"></p><div class="table-wrap"><table><thead><tr><th>국</th><th>결과</th><th>시작 동 · 증감 → 누적</th><th>시작 남 · 증감 → 누적</th><th>시작 서 · 증감 → 누적</th><th>시작 북 · 증감 → 누적</th><th>공탁</th></tr></thead><tbody id="match-rounds"></tbody></table></div><p id="match-final-pot"></p></details>
+<p class="note">30,000점 시작 · 남4국까지 · 친 화료/텐파이 시 연장 · 본장 가산 없음. 남4국에서 친이 넘어갈 때 종료하며, 남은 공탁은 1위에게 지급합니다.</p>
+</section>
 <section class="game-logs" aria-label="대국 로그">
 <div class="log-toolbar"><button id="download-current-log">현재 대국 로그 저장 ↓</button><span id="log-save-status" role="status"></span></div>
 <details><summary>저장된 대국 로그</summary><div class="log-downloads"><label>대국 선택<select id="saved-logs"></select></label><button id="review-log">정산 복기</button><button id="download-json-log">JSON 저장</button><button id="download-text-log">TXT 저장</button></div><p>혼자 연습은 배패·모든 행동·점수 이동·화료 계산을 기록합니다. 4인 대국은 받은 공개 정보와 내 손패를 기록합니다. 저장 공간 안에서 최근 최대 10국을 보관합니다.</p></details>
+<details><summary>저장된 반장 점수표</summary><div class="log-downloads"><label>반장 선택<select id="saved-matches"></select></label><button id="review-match">점수표 보기</button><button id="download-saved-match-json">JSON 저장</button><button id="download-saved-match-csv">CSV 저장</button></div><p>최근 최대 10개 반장의 점수표를 이 기기에 보관합니다. 국별 증감과 누적 점수는 한 줄씩 기록하며, 연장이 여러 번 있어도 반장 전체 점수표를 남깁니다.</p><pre id="match-review" hidden></pre></details>
 <pre id="log-review" hidden></pre><p id="log-warning" role="alert" hidden></p></section>
 <p id="practice-info" class="practice-info">동·남·서·북 중 무작위 자리에서 AI 3명과 연습합니다.</p>
 <div class="play-layout">
@@ -31,5 +38,5 @@
 <aside id="recommendation-panel" class="recommendations" aria-labelledby="recommendation-title"><div class="recommendation-heading"><h2 id="recommendation-title">전략별 추천</h2><span>A—E</span></div><p id="recommendation-status" class="recommendation-status" aria-live="polite">내 차례를 기다리는 중입니다.</p><div id="recommendation-list" class="recommendation-grid"></div><p class="recommendation-note">버튼은 추천 행동을 바로 실행합니다. 샨텐은 완성까지의 거리이며 0은 텐파이입니다. 유효패 수는 내 손패와 공개패를 기준으로 추정합니다.</p></aside>
 </div>
 <section id="results" class="results"><div class="section-heading"><div><small>실행 완료 · 500개 시드 × 4자리 × 5전략</small><h2>H룰 실제 10,000국 비교</h2></div><div class="result-downloads"><a href="./results/baseline/report.ko.md" download>한국어 보고서 ↓</a><a href="./results/baseline/summary.csv" download>요약 CSV ↓</a></div></div><p id="conclusion">완료된 실험을 불러오는 중입니다.</p><div class="table-wrap"><table><thead><tr><th>정책</th><th>평균 순수익</th><th>95% 신뢰구간</th><th>화료율</th></tr></thead><tbody id="summary"></tbody></table></div><p class="note">500개 시드 묶음 단위 신뢰구간. 각 묶음의 4자리·5정책을 함께 재표본합니다. 수치는 점수이며, 전역 최적 전략이나 대회 순위점수의 우위를 뜻하지 않습니다.</p></section>
-<details class="rules"><summary>적용 규칙과 대국 기록</summary><p><strong>H룰:</strong> 단일 최고 역 + 지정 가산점. 기본 가산점은 항목당 100점이며 쯔모는 미화료자마다 100점을 추가 지급합니다. 핑후·페코 부로를 허용하고 후리텐은 적용하지 않습니다. 세 번째 화료 또는 유국에서 끝납니다. 실제 대회 세칙으로 미확정인 부분은 보고서에 명시했습니다.</p><a href="./docs/rules-audit.ko.md" download>H룰 상세 가정 ↓</a><p><strong>S룰:</strong> 첫 화료에서 종료합니다. 역을 합산하고 부수 없이 판수로 계산합니다. 핑후 2판, 리치 1,000점 공탁, 후리텐·도라·왕패를 적용합니다. 리치·도라·깡 가산 외에 화료 역이 하나 이상 필요합니다. S룰 추천은 별도 휴리스틱이며 위 H룰 실험 결과는 적용되지 않습니다.</p><a href="./docs/s-rules.ko.md" download>S룰 규칙과 보충 가정 ↓</a><ol id="events"></ol></details>
-</main><footer>혼자 연습은 새로고침하면 새 국이 시작되며, 저장된 로그는 남습니다. 4인 대국은 같은 탭에서 이어집니다. 로그는 이 기기에 보관하며 언제든 파일로 저장할 수 있습니다.</footer><script type="module" src="./web/app.mjs?v=0705242a0a909f48"></script></body></html>
+<details class="rules"><summary>적용 규칙과 대국 기록</summary><p><strong>H룰:</strong> 단일 최고 역 + 지정 가산점. 기본 가산점은 항목당 100점이며 쯔모는 미화료자마다 100점을 추가 지급합니다. 핑후·페코 부로를 허용하고 후리텐은 적용하지 않습니다. 세 번째 화료 또는 유국에서 끝납니다. 실제 대회 세칙으로 미확정인 부분은 보고서에 명시했습니다.</p><a href="./docs/rules-audit.ko.md" download>H룰 상세 가정 ↓</a><p><strong>S룰:</strong> 동1국부터 남4국까지 반장으로 진행하고 누적 점수를 저장합니다. 각 국은 첫 화료 또는 유국에서 끝납니다. 역을 합산하고 부수 없이 판수로 계산합니다. 핑후 2판, 리치 1,000점 공탁, 후리텐·도라·왕패를 적용합니다. 리치·도라·깡 가산 외에 화료 역이 하나 이상 필요합니다. S룰 추천은 별도 휴리스틱이며 위 H룰 실험 결과는 적용되지 않습니다.</p><a href="./docs/s-rules.ko.md" download>S룰 규칙과 보충 가정 ↓</a><ol id="events"></ol></details>
+</main><footer>혼자 연습의 S룰 반장은 새로고침해도 이어집니다. H룰은 새 국으로 시작하고 로그는 남습니다. 4인 대국은 같은 탭에서 방 만료 전까지 이어집니다. 로그는 이 기기에 보관하며 언제든 파일로 저장할 수 있습니다.</footer><script type="module" src="./web/app.mjs?v=7381cfd6835374a8"></script></body></html>

@@ -9,7 +9,7 @@ export function winSettlement(state, seat) {
   const {score} = win;
   if(state.rules.variant==='S'){
     const payments=Array.isArray(state.ledger)?state.ledger.filter(p=>p.to===seat&&['tsumo','ron','pot'].includes(p.kind)):win.payments??[];
-    const receipt=payments.reduce((n,p)=>n+p.amount,0),seats=['동','남','서','북'];
+    const receipt=payments.reduce((n,p)=>n+p.amount,0),seats=Array.from({length:4},(_,i)=>['동','남','서','북'][(i-state.dealer+4)%4]);
     return {payerCount:payments.filter(p=>p.from!=='pot').length,receipt,expectedReceipt:win.receipt,net:player.score,previousNet:player.score-receipt,
       title:`${score.name} ${win.method==='tsumo'?'쯔모':'론'} · 이번 화료 +${receipt}점`,
       calculation:`${score.yakuman?'역만':score.han+'판'} · ${payments.map(p=>`${seats[p.from]??'공탁'} ${p.amount}`).join(' + ')} = +${receipt}점`};
