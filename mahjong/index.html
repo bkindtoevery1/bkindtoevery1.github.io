@@ -3,7 +3,14 @@
 <body>
 <header class="site-header"><a class="brand" href="./" aria-label="H룰 마작 연습실"><span class="brand-mark" aria-hidden="true">發</span><span><small>WELLNESS MAHJONG</small><h1>H룰 마작 연습실</h1></span></a><a class="header-link" href="#results">전략 실험 결과 ↗</a></header>
 <main>
-<section class="controls" aria-label="대국 설정">
+<nav class="play-modes" aria-label="대국 모드"><button id="practice-mode" aria-pressed="true">혼자 연습</button><button id="online-mode" aria-pressed="false">친구와 4인 대국</button></nav>
+<section id="room-panel" class="room-panel" aria-label="4인 대국 방" hidden>
+  <div class="room-heading"><h2>친구와 4인 대국</h2><span id="room-connection" role="status">방을 만들거나 코드를 입력하세요.</span></div>
+  <div class="room-entry"><label>내 이름<input id="room-name" maxlength="20" value="플레이어" autocomplete="nickname"></label><button id="create-room" class="primary">방 만들기</button><label>방 코드<input id="room-code-input" maxlength="8" placeholder="8자리 코드" autocapitalize="characters" spellcheck="false"></label><button id="join-room">입장</button><button id="resume-room" hidden>내 방으로 돌아가기</button></div>
+  <div id="room-info" hidden><p>방 코드 <strong id="room-code"></strong> <button id="copy-room-link">초대 링크 복사</button></p><div id="room-members" class="room-members"></div><p id="room-message"></p><button id="rematch-room" class="primary" hidden>같은 멤버로 새 국</button></div>
+  <p id="room-error" role="alert"></p><p class="room-note">4명이 입장하면 무작위 자리로 시작합니다. 같은 브라우저 탭을 새로고침하면 자기 자리로 돌아옵니다. 방은 생성 후 6시간 유지됩니다.</p>
+</section>
+<section id="practice-controls" class="controls" aria-label="대국 설정">
 <button id="random-game" class="primary">새 대국 ↻</button>
 <label>상대 성향<select id="profile"><option value="mixed">혼합 · A/D/E</option><option value="speed">최속 · A/A/A</option><option value="pinfu">핑후 · B/B/B</option><option value="value">고득점 · D/D/D</option><option value="cautious">신중 · E/E/E</option></select></label>
 <label>내 자동 대국 전략<select id="policy"></select></label><button id="autoplay" aria-pressed="false">내 자리도 AI로</button>
