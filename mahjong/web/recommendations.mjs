@@ -1,5 +1,5 @@
 import {tileName} from '../engine/tiles.mjs';
-import {chooseAction, evaluateDiscards, POLICIES} from '../policies/index.mjs';
+import {chooseAction, evaluateDiscards, POLICIES} from '../game/policies.mjs';
 
 const focus = {
   A: '샨텐을 먼저 줄이고 유효패가 많은 쪽을 고릅니다.',
@@ -12,6 +12,7 @@ const focus = {
 export function actionLabel(action, view = {}) {
   switch (action.type) {
     case 'discard': return `${tileName(action.tile)} 버리기`;
+    case 'riichi': return `리치 · ${tileName(action.tile)} 버리기`;
     case 'tsumo': return '쯔모 화료';
     case 'ron': return '론 화료';
     case 'pass': return view.legalActions?.some(a => a.type === 'ron') ? '론 넘기기' : '넘기기';
@@ -25,11 +26,12 @@ export function actionLabel(action, view = {}) {
 }
 
 function reasonFor(action, view, policy) {
+  if(action.type==='riichi')return '멘젠 텐파이로 1,000점을 공탁합니다. 리치만으로는 S룰의 화료 역 조건을 충족하지 않습니다.';
   if (action.type === 'tsumo') return '지금 쯔모 화료할 수 있습니다.';
   if (action.type === 'ron') return policy === 'C'
     ? '이 규칙에서는 론을 넘길 수 없어 화료합니다.' : '완성된 패로 지금 론 화료합니다.';
   if (action.type === 'pass') {
-    if (view.legalActions.some(a => a.type === 'ron')) return '합법적인 론을 넘기고 쯔모를 기다리는 선택입니다.';
+    if (view.legalActions.some(a => a.type === 'ron')) return view.rules.variant==='S'?'론을 넘겨 후리텐이 됩니다. 리치 중이면 이 국에서 다시 론할 수 없습니다.':'합법적인 론을 넘기고 쯔모를 기다리는 선택입니다.';
     if (view.legalActions.length === 1) return '론이나 후로가 불가능해 넘깁니다.';
     return '후로 이후의 형태와 손패 유지를 비교해 넘기기를 선택했습니다.';
   }

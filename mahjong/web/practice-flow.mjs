@@ -1,4 +1,4 @@
-import {actor, legalActions, observation, step} from '../engine/game.mjs';
+import {actor, legalActions, observation, step} from '../game/engine.mjs';
 
 export const AUTO_PASS_DELAY_MS = 700;
 export const SEAT_NAMES = ['동', '남', '서', '북'];

@@ -1,3 +1,24 @@
+var __defProp = Object.defineProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+
+// engine/game.mjs
+var game_exports = {};
+__export(game_exports, {
+  activeSeats: () => activeSeats,
+  actor: () => actor,
+  assertInvariants: () => assertInvariants,
+  createGame: () => createGame,
+  legalActions: () => legalActions,
+  nextActive: () => nextActive,
+  observation: () => observation,
+  settleDraw: () => settleDraw,
+  step: () => step,
+  visibleCounts: () => visibleCounts
+});
+
 // engine/tiles.mjs
 var typeOf = (id) => Math.floor(id / 4);
 var isHonor = (t) => t >= 27;
@@ -144,7 +165,7 @@ function decompositions(tiles2, melds = [], r = DEFAULT_RULES) {
   }
   return out;
 }
-function scoreHand(tiles2, melds = [], context = {}, r = DEFAULT_RULES) {
+function scoreHand(tiles2, melds = [], context2 = {}, r = DEFAULT_RULES) {
   const all = [...tiles2, ...melds.flatMap((m) => m.type === "chi" ? [m.tile, m.tile + 1, m.tile + 2] : Array(m.type === "kan" ? 4 : 3).fill(m.tile))];
   if (counts(all).some((x) => x > 4)) return null;
   const ds = decompositions(tiles2, melds, r);
@@ -160,7 +181,7 @@ function scoreHand(tiles2, melds = [], context = {}, r = DEFAULT_RULES) {
       if (condition) ids.push(id);
     };
     add("noYaku", true);
-    add("menzen", closed && (!r.menzenRequiresTsumo || context.method === "tsumo"));
+    add("menzen", closed && (!r.menzenRequiresTsumo || context2.method === "tsumo"));
     add("tanyao", all.every((t) => !isYao(t)));
     add("fiveGates", suits.size === 3 && all.some((t) => t >= 27 && t < 31) && all.some((t) => t >= 31));
     add("honitsu", suits.size === 1 && honors);
@@ -196,8 +217,8 @@ function scoreHand(tiles2, melds = [], context = {}, r = DEFAULT_RULES) {
       add("smallThreeDragons", dragons === 2 && d.pair >= 31);
       add("bigThreeDragons", dragons === 3);
       let concealed = tri.filter((g) => !g.open).length;
-      if (context.method === "ron" && context.winTile !== void 0) {
-        const t = context.winTile, otherPlacement = d.pair === t || d.groups.some((g) => g.type === "chi" && t >= g.tile && t <= g.tile + 2);
+      if (context2.method === "ron" && context2.winTile !== void 0) {
+        const t = context2.winTile, otherPlacement = d.pair === t || d.groups.some((g) => g.type === "chi" && t >= g.tile && t <= g.tile + 2);
         if (!otherPlacement && d.groups.some((g) => g.type === "pon" && g.tile === t)) concealed--;
       }
       add("sanankou", concealed >= 3);
@@ -206,7 +227,7 @@ function scoreHand(tiles2, melds = [], context = {}, r = DEFAULT_RULES) {
       kan: melds.filter((m) => m.type === "kan").length * r.kanBonus,
       dragon: trip.filter((g) => g.tile >= 31).length * r.dragonBonus,
       roundWind: trip.filter((g) => g.tile === r.roundWind).length * r.roundWindBonus,
-      seatWind: trip.filter((g) => g.tile === (context.seatWind ?? 27)).length * r.seatWindBonus
+      seatWind: trip.filter((g) => g.tile === (context2.seatWind ?? 27)).length * r.seatWindBonus
     };
     for (const id of ids) allEligible.add(id);
     ids.sort((a, b) => YAKU[b][1] - YAKU[a][1]);
@@ -216,11 +237,11 @@ function scoreHand(tiles2, melds = [], context = {}, r = DEFAULT_RULES) {
   best.eligibleYaku = [...allEligible].sort((a, b) => YAKU[b][1] - YAKU[a][1]);
   return best;
 }
-function winningTiles(tiles2, melds = [], context = {}, r = DEFAULT_RULES) {
+function winningTiles(tiles2, melds = [], context2 = {}, r = DEFAULT_RULES) {
   const c = counts([...tiles2, ...melds.flatMap((m) => m.type === "chi" ? [m.tile, m.tile + 1, m.tile + 2] : Array(m.type === "kan" ? 4 : 3).fill(m.tile))]);
   const out = [];
   for (let t = 0; t < 34; t++) if (c[t] < 4) {
-    const score = scoreHand([...tiles2, t], melds, { ...context, method: "ron", winTile: t }, r);
+    const score = scoreHand([...tiles2, t], melds, { ...context2, method: "ron", winTile: t }, r);
     if (score) out.push({ tile: t, score });
   }
   return out;
@@ -518,6 +539,528 @@ function assertInvariants(s) {
   return true;
 }
 
+// s-engine/game.mjs
+var game_exports2 = {};
+__export(game_exports2, {
+  actor: () => actor2,
+  assertInvariants: () => assertInvariants2,
+  createGame: () => createGame2,
+  indicators: () => indicators,
+  legalActions: () => legalActions2,
+  observation: () => observation2,
+  settleDraw: () => settleDraw2,
+  step: () => step2,
+  visibleCounts: () => visibleCounts2
+});
+
+// s-engine/rules.mjs
+var S_DEFAULTS = Object.freeze({
+  id: "S-2026-v1",
+  variant: "S",
+  pinfuHan: 2,
+  roundWind: 27,
+  startingPoints: 3e4,
+  riichiDeposit: 1e3,
+  peikouClosedOnly: true,
+  pinfuValuePairAllowed: false,
+  openSequenceReduction: false,
+  standardYakuman: true,
+  multipleRon: "nearest",
+  sevenPairsQuadAsTwo: false,
+  allowKuikae: true,
+  selfDiscardFuriten: true,
+  ronPassAllowed: true,
+  passRonLock: "until-draw",
+  maxKans: 4,
+  deadWallTiles: 14,
+  revealWinnerHand: true,
+  revealTsumoWinningTile: true
+});
+function sRules(overrides = {}) {
+  for (const key3 of Object.keys(overrides)) if (!(key3 in S_DEFAULTS)) throw new Error(`Unknown S rule: ${key3}`);
+  const rules = { ...S_DEFAULTS, ...overrides };
+  for (const key3 of Object.keys(S_DEFAULTS)) {
+    const value = rules[key3], base = S_DEFAULTS[key3];
+    if (typeof value !== typeof base || typeof base === "number" && (!Number.isSafeInteger(value) || value < 0)) throw new Error(`Invalid S rule: ${key3}`);
+  }
+  if (rules.variant !== "S" || rules.maxKans !== 4 || rules.deadWallTiles !== 14 || rules.multipleRon !== "nearest" || rules.riichiDeposit !== 1e3 || rules.sevenPairsQuadAsTwo || !rules.selfDiscardFuriten || !rules.ronPassAllowed || rules.passRonLock !== "until-draw" || ![27, 28, 29, 30].includes(rules.roundWind)) throw new Error("Unsupported S rule configuration");
+  return rules;
+}
+
+// s-engine/score.mjs
+var ORPHANS = [0, 8, 9, 17, 18, 26, 27, 28, 29, 30, 31, 32, 33];
+function sShapes(tiles2, melds = [], rules = S_DEFAULTS) {
+  const out = decompositions(tiles2, melds, { sevenPairsQuadAsTwo: false }), c = counts(tiles2);
+  if (rules.standardYakuman && !melds.length && tiles2.length === 14 && ORPHANS.every((t) => c[t] >= 1) && ORPHANS.some((t) => c[t] === 2)) out.push({ kind: "orphans", groups: [], pair: ORPHANS.find((t) => c[t] === 2) });
+  return out;
+}
+function shapeWaits(tiles2, melds = [], rules = S_DEFAULTS) {
+  const c = counts([...tiles2, ...melds.flatMap((m) => m.type === "chi" ? [m.tile, m.tile + 1, m.tile + 2] : Array(m.type === "kan" ? 4 : 3).fill(m.tile))]);
+  const out = [];
+  for (let t = 0; t < 34; t++) if (c[t] < 4 && sShapes([...tiles2, t], melds, rules).length) out.push(t);
+  return out;
+}
+function doraAfter(tile) {
+  return tile < 27 ? Math.floor(tile / 9) * 9 + (tile + 1) % 9 : tile < 31 ? 27 + (tile - 26) % 4 : 31 + (tile - 30) % 3;
+}
+function sPoints(han, dealer = false, yakuman = false) {
+  const base = yakuman ? 32e3 : han >= 11 ? 24e3 : han >= 8 ? 16e3 : han >= 6 ? 12e3 : han >= 4 ? 8e3 : han === 3 ? 4e3 : han === 2 ? 2e3 : 1e3;
+  return { ron: dealer ? base * 1.5 : base, tsumoDealer: dealer ? base / 2 : base / 2, tsumoOther: dealer ? base / 2 : Math.ceil(base / 400) * 100 };
+}
+function scoreS(tiles2, melds = [], context2 = {}, rules = S_DEFAULTS) {
+  const all = [...tiles2, ...melds.flatMap((m) => m.type === "chi" ? [m.tile, m.tile + 1, m.tile + 2] : Array(m.type === "kan" ? 4 : 3).fill(m.tile))], c = counts(all);
+  if (c.some((n) => n > 4)) return null;
+  const closed = melds.every((m) => !m.open), suits = new Set(all.filter((t) => t < 27).map((t) => Math.floor(t / 9))), honors = all.some(isHonor);
+  let best = null;
+  for (const shape of sShapes(tiles2, melds, rules)) {
+    const groups = [...shape.groups, ...melds], seq = groups.filter((g) => g.type === "chi"), trip = groups.filter((g) => g.type !== "chi");
+    const entries = [], limits = [], add = (id, name, han2, condition) => {
+      if (condition) entries.push({ id, name, han: han2 });
+    }, limit = (id, name, condition) => {
+      if (condition) limits.push({ id, name, han: 0 });
+    };
+    const tripTiles = trip.map((g) => g.tile), freq = /* @__PURE__ */ new Map();
+    for (const g of seq) freq.set(g.tile, (freq.get(g.tile) ?? 0) + 1);
+    const identical = [...freq.values()].reduce((n, count) => n + Math.floor(count / 2), 0), pairValue = shape.pair >= 31 || shape.pair === rules.roundWind || shape.pair === (context2.seatWind ?? 27);
+    const ryanmen = shape.groups.some((g) => g.type === "chi" && (context2.winTile === g.tile && g.tile % 9 !== 6 || context2.winTile === g.tile + 2 && g.tile % 9 !== 0));
+    let concealed = trip.filter((g) => !g.open).length;
+    const ronTrip = context2.method === "ron" && shape.pair !== context2.winTile && !shape.groups.some((g) => g.type === "chi" && context2.winTile >= g.tile && context2.winTile <= g.tile + 2);
+    if (ronTrip && shape.groups.some((g) => g.type === "pon" && g.tile === context2.winTile)) concealed--;
+    add("pinfu", "\uD551\uD6C4", rules.pinfuHan, seq.length === 4 && closed && ryanmen && (rules.pinfuValuePairAllowed || !pairValue));
+    add("ryanpeikou", "\uB7C9\uD398\uCF54", 3, identical >= 2 && (!rules.peikouClosedOnly || closed));
+    add("iipeikou", "\uC774\uD398\uCF54", 1, identical === 1 && (!rules.peikouClosedOnly || closed));
+    add("menzenTsumo", "\uBA58\uC820 \uCBD4\uBAA8", 1, closed && context2.method === "tsumo");
+    add("tanyao", "\uD0D5\uC57C\uC624", 1, all.every((t) => !isYao(t)));
+    add("rinshan", "\uC601\uC0C1\uAC1C\uD654", 1, context2.rinshan && context2.method === "tsumo");
+    add("haitei", "\uD574\uC800\uB85C\uC6D4", 1, context2.lastTile && context2.method === "tsumo" && !context2.rinshan);
+    add("houtei", "\uD558\uC800\uB85C\uC5B4", 1, context2.lastTile && context2.method === "ron" && !context2.chankan);
+    add("chankan", "\uCC3D\uAE61", 1, context2.chankan && context2.method === "ron");
+    add("toitoi", "\uB610\uC774\uB610\uC774", 2, trip.length === 4);
+    add("sanshokuTriplets", "\uC0BC\uC0C9\uB3D9\uAC01", 2, Array.from({ length: 9 }, (_, n) => n).some((n) => [n, n + 9, n + 18].every((t) => tripTiles.includes(t))));
+    const reduced = rules.openSequenceReduction && !closed ? 1 : 0;
+    add("sanshokuSequences", "\uC0BC\uC0C9\uB3D9\uC21C", 2 - reduced, Array.from({ length: 7 }, (_, n) => n).some((n) => [n, n + 9, n + 18].every((t) => seq.some((g) => g.tile === t))));
+    add("ittsu", "\uC77C\uAE30\uD1B5\uAD00", 2 - reduced, [0, 9, 18].some((n) => [n, n + 3, n + 6].every((t) => seq.some((g) => g.tile === t))));
+    const outside = shape.kind === "standard" && groups.every((g) => g.type === "chi" ? [0, 6].includes(g.tile % 9) : isYao(g.tile)) && isYao(shape.pair);
+    add("chanta", "\uCC2C\uD0C0", 2 - reduced, outside && honors && seq.length > 0);
+    add("junchan", "\uC900\uCC2C\uD0C0", 3 - reduced, outside && !honors && seq.length > 0);
+    add("honroutou", "\uD63C\uB178\uB450", 2, all.every(isYao));
+    add("sevenPairs", "\uCE60\uB300\uC790", 2, shape.kind === "sevenPairs");
+    add("sanankou", "\uC0BC\uC554\uAC01", 2, concealed >= 3);
+    add("smallThreeDragons", "\uC18C\uC0BC\uC6D0", 2, tripTiles.filter((t) => t >= 31).length === 2 && shape.pair >= 31);
+    add("threeKans", "\uC0BC\uAE61\uC790", 2, melds.filter((m) => m.type === "kan").length === 3);
+    add("honitsu", "\uD63C\uC77C\uC0C9", closed ? 3 : 2, suits.size === 1 && honors);
+    add("chinitsu", "\uCCAD\uC77C\uC0C9", closed ? 6 : 5, suits.size === 1 && !honors);
+    for (const t of tripTiles) {
+      add("dragon" + t, ["\uBC31", "\uBC1C", "\uC911"][t - 31], 1, t >= 31);
+      add("roundWind", "\uC7A5\uD48D", 1, t === rules.roundWind);
+      add("seatWind", "\uC790\uD48D", 1, t === (context2.seatWind ?? 27));
+    }
+    limit("bigThreeDragons", "\uB300\uC0BC\uC6D0", tripTiles.filter((t) => t >= 31).length === 3);
+    limit("bigFourWinds", "\uB300\uC0AC\uD76C", tripTiles.filter((t) => t >= 27 && t < 31).length === 4);
+    if (rules.standardYakuman) {
+      limit("orphans", "\uAD6D\uC0AC\uBB34\uC30D", shape.kind === "orphans");
+      limit("fourConcealed", "\uC0AC\uC554\uAC01", concealed === 4);
+      limit("fourKans", "\uC0AC\uAE61\uC790", melds.filter((m) => m.type === "kan").length === 4);
+      limit("smallFourWinds", "\uC18C\uC0AC\uD76C", tripTiles.filter((t) => t >= 27 && t < 31).length === 3 && shape.pair >= 27 && shape.pair < 31);
+      limit("allHonors", "\uC790\uC77C\uC0C9", all.every(isHonor));
+      limit("allTerminals", "\uCCAD\uB178\uB450", all.every(isTerminal));
+      limit("allGreen", "\uB179\uC77C\uC0C9", all.every((t) => [19, 20, 21, 23, 25, 32].includes(t)));
+      if (closed && !melds.length && suits.size === 1 && !honors) {
+        const offset = [...suits][0] * 9;
+        limit("nineGates", "\uAD6C\uB828\uBCF4\uB4F1", c[offset] >= 3 && c[offset + 8] >= 3 && Array.from({ length: 7 }, (_, i) => i + 1).every((n) => c[offset + n] >= 1));
+      }
+    }
+    if (!entries.length && !limits.length) continue;
+    const bonuses = [];
+    const bonus = (id, name, han2) => {
+      if (han2) bonuses.push({ id, name, han: han2 });
+    };
+    bonus("riichi", "\uB9AC\uCE58", context2.riichi ? 1 : 0);
+    bonus("ippatsu", "\uC77C\uBC1C", context2.riichi && context2.ippatsu ? 1 : 0);
+    bonus("kan", "\uAE61 \uAC00\uC0B0", melds.filter((m) => m.type === "kan" && !m.open).length + Math.floor(melds.filter((m) => m.type === "kan" && m.open).length / 2));
+    bonus("dora", "\uB3C4\uB77C", (context2.doraIndicators ?? []).reduce((n, t) => n + c[doraAfter(t)], 0));
+    bonus("ura", "\uC6B0\uB77C\uB3C4\uB77C", context2.riichi ? (context2.uraIndicators ?? []).reduce((n, t) => n + c[doraAfter(t)], 0) : 0);
+    const yakuman = limits.length > 0, hanYaku = entries.reduce((n, e) => n + e.han, 0), bonusHan = bonuses.reduce((n, e) => n + e.han, 0), han = yakuman ? 0 : hanYaku + bonusHan;
+    const points = sPoints(han, !!context2.dealer, yakuman), yaku = yakuman ? limits : entries;
+    const score = { variant: "S", name: yaku.map((e) => e.name).join(" \xB7 "), yaku: yaku[0].id, yakuEntries: yaku, bonuses: yakuman ? [] : bonuses, han, hanYaku: yakuman ? 0 : hanYaku, bonusHan: yakuman ? 0 : bonusHan, yakuman, base: points.ron, bonus: 0, total: points.ron, points, closed, shape };
+    if (!best || score.total > best.total || score.total === best.total && score.han > best.han) best = score;
+  }
+  return best;
+}
+
+// s-engine/game.mjs
+var handTypes2 = (p) => p.hand.map(typeOf);
+var event2 = (s, e) => s.events.push({ n: s.events.length, ...e });
+var meldView2 = (m) => ({ type: m.type, tile: m.tile, open: m.open, from: m.from });
+var key = (a) => JSON.stringify(a);
+var same = (a, b) => key(a) === key(b);
+var actor2 = (s) => s.phase === "turn" ? s.turn : s.phase === "reaction" ? s.reaction.pending[0] : null;
+var indicators = (s, ura = false) => Array.from({ length: s.kans + 1 }, (_, n) => typeOf(s.dead[4 + 2 * n + (ura ? 1 : 0)]));
+function context(s, seat, method, tile) {
+  const p = s.players[seat];
+  return {
+    method,
+    winTile: tile,
+    seatWind: 27 + (seat - s.dealer + 4) % 4,
+    dealer: seat === s.dealer,
+    riichi: p.riichi,
+    ippatsu: p.ippatsu,
+    rinshan: p.drawSource === "kan",
+    lastTile: s.wall.length === 0,
+    chankan: method === "ron" && s.reaction?.kind === "kakan",
+    doraIndicators: indicators(s),
+    uraIndicators: indicators(s, true)
+  };
+}
+function createGame2({ seed = 1, rules = {}, dealer = 0, wall = null, pot = 0 } = {}) {
+  if (!Number.isInteger(seed) || seed < 0 || seed > 4294967295 || !Number.isInteger(dealer) || dealer < 0 || dealer > 3 || !Number.isSafeInteger(pot) || pot < 0 || pot % 1e3) throw new Error("Invalid seed/dealer/pot");
+  const w = wall ? [...wall] : shuffledWall(seed);
+  if (w.length !== 136 || new Set(w).size !== 136 || w.some((id) => !Number.isInteger(id) || id < 0 || id >= 136)) throw new Error("Invalid wall");
+  const s = {
+    version: 1,
+    seed,
+    rules: sRules(rules),
+    dealer,
+    wall: w,
+    dead: w.splice(122),
+    pot,
+    initialPot: pot,
+    players: Array.from({ length: 4 }, () => ({
+      hand: [],
+      melds: [],
+      river: [],
+      score: 0,
+      won: false,
+      win: null,
+      passLock: false,
+      drawn: null,
+      drawSource: null,
+      forbidden: [],
+      riichi: false,
+      riichiFuriten: false,
+      riichiWaits: [],
+      ippatsu: false,
+      pao: null,
+      stats: { winReceipt: 0, dealInLoss: 0, tsumoPaid: 0, drawLoss: 0, drawGain: 0, ronDeclined: 0, closedKans: 0, riichiPaid: 0 }
+    })),
+    phase: "init",
+    turn: dealer,
+    draws: 0,
+    kans: 0,
+    winners: [],
+    events: [],
+    reaction: null,
+    ledger: [],
+    end: null
+  };
+  for (let n = 0; n < 13; n++) for (let off = 0; off < 4; off++) s.players[(dealer + off) % 4].hand.push(s.wall.shift());
+  for (const p of s.players) p.hand.sort((a, b) => a - b);
+  draw2(s, dealer);
+  assertInvariants2(s);
+  return s;
+}
+function transfer2(s, from, to, amount, kind) {
+  if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error("Invalid transfer");
+  if (from === "pot") s.pot -= amount;
+  else s.players[from].score -= amount;
+  if (to === "pot") s.pot += amount;
+  else s.players[to].score += amount;
+  s.ledger.push({ from, to, amount, kind });
+  if (kind === "riichi") s.players[from].stats.riichiPaid += amount;
+  else if (kind === "pot") s.players[to].stats.winReceipt += amount;
+  else if (kind === "draw") {
+    s.players[from].stats.drawLoss += amount;
+    s.players[to].stats.drawGain += amount;
+  } else {
+    s.players[from].stats[kind === "ron" ? "dealInLoss" : "tsumoPaid"] += amount;
+    s.players[to].stats.winReceipt += amount;
+  }
+}
+function draw2(s, seat, kan = false) {
+  if (!s.wall.length) {
+    settleDraw2(s);
+    return;
+  }
+  const p = s.players[seat];
+  let id;
+  if (kan) {
+    const index = s.kans - 1;
+    id = s.dead[index];
+    s.dead[index] = s.wall.pop();
+  } else id = s.wall.shift();
+  p.hand.push(id);
+  p.hand.sort((a, b) => a - b);
+  p.drawn = id;
+  p.drawSource = kan ? "kan" : "wall";
+  p.passLock = false;
+  p.forbidden = [];
+  s.turn = seat;
+  s.phase = "turn";
+  s.reaction = null;
+  s.draws++;
+  event2(s, { type: kan ? "kanDraw" : "draw", seat, id });
+}
+function end(s, reason) {
+  s.end = reason;
+  s.phase = "end";
+  s.reaction = null;
+  event2(s, { type: "end", reason });
+}
+function win2(s, seat, method, source, tile) {
+  const p = s.players[seat], tiles2 = handTypes2(p);
+  if (method === "ron") tiles2.push(typeOf(tile));
+  const score = scoreS(tiles2, p.melds, context(s, seat, method, typeOf(tile)), s.rules);
+  if (!score) throw new Error("Illegal S win");
+  const first = s.ledger.length, pao = score.yakuman ? p.pao : null;
+  if (pao !== null) {
+    if (method === "tsumo" || source === pao) transfer2(s, pao, seat, score.points.ron, method);
+    else {
+      transfer2(s, pao, seat, score.points.ron / 2, method);
+      transfer2(s, source, seat, score.points.ron / 2, method);
+    }
+  } else if (method === "ron") transfer2(s, source, seat, score.points.ron, method);
+  else for (let from = 0; from < 4; from++) if (from !== seat) transfer2(s, from, seat, from === s.dealer ? score.points.tsumoDealer : score.points.tsumoOther, method);
+  if (s.pot) transfer2(s, "pot", seat, s.pot, "pot");
+  const payments = structuredClone(s.ledger.slice(first));
+  p.won = true;
+  p.win = { method, source, tile, order: 1, drawNumber: s.draws, score, payments, receipt: payments.reduce((n, p2) => n + p2.amount, 0) };
+  p.drawn = null;
+  s.winners.push(seat);
+  event2(s, { type: "win", seat, ...p.win });
+  end(s, "win");
+}
+function visibleCounts2(s, seat) {
+  const out = Array(34).fill(0), add = (id) => out[typeOf(id)]++;
+  for (let i = 0; i < 4; i++) {
+    const p = s.players[i];
+    for (const m of p.melds) for (const id of m.ids) add(id);
+    for (const d of p.river) if (!d.claimed) add(d.id);
+    if (i === seat || p.won && s.rules.revealWinnerHand) for (const id of p.hand) add(id);
+  }
+  for (const t of indicators(s)) out[t]++;
+  return out;
+}
+function settleDraw2(s) {
+  if (s.phase === "end" || s.wall.length) throw new Error("Cannot settle this game");
+  const ready = s.players.flatMap((p, seat) => {
+    const waits = shapeWaits(handTypes2(p), p.melds, s.rules);
+    return waits.length ? [{ seat, waits }] : [];
+  });
+  if (ready.length && ready.length < 4) {
+    const due = ready.map((p) => ({ seat: p.seat, amount: 3e3 / ready.length }));
+    for (let from = 0; from < 4; from++) if (!ready.some((x) => x.seat === from)) {
+      let debt = 3e3 / (4 - ready.length);
+      for (const to of due) {
+        const amount = Math.min(debt, to.amount);
+        if (amount) {
+          transfer2(s, from, to.seat, amount, "draw");
+          debt -= amount;
+          to.amount -= amount;
+        }
+      }
+    }
+  }
+  event2(s, { type: "drawSettlement", ready });
+  end(s, "exhaustive-draw");
+}
+function canRon2(s, seat) {
+  const p = s.players[seat], r = s.reaction;
+  if (seat === r.source || p.passLock || p.riichiFuriten) return null;
+  const waits = shapeWaits(handTypes2(p), p.melds, s.rules);
+  if (p.river.some((d) => waits.includes(typeOf(d.id)))) return null;
+  return scoreS([...handTypes2(p), typeOf(r.id)], p.melds, context(s, seat, "ron", typeOf(r.id)), s.rules);
+}
+function legalActions2(s, seat = actor2(s)) {
+  if (seat === null || seat !== actor2(s)) return [];
+  const p = s.players[seat], tiles2 = handTypes2(p), c = counts(tiles2), out = [];
+  if (s.phase === "turn") {
+    if (p.drawn !== null && scoreS(tiles2, p.melds, context(s, seat, "tsumo", typeOf(p.drawn)), s.rules)) out.push({ type: "tsumo" });
+    if (p.drawn !== null && s.wall.length && s.kans < 4) {
+      for (let t = 0; t < 34; t++) if (c[t] === 4) {
+        const waits = () => shapeWaits(tiles2.filter((x) => x !== t), [...p.melds, { type: "kan", tile: t, open: false }], s.rules);
+        if (!p.riichi || typeOf(p.drawn) === t && same(waits(), p.riichiWaits)) out.push({ type: "ankan", tile: t });
+      }
+      if (!p.riichi) p.melds.forEach((m, i) => {
+        if (m.type === "pon" && c[m.tile]) out.push({ type: "kakan", meld: i });
+      });
+    }
+    for (let t = 0; t < 34; t++) if (c[t] && !p.forbidden.includes(t) && (!p.riichi || t === typeOf(p.drawn))) {
+      out.push({ type: "discard", tile: t });
+      if (!p.riichi && p.melds.every((m) => !m.open) && s.rules.startingPoints + p.score >= 1e3 && s.wall.length >= 4) {
+        const next = [...tiles2];
+        next.splice(next.indexOf(t), 1);
+        if (shapeWaits(next, p.melds, s.rules).length) out.push({ type: "riichi", tile: t });
+      }
+    }
+  } else {
+    const r = s.reaction, t = typeOf(r.id);
+    if (canRon2(s, seat)) out.push({ type: "ron" });
+    out.push({ type: "pass" });
+    if (!p.riichi && r.kind === "discard" && s.wall.length) {
+      if (c[t] >= 2) out.push({ type: "pon", tile: t });
+      if (c[t] >= 3 && s.kans < 4) out.push({ type: "minkan", tile: t });
+      if (seat === (r.source + 1) % 4 && t < 27) {
+        for (let start2 = Math.max(Math.floor(t / 9) * 9, t - 2); start2 <= Math.min(Math.floor(t / 9) * 9 + 6, t); start2++) if ([start2, start2 + 1, start2 + 2].filter((x) => x !== t).every((x) => c[x])) out.push({ type: "chi", tile: start2 });
+      }
+    }
+  }
+  return out;
+}
+function remove(p, types) {
+  const ids = [];
+  for (const t of types) {
+    const i = p.hand.findIndex((id) => typeOf(id) === t);
+    if (i < 0) throw new Error("Missing tile");
+    ids.push(...p.hand.splice(i, 1));
+  }
+  return ids;
+}
+function reaction(s, source, id, kind, extra = {}) {
+  s.phase = "reaction";
+  s.reaction = { source, id, kind, pending: [1, 2, 3].map((n) => (source + n) % 4), answers: [], ...extra };
+}
+function cancelIppatsu(s) {
+  for (const p of s.players) p.ippatsu = false;
+}
+function completeKan2(s, seat) {
+  cancelIppatsu(s);
+  s.kans++;
+  event2(s, { type: "kan", seat });
+  draw2(s, seat, true);
+}
+function acceptRiichi(s, r) {
+  if (!r.riichi) return;
+  const p = s.players[r.source];
+  p.riichi = true;
+  p.ippatsu = true;
+  p.riichiWaits = shapeWaits(handTypes2(p), p.melds, s.rules);
+  transfer2(s, r.source, "pot", 1e3, "riichi");
+  event2(s, { type: "riichi", seat: r.source });
+}
+function resolve(s) {
+  const r = s.reaction, ron = r.answers.find((x) => x.action.type === "ron");
+  if (ron) {
+    if (r.kind === "kakan") {
+      const p2 = s.players[r.source];
+      p2.hand.splice(p2.hand.indexOf(r.id), 1);
+      p2.river.push({ id: r.id, claimed: false, robbedKan: true });
+    }
+    win2(s, ron.seat, "ron", r.source, r.id);
+    return;
+  }
+  if (r.kind === "kakan") {
+    const p2 = s.players[r.source], m = p2.melds[r.meld];
+    m.ids.push(...remove(p2, [m.tile]));
+    m.type = "kan";
+    completeKan2(s, r.source);
+    return;
+  }
+  acceptRiichi(s, r);
+  const calls = r.answers.filter((x) => ["pon", "minkan", "chi"].includes(x.action.type)).sort((a2, b) => (a2.action.type === "chi") - (b.action.type === "chi"));
+  if (!calls.length) {
+    draw2(s, (r.source + 1) % 4);
+    return;
+  }
+  cancelIppatsu(s);
+  const { seat, action: a } = calls[0], p = s.players[seat], t = typeOf(r.id), ids = [...remove(p, a.type === "chi" ? [a.tile, a.tile + 1, a.tile + 2].filter((x) => x !== t) : Array(a.type === "minkan" ? 3 : 2).fill(t)), r.id];
+  s.players[r.source].river.at(-1).claimed = true;
+  p.melds.push({ type: a.type === "chi" ? "chi" : a.type === "minkan" ? "kan" : "pon", tile: a.tile, open: true, from: r.source, ids });
+  const open = p.melds.filter((m) => m.open && m.type !== "chi");
+  if (t >= 31 && open.filter((m) => m.tile >= 31).length === 3 || t >= 27 && t < 31 && open.filter((m) => m.tile >= 27 && m.tile < 31).length === 4) p.pao = r.source;
+  p.drawn = null;
+  p.drawSource = null;
+  p.forbidden = s.rules.allowKuikae ? [] : [t];
+  s.turn = seat;
+  s.phase = "turn";
+  s.reaction = null;
+  event2(s, { type: "call", seat, action: a, from: r.source });
+  if (a.type === "minkan") completeKan2(s, seat);
+}
+function step2(s, seat, a, { validate = true } = {}) {
+  if (!a || !legalActions2(s, seat).some((x) => same(x, a))) throw new Error(`Illegal action by ${seat}: ${key(a)}`);
+  const p = s.players[seat];
+  event2(s, { type: "action", seat, action: { ...a } });
+  if (s.phase === "reaction") {
+    const r = s.reaction;
+    if (a.type !== "ron" && canRon2(s, seat)) {
+      p.passLock = true;
+      p.stats.ronDeclined++;
+      if (p.riichi) p.riichiFuriten = true;
+    }
+    r.answers.push({ seat, action: { ...a } });
+    r.pending.shift();
+    if (!r.pending.length) resolve(s);
+  } else if (a.type === "tsumo") win2(s, seat, "tsumo", seat, p.drawn);
+  else if (a.type === "discard" || a.type === "riichi") {
+    const id = p.riichi ? p.hand.splice(p.hand.indexOf(p.drawn), 1)[0] : remove(p, [a.tile])[0];
+    if (p.riichi) p.ippatsu = false;
+    p.river.push({ id, claimed: false, ...a.type === "riichi" ? { riichi: true } : {} });
+    p.drawn = null;
+    p.forbidden = [];
+    reaction(s, seat, id, "discard", { riichi: a.type === "riichi" });
+  } else if (a.type === "ankan") {
+    p.melds.push({ type: "kan", tile: a.tile, open: false, from: seat, ids: remove(p, Array(4).fill(a.tile)) });
+    p.stats.closedKans++;
+    completeKan2(s, seat);
+  } else if (a.type === "kakan") {
+    cancelIppatsu(s);
+    reaction(s, seat, p.hand.find((id) => typeOf(id) === p.melds[a.meld].tile), "kakan", { meld: a.meld });
+  }
+  if (validate) assertInvariants2(s);
+  return s;
+}
+function observation2(s, seat = actor2(s)) {
+  if (seat !== actor2(s)) throw new Error("Not this player\u2019s decision");
+  const p = s.players[seat];
+  const players = s.players.map((p2, i) => ({ seat: i, won: p2.won, score: p2.score, handSize: p2.hand.length, riichi: p2.riichi, melds: p2.melds.map(meldView2), discards: p2.river.map((d) => ({ tile: typeOf(d.id), claimed: d.claimed, riichi: !!d.riichi })), revealed: p2.won && s.rules.revealWinnerHand ? handTypes2(p2) : [] }));
+  return { seat, dealer: s.dealer, rules: structuredClone(s.rules), hand: handTypes2(p), melds: p.melds.map(meldView2), players, visible: visibleCounts2(s, seat), riichi: p.riichi, pot: s.pot, doraIndicators: indicators(s), activeCount: 4, wallRemaining: s.wall.length, draws: s.draws, phase: s.phase, lastDiscard: s.reaction ? { seat: s.reaction.source, tile: typeOf(s.reaction.id), kind: s.reaction.kind } : null, legalActions: legalActions2(s, seat) };
+}
+function assertInvariants2(s) {
+  const all = [...s.wall, ...s.dead];
+  for (const p of s.players) {
+    all.push(...p.hand);
+    for (const m of p.melds) all.push(...m.ids);
+    for (const d of p.river) if (!d.claimed) all.push(d.id);
+  }
+  if (all.length !== 136 || new Set(all).size !== 136 || all.some((id) => !Number.isInteger(id) || id < 0 || id > 135)) throw new Error("Tile conservation violated");
+  if (s.players.reduce((n, p) => n + p.score, 0) + s.pot !== s.initialPot || s.pot < 0) throw new Error("Score conservation violated");
+  for (let seat = 0; seat < 4; seat++) {
+    const p = s.players[seat], extra = s.phase === "turn" && s.turn === seat || s.phase === "reaction" && s.reaction.kind === "kakan" && s.reaction.source === seat || p.win?.method === "tsumo";
+    if (p.hand.length + 3 * p.melds.length !== (extra ? 14 : 13)) throw new Error(`Hand size violated seat ${seat}`);
+    for (const m of p.melds) {
+      const wanted = m.type === "chi" ? [m.tile, m.tile + 1, m.tile + 2] : Array(m.type === "kan" ? 4 : 3).fill(m.tile);
+      if (!same(m.ids.map(typeOf).sort((a, b) => a - b), wanted)) throw new Error("Illegal meld");
+    }
+    const st = p.stats;
+    if (p.score !== st.winReceipt + st.drawGain - st.dealInLoss - st.tsumoPaid - st.drawLoss - st.riichiPaid) throw new Error("Ledger attribution violated");
+  }
+  if (s.dead.length !== 14 || s.kans > 4 || s.winners.length > 1 || s.winners.length !== s.players.filter((p) => p.won).length) throw new Error("S round invariant violated");
+  return true;
+}
+
+// game/engine.mjs
+var variantOf = (state2) => state2?.rules?.variant === "S" ? "S" : "H";
+var engine = (state2) => variantOf(state2) === "S" ? game_exports2 : game_exports;
+function createGame3({ variant = "H", ...options } = {}) {
+  if (!["H", "S"].includes(variant)) throw new Error("Unknown rule variant");
+  return (variant === "S" ? game_exports2 : game_exports).createGame(options);
+}
+var actor3 = (state2) => engine(state2).actor(state2);
+var legalActions3 = (state2, seat) => engine(state2).legalActions(state2, seat);
+var observation3 = (state2, seat) => engine(state2).observation(state2, seat);
+var step3 = (state2, seat, action, options) => engine(state2).step(state2, seat, action, options);
+
+// policies/index.mjs
+var policies_exports = {};
+__export(policies_exports, {
+  OPPONENT_PROFILES: () => OPPONENT_PROFILES,
+  POLICIES: () => POLICIES,
+  chooseAction: () => chooseAction,
+  evaluateDiscards: () => evaluateDiscards,
+  policyConfig: () => policyConfig,
+  publicRisk: () => publicRisk
+});
+
 // engine/shanten.mjs
 var suitCache = /* @__PURE__ */ new Map();
 var honorCache = /* @__PURE__ */ new Map();
@@ -537,8 +1080,8 @@ function frontier(code, honor = false) {
     for (const [m, t, p] of sub) {
       const mm = m + dm, pp = p + dp;
       if (mm > 4 || pp > 1) continue;
-      const tt = Math.min(4 - mm, t + dt), key2 = mm * 2 + pp;
-      if ((out.get(key2) ?? -1) < tt) out.set(key2, tt);
+      const tt = Math.min(4 - mm, t + dt), key3 = mm * 2 + pp;
+      if ((out.get(key3) ?? -1) < tt) out.set(key3, tt);
     }
   }
   merge(frontier(code - base, honor), 0, 0, 0);
@@ -569,8 +1112,8 @@ function shanten(c, openMelds = 0, quadPairs = false) {
     for (const [m, t, p] of states) for (const [mm, tt, pp] of fs) {
       const nm = m + mm, np = p + pp;
       if (nm > 4 || np > 1) continue;
-      const nt = Math.min(4 - nm, t + tt), key2 = nm * 2 + np;
-      if ((next.get(key2) ?? -1) < nt) next.set(key2, nt);
+      const nt = Math.min(4 - nm, t + tt), key3 = nm * 2 + np;
+      if ((next.get(key3) ?? -1) < nt) next.set(key3, nt);
     }
     states = [...next].map(([k, t]) => [Math.floor(k / 2), t, k % 2]);
   }
@@ -689,9 +1232,9 @@ function bestDiscard(c, melds, o, w, allowed = null) {
   for (const candidate of raw) if (candidate.shanten <= min + w.maxShantenLoss) {
     const t = candidate.tile;
     c[t]--;
-    const metrics = value13(c, melds, o, w, t);
+    const metrics2 = value13(c, melds, o, w, t);
     c[t]++;
-    const r = { tile: t, ...metrics };
+    const r = { tile: t, ...metrics2 };
     if (!best || r.score > best.score + 1e-9) best = r;
   }
   return best;
@@ -751,6 +1294,115 @@ function evaluateDiscards(o, id = "E", weights = {}) {
   }).sort((a, b) => b.score - a.score);
 }
 
+// s-engine/policy.mjs
+var policy_exports = {};
+__export(policy_exports, {
+  chooseAction: () => chooseAction2,
+  evaluateDiscards: () => evaluateDiscards2
+});
+var distance = (c, m, rules) => Math.min(shanten(c, m), !m && rules.standardYakuman ? 13 - ORPHANS.filter((t) => c[t]).length - Number(ORPHANS.some((t) => c[t] >= 2)) : 8);
+function metrics(c, melds, o, w, discard = null) {
+  const s = distance(c, melds.length, o.rules);
+  let ukeire = 0;
+  for (let t = 0; t < 34; t++) if (c[t] < 4 && o.visible[t] < 4) {
+    c[t]++;
+    if (distance(c, melds.length, o.rules) < s) ukeire += 4 - o.visible[t];
+    c[t]--;
+  }
+  const closed = melds.every((m) => !m.open), all = [...c];
+  for (const m of melds) for (const t of m.type === "chi" ? [m.tile, m.tile + 1, m.tile + 2] : Array(m.type === "kan" ? 4 : 3).fill(m.tile)) all[t]++;
+  let value = closed ? 100 : 0, connections = 0;
+  for (let t = 0; t < 27; t++) {
+    if (t % 9 < 8) connections += Math.min(c[t], c[t + 1]);
+    if (t % 9 < 7) connections += 0.35 * Math.min(c[t], c[t + 2]);
+  }
+  for (let t = 27; t < 34; t++) if (t >= 31 || t === o.rules.roundWind || t === 27 + (o.seat - o.dealer + 4) % 4) value += all[t] >= 3 ? 200 : all[t] === 2 ? 75 : 0;
+  value += (o.doraIndicators ?? []).reduce((n, t) => n + all[doraAfter(t)] * 100, 0);
+  const size = all.reduce((a, b) => a + b, 0), simple = all.reduce((n, count, t) => n + (!isYao(t) ? count : 0), 0);
+  value += 100 * (simple / size) ** 5;
+  for (let suit = 0; suit < 3; suit++) value = Math.max(value, 600 * (all.slice(suit * 9, suit * 9 + 9).reduce((a, b) => a + b, 0) / size) ** 5);
+  const pinfu = closed ? connections / 4 - c.filter((n) => n >= 3).length * 0.3 : 0;
+  let risk = 0;
+  if (discard !== null) {
+    for (const p of o.players) if (p.seat !== o.seat && !p.discards.some((d) => d.tile === discard)) risk += (p.riichi ? 3 : 0.2 + Math.min(1, p.discards.length / 16)) * (4 - o.visible[discard]) / 4 * (discard >= 27 ? 0.45 : 1);
+  }
+  return { shanten: s, ukeire, value, pinfu, risk, score: -w.speed * s + w.ukeire * ukeire + w.value * value + w.pinfu * pinfu - w.risk * risk };
+}
+function bestDiscard2(c, melds, o, w, allowed) {
+  const rows = [];
+  for (let t = 0; t < 34; t++) if (c[t] && (!allowed || allowed.includes(t))) {
+    c[t]--;
+    rows.push({ type: "discard", tile: t, ...metrics(c, melds, o, w, t) });
+    c[t]++;
+  }
+  const min = Math.min(...rows.map((r) => r.shanten));
+  return rows.filter((r) => r.shanten <= min + w.maxShantenLoss).sort((a, b) => b.score - a.score)[0];
+}
+function evaluateDiscards2(o, id = "E", weights = {}) {
+  const c = counts(o.hand), w = policyConfig(id, weights);
+  return o.legalActions.filter((a) => a.type === "discard").map((a) => {
+    c[a.tile]--;
+    const m = metrics(c, o.melds, o, w, a.tile);
+    c[a.tile]++;
+    return { ...a, ...m };
+  }).sort((a, b) => b.score - a.score);
+}
+function chooseAction2(o, id = "E", weights = {}) {
+  const as = o.legalActions, w = policyConfig(id, weights), find = (t) => as.find((a) => a.type === t);
+  if (!as.length) throw new Error("No legal action");
+  if (find("tsumo")) return find("tsumo");
+  if (find("ron")) return w.declineRon ? find("pass") : find("ron");
+  if (as.length === 1) return as[0];
+  const c = counts(o.hand);
+  if (o.phase === "turn") {
+    const d = bestDiscard2(c, o.melds, o, w, as.filter((a) => a.type === "discard").map((a) => a.tile));
+    let chosen2 = { type: "discard", tile: d.tile }, best2 = d.score;
+    for (const a of as.filter((a2) => a2.type === "ankan" || a2.type === "kakan")) {
+      const cc = [...c], mm = structuredClone(o.melds);
+      if (a.type === "ankan") {
+        cc[a.tile] -= 4;
+        mm.push({ type: "kan", tile: a.tile, open: false });
+      } else {
+        cc[mm[a.meld].tile]--;
+        mm[a.meld].type = "kan";
+      }
+      const m = metrics(cc, mm, o, w);
+      if (m.shanten <= d.shanten && m.score + 3 > best2) {
+        best2 = m.score + 3;
+        chosen2 = a;
+      }
+    }
+    if (chosen2.type === "discard") {
+      const riichi = as.find((a) => a.type === "riichi" && a.tile === chosen2.tile);
+      if (riichi && !(id === "E" && d.risk > 3)) return riichi;
+    }
+    return chosen2;
+  }
+  let chosen = find("pass"), base = metrics(c, o.melds, o, w), best = base.score;
+  for (const a of as.filter((a2) => ["chi", "pon", "minkan"].includes(a2.type))) {
+    const cc = [...c], mm = structuredClone(o.melds), t = o.lastDiscard.tile;
+    for (const tile of a.type === "chi" ? [a.tile, a.tile + 1, a.tile + 2].filter((x) => x !== t) : Array(a.type === "minkan" ? 3 : 2).fill(t)) cc[tile]--;
+    mm.push({ type: a.type === "chi" ? "chi" : a.type === "pon" ? "pon" : "kan", tile: a.tile, open: true });
+    const openValue = mm.some((m2) => m2.type !== "chi" && (m2.tile >= 31 || m2.tile === o.rules.roundWind || m2.tile === 27 + (o.seat - o.dealer + 4) % 4));
+    const simple = o.hand.every((t2) => !isYao(t2)) && !isYao(t);
+    const flush = new Set([...o.hand, ...mm.map((m2) => m2.tile)].filter((t2) => t2 < 27).map((t2) => Math.floor(t2 / 9))).size === 1;
+    const triplets = mm.every((m2) => m2.type !== "chi") && cc.filter((n) => n >= 2).length + mm.length >= 4;
+    if (!openValue && !simple && !flush && !triplets) continue;
+    const m = a.type === "minkan" ? metrics(cc, mm, o, w) : bestDiscard2(cc, mm, o, w, o.rules.allowKuikae ? null : Array.from({ length: 34 }, (_, i) => i).filter((i) => i !== t));
+    if (m && m.shanten <= base.shanten + w.maxShantenLoss && m.score - w.callCost > best) {
+      chosen = a;
+      best = m.score - w.callCost;
+    }
+  }
+  return chosen;
+}
+
+// game/policies.mjs
+var POLICIES2 = POLICIES;
+var OPPONENT_PROFILES2 = OPPONENT_PROFILES;
+var chooseAction3 = (view, id, weights) => (view.rules.variant === "S" ? policy_exports : policies_exports).chooseAction(view, id, weights);
+var evaluateDiscards3 = (view, id, weights) => (view.rules.variant === "S" ? policy_exports : policies_exports).evaluateDiscards(view, id, weights);
+
 // web/practice-flow.mjs
 var AUTO_PASS_DELAY_MS = 700;
 var SEAT_NAMES = ["\uB3D9", "\uB0A8", "\uC11C", "\uBD81"];
@@ -759,26 +1411,26 @@ function displayedTurn(state2) {
   if (state2.phase === "reaction") return state2.reaction.source;
   return state2.phase === "turn" ? state2.turn : null;
 }
-function resolveAiReactions(state2, humanSeat2, choose, apply = step) {
-  while (state2.phase === "reaction" && actor(state2) !== humanSeat2) {
-    const seat = actor(state2);
-    apply(state2, seat, choose(observation(state2, seat)));
+function resolveAiReactions(state2, humanSeat2, choose, apply = step3) {
+  while (state2.phase === "reaction" && actor3(state2) !== humanSeat2) {
+    const seat = actor3(state2);
+    apply(state2, seat, choose(observation3(state2, seat)));
   }
 }
 function handDisplay(state2, seat = 0) {
   const player = state2.players[seat];
-  const drawn = state2.phase === "turn" && actor(state2) === seat && !player.won && player.drawn !== null && player.hand.includes(player.drawn) ? player.drawn : null;
+  const drawn = state2.phase === "turn" && actor3(state2) === seat && !player.won && player.drawn !== null && player.hand.includes(player.drawn) ? player.drawn : null;
   return { held: player.hand.filter((id) => id !== drawn), drawn };
 }
 function needsAutomaticPass(state2, seat = 0) {
-  if (state2.phase !== "reaction" || actor(state2) !== seat) return false;
-  const actions = legalActions(state2, seat);
+  if (state2.phase !== "reaction" || actor3(state2) !== seat) return false;
+  const actions = legalActions3(state2, seat);
   return actions.length === 1 && actions[0].type === "pass";
 }
 function nextDelay(state2, autoplay, seat = 0) {
   if (state2.phase === "end") return null;
   if (needsAutomaticPass(state2, seat)) return AUTO_PASS_DELAY_MS;
-  if (actor(state2) !== seat || autoplay) return autoplay ? 30 : 90;
+  if (actor3(state2) !== seat || autoplay) return autoplay ? 30 : 90;
   return null;
 }
 
@@ -794,6 +1446,8 @@ function actionLabel(action, view = {}) {
   switch (action.type) {
     case "discard":
       return `${tileName(action.tile)} \uBC84\uB9AC\uAE30`;
+    case "riichi":
+      return `\uB9AC\uCE58 \xB7 ${tileName(action.tile)} \uBC84\uB9AC\uAE30`;
     case "tsumo":
       return "\uCBD4\uBAA8 \uD654\uB8CC";
     case "ron":
@@ -815,10 +1469,11 @@ function actionLabel(action, view = {}) {
   }
 }
 function reasonFor(action, view, policy) {
+  if (action.type === "riichi") return "\uBA58\uC820 \uD150\uD30C\uC774\uB85C 1,000\uC810\uC744 \uACF5\uD0C1\uD569\uB2C8\uB2E4. \uB9AC\uCE58\uB9CC\uC73C\uB85C\uB294 S\uB8F0\uC758 \uD654\uB8CC \uC5ED \uC870\uAC74\uC744 \uCDA9\uC871\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
   if (action.type === "tsumo") return "\uC9C0\uAE08 \uCBD4\uBAA8 \uD654\uB8CC\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.";
   if (action.type === "ron") return policy === "C" ? "\uC774 \uADDC\uCE59\uC5D0\uC11C\uB294 \uB860\uC744 \uB118\uAE38 \uC218 \uC5C6\uC5B4 \uD654\uB8CC\uD569\uB2C8\uB2E4." : "\uC644\uC131\uB41C \uD328\uB85C \uC9C0\uAE08 \uB860 \uD654\uB8CC\uD569\uB2C8\uB2E4.";
   if (action.type === "pass") {
-    if (view.legalActions.some((a) => a.type === "ron")) return "\uD569\uBC95\uC801\uC778 \uB860\uC744 \uB118\uAE30\uACE0 \uCBD4\uBAA8\uB97C \uAE30\uB2E4\uB9AC\uB294 \uC120\uD0DD\uC785\uB2C8\uB2E4.";
+    if (view.legalActions.some((a) => a.type === "ron")) return view.rules.variant === "S" ? "\uB860\uC744 \uB118\uACA8 \uD6C4\uB9AC\uD150\uC774 \uB429\uB2C8\uB2E4. \uB9AC\uCE58 \uC911\uC774\uBA74 \uC774 \uAD6D\uC5D0\uC11C \uB2E4\uC2DC \uB860\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4." : "\uD569\uBC95\uC801\uC778 \uB860\uC744 \uB118\uAE30\uACE0 \uCBD4\uBAA8\uB97C \uAE30\uB2E4\uB9AC\uB294 \uC120\uD0DD\uC785\uB2C8\uB2E4.";
     if (view.legalActions.length === 1) return "\uB860\uC774\uB098 \uD6C4\uB85C\uAC00 \uBD88\uAC00\uB2A5\uD574 \uB118\uAE41\uB2C8\uB2E4.";
     return "\uD6C4\uB85C \uC774\uD6C4\uC758 \uD615\uD0DC\uC640 \uC190\uD328 \uC720\uC9C0\uB97C \uBE44\uAD50\uD574 \uB118\uAE30\uAE30\uB97C \uC120\uD0DD\uD588\uC2B5\uB2C8\uB2E4.";
   }
@@ -829,17 +1484,17 @@ function reasonFor(action, view, policy) {
 function strategyRecommendations(view) {
   if (!view.legalActions.length) return [];
   const discards = view.legalActions.filter((a) => a.type === "discard");
-  return Object.entries(POLICIES).map(([policy, config]) => {
-    const action = chooseAction(view, policy);
+  return Object.entries(POLICIES2).map(([policy, config]) => {
+    const action = chooseAction3(view, policy);
     let discard = null;
     if (discards.length && action.type !== "tsumo") {
-      const selected = action.type === "discard" ? action : chooseAction({ ...view, legalActions: discards }, policy);
-      const metrics = evaluateDiscards({ ...view, legalActions: [selected] }, policy)[0];
+      const selected = action.type === "discard" ? action : chooseAction3({ ...view, legalActions: discards }, policy);
+      const metrics2 = evaluateDiscards3({ ...view, legalActions: [selected] }, policy)[0];
       discard = {
         action: { ...selected },
         label: actionLabel(selected),
-        shanten: metrics.shanten,
-        ukeire: metrics.ukeire
+        shanten: metrics2.shanten,
+        ukeire: metrics2.ukeire
       };
     }
     return {
@@ -858,7 +1513,7 @@ var SVG = "http://www.w3.org/2000/svg";
 var dots = { 1: [[50, 50]], 2: [[50, 24], [50, 76]], 3: [[24, 22], [50, 50], [76, 78]], 4: [[24, 24], [76, 24], [24, 76], [76, 76]], 5: [[24, 24], [76, 24], [50, 50], [24, 76], [76, 76]], 6: [[24, 18], [76, 18], [24, 50], [76, 50], [24, 82], [76, 82]], 7: [[24, 16], [50, 31], [76, 16], [24, 57], [76, 57], [24, 84], [76, 84]], 8: [[24, 13], [76, 13], [24, 38], [76, 38], [24, 63], [76, 63], [24, 88], [76, 88]], 9: [[22, 16], [50, 16], [78, 16], [22, 50], [50, 50], [78, 50], [22, 84], [50, 84], [78, 84]] };
 function element(tag, attributes) {
   const el = document.createElementNS(SVG, tag);
-  for (const [key2, value] of Object.entries(attributes)) el.setAttribute(key2, String(value));
+  for (const [key3, value] of Object.entries(attributes)) el.setAttribute(key3, String(value));
   return el;
 }
 function span(text, cls) {
@@ -866,6 +1521,24 @@ function span(text, cls) {
   el.className = cls;
   el.textContent = text;
   return el;
+}
+function bird(svg) {
+  svg.setAttribute("data-design", "bamboo-bird");
+  for (const d of ["M47 60 Q16 66 17 98 Q38 91 51 67", "M49 62 Q32 81 37 103 Q54 92 56 65", "M54 62 Q54 86 69 99 Q76 78 62 60"]) svg.append(element("path", { d, fill: "#1a7952", stroke: "#125c40", "stroke-width": 2 }));
+  svg.append(element("path", { d: "M28 47 Q22 30 34 19 Q48 13 55 27 L65 43 Q77 55 63 68 Q48 78 34 65 Q25 58 28 47Z", fill: "#1a7952" }));
+  svg.append(element("path", { d: "M34 46 Q45 35 63 48 Q61 63 41 66 Q49 55 34 46Z", fill: "#2d526f" }));
+  svg.append(element("path", { d: "M53 24 L72 32 L55 35Z", fill: "#b12739" }));
+  svg.append(element("circle", { cx: 45, cy: 25, r: 4, fill: "#fff7dc" }), element("circle", { cx: 46, cy: 25, r: 2, fill: "#173d32" }));
+  svg.append(element("path", { d: "M32 17 L27 10 M38 15 L37 7 M49 68 L50 82 M50 82 L42 86 M50 82 L58 85", fill: "none", stroke: "#b12739", "stroke-width": 3, "stroke-linecap": "round" }));
+}
+function eightBamboo(svg) {
+  svg.setAttribute("data-design", "bamboo-eight");
+  for (const [x1, y1, x2, y2] of [[13, 43, 29, 16], [29, 16, 45, 43], [55, 43, 71, 16], [71, 16, 87, 43], [13, 65, 29, 92], [29, 92, 45, 65], [55, 65, 71, 92], [71, 92, 87, 65]]) {
+    const g = element("g", { "data-bamboo-stem": "true" }), mx = (x1 + x2) / 2, my = (y1 + y2) / 2, dx = (y2 - y1) / 9, dy = -(x2 - x1) / 9;
+    g.append(element("path", { d: `M${x1} ${y1} L${x2} ${y2}`, fill: "none", stroke: "#1a7952", "stroke-width": 6, "stroke-linecap": "round" }));
+    g.append(element("path", { d: `M${mx - dx} ${my - dy} L${mx + dx} ${my + dy}`, fill: "none", stroke: "#125c40", "stroke-width": 3, "stroke-linecap": "round" }));
+    svg.append(g);
+  }
 }
 function tileFace(type, { button = false, small = false } = {}) {
   const tile = document.createElement(button ? "button" : "span");
@@ -879,7 +1552,9 @@ function tileFace(type, { button = false, small = false } = {}) {
     tile.append(span(["\u4E00", "\u4E8C", "\u4E09", "\u56DB", "\u4E94", "\u516D", "\u4E03", "\u516B", "\u4E5D"][type], "tile-number"), span("\u842C", "tile-man"));
   } else if (type < 27) {
     const n = type % 9 + 1, svg = element("svg", { viewBox: "0 0 100 110", class: "tile-symbol", "aria-hidden": "true", focusable: "false" });
-    for (const [index, [x, y]] of dots[n].entries()) {
+    if (type === 18) bird(svg);
+    else if (type === 25) eightBamboo(svg);
+    else for (const [index, [x, y]] of dots[n].entries()) {
       if (type < 18) {
         const color = n === 1 ? "#245176" : n === 5 && index === 2 ? "#b12739" : index % 3 === 0 ? "#b12739" : "#245176";
         svg.append(element("circle", { cx: x, cy: y + 5, r: n === 1 ? 25 : n < 6 ? 14 : 10, fill: "none", stroke: color, "stroke-width": n === 1 ? 8 : 6 }));
@@ -899,7 +1574,7 @@ function tileFace(type, { button = false, small = false } = {}) {
 
 // web/selection.mjs
 function canSelectTile(state2, seat, id, auto2 = false) {
-  return !auto2 && Number.isInteger(id) && state2.phase === "turn" && actor(state2) === seat && state2.players[seat].hand.includes(id) && legalActions(state2, seat).some((a) => a.type === "discard" && a.tile === typeOf(id));
+  return !auto2 && Number.isInteger(id) && state2.phase === "turn" && actor3(state2) === seat && state2.players[seat].hand.includes(id) && legalActions3(state2, seat).some((a) => a.type === "discard" && a.tile === typeOf(id));
 }
 function selectedDiscard(state2, seat, id, auto2 = false) {
   if (!canSelectTile(state2, seat, id, auto2)) throw new Error("\uD604\uC7AC \uC190\uD328\uC5D0\uC11C \uBC84\uB9B4 \uD328\uB97C \uB2E4\uC2DC \uC120\uD0DD\uD558\uC138\uC694.");
@@ -912,7 +1587,7 @@ function seatPositions(humanSeat2) {
 // web/multiplayer.mjs
 var STORAGE = "h-mahjong-room-v1";
 var API_ORIGIN = ["127.0.0.1", "localhost"].includes(location.hostname) ? "http://127.0.0.1:8790" : "https://wellness-mahjong-h-lab.chayhyeon.chatgpt.site";
-var key = () => Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, "0")).join("");
+var key2 = () => Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, "0")).join("");
 var RoomClient = class {
   constructor({ onState, onStatus }) {
     this.onState = onState;
@@ -974,14 +1649,14 @@ var RoomClient = class {
     this.onStatus("\uC5F0\uACB0\uB428");
     if (changed) this.onState(data);
   }
-  async connect(name, code) {
+  async connect(name, code, variant = "H") {
     this.stop();
     const generation = this.generation;
     const saved = this.saved();
-    this.session = { key: saved?.key ?? key(), name, code: code ?? null };
+    this.session = { key: saved?.key ?? key2(), name, code: code ?? null };
     this.snapshot = null;
     this.onStatus("\uBC29\uC5D0 \uC5F0\uACB0 \uC911\u2026");
-    const data = await this.request(code ? `rooms/${code}/join` : "rooms", { name });
+    const data = await this.request(code ? `rooms/${code}/join` : "rooms", { name, ...code ? {} : { variant } });
     if (generation !== this.generation) return;
     this.session.code = data.code;
     this.remember();
@@ -1047,16 +1722,29 @@ var RoomClient = class {
 // web/score-display.mjs
 var signedPoints = (value) => `${value > 0 ? "+" : ""}${value}`;
 function winSettlement(state2, seat) {
-  const player = state2.players[seat], win2 = player.win;
-  if (!win2) return null;
-  const { score } = win2;
-  const payerCount = win2.method === "tsumo" ? state2.players.length - win2.order : 1;
-  const tsumoBonus = win2.method === "tsumo" ? state2.rules.tsumoBonusPerPayer : 0;
+  const player = state2.players[seat], win3 = player.win;
+  if (!win3) return null;
+  const { score } = win3;
+  if (state2.rules.variant === "S") {
+    const payments = Array.isArray(state2.ledger) ? state2.ledger.filter((p) => p.to === seat && ["tsumo", "ron", "pot"].includes(p.kind)) : win3.payments ?? [];
+    const receipt2 = payments.reduce((n, p) => n + p.amount, 0), seats2 = ["\uB3D9", "\uB0A8", "\uC11C", "\uBD81"];
+    return {
+      payerCount: payments.filter((p) => p.from !== "pot").length,
+      receipt: receipt2,
+      expectedReceipt: win3.receipt,
+      net: player.score,
+      previousNet: player.score - receipt2,
+      title: `${score.name} ${win3.method === "tsumo" ? "\uCBD4\uBAA8" : "\uB860"} \xB7 \uC774\uBC88 \uD654\uB8CC +${receipt2}\uC810`,
+      calculation: `${score.yakuman ? "\uC5ED\uB9CC" : score.han + "\uD310"} \xB7 ${payments.map((p) => `${seats2[p.from] ?? "\uACF5\uD0C1"} ${p.amount}`).join(" + ")} = +${receipt2}\uC810`
+    };
+  }
+  const payerCount = win3.method === "tsumo" ? state2.players.length - win3.order : 1;
+  const tsumoBonus = win3.method === "tsumo" ? state2.rules.tsumoBonusPerPayer : 0;
   const perPayer = score.total + tsumoBonus, expectedReceipt = perPayer * payerCount;
-  const receipt = Array.isArray(state2.ledger) ? state2.ledger.filter((payment) => payment.to === seat && payment.kind === win2.method).reduce((sum, payment) => sum + payment.amount, 0) : expectedReceipt;
+  const receipt = Array.isArray(state2.ledger) ? state2.ledger.filter((payment) => payment.to === seat && payment.kind === win3.method).reduce((sum, payment) => sum + payment.amount, 0) : expectedReceipt;
   const parts = [`\uC5ED ${score.base}`];
   if (score.bonus) parts.push(`\uAC00\uC0B0 ${score.bonus}`);
-  if (win2.method === "tsumo") parts.push(`\uCBD4\uBAA8 ${tsumoBonus}`);
+  if (win3.method === "tsumo") parts.push(`\uCBD4\uBAA8 ${tsumoBonus}`);
   return {
     payerCount,
     perPayer,
@@ -1064,13 +1752,14 @@ function winSettlement(state2, seat) {
     expectedReceipt,
     net: player.score,
     previousNet: player.score - receipt,
-    title: `${score.name} ${win2.method === "tsumo" ? "\uCBD4\uBAA8" : "\uB860"} \xB7 \uC774\uBC88 \uD654\uB8CC +${receipt}\uC810`,
+    title: `${score.name} ${win3.method === "tsumo" ? "\uCBD4\uBAA8" : "\uB860"} \xB7 \uC774\uBC88 \uD654\uB8CC +${receipt}\uC810`,
     calculation: `(${parts.join(" + ")}) \xD7 ${payerCount}\uBA85 = +${expectedReceipt}\uC810${receipt !== expectedReceipt ? ` \xB7 \uC2E4\uC81C \uC774\uCCB4 +${receipt}\uC810 (\uC815\uC0B0 \uD655\uC778 \uD544\uC694)` : ""}`
   };
 }
 
 // web/game-log.mjs
 var LOG_FORMAT = "h-mahjong-log/v1";
+var COMPACT_FORMAT = "wellness-mahjong-log/v2";
 var PREFIX = "h-mahjong-log-v1:";
 var INDEX = PREFIX + "index";
 var MAX_LOGS = 10;
@@ -1080,30 +1769,43 @@ var scores = (game) => game.players.map((player) => player.score);
 var seats = ["\uB3D9", "\uB0A8", "\uC11C", "\uBD81"];
 var signed = (value) => `${value > 0 ? "+" : ""}${value}`;
 function beforeAction(game) {
-  return { scores: scores(game), active: game.players.flatMap((p, i) => p.won ? [] : [i]), events: game.events.length, ledger: game.ledger.length };
+  return { scores: scores(game), active: game.players.flatMap((p, i) => p.won ? [] : [i]), events: game.events.length, ledger: game.ledger.length, pot: game.pot ?? 0 };
 }
 function actionRecord(game, seat, action, before, error = null) {
   const after = scores(game), payments = clone(game.ledger.slice(before.ledger)), issues = [];
   const delta = after.map((value, i) => value - before.scores[i]), ledgerDelta = [0, 0, 0, 0];
   for (const payment of payments) {
-    ledgerDelta[payment.from] -= payment.amount;
-    ledgerDelta[payment.to] += payment.amount;
+    if (Number.isInteger(payment.from)) ledgerDelta[payment.from] -= payment.amount;
+    if (Number.isInteger(payment.to)) ledgerDelta[payment.to] += payment.amount;
   }
   if (delta.some((value, i) => value !== ledgerDelta[i])) issues.push("\uC810\uC218 \uBCC0\uD654\uC640 \uC2E4\uC81C \uC774\uCCB4 \uB0B4\uC5ED\uC774 \uC77C\uCE58\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
-  const wins = game.events.slice(before.events).filter((e) => e.type === "win").map((win2) => {
-    const payers = win2.method === "tsumo" ? before.active.filter((i) => i !== win2.seat) : [win2.source];
-    const actual = payments.filter((p) => p.to === win2.seat && p.kind === win2.method);
-    const tsumoBonus = win2.method === "tsumo" ? game.rules.tsumoBonusPerPayer : 0;
-    const perPayer = win2.score.total + tsumoBonus, expectedReceipt = perPayer * payers.length, actualReceipt = actual.reduce((sum, p) => sum + p.amount, 0);
+  const wins = game.events.slice(before.events).filter((e) => e.type === "win").map((win3) => {
+    if (game.rules.variant === "S") {
+      const actual2 = payments.filter((p) => p.to === win3.seat), actualReceipt2 = actual2.reduce((n, p) => n + p.amount, 0), expected = [], pao = win3.score.yakuman ? game.players[win3.seat].pao : null;
+      if (pao !== null && pao !== void 0) {
+        if (win3.method === "tsumo" || win3.source === pao) expected.push({ from: pao, amount: win3.score.total });
+        else expected.push({ from: pao, amount: win3.score.total / 2 }, { from: win3.source, amount: win3.score.total / 2 });
+      } else if (win3.method === "ron") expected.push({ from: win3.source, amount: win3.score.points.ron });
+      else for (let from = 0; from < 4; from++) if (from !== win3.seat) expected.push({ from, amount: from === game.dealer ? win3.score.points.tsumoDealer : win3.score.points.tsumoOther });
+      if (before.pot) expected.push({ from: "pot", amount: before.pot });
+      const expectedReceipt2 = expected.reduce((n, p) => n + p.amount, 0), problems2 = [];
+      if (actual2.length !== expected.length || expected.some((e) => actual2.filter((p) => p.from === e.from && p.amount === e.amount).length !== 1) || actualReceipt2 !== delta[win3.seat]) problems2.push("S\uB8F0 \uC9C0\uAE09\uC790 \uB610\uB294 \uC9C0\uAE09\uC561\uC774 \uC801\uC6A9 \uADDC\uCE59\uACFC \uB2E4\uB985\uB2C8\uB2E4.");
+      issues.push(...problems2.map((text) => `${seats[win3.seat]}: ${text}`));
+      return { seat: win3.seat, method: win3.method, order: win3.order, score: clone(win3.score), payers: expected.map((p) => p.from), expectedReceipt: expectedReceipt2, actualReceipt: actualReceipt2, scoreBefore: before.scores[win3.seat], scoreAfter: after[win3.seat], payments: actual2, issues: problems2 };
+    }
+    const payers = win3.method === "tsumo" ? before.active.filter((i) => i !== win3.seat) : [win3.source];
+    const actual = payments.filter((p) => p.to === win3.seat && p.kind === win3.method);
+    const tsumoBonus = win3.method === "tsumo" ? game.rules.tsumoBonusPerPayer : 0;
+    const perPayer = win3.score.total + tsumoBonus, expectedReceipt = perPayer * payers.length, actualReceipt = actual.reduce((sum, p) => sum + p.amount, 0);
     const problems = [];
     if (actual.length !== payers.length || payers.some((i) => actual.filter((p) => p.from === i && p.amount === perPayer).length !== 1)) problems.push("\uC9C0\uAE09\uC790 \uB610\uB294 \uC9C0\uAE09\uC561\uC774 \uC801\uC6A9 \uADDC\uCE59\uACFC \uB2E4\uB985\uB2C8\uB2E4.");
-    if ((win2.score.yaku === "pinfu" || win2.score.name === "\uD551\uD6C4") && (win2.score.base !== 100 || win2.score.bonus !== 0 || win2.score.total !== 100)) problems.push("\uD551\uD6C4 \uC5ED \uC810\uC218 \uB610\uB294 \uAC00\uC0B0\uC810\uC774 \uC798\uBABB\uB418\uC5C8\uC2B5\uB2C8\uB2E4.");
-    if (actualReceipt !== expectedReceipt || delta[win2.seat] !== actualReceipt) problems.push("\uD654\uB8CC \uC218\uC785\uACFC \uC810\uC218 \uBCC0\uD654\uAC00 \uB2E4\uB985\uB2C8\uB2E4.");
-    issues.push(...problems.map((text) => `${seats[win2.seat]}: ${text}`));
-    return { seat: win2.seat, method: win2.method, order: win2.order, score: clone(win2.score), tsumoBonus, payers, perPayer, expectedReceipt, actualReceipt, scoreBefore: before.scores[win2.seat], scoreAfter: after[win2.seat], payments: actual, issues: problems };
+    if ((win3.score.yaku === "pinfu" || win3.score.name === "\uD551\uD6C4") && (win3.score.base !== 100 || win3.score.bonus !== 0 || win3.score.total !== 100)) problems.push("\uD551\uD6C4 \uC5ED \uC810\uC218 \uB610\uB294 \uAC00\uC0B0\uC810\uC774 \uC798\uBABB\uB418\uC5C8\uC2B5\uB2C8\uB2E4.");
+    if (actualReceipt !== expectedReceipt || delta[win3.seat] !== actualReceipt) problems.push("\uD654\uB8CC \uC218\uC785\uACFC \uC810\uC218 \uBCC0\uD654\uAC00 \uB2E4\uB985\uB2C8\uB2E4.");
+    issues.push(...problems.map((text) => `${seats[win3.seat]}: ${text}`));
+    return { seat: win3.seat, method: win3.method, order: win3.order, score: clone(win3.score), tsumoBonus, payers, perPayer, expectedReceipt, actualReceipt, scoreBefore: before.scores[win3.seat], scoreAfter: after[win3.seat], payments: actual, issues: problems };
   });
   const draws = game.events.slice(before.events).filter((e) => e.type === "draw" || e.type === "kanDraw").map(({ type, seat: seat2, id }) => ({ type, seat: seat2, id }));
-  return { seat, action: clone(action), before: before.scores, after, delta, payments, wins, draws, issues, ...error ? { error: String(error.message ?? error) } : {} };
+  return { seat, action: clone(action), before: before.scores, after, delta, payments, wins, draws, issues, eventRange: [before.events, game.events.length], ...error ? { error: String(error.message ?? error) } : {} };
 }
 var GameJournal = class {
   constructor({ storage = null, now = () => (/* @__PURE__ */ new Date()).toISOString(), newId = () => crypto.randomUUID() } = {}) {
@@ -1171,7 +1873,7 @@ var GameJournal = class {
   read(id = this.current?.id) {
     if (id === this.current?.id) return clone(this.current);
     try {
-      const log = JSON.parse(this.storage?.getItem(PREFIX + id) ?? "null");
+      const log = expandLog(JSON.parse(this.storage?.getItem(PREFIX + id) ?? "null"));
       return log?.format === LOG_FORMAT && log.id === id ? log : null;
     } catch {
       return null;
@@ -1183,21 +1885,21 @@ var GameJournal = class {
     this.current.updatedAt = this.now();
     this.persisted = false;
     if (!this.storage) return false;
-    const text = JSON.stringify(this.current), summary = { ...this.summary(), chars: text.length };
+    const text = JSON.stringify(compactLog(this.current)), summary = { ...this.summary(), chars: text.length };
     if (text.length > MAX_CHARS) return false;
     const previous = this.index().filter((x) => x.id !== summary.id).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-    const keep = [summary], remove = [];
+    const keep = [summary], remove2 = [];
     let size = text.length;
     for (const entry of previous) {
       if (keep.length < MAX_LOGS && size + (entry.chars ?? 0) <= MAX_CHARS) {
         keep.push(entry);
         size += entry.chars ?? 0;
-      } else remove.push(entry);
+      } else remove2.push(entry);
     }
     try {
       this.storage.setItem(PREFIX + summary.id, text);
       this.storage.setItem(INDEX, JSON.stringify(keep));
-      for (const entry of remove) this.storage.removeItem(PREFIX + entry.id);
+      for (const entry of remove2) this.storage.removeItem(PREFIX + entry.id);
       this.persisted = true;
     } catch {
       return false;
@@ -1206,28 +1908,28 @@ var GameJournal = class {
   }
 };
 function logText(log) {
-  const game = log.game, lines = [
-    "H\uB8F0 \uB9C8\uC791 \uB300\uAD6D \uB85C\uADF8",
-    `\uC2DC\uC791: ${log.startedAt}`,
-    `\uCD5C\uADFC \uC800\uC7A5: ${log.updatedAt}`,
-    `\uBAA8\uB4DC: ${log.mode === "practice" ? "\uD63C\uC790 \uC5F0\uC2B5" : "4\uC778 \uB300\uAD6D (\uBC1B\uC740 \uACF5\uAC1C \uC815\uBCF4\uC640 \uB0B4 \uC190\uD328)"}`,
-    `\uB0B4 \uC790\uB9AC: ${seats[log.humanSeat]}`,
-    `\uBC30\uD328 \uBC88\uD638: ${game.seed ?? "\uC11C\uBC84 \uBE44\uACF5\uAC1C"}`,
-    `\uD654\uBA74 \uBC84\uC804: ${log.build ?? "\uBBF8\uAE30\uB85D"}`,
-    `\uCBD4\uBAA8 \uBCF4\uB108\uC2A4: \uC9C0\uAE09\uC790\uB9C8\uB2E4 ${game.rules.tsumoBonusPerPayer}\uC810`,
+  log = expandLog(log);
+  const game = log.game, variant = game.rules.variant === "S" ? "S" : "H", lines = [
+    `${variant}\uB8F0 \uB9C8\uC791 \uB300\uAD6D \uB85C\uADF8`,
+    `${log.startedAt} \xB7 ${log.mode === "practice" ? "\uD63C\uC790 \uC5F0\uC2B5" : "4\uC778 \uB300\uAD6D"} \xB7 \uB0B4 \uC790\uB9AC ${seats[log.humanSeat]}`,
+    `\uBC30\uD328 \uBC88\uD638: ${game.seed ?? "\uC11C\uBC84 \uBE44\uACF5\uAC1C"} \xB7 \uD654\uBA74 \uBC84\uC804: ${log.build ?? "\uBBF8\uAE30\uB85D"}`,
     `\uCD5C\uC885 \uC810\uC218: ${scores(game).map((score, i) => `${seats[i]} ${signed(score)}`).join(" / ")}`,
     ""
   ];
   for (const entry of log.actions) {
     const action = entry.action, tile = Number.isInteger(action.tile) ? ` ${tileName(action.tile)}` : "";
-    lines.push(`#${entry.n + 1} ${seats[entry.seat]} ${action.type}${tile} | \uC804 ${entry.before.join(", ")} \u2192 \uD6C4 ${entry.after.join(", ")}`);
-    for (const win2 of entry.wins) lines.push(`  ${seats[win2.seat]} ${win2.score.name} ${win2.method === "tsumo" ? "\uCBD4\uBAA8" : "\uB860"}: \uC5ED ${win2.score.base} + \uAC00\uC0B0 ${win2.score.bonus} + \uCBD4\uBAA8 ${win2.tsumoBonus}, \uC9C0\uAE09\uC790 ${win2.payers.length}\uBA85, \uADDC\uCE59\uC0C1 ${win2.expectedReceipt}, \uC2E4\uC81C \uC218\uC785 ${win2.actualReceipt}`);
-    for (const payment of entry.payments) lines.push(`  ${seats[payment.from]} \u2192 ${seats[payment.to]}: ${payment.amount}\uC810 (${payment.kind})`);
-    for (const draw2 of entry.draws) lines.push(`  ${seats[draw2.seat]} ${draw2.type === "kanDraw" ? "\uBCF4\uCDA9\uD328" : "\uBF51\uC740 \uD328"}: ${tileName(typeOf(draw2.id))}`);
+    if (action.type !== "pass") lines.push(`#${entry.n + 1} ${seats[entry.seat]} ${{ discard: "\uBC84\uB9BC", riichi: "\uB9AC\uCE58\xB7\uBC84\uB9BC", tsumo: "\uCBD4\uBAA8", ron: "\uB860", chi: "\uCE58", pon: "\uD401", ankan: "\uC548\uAE61", minkan: "\uBA85\uAE61", kakan: "\uAC00\uAE61" }[action.type] ?? action.type}${tile}`);
+    for (const win3 of entry.wins) {
+      const detail = variant === "S" ? `${win3.score.yakuman ? "\uC5ED\uB9CC" : win3.score.han + "\uD310"}` : `\uC5ED ${win3.score.base}${win3.score.bonus ? " + \uAC00\uC0B0 " + win3.score.bonus : ""}${win3.tsumoBonus ? " + \uCBD4\uBAA8 " + win3.tsumoBonus : ""}`;
+      lines.push(`  ${seats[win3.seat]} ${win3.score.name} (${detail})`);
+      if (win3.issues.length) lines.push(`  \uADDC\uCE59\uC0C1 ${win3.expectedReceipt}, \uC2E4\uC81C \uC218\uC785 ${win3.actualReceipt}`);
+    }
+    for (const payment of entry.payments) lines.push(`  ${seats[payment.from] ?? "\uACF5\uD0C1"} \u2192 ${seats[payment.to] ?? "\uACF5\uD0C1"}: ${payment.amount}\uC810`);
+    for (const draw3 of entry.draws) lines.push(`  ${seats[draw3.seat]} ${draw3.type === "kanDraw" ? "\uBCF4\uCDA9\uD328" : "\uBF51\uC740 \uD328"}: ${tileName(typeOf(draw3.id))}`);
     for (const issue of entry.issues) lines.push(`  [\uC815\uC0B0 \uD655\uC778 \uD544\uC694] ${issue}`);
     if (entry.error) lines.push(`  [\uC2E4\uD589 \uC624\uB958] ${entry.error}`);
   }
-  for (const entry of log.observations) lines.push(`\uC218\uC2E0 ${entry.revision}: ${entry.before.join(", ")} \u2192 ${entry.after.join(", ")} (\uC218\uC2E0 \uC0AC\uC774\uC758 \uAC1C\uBCC4 \uD589\uB3D9\uC740 \uC11C\uBC84\uC5D0\uC11C \uD655\uC778 \uD544\uC694)`);
+  for (const entry of log.observations) if (entry.delta.some(Boolean)) lines.push(`\uC218\uC2E0 ${entry.revision} \uC810\uC218 \uBCC0\uB3D9: ${entry.delta.map((v, i) => v ? seats[i] + " " + signed(v) : "").filter(Boolean).join(" / ")}`);
   lines.push("", "\uD604\uC7AC \uC190\uD328\xB7\uD6C4\uB85C (JSON\uC5D0\uB294 \uC6D0\uBCF8 \uD328 \uBC88\uD638\uC640 \uC0C1\uC138 \uAE30\uB85D \uD3EC\uD568)");
   for (let seat = 0; seat < 4; seat++) {
     const p = game.players[seat];
@@ -1235,6 +1937,102 @@ function logText(log) {
   }
   for (const error of log.errors) lines.push(`[\uC624\uB958 ${error.at}] ${error.message}`);
   return lines.join("\n") + "\n";
+}
+function reviewText(input) {
+  const log = expandLog(input), game = log.game, s = game.rules.variant === "S", lines = [`${s ? "S" : "H"}\uB8F0 \xB7 ${game.seed ?? log.room}`, `\uCD5C\uC885: ${game.players.map((p, i) => seats[i] + " " + signed(p.score)).join(" / ")}`];
+  for (const e of log.actions) {
+    if (["ankan", "minkan", "kakan"].includes(e.action.type)) lines.push(`${seats[e.seat]} ${e.action.type === "ankan" ? "\uC548\uAE61" : e.action.type === "minkan" ? "\uBA85\uAE61" : "\uAC00\uAE61"}${Number.isInteger(e.action.tile) ? " \xB7 " + tileName(e.action.tile) : ""} (\uC774\uB54C\uB294 \uC810\uC218 \uC774\uB3D9 \uC5C6\uC74C)`);
+    for (const win3 of e.wins) {
+      const extra = Object.entries(win3.score.bonuses ?? {}).filter(([, value]) => typeof value === "number" && value).map(([name, value]) => `${{ kan: "\uAE61", dragon: "\uC0BC\uC6D0\uD328", roundWind: "\uC7A5\uD48D", seatWind: "\uC790\uD48D" }[name] ?? name} ${value}`);
+      lines.push(`${seats[win3.seat]} ${win3.score.name} ${win3.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 ${s ? win3.score.yakuman ? "\uC5ED\uB9CC" : win3.score.han + "\uD310" : `\uC5ED ${win3.score.base}${extra.length ? " + " + extra.join(" + ") : ""}${win3.tsumoBonus ? " + \uCBD4\uBAA8 " + win3.tsumoBonus + " / \uC9C0\uAE09\uC790" : ""}`}`);
+    }
+    for (const p of e.payments) lines.push(`  ${seats[p.from] ?? "\uACF5\uD0C1"} \u2192 ${seats[p.to] ?? "\uACF5\uD0C1"}: ${p.amount}\uC810`);
+    for (const issue of e.issues) lines.push(`[\uC815\uC0B0 \uD655\uC778 \uD544\uC694] ${issue}`);
+  }
+  if (log.mode === "online") {
+    for (const entry of log.observations) if (entry.delta.some(Boolean)) lines.push(`\uC218\uC2E0 ${entry.revision}: ${entry.delta.map((v, i) => v ? seats[i] + " " + signed(v) : "").filter(Boolean).join(" / ")}`);
+  }
+  return lines.join("\n");
+}
+function compactLog(input) {
+  const log = expandLog(input);
+  if (!log || log.format !== LOG_FORMAT) throw new Error("\uC9C0\uC6D0\uD558\uC9C0 \uC54A\uB294 \uB300\uAD6D \uB85C\uADF8\uC785\uB2C8\uB2E4.");
+  const game = clone(log.game), actionEvents = game.events.filter((e) => e.type === "action");
+  for (const p of game.players) if (p.win) {
+    const win3 = game.events.find((e) => e.type === "win" && e.seat === game.players.indexOf(p));
+    if (win3?.order) p.win = { event: win3.n ?? game.events.indexOf(win3) };
+  }
+  for (const e of game.events) if (e.type === "win" && e.payments) {
+    e.paymentIndexes = game.ledger.flatMap((p, i) => p.to === e.seat && ["ron", "tsumo", "pot"].includes(p.kind) ? [i] : []);
+    delete e.payments;
+  }
+  const actions = log.actions.map((a, i) => ({
+    seat: a.seat,
+    action: a.action,
+    at: a.at,
+    events: a.eventRange ?? [actionEvents[i]?.n ?? game.events.length, actionEvents[i + 1]?.n ?? game.events.length],
+    ...a.delta.some(Boolean) ? { scores: a.after } : {},
+    ...a.payments.length ? { transfers: a.payments.length } : {},
+    ...a.issues.length ? { issues: a.issues } : {},
+    ...a.error ? { error: a.error } : {}
+  }));
+  const observations = log.observations.map((o) => ({ revision: o.revision, at: o.at, eventCount: o.events.length, ...o.delta.some(Boolean) ? { scores: o.after } : {} }));
+  return { ...log, format: COMPACT_FORMAT, actions, observations, game };
+}
+function expandLog(input) {
+  if (!input || input.format !== COMPACT_FORMAT) return input;
+  const log = clone(input), game = log.game;
+  log.format = LOG_FORMAT;
+  for (const e of game.events) if (e.paymentIndexes) {
+    e.payments = e.paymentIndexes.map((i) => clone(game.ledger[i]));
+    delete e.paymentIndexes;
+  }
+  for (const p of game.players) if (p.win && Object.hasOwn(p.win, "event")) {
+    const event3 = game.events.find((e, i) => (e.n ?? i) === p.win.event);
+    if (!event3) throw new Error("\uD654\uB8CC \uAE30\uB85D \uCC38\uC870\uAC00 \uC798\uBABB\uB418\uC5C8\uC2B5\uB2C8\uB2E4.");
+    const { n, type, seat, ...win3 } = event3;
+    p.win = clone(win3);
+  }
+  let previous = scores(log.initialGame), cursor = log.initialGame.ledger?.length ?? 0, active = log.initialGame.players.flatMap((p, i) => p.won ? [] : [i]), pot = log.initialGame.pot ?? 0;
+  log.actions = log.actions.map((a, n) => {
+    const after = a.scores ?? previous, end2 = cursor + (a.transfers ?? 0), snapshot = { ...game, players: game.players.map((p, i) => ({ ...p, score: after[i] })), events: game.events.slice(0, a.events[1]), ledger: game.ledger.slice(0, end2) };
+    const entry = { n, at: a.at, ...actionRecord(snapshot, a.seat, a.action, { scores: previous, active, events: a.events[0], ledger: cursor, pot }, a.error) };
+    entry.issues = a.issues ?? entry.issues;
+    for (const p of entry.payments) {
+      if (p.to === "pot") pot += p.amount;
+      if (p.from === "pot") pot -= p.amount;
+    }
+    for (const w of entry.wins) active = active.filter((i) => i !== w.seat);
+    previous = after;
+    cursor = end2;
+    return entry;
+  });
+  previous = scores(log.initialGame);
+  log.observations = log.observations.map((o) => {
+    const after = o.scores ?? previous, entry = { revision: o.revision, at: o.at, before: previous, after, delta: after.map((v, i) => v - previous[i]), events: game.events.slice(0, o.eventCount) };
+    previous = after;
+    return entry;
+  });
+  return log;
+}
+
+// web/preferences.mjs
+var KEY = "wellness-mahjong-preferences-v1";
+function readPreferences(storage) {
+  try {
+    const saved = JSON.parse(storage?.getItem(KEY) ?? "{}");
+    return { recommendations: saved?.recommendations !== false, variant: saved?.variant === "S" ? "S" : "H" };
+  } catch {
+    return { recommendations: true, variant: "H" };
+  }
+}
+function savePreferences(storage, value) {
+  try {
+    storage?.setItem(KEY, JSON.stringify({ recommendations: !!value.recommendations, variant: value.variant === "S" ? "S" : "H" }));
+    return !!storage;
+  } catch {
+    return false;
+  }
 }
 
 // web/app.mjs
@@ -1254,13 +2052,16 @@ try {
   logStorage = localStorage;
 } catch {
 }
+var preferences = readPreferences(logStorage);
+var recommendationsEnabled = preferences.recommendations;
+var chosenVariant = preferences.variant;
 var journal = new GameJournal({ storage: logStorage });
 var buildId = new URL(import.meta.url).searchParams.get("v") ?? "local-source";
 var needsPass = (s, seat) => online && s === state ? s.phase === "reaction" && remote?.legalActions.length === 1 && remote.legalActions[0].type === "pass" : needsAutomaticPass(s, seat);
-var actor2 = (s) => online && remote && s === state ? remote.legalActions.length ? humanSeat : actor(s) : actor(s);
-var legalActions2 = (s) => online && s === state ? remote?.legalActions ?? [] : legalActions(s);
-var observation2 = (s) => online && s === state ? remote?.observation : observation(s);
-var canChooseTile = (id) => online ? !networkBusy && roomClient.connected && state.players[humanSeat].hand.includes(id) && legalActions2(state).some((a) => a.type === "discard" && a.tile === typeOf(id)) : canSelectTile(state, humanSeat, id, auto);
+var actor4 = (s) => online && remote && s === state ? remote.legalActions.length ? humanSeat : actor3(s) : actor3(s);
+var legalActions4 = (s) => online && s === state ? remote?.legalActions ?? [] : legalActions3(s);
+var observation4 = (s) => online && s === state ? remote?.observation : observation3(s);
+var canChooseTile = (id) => online ? !networkBusy && roomClient.connected && state.players[humanSeat].hand.includes(id) && legalActions4(state).some((a) => a.type === "discard" && a.tile === typeOf(id)) : canSelectTile(state, humanSeat, id, auto);
 function discardSelection() {
   if (online) {
     if (!canChooseTile(selectedTileId)) throw new Error("\uD604\uC7AC \uC190\uD328\uC5D0\uC11C \uBC84\uB9B4 \uD328\uB97C \uB2E4\uC2DC \uC120\uD0DD\uD558\uC138\uC694.");
@@ -1275,7 +2076,7 @@ var roomClient = new RoomClient({ onState: receiveRoom, onStatus: (message) => {
     render();
   }
 } });
-for (const [id, p] of Object.entries(POLICIES)) {
+for (const [id, p] of Object.entries(POLICIES2)) {
   const opt = document.createElement("option");
   opt.value = id;
   opt.textContent = `${id} \xB7 ${p.name}`;
@@ -1336,7 +2137,7 @@ function updateSelection() {
     confirm.disabled = selectedTileId === null || auto || networkBusy;
     confirm.textContent = selectedTileId === null ? "\uBC84\uB9AC\uAE30" : `${tileName(typeOf(selectedTileId))} \uBC84\uB9AC\uAE30`;
   }
-  $("selection-hint").textContent = state.end ? "\uC0C8 \uB300\uAD6D\uC73C\uB85C \uB2E4\uC2DC \uC5F0\uC2B5\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." : state.players[humanSeat].won ? "\uD654\uB8CC\uD588\uC2B5\uB2C8\uB2E4. \uB0A8\uC740 \uB300\uAD6D\uC744 \uC9C0\uCF1C\uBCF4\uC138\uC694." : auto ? "\uC120\uD0DD\uD55C \uC804\uB7B5\uC73C\uB85C \uC790\uB3D9 \uB300\uAD6D \uC911\uC785\uB2C8\uB2E4." : actor2(state) !== humanSeat ? "\uC0C1\uB300\uAC00 \uC9C4\uD589 \uC911\uC785\uB2C8\uB2E4." : state.phase === "reaction" ? "\uAC00\uB2A5\uD55C \uD589\uB3D9\uC744 \uC120\uD0DD\uD558\uC138\uC694." : selectedTileId === null ? "\uD328\uB97C \uC120\uD0DD \u2192 \uB2E4\uC2DC \uB204\uB974\uAC70\uB098 \u2018\uBC84\uB9AC\uAE30\u2019\uB85C \uD655\uC815" : `${tileName(typeOf(selectedTileId))} \uC120\uD0DD \xB7 \uB2E4\uC2DC \uB204\uB974\uAC70\uB098 \u2018\uBC84\uB9AC\uAE30\u2019\uB85C \uD655\uC815`;
+  $("selection-hint").textContent = state.end ? "\uC0C8 \uB300\uAD6D\uC73C\uB85C \uB2E4\uC2DC \uC5F0\uC2B5\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." : state.players[humanSeat].won ? "\uD654\uB8CC\uD588\uC2B5\uB2C8\uB2E4. \uB0A8\uC740 \uB300\uAD6D\uC744 \uC9C0\uCF1C\uBCF4\uC138\uC694." : auto ? "\uC120\uD0DD\uD55C \uC804\uB7B5\uC73C\uB85C \uC790\uB3D9 \uB300\uAD6D \uC911\uC785\uB2C8\uB2E4." : actor4(state) !== humanSeat ? "\uC0C1\uB300\uAC00 \uC9C4\uD589 \uC911\uC785\uB2C8\uB2E4." : state.phase === "reaction" ? "\uAC00\uB2A5\uD55C \uD589\uB3D9\uC744 \uC120\uD0DD\uD558\uC138\uC694." : selectedTileId === null ? "\uD328\uB97C \uC120\uD0DD \u2192 \uB2E4\uC2DC \uB204\uB974\uAC70\uB098 \u2018\uBC84\uB9AC\uAE30\u2019\uB85C \uD655\uC815" : `${tileName(typeOf(selectedTileId))} \uC120\uD0DD \xB7 \uB2E4\uC2DC \uB204\uB974\uAC70\uB098 \u2018\uBC84\uB9AC\uAE30\u2019\uB85C \uD655\uC815`;
 }
 function renderMeld(m) {
   const el = node("div", void 0, "meld");
@@ -1350,6 +2151,7 @@ function renderRiver(parent, player) {
   for (const d of player.river) {
     const t = tileFace(typeOf(d.id), { small: true });
     t.classList.toggle("claimed", !!d.claimed);
+    t.classList.toggle("riichi-discard", !!d.riichi);
     t.classList.toggle("last-discard", state.phase === "reaction" && state.reaction.id === d.id);
     if (d.claimed) t.setAttribute("aria-label", `${tileName(typeOf(d.id))}, \uD6C4\uB85C\uC5D0 \uC0AC\uC6A9\uB428`);
     parent.append(t);
@@ -1362,6 +2164,10 @@ function renderRecommendations() {
   const revision = ++recommendationRevision, list = $("recommendation-list"), status = $("recommendation-status");
   currentRecommendations = [];
   list.replaceChildren();
+  if (!recommendationsEnabled) {
+    status.textContent = "\uC804\uB7B5 \uCD94\uCC9C\uC744 \uAED0\uC2B5\uB2C8\uB2E4.";
+    return;
+  }
   if (state.phase === "end") {
     status.textContent = "\uAD6D\uC774 \uB05D\uB0AC\uC2B5\uB2C8\uB2E4. \uC0C8 \uAD6D\uC744 \uC2DC\uC791\uD558\uBA74 \uCD94\uCC9C\uC774 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
     return;
@@ -1378,7 +2184,7 @@ function renderRecommendations() {
     status.textContent = "\uC11C\uBC84 \uC751\uB2F5\uC744 \uAE30\uB2E4\uB9AC\uB294 \uC911\uC785\uB2C8\uB2E4.";
     return;
   }
-  if (actor2(state) !== humanSeat) {
+  if (actor4(state) !== humanSeat) {
     status.textContent = "\uB0B4 \uC120\uD0DD \uCC28\uB840\uAC00 \uB418\uBA74 A~E \uC804\uB7B5\uC758 \uCD94\uCC9C\uC744 \uD568\uAED8 \uBCF4\uC5EC\uC90D\uB2C8\uB2E4.";
     return;
   }
@@ -1386,7 +2192,7 @@ function renderRecommendations() {
     status.textContent = "\uC9C0\uAE08\uC740 \uB118\uAE30\uAE30\uB9CC \uAC00\uB2A5\uD574 0.7\uCD08 \uB4A4 \uC790\uB3D9\uC73C\uB85C \uC9C4\uD589\uD569\uB2C8\uB2E4.";
     return;
   }
-  currentRecommendations = strategyRecommendations(observation2(state, humanSeat));
+  currentRecommendations = strategyRecommendations(observation4(state, humanSeat));
   status.textContent = "\uBC84\uD2BC\uC744 \uB204\uB974\uBA74 \uD574\uB2F9 \uC804\uB7B5\uC758 \uC120\uD0DD\uC744 \uD55C \uBC88 \uC2E4\uD589\uD569\uB2C8\uB2E4.";
   for (const rec of currentRecommendations) {
     const card = node("article", void 0, "recommendation-card"), title = node("h4");
@@ -1399,7 +2205,7 @@ function renderRecommendations() {
     card.append(button);
     if (rec.discard && rec.action.type !== "discard") {
       const alternative = node("div", void 0, "recommendation-alternative");
-      alternative.append(node("p", "\uAE61 \uB300\uC2E0 \uBC84\uB9B0\uB2E4\uBA74", "alternative-title"), node("p", discardMetrics(rec.discard), "recommendation-metrics"));
+      alternative.append(node("p", rec.action.type === "riichi" ? "\uB9AC\uCE58 \uC5C6\uC774 \uBC84\uB9B0\uB2E4\uBA74" : "\uAE61 \uB300\uC2E0 \uBC84\uB9B0\uB2E4\uBA74", "alternative-title"), node("p", discardMetrics(rec.discard), "recommendation-metrics"));
       const discardButton = node("button", rec.discard.label, "recommendation-discard");
       discardButton.setAttribute("aria-label", `${rec.policy} \uC804\uB7B5 \uBC84\uB9BC\uD328 \uB300\uC548 \uC2E4\uD589: ${rec.discard.label}`);
       discardButton.onclick = () => actRecommendation(rec.policy, "discard", revision);
@@ -1410,9 +2216,10 @@ function renderRecommendations() {
   }
 }
 function executeRecommendation(policy, mode, revision) {
-  if (!Object.hasOwn(POLICIES, policy) || !["recommended", "discard"].includes(mode)) throw new Error("\uC804\uB7B5\uACFC \uCD94\uCC9C \uC885\uB958\uB97C \uB2E4\uC2DC \uC120\uD0DD\uD558\uC138\uC694.");
+  if (!Object.hasOwn(POLICIES2, policy) || !["recommended", "discard"].includes(mode)) throw new Error("\uC804\uB7B5\uACFC \uCD94\uCC9C \uC885\uB958\uB97C \uB2E4\uC2DC \uC120\uD0DD\uD558\uC138\uC694.");
   if (!Number.isSafeInteger(revision) || revision !== recommendationRevision) throw new Error("\uB300\uAD6D \uC0C1\uD0DC\uAC00 \uBC14\uB00C\uC5C8\uC2B5\uB2C8\uB2E4. \uC0C8 \uCD94\uCC9C\uC744 \uD655\uC778\uD558\uC138\uC694.");
-  if (auto || actor2(state) !== humanSeat) throw new Error("\uB0B4\uAC00 \uC9C1\uC811 \uC120\uD0DD\uD558\uB294 \uCC28\uB840\uC5D0\uB9CC \uCD94\uCC9C\uC744 \uC2E4\uD589\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.");
+  if (!recommendationsEnabled) throw new Error("\uC804\uB7B5 \uCD94\uCC9C\uC744 \uBA3C\uC800 \uCF1C \uC8FC\uC138\uC694.");
+  if (auto || actor4(state) !== humanSeat) throw new Error("\uB0B4\uAC00 \uC9C1\uC811 \uC120\uD0DD\uD558\uB294 \uCC28\uB840\uC5D0\uB9CC \uCD94\uCC9C\uC744 \uC2E4\uD589\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.");
   const rec = currentRecommendations.find((r) => r.policy === policy), action = mode === "discard" ? rec?.discard?.action : rec?.action;
   if (!action) throw new Error("\uC9C0\uAE08 \uC2E4\uD589\uD560 \uC218 \uC788\uB294 \uCD94\uCC9C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.");
   const result = playHumanAction(action);
@@ -1430,12 +2237,17 @@ function actRecommendation(policy, mode, revision) {
   }
 }
 function render() {
-  const a = actor2(state), shownTurn = displayedTurn(state), p = state.players[humanSeat], positions = seatPositions(humanSeat);
+  const variant = state.rules.variant === "S" ? "S" : "H";
+  document.querySelector(".room-label").textContent = `${variant} RULE \xB7 ${online ? "4\uC778 \uB300\uAD6D" : "\uD63C\uC790 \uC5F0\uC2B5"}`;
+  document.querySelector(".wind-mark").textContent = variant;
+  $("s-rule-status").hidden = variant !== "S";
+  if (variant === "S") $("s-rule-status").textContent = `\uB3D9\uC7A5 \xB7 \uCE5C ${SEAT_NAMES[state.dealer]} \xB7 \uB3C4\uB77C \uD45C\uC2DC ${((online ? state.doraIndicators : indicators(state)) ?? []).map(tileName).join(" \xB7 ")} \xB7 \uACF5\uD0C1 ${state.pot ?? 0}\uC810`;
+  const a = actor4(state), shownTurn = displayedTurn(state), p = state.players[humanSeat], positions = seatPositions(humanSeat);
   const reacting = state.phase === "reaction", humanChoice = reacting && a === humanSeat && !auto && !needsPass(state, humanSeat);
-  $("game-status").textContent = state.end ? `${state.end === "three-winners" ? "\uC138 \uBC88\uC9F8 \uD654\uB8CC" : "\uC720\uAD6D"} \xB7 \uAD6D \uC885\uB8CC` : p.won ? "\uD654\uB8CC \uC644\uB8CC \xB7 \uB0A8\uC740 \uB300\uAD6D \uC9C4\uD589 \uC911" : reacting ? humanChoice ? "\uB860 \xB7 \uD6C4\uB85C \uC120\uD0DD" : "\uD6C4\uB85C \uD655\uC778 \uC911" : a === humanSeat ? "\uB0B4 \uCC28\uB840 \xB7 \uBC84\uB9BC\uD328 \uC120\uD0DD" : `${SEAT_NAMES[a]} \uD50C\uB808\uC774\uC5B4 \uCC28\uB840`;
+  $("game-status").textContent = state.end ? `${state.end === "three-winners" ? "\uC138 \uBC88\uC9F8 \uD654\uB8CC" : state.end === "win" ? "\uD654\uB8CC" : "\uC720\uAD6D"} \xB7 \uAD6D \uC885\uB8CC` : p.won ? "\uD654\uB8CC \uC644\uB8CC \xB7 \uB0A8\uC740 \uB300\uAD6D \uC9C4\uD589 \uC911" : reacting ? humanChoice ? "\uB860 \xB7 \uD6C4\uB85C \uC120\uD0DD" : "\uD6C4\uB85C \uD655\uC778 \uC911" : a === humanSeat ? "\uB0B4 \uCC28\uB840 \xB7 \uBC84\uB9BC\uD328 \uC120\uD0DD" : `${SEAT_NAMES[a]} \uD50C\uB808\uC774\uC5B4 \uCC28\uB840`;
   $("turn-indicator").textContent = state.end ? "\uAD6D \uC885\uB8CC" : reacting ? humanChoice ? "\uB860 \xB7 \uD6C4\uB85C \uC120\uD0DD \uAC00\uB2A5" : "\uD6C4\uB85C \uD655\uC778 \uC911" : a === humanSeat ? "\u25CF \uB0B4 \uCC28\uB840" : `${SEAT_NAMES[a]} \uC9C4\uD589 \uC911`;
   $("wall").textContent = `\uB0A8\uC740 \uD328 ${state.wall.length}`;
-  $("win-count").textContent = `\uD654\uB8CC ${state.winners.length} / 3\uBA85`;
+  $("win-count").textContent = `\uD654\uB8CC ${state.winners.length} / ${variant === "S" ? 1 : 3}\uBA85`;
   $("opponents").replaceChildren();
   $("rivers").replaceChildren();
   for (const [position, i] of Object.entries(positions)) {
@@ -1446,7 +2258,7 @@ function render() {
     const pl = state.players[i], card = node("div", void 0, `opponent opponent-${position}${pl.won ? " won" : ""}${shownTurn === i ? " active" : ""}`), title = node("div", void 0, "player-title"), who = node("span", void 0, "player-seat");
     who.append(node("span", ["\u6771", "\u5357", "\u897F", "\u5317"][i], "seat-badge"), node("span", online ? remote.members.find((m) => m.seat === i)?.name ?? "\uD50C\uB808\uC774\uC5B4" : "AI", "player-name"));
     title.append(who, node("span", `${pl.score > 0 ? "+" : ""}${pl.score}`, "player-score"));
-    card.append(title, node("p", pl.won ? `${pl.win.order}\uBC88\uC9F8 ${pl.win.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 ${pl.win.score.name}` : `${SEAT_NAMES[i]} \xB7 \uC190\uD328 ${pl.handSize ?? pl.hand.length}\uC7A5`, "player-sub"));
+    card.append(title, node("p", pl.won ? `${pl.win.order}\uBC88\uC9F8 ${pl.win.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 ${pl.win.score.name}` : `${SEAT_NAMES[i]}${pl.riichi ? " \xB7 \uB9AC\uCE58" : ""} \xB7 \uC190\uD328 ${pl.handSize ?? pl.hand.length}\uC7A5`, "player-sub"));
     for (const m of pl.melds) card.append(renderMeld(m));
     if (state.end || pl.won) {
       const revealed = node("div", void 0, "revealed-hand");
@@ -1465,6 +2277,7 @@ function render() {
     $("rivers").append(river);
   }
   $("self-title").replaceChildren(node("span", ["\u6771", "\u5357", "\u897F", "\u5317"][humanSeat], "seat-badge"), node("span", `${SEAT_NAMES[humanSeat]} \xB7 \uB098`), node("span", `\uAD6D \uB204\uC801 ${signedPoints(p.score)}\uC810`, "self-score"));
+  if (p.riichi) $("self-title").append(node("span", "\uB9AC\uCE58", "player-sub"));
   if (p.won) $("self-title").append(node("span", `${p.win.order}\uBC88\uC9F8 \uD654\uB8CC`, "player-sub"));
   const settlement = winSettlement(state, humanSeat), result = $("win-settlement");
   result.hidden = !settlement;
@@ -1475,7 +2288,7 @@ function render() {
   }
   $("melds").replaceChildren();
   for (const m of p.melds) $("melds").append(renderMeld(m));
-  const legal = a === humanSeat ? legalActions2(state) : [], hand = handDisplay(state, humanSeat), automaticPass = needsPass(state, humanSeat);
+  const legal = a === humanSeat ? legalActions4(state) : [], hand = handDisplay(state, humanSeat), automaticPass = needsPass(state, humanSeat);
   $("hand").replaceChildren();
   for (const id of hand.held) $("hand").append(handTile(id, legal));
   if (hand.drawn !== null) {
@@ -1519,13 +2332,13 @@ function render() {
   }
 }
 function aiAction(view) {
-  const spec = view.seat === humanSeat ? { id: $("policy").value } : OPPONENT_PROFILES[$("profile").value][(view.seat - humanSeat + 4) % 4 - 1];
-  return chooseAction(view, spec.id, spec.weights);
+  const spec = view.seat === humanSeat ? { id: $("policy").value } : OPPONENT_PROFILES2[$("profile").value][(view.seat - humanSeat + 4) % 4 - 1];
+  return chooseAction3(view, spec.id, spec.weights);
 }
 function loggedStep(game, seat, action) {
   const before = beforeAction(game);
   try {
-    const result = step(game, seat, action);
+    const result = step3(game, seat, action);
     journal.record(game, seat, action, before);
     return result;
   } catch (error) {
@@ -1543,13 +2356,13 @@ function finishAction() {
   schedule();
 }
 function playHumanAction(action) {
-  if (auto || actor2(state) !== humanSeat) throw new Error("\uB0B4 \uCC28\uB840\uC5D0 \uC9C1\uC811 \uC120\uD0DD\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.");
+  if (auto || actor4(state) !== humanSeat) throw new Error("\uB0B4 \uCC28\uB840\uC5D0 \uC9C1\uC811 \uC120\uD0DD\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.");
   if (online) return playOnlineAction(action);
   loggedStep(state, humanSeat, action);
   selectedTileId = null;
   $("error").textContent = "";
   finishAction();
-  return { seat: humanSeat, phase: state.phase, turn: actor2(state) };
+  return { seat: humanSeat, phase: state.phase, turn: actor4(state) };
 }
 async function playOnlineAction(action) {
   if (networkBusy || !roomClient.connected) throw new Error("\uC11C\uBC84 \uC751\uB2F5\uC744 \uAE30\uB2E4\uB824 \uC8FC\uC138\uC694.");
@@ -1559,7 +2372,7 @@ async function playOnlineAction(action) {
   try {
     await roomClient.act(action);
     $("error").textContent = "";
-    return { seat: humanSeat, phase: state.phase, turn: actor2(state) };
+    return { seat: humanSeat, phase: state.phase, turn: actor4(state) };
   } finally {
     networkBusy = false;
     if (online && remote?.state) render();
@@ -1582,7 +2395,7 @@ function tick() {
     render();
     return;
   }
-  const seat = actor2(state), automaticPass = needsPass(state, humanSeat);
+  const seat = actor4(state), automaticPass = needsPass(state, humanSeat);
   if (seat === humanSeat && !auto && !automaticPass) {
     render();
     return;
@@ -1591,7 +2404,7 @@ function tick() {
     if (automaticPass) {
       loggedStep(state, humanSeat, { type: "pass" });
     } else {
-      loggedStep(state, seat, aiAction(observation2(state)));
+      loggedStep(state, seat, aiAction(observation4(state)));
     }
     finishAction();
   } catch (e) {
@@ -1611,15 +2424,17 @@ function updateAuto() {
   $("autoplay").setAttribute("aria-pressed", String(auto));
   $("autoplay").textContent = auto ? "\uC790\uB3D9 \uB300\uAD6D \uBA48\uCD94\uAE30" : "\uB0B4 \uC790\uB9AC\uB3C4 AI\uB85C";
 }
-function start(seed) {
+function start(seed, variant = chosenVariant, { carryPot = false } = {}) {
   if (!Number.isInteger(seed) || seed < 0 || seed > 4294967295) throw new Error("\uC2DC\uB4DC\uB294 0\u20134294967295\uC758 \uC815\uC218\uC5EC\uC57C \uD569\uB2C8\uB2E4.");
+  const pot = carryPot && variant === "S" && state?.rules.variant === "S" && state.end === "exhaustive-draw" ? state.pot : 0;
+  setVariant(variant);
   showPractice();
   if (timer) clearTimeout(timer);
   auto = false;
   selectedTileId = null;
   updateAuto();
   humanSeat = practiceSeat(seed);
-  state = createGame({ seed });
+  state = createGame3({ seed, variant, pot });
   journal.begin(state, { mode: "practice", seat: humanSeat, policy: $("policy").value, profile: $("profile").value, build: buildId });
   renderLogs();
   $("seed").value = String(seed);
@@ -1627,7 +2442,7 @@ function start(seed) {
   $("error").textContent = "";
   render();
   schedule();
-  return { seed, seat: humanSeat, remaining: state.wall.length };
+  return { seed, variant, seat: humanSeat, remaining: state.wall.length };
 }
 function showPractice() {
   online = false;
@@ -1670,7 +2485,7 @@ function receiveRoom(snapshot) {
     const member = snapshot.members[i], el = node("div", member ? `${member.name}${member.id === snapshot.me ? " (\uB098)" : ""}${member.seat === null ? "" : ` \xB7 ${SEAT_NAMES[member.seat]}`}` : "\uC785\uC7A5 \uB300\uAE30 \uC911", `room-member${member?.id === snapshot.me ? " is-me" : ""}`);
     $("room-members").append(el);
   }
-  $("room-message").textContent = snapshot.state ? snapshot.state.end ? "\uAD6D\uC774 \uB05D\uB0AC\uC2B5\uB2C8\uB2E4. \uBC29\uC7A5\uC774 \uC0C8 \uAD6D\uC744 \uC2DC\uC791\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." : `\uC81C${snapshot.gameNumber}\uAD6D \xB7 \uB0B4 \uC790\uB9AC ${SEAT_NAMES[snapshot.seat]}` : `${snapshot.members.length}/4\uBA85 \uC785\uC7A5 \xB7 \uBC29 \uCF54\uB4DC\uB97C \uCE5C\uAD6C\uC5D0\uAC8C \uC54C\uB824 \uC8FC\uC138\uC694.`;
+  $("room-message").textContent = snapshot.state ? snapshot.state.end ? "\uAD6D\uC774 \uB05D\uB0AC\uC2B5\uB2C8\uB2E4. \uBC29\uC7A5\uC774 \uC0C8 \uAD6D\uC744 \uC2DC\uC791\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." : `${snapshot.variant ?? "H"}\uB8F0 \xB7 \uC81C${snapshot.gameNumber}\uAD6D \xB7 \uB0B4 \uC790\uB9AC ${SEAT_NAMES[snapshot.seat]}` : `${snapshot.variant ?? "H"}\uB8F0 \xB7 ${snapshot.members.length}/4\uBA85 \uC785\uC7A5 \xB7 \uBC29 \uCF54\uB4DC\uB97C \uCE5C\uAD6C\uC5D0\uAC8C \uC54C\uB824 \uC8FC\uC138\uC694.`;
   $("rematch-room").hidden = !(snapshot.host && snapshot.state?.end);
   document.querySelector(".play-layout").hidden = !snapshot.state;
   if (snapshot.state) {
@@ -1688,7 +2503,7 @@ async function connectRoom(join) {
   $("room-error").textContent = "";
   for (const id of ["create-room", "join-room"]) $(id).disabled = true;
   try {
-    return await roomClient.connect($("room-name").value, join ? $("room-code-input").value.trim().toUpperCase() : void 0);
+    return await roomClient.connect($("room-name").value, join ? $("room-code-input").value.trim().toUpperCase() : void 0, chosenVariant);
   } finally {
     for (const id of ["create-room", "join-room"]) $(id).disabled = false;
   }
@@ -1741,9 +2556,9 @@ function renderLogs() {
 function downloadLog(id, format = "json") {
   const log = journal.read(id);
   if (!log) throw new Error("\uC800\uC7A5\uB41C \uB300\uAD6D\uC744 \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
-  const text = format === "txt" ? logText(log) : JSON.stringify(log, null, 2), a = node("a"), blob = new Blob([text], { type: format === "txt" ? "text/plain;charset=utf-8" : "application/json" });
+  const text = format === "txt" ? logText(log) : JSON.stringify(compactLog(log)), a = node("a"), blob = new Blob([text], { type: format === "txt" ? "text/plain;charset=utf-8" : "application/json" });
   a.href = URL.createObjectURL(blob);
-  const filename = `H-${log.game.seed ?? log.room}-${log.id.slice(0, 8)}-\uB300\uAD6D\uB85C\uADF8.${format}`;
+  const filename = `${log.game.rules.variant === "S" ? "S" : "H"}-${log.game.seed ?? log.room}-${log.id.slice(0, 8)}-\uB300\uAD6D\uB85C\uADF8.${format}`;
   a.download = filename;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1e3);
@@ -1757,8 +2572,34 @@ function download() {
   return saveCurrentLog();
 }
 function randomGame() {
-  return start(crypto.getRandomValues(new Uint32Array(1))[0]);
+  return start(crypto.getRandomValues(new Uint32Array(1))[0], chosenVariant, { carryPot: true });
 }
+function persistPreferences() {
+  savePreferences(logStorage, { variant: chosenVariant, recommendations: recommendationsEnabled });
+}
+function setVariant(variant) {
+  if (!["H", "S"].includes(variant)) throw new Error("H \uB610\uB294 S\uB97C \uC120\uD0DD\uD558\uC138\uC694.");
+  chosenVariant = variant;
+  for (const rule of ["H", "S"]) $("rule-" + rule.toLowerCase()).setAttribute("aria-pressed", String(variant === rule));
+  $("random-game").textContent = variant + "\uB8F0 \uC0C8 \uB300\uAD6D \u21BB";
+  $("create-room").textContent = variant + "\uB8F0 \uBC29 \uB9CC\uB4E4\uAE30";
+  persistPreferences();
+}
+function toggleRecommendations(enabled) {
+  recommendationsEnabled = !!enabled;
+  $("toggle-recommendations").setAttribute("aria-pressed", String(recommendationsEnabled));
+  $("toggle-recommendations").textContent = "\uC804\uB7B5 \uCD94\uCC9C " + (recommendationsEnabled ? "\uCF1C\uC9D0" : "\uAEBC\uC9D0");
+  document.querySelector(".recommendations").hidden = !recommendationsEnabled;
+  document.querySelector(".play-layout").classList.toggle("without-recommendations", !recommendationsEnabled);
+  persistPreferences();
+  if (state) renderRecommendations();
+  return { enabled: recommendationsEnabled };
+}
+$("rule-h").onclick = () => setVariant("H");
+$("rule-s").onclick = () => setVariant("S");
+$("toggle-recommendations").onclick = () => toggleRecommendations(!recommendationsEnabled);
+setVariant(chosenVariant);
+toggleRecommendations(recommendationsEnabled);
 $("random-game").onclick = randomGame;
 $("new-game").onclick = () => {
   try {
@@ -1775,6 +2616,12 @@ $("autoplay").onclick = () => {
   schedule();
 };
 $("export").onclick = download;
+$("review-log").onclick = () => {
+  const log = journal.read($("saved-logs").value);
+  if (!log) return;
+  $("log-review").hidden = false;
+  $("log-review").textContent = reviewText(log);
+};
 $("download-current-log").onclick = () => download();
 $("download-json-log").onclick = () => downloadLog($("saved-logs").value);
 $("download-text-log").onclick = () => downloadLog($("saved-logs").value, "txt");
@@ -1798,7 +2645,7 @@ fetch(new URL("../results/baseline/analysis.json", import.meta.url)).then((r) =>
   if (reverse.length) $("conclusion").textContent += " \uC0C1\uB300\uBCC4 \uC608\uC678: " + reverse.map((r) => `${r.profile} C\u2212B +${r.meanDifference.toFixed(2)}\uC810`).join(", ") + ".";
   for (const r of data.summary) {
     const tr = node("tr", void 0, r.policy === data.conclusion.bestMeanPolicy ? "best" : "");
-    for (const value of [`${r.policy} \xB7 ${POLICIES[r.policy].name}`, r.meanNet.toFixed(2) + "\uC810", `${r.ci95Low.toFixed(2)} ~ ${r.ci95High.toFixed(2)}`, (r.winRate * 100).toFixed(1) + "%"]) tr.append(node("td", value));
+    for (const value of [`${r.policy} \xB7 ${POLICIES2[r.policy].name}`, r.meanNet.toFixed(2) + "\uC810", `${r.ci95Low.toFixed(2)} ~ ${r.ci95High.toFixed(2)}`, (r.winRate * 100).toFixed(1) + "%"]) tr.append(node("td", value));
     $("summary").append(tr);
   }
 }).catch(() => {
@@ -1806,7 +2653,7 @@ fetch(new URL("../results/baseline/analysis.json", import.meta.url)).then((r) =>
 });
 function readGame() {
   if (online && !remote?.state) return { mode: "online", phase: "waiting", room: remote ? { code: remote.code, members: remote.members } : null, legalActions: [], recommendations: [] };
-  return { mode: online ? "online" : "practice", room: online && remote ? { code: remote.code, members: remote.members, gameNumber: remote.gameNumber } : null, seat: humanSeat, phase: online && !remote?.state ? "waiting" : state.phase, turn: actor2(state), ownHand: state.players[humanSeat].hand.map(typeOf), drawnTile: handDisplay(state, humanSeat).drawn === null ? null : typeOf(handDisplay(state, humanSeat).drawn), scores: state.players.map((p) => p.score), winners: [...state.winners], legalActions: actor2(state) === humanSeat ? legalActions2(state) : [], recommendationRevision, recommendations: structuredClone(currentRecommendations) };
+  return { variant: state.rules.variant === "S" ? "S" : "H", recommendationsEnabled, selectedVariant: chosenVariant, mode: online ? "online" : "practice", room: online && remote ? { code: remote.code, members: remote.members, gameNumber: remote.gameNumber } : null, seat: humanSeat, phase: online && !remote?.state ? "waiting" : state.phase, turn: actor4(state), ownHand: state.players[humanSeat].hand.map(typeOf), drawnTile: handDisplay(state, humanSeat).drawn === null ? null : typeOf(handDisplay(state, humanSeat).drawn), scores: state.players.map((p) => p.score), winners: [...state.winners], legalActions: actor4(state) === humanSeat ? legalActions4(state) : [], recommendationRevision, recommendations: structuredClone(currentRecommendations) };
 }
 if (document.modelContext?.registerTool) {
   const life = new AbortController();
@@ -1823,8 +2670,10 @@ if (document.modelContext?.registerTool) {
       const room = await connectRoom(true);
       return { code: room.code, members: room.members, seat: room.seat };
     } },
-    { name: "start_h_game", title: "H\uB8F0 \uC0C8 \uAD6D", description: "\uC9C0\uC815\uD55C \uBC30\uD328 \uBC88\uD638\uB85C \uC0C8 \uAD6D\uC744 \uC2DC\uC791\uD569\uB2C8\uB2E4. \uAC19\uC740 \uBC88\uD638\uB294 \uB0B4 \uC790\uB9AC\uB3C4 \uB3D9\uC77C\uD558\uAC8C \uC7AC\uD604\uD569\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { seed: { type: "integer", minimum: 0, maximum: 4294967295 } }, required: ["seed"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: ({ seed }) => start(seed) },
-    { name: "read_h_game", title: "H\uB8F0 \uACF5\uAC1C \uC0C1\uD0DC", description: "\uB0B4 \uC790\uB9AC\xB7\uC190\uD328, \uACF5\uAC1C \uB300\uAD6D \uC0C1\uD0DC, \uD569\uBC95 \uD589\uB3D9\uACFC \uD654\uBA74\uC758 \uC804\uB7B5\uBCC4 \uCD94\uCC9C\uC744 \uD655\uC778\uD569\uB2C8\uB2E4.", inputSchema: { type: "object", properties: {}, additionalProperties: false }, annotations: { readOnlyHint: true }, execute: readGame },
+    { name: "start_h_game", title: "H\uB8F0 \uC0C8 \uAD6D", description: "\uC9C0\uC815\uD55C \uBC30\uD328 \uBC88\uD638\uB85C \uC0C8 \uAD6D\uC744 \uC2DC\uC791\uD569\uB2C8\uB2E4. \uAC19\uC740 \uBC88\uD638\uB294 \uB0B4 \uC790\uB9AC\uB3C4 \uB3D9\uC77C\uD558\uAC8C \uC7AC\uD604\uD569\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { seed: { type: "integer", minimum: 0, maximum: 4294967295 } }, required: ["seed"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: ({ seed }) => start(seed, "H") },
+    { name: "start_practice_game", title: "H/S\uB8F0 \uC0C8 \uC5F0\uC2B5 \uB300\uAD6D", description: "\uC120\uD0DD\uD55C \uADDC\uCE59\uACFC \uBC30\uD328 \uBC88\uD638\uB85C \uC0C8 \uC5F0\uC2B5 \uB300\uAD6D\uC744 \uC2DC\uC791\uD569\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { seed: { type: "integer", minimum: 0, maximum: 4294967295 }, variant: { type: "string", enum: ["H", "S"] } }, required: ["seed", "variant"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: ({ seed, variant }) => start(seed, variant) },
+    { name: "set_recommendations", title: "\uC804\uB7B5 \uCD94\uCC9C \uCF1C\uAE30\xB7\uB044\uAE30", description: "\uD604\uC7AC \uB300\uAD6D\uC744 \uC720\uC9C0\uD558\uBA74\uC11C \uCD94\uCC9C \uD45C\uC2DC\uB97C \uCF1C\uAC70\uB098 \uB055\uB2C8\uB2E4. \uC124\uC815\uC740 \uC774 \uAE30\uAE30\uC5D0 \uC800\uC7A5\uB429\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { enabled: { type: "boolean" } }, required: ["enabled"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: ({ enabled }) => toggleRecommendations(enabled) },
+    { name: "read_h_game", title: "\uB300\uAD6D \uACF5\uAC1C \uC0C1\uD0DC", description: "\uB0B4 \uC790\uB9AC\xB7\uC190\uD328, \uACF5\uAC1C \uB300\uAD6D \uC0C1\uD0DC, \uD569\uBC95 \uD589\uB3D9\uACFC \uD654\uBA74\uC758 \uC804\uB7B5\uBCC4 \uCD94\uCC9C\uC744 \uD655\uC778\uD569\uB2C8\uB2E4.", inputSchema: { type: "object", properties: {}, additionalProperties: false }, annotations: { readOnlyHint: true }, execute: readGame },
     { name: "save_h_game_log", title: "\uD604\uC7AC \uB300\uAD6D \uB85C\uADF8 \uC800\uC7A5", description: "\uD604\uC7AC \uB300\uAD6D\uC758 \uD589\uB3D9\xB7\uC810\uC218 \uC774\uB3D9\xB7\uD654\uB8CC \uACC4\uC0B0\uACFC \uD328\uBCF4\uB97C JSON \uB610\uB294 \uC77D\uAE30 \uC26C\uC6B4 TXT \uD30C\uC77C\uB85C \uB0B4\uB824\uBC1B\uC2B5\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { format: { type: "string", enum: ["json", "txt"] } }, required: ["format"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: ({ format }) => saveCurrentLog(format) },
     { name: "play_h_recommendation", title: "\uC804\uB7B5 \uCD94\uCC9C \uD55C \uBC88 \uC2E4\uD589", description: "\uB0B4 \uC218\uB3D9 \uC120\uD0DD \uCC28\uB840\uC5D0 \uD654\uBA74\uC758 \uC804\uB7B5 \uCD94\uCC9C \uBC84\uD2BC\uC744 \uD55C \uBC88 \uC2E4\uD589\uD569\uB2C8\uB2E4. read_h_game\uC5D0\uC11C \uBC1B\uC740 \uCD5C\uC2E0 recommendationRevision\uC744 revision\uC73C\uB85C \uC804\uB2EC\uD558\uC138\uC694. mode=discard\uB294 \uAE61 \uB300\uC2E0 \uD45C\uC2DC\uB41C \uBC84\uB9BC\uD328 \uB300\uC548\uC744 \uC120\uD0DD\uD569\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { policy: { type: "string", enum: ["A", "B", "C", "D", "E"] }, mode: { type: "string", enum: ["recommended", "discard"] }, revision: { type: "integer", minimum: 0 } }, required: ["policy", "mode", "revision"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: ({ policy, mode, revision }) => executeRecommendation(policy, mode, revision) }
   ]) Promise.resolve(document.modelContext.registerTool(tool, { signal: life.signal })).catch(() => {

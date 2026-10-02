@@ -7,6 +7,13 @@ export function winSettlement(state, seat) {
   const player = state.players[seat], win = player.win;
   if (!win) return null;
   const {score} = win;
+  if(state.rules.variant==='S'){
+    const payments=Array.isArray(state.ledger)?state.ledger.filter(p=>p.to===seat&&['tsumo','ron','pot'].includes(p.kind)):win.payments??[];
+    const receipt=payments.reduce((n,p)=>n+p.amount,0),seats=['동','남','서','북'];
+    return {payerCount:payments.filter(p=>p.from!=='pot').length,receipt,expectedReceipt:win.receipt,net:player.score,previousNet:player.score-receipt,
+      title:`${score.name} ${win.method==='tsumo'?'쯔모':'론'} · 이번 화료 +${receipt}점`,
+      calculation:`${score.yakuman?'역만':score.han+'판'} · ${payments.map(p=>`${seats[p.from]??'공탁'} ${p.amount}`).join(' + ')} = +${receipt}점`};
+  }
   const payerCount = win.method === 'tsumo' ? state.players.length - win.order : 1;
   const tsumoBonus = win.method === 'tsumo' ? state.rules.tsumoBonusPerPayer : 0;
   const perPayer = score.total + tsumoBonus, expectedReceipt = perPayer * payerCount;

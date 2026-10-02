@@ -20,10 +20,10 @@ export class RoomClient{
   const changed=!this.connected||!this.snapshot||this.snapshot.code!==data.code||this.snapshot.revision!==data.revision;
   this.snapshot=data;this.connected=true;this.failures=0;this.onStatus('연결됨');if(changed)this.onState(data);
  }
- async connect(name,code){
+ async connect(name,code,variant='H'){
   this.stop();const generation=this.generation;
   const saved=this.saved();this.session={key:saved?.key??key(),name,code:code??null};this.snapshot=null;this.onStatus('방에 연결 중…');
-  const data=await this.request(code?`rooms/${code}/join`:'rooms',{name});
+  const data=await this.request(code?`rooms/${code}/join`:'rooms',{name,...code?{}:{variant}});
   if(generation!==this.generation)return;
   this.session.code=data.code;this.remember();this.accept(data);this.poll(generation);return data;
  }

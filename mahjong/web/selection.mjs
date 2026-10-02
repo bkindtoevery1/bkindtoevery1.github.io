@@ -1,4 +1,4 @@
-import {actor,legalActions} from '../engine/game.mjs';
+import {actor,legalActions} from '../game/engine.mjs';
 import {typeOf} from '../engine/tiles.mjs';
 
 export function canSelectTile(state,seat,id,auto=false){
