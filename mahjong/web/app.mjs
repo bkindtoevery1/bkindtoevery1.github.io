@@ -6,6 +6,7 @@ import {actionLabel,strategyRecommendations} from './recommendations.mjs';
 import {tileFace} from './tile-view.mjs';
 import {canSelectTile,selectedDiscard,seatPositions} from './selection.mjs';
 import {RoomClient} from './multiplayer.mjs';
+import {winSettlement,signedPoints} from './score-display.mjs';
 const $=id=>document.getElementById(id);let state=null,auto=false,timer=null,humanSeat=0;
 let recommendationRevision=0,currentRecommendations=[],selectedTileId=null;
 let online=false,remote=null,networkBusy=false;
@@ -77,8 +78,10 @@ function render(){
   else{const hidden=node('div',undefined,'hidden-hand');hidden.setAttribute('aria-hidden','true');for(let j=0;j<(pl.handSize??pl.hand.length);j++)hidden.append(node('span',undefined,'tile-back'));card.append(hidden);}
   $('opponents').append(card);const river=node('div',undefined,`river river-${position}`);river.setAttribute('aria-label',`${SEAT_NAMES[i]} 버림패`);renderRiver(river,pl);$('rivers').append(river);
  }
- $('self-title').replaceChildren(node('span',['東','南','西','北'][humanSeat],'seat-badge'),node('span',`${SEAT_NAMES[humanSeat]} · 나`),node('span',`${p.score>0?'+':''}${p.score}점`,'self-score'));
+ $('self-title').replaceChildren(node('span',['東','南','西','北'][humanSeat],'seat-badge'),node('span',`${SEAT_NAMES[humanSeat]} · 나`),node('span',`국 누적 ${signedPoints(p.score)}점`,'self-score'));
  if(p.won)$('self-title').append(node('span',`${p.win.order}번째 화료`,'player-sub'));
+ const settlement=winSettlement(state,humanSeat),result=$('win-settlement');result.hidden=!settlement;result.replaceChildren();
+ if(settlement){result.append(node('strong',settlement.title),node('p',settlement.calculation));if(settlement.previousNet!==0)result.append(node('p',`화료 전 누적 ${signedPoints(settlement.previousNet)}점 → 국 누적 ${signedPoints(settlement.net)}점`));}
  $('melds').replaceChildren();for(const m of p.melds)$('melds').append(renderMeld(m));
  const legal=a===humanSeat?legalActions(state):[],hand=handDisplay(state,humanSeat),automaticPass=needsPass(state,humanSeat);$('hand').replaceChildren();for(const id of hand.held)$('hand').append(handTile(id,legal));
  if(hand.drawn!==null){const group=node('div',undefined,'drawn-group');group.append(node('span','뽑은 패','drawn-label'),handTile(hand.drawn,legal,true));$('hand').append(group);}
@@ -88,7 +91,7 @@ function render(){
  for(const action of legal.filter(a=>a.type!=='discard'&&!(automaticPass&&a.type==='pass'))){const b=node('button',actionLabel(action,{melds:p.melds,legalActions:legal}),['ron','tsumo'].includes(action.type)?'win':'');b.disabled=auto||networkBusy;b.onclick=()=>act(action);$('actions').append(b);}
  if(legal.some(a=>a.type==='discard')){const b=node('button','버리기','discard-confirm');b.id='discard-confirm';b.onclick=()=>{try{confirmDiscard();}catch(e){$('error').textContent=e.message;}};$('actions').append(b);}
  renderRiver($('self-river'),p);updateSelection();renderRecommendations();
- $('events').replaceChildren();for(const e of state.events.filter(e=>['win','kan','drawSettlement','call'].includes(e.type)).slice(-30)){const text=e.type==='win'?`${SEAT_NAMES[e.seat]}: ${e.name??e.score.name} ${e.method==='ron'?'론':'쯔모'}, ${e.score.total}점`:e.type==='call'?`${SEAT_NAMES[e.seat]}: ${e.action.type}`:e.type==='kan'?`${SEAT_NAMES[e.seat]}: 깡, 보충패 수령`:'유국 텐파이 정산 완료';$('events').append(node('li',text));}
+ $('events').replaceChildren();for(const e of state.events.filter(e=>['win','kan','drawSettlement','call'].includes(e.type)).slice(-30)){const settlement=e.type==='win'?winSettlement(state,e.seat):null;const text=settlement?`${SEAT_NAMES[e.seat]}: ${settlement.title} · ${settlement.calculation}`:e.type==='call'?`${SEAT_NAMES[e.seat]}: ${e.action.type}`:e.type==='kan'?`${SEAT_NAMES[e.seat]}: 깡, 보충패 수령`:'유국 텐파이 정산 완료';$('events').append(node('li',text));}
 }
 function aiAction(view){const spec=view.seat===humanSeat?{id:$('policy').value}:OPPONENT_PROFILES[$('profile').value][(view.seat-humanSeat+4)%4-1];return chooseAction(view,spec.id,spec.weights);}
 function finishAction(){resolveAiReactions(state,humanSeat,aiAction);render();schedule();}
