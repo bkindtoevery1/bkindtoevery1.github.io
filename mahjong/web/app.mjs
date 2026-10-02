@@ -548,6 +548,7 @@ __export(game_exports2, {
   indicators: () => indicators,
   legalActions: () => legalActions2,
   observation: () => observation2,
+  revealedUraIndicators: () => revealedUraIndicators,
   settleDraw: () => settleDraw2,
   step: () => step2,
   visibleCounts: () => visibleCounts2
@@ -696,6 +697,7 @@ var key = (a) => JSON.stringify(a);
 var same = (a, b) => key(a) === key(b);
 var actor2 = (s) => s.phase === "turn" ? s.turn : s.phase === "reaction" ? s.reaction.pending[0] : null;
 var indicators = (s, ura = false) => Array.from({ length: s.kans + 1 }, (_, n) => typeOf(s.dead[4 + 2 * n + (ura ? 1 : 0)]));
+var revealedUraIndicators = (s) => s.end === "win" && s.winners.some((seat) => s.players[seat].riichi) ? indicators(s, true) : [];
 function context(s, seat, method, tile) {
   const p = s.players[seat];
   return {
@@ -1728,6 +1730,39 @@ var RoomClient = class {
 
 // web/score-display.mjs
 var signedPoints = (value) => `${value > 0 ? "+" : ""}${value}`;
+function scoreBreakdown(score) {
+  if (score?.variant !== "S") return null;
+  const yaku = (score.yakuEntries ?? []).map((e) => ({ ...e })), bonuses = score.yakuman ? [] : (score.bonuses ?? []).map((e) => ({ ...e }));
+  const yakuHan = score.hanYaku ?? yaku.reduce((n, e) => n + e.han, 0), bonusHan = score.bonusHan ?? bonuses.reduce((n, e) => n + e.han, 0);
+  return {
+    yaku,
+    bonuses,
+    yakuHan,
+    bonusHan,
+    totalHan: score.yakuman ? null : score.han,
+    yakuman: score.yakuman,
+    summary: score.yakuman ? "\uC5ED\uB9CC" : `\uC5ED ${yakuHan}\uD310 + \uAC00\uC0B0 ${bonusHan}\uD310 = \uCD1D ${score.han}\uD310`
+  };
+}
+function scoreBreakdownText(score) {
+  const detail = scoreBreakdown(score);
+  if (!detail) return "";
+  return detail.yakuman ? `${detail.yaku.map((e) => e.name).join(" \xB7 ")} \xB7 \uC5ED\uB9CC` : `${[...detail.yaku, ...detail.bonuses].map((e) => `${e.name} ${e.han}\uD310`).join(" + ")} = \uCD1D ${detail.totalHan}\uD310`;
+}
+function doraDisplay(state2, seat) {
+  if (state2.rules.variant !== "S") return null;
+  const player = state2.players[seat], visible = state2.doraIndicators ?? (Array.isArray(state2.dead) ? indicators(state2) : []);
+  const ura = state2.uraIndicators ?? (Array.isArray(state2.dead) ? revealedUraIndicators(state2) : []);
+  const c = counts([...player.hand, ...player.melds.flatMap((m) => m.ids)].map(typeOf));
+  const pairs = (values) => values.map((indicator) => ({ indicator, dora: doraAfter(indicator) }));
+  const bonus = (id) => player.win?.score.bonuses?.find((e) => e.id === id)?.han ?? 0;
+  return {
+    visible: pairs(visible),
+    ura: pairs(ura),
+    count: player.won ? bonus("dora") : visible.reduce((n, t) => n + c[doraAfter(t)], 0),
+    uraCount: ura.length && player.won ? bonus("ura") : null
+  };
+}
 function winSettlement(state2, seat) {
   const player = state2.players[seat], win3 = player.win;
   if (!win3) return null;
@@ -1741,6 +1776,8 @@ function winSettlement(state2, seat) {
       expectedReceipt: win3.receipt,
       net: player.score,
       previousNet: player.score - receipt2,
+      breakdown: scoreBreakdown(score),
+      hanDetails: scoreBreakdownText(score),
       title: `${score.name} ${win3.method === "tsumo" ? "\uCBD4\uBAA8" : "\uB860"} \xB7 \uC774\uBC88 \uD654\uB8CC +${receipt2}\uC810`,
       calculation: `${score.yakuman ? "\uC5ED\uB9CC" : score.han + "\uD310"} \xB7 ${payments.map((p) => `${seats2[p.from] ?? "\uACF5\uD0C1"} ${p.amount}`).join(" + ")} = +${receipt2}\uC810`
     };
@@ -1930,8 +1967,8 @@ function logText(log) {
     const action = entry.action, tile = Number.isInteger(action.tile) ? ` ${tileName(action.tile)}` : "";
     if (action.type !== "pass") lines.push(`#${entry.n + 1} ${seats2[entry.seat]} ${{ discard: "\uBC84\uB9BC", riichi: "\uB9AC\uCE58\xB7\uBC84\uB9BC", tsumo: "\uCBD4\uBAA8", ron: "\uB860", chi: "\uCE58", pon: "\uD401", ankan: "\uC548\uAE61", minkan: "\uBA85\uAE61", kakan: "\uAC00\uAE61" }[action.type] ?? action.type}${tile}`);
     for (const win3 of entry.wins) {
-      const detail = variant === "S" ? `${win3.score.yakuman ? "\uC5ED\uB9CC" : win3.score.han + "\uD310"}` : `\uC5ED ${win3.score.base}${win3.score.bonus ? " + \uAC00\uC0B0 " + win3.score.bonus : ""}${win3.tsumoBonus ? " + \uCBD4\uBAA8 " + win3.tsumoBonus : ""}`;
-      lines.push(`  ${seats2[win3.seat]} ${win3.score.name} (${detail})`);
+      const detail = variant === "S" ? scoreBreakdownText(win3.score) : `\uC5ED ${win3.score.base}${win3.score.bonus ? " + \uAC00\uC0B0 " + win3.score.bonus : ""}${win3.tsumoBonus ? " + \uCBD4\uBAA8 " + win3.tsumoBonus : ""}`;
+      lines.push(variant === "S" ? `  ${seats2[win3.seat]} ${detail}` : `  ${seats2[win3.seat]} ${win3.score.name} (${detail})`);
       if (win3.issues.length) lines.push(`  \uADDC\uCE59\uC0C1 ${win3.expectedReceipt}, \uC2E4\uC81C \uC218\uC785 ${win3.actualReceipt}`);
     }
     for (const payment of entry.payments) lines.push(`  ${seats2[payment.from] ?? "\uACF5\uD0C1"} \u2192 ${seats2[payment.to] ?? "\uACF5\uD0C1"}: ${payment.amount}\uC810`);
@@ -1940,6 +1977,7 @@ function logText(log) {
     if (entry.error) lines.push(`  [\uC2E4\uD589 \uC624\uB958] ${entry.error}`);
   }
   for (const entry of log.observations) if (entry.delta.some(Boolean)) lines.push(`\uC218\uC2E0 ${entry.revision} \uC810\uC218 \uBCC0\uB3D9: ${entry.delta.map((v, i) => v ? seats2[i] + " " + signed(v) : "").filter(Boolean).join(" / ")}`);
+  if (log.mode === "online" && variant === "S") for (const seat of game.winners) lines.push(`${seats2[seat]} ${scoreBreakdownText(game.players[seat].win.score)}`);
   lines.push("", "\uD604\uC7AC \uC190\uD328\xB7\uD6C4\uB85C (JSON\uC5D0\uB294 \uC6D0\uBCF8 \uD328 \uBC88\uD638\uC640 \uC0C1\uC138 \uAE30\uB85D \uD3EC\uD568)");
   for (let seat = 0; seat < 4; seat++) {
     const p = game.players[seat];
@@ -1954,13 +1992,17 @@ function reviewText(input) {
     if (["ankan", "minkan", "kakan"].includes(e.action.type)) lines.push(`${seats2[e.seat]} ${e.action.type === "ankan" ? "\uC548\uAE61" : e.action.type === "minkan" ? "\uBA85\uAE61" : "\uAC00\uAE61"}${Number.isInteger(e.action.tile) ? " \xB7 " + tileName(e.action.tile) : ""} (\uC774\uB54C\uB294 \uC810\uC218 \uC774\uB3D9 \uC5C6\uC74C)`);
     for (const win3 of e.wins) {
       const extra = Object.entries(win3.score.bonuses ?? {}).filter(([, value]) => typeof value === "number" && value).map(([name, value]) => `${{ kan: "\uAE61", dragon: "\uC0BC\uC6D0\uD328", roundWind: "\uC7A5\uD48D", seatWind: "\uC790\uD48D" }[name] ?? name} ${value}`);
-      lines.push(`${seats2[win3.seat]} ${win3.score.name} ${win3.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 ${s ? win3.score.yakuman ? "\uC5ED\uB9CC" : win3.score.han + "\uD310" : `\uC5ED ${win3.score.base}${extra.length ? " + " + extra.join(" + ") : ""}${win3.tsumoBonus ? " + \uCBD4\uBAA8 " + win3.tsumoBonus + " / \uC9C0\uAE09\uC790" : ""}`}`);
+      lines.push(s ? `${seats2[win3.seat]} ${win3.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 ${scoreBreakdownText(win3.score)}` : `${seats2[win3.seat]} ${win3.score.name} ${win3.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 \uC5ED ${win3.score.base}${extra.length ? " + " + extra.join(" + ") : ""}${win3.tsumoBonus ? " + \uCBD4\uBAA8 " + win3.tsumoBonus + " / \uC9C0\uAE09\uC790" : ""}`);
     }
     for (const p of e.payments) lines.push(`  ${seats2[p.from] ?? "\uACF5\uD0C1"} \u2192 ${seats2[p.to] ?? "\uACF5\uD0C1"}: ${p.amount}\uC810`);
     for (const issue of e.issues) lines.push(`[\uC815\uC0B0 \uD655\uC778 \uD544\uC694] ${issue}`);
   }
   if (log.mode === "online") {
     for (const entry of log.observations) if (entry.delta.some(Boolean)) lines.push(`\uC218\uC2E0 ${entry.revision}: ${entry.delta.map((v, i) => v ? seats2[i] + " " + signed(v) : "").filter(Boolean).join(" / ")}`);
+  }
+  if (log.mode === "online" && s) for (const seat of game.winners) {
+    const win3 = game.players[seat].win;
+    lines.push(`${seats2[seat]} ${win3.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 ${scoreBreakdownText(win3.score)}`);
   }
   return lines.join("\n");
 }
@@ -2402,6 +2444,48 @@ function renderRiver(parent, player) {
     row.append(t);
   }
 }
+function renderDora() {
+  const panel = $("dora-panel"), seat = state.winners[0] ?? humanSeat, view = doraDisplay(state, seat);
+  panel.hidden = !view;
+  panel.replaceChildren();
+  if (!view) return;
+  const heading = node("div", void 0, "dora-heading"), winner = state.players[seat].won;
+  const count = winner && state.players[seat].win.score.yakuman ? "\uC5ED\uB9CC \xB7 \uB3C4\uB77C \uAC00\uC0B0 \uC5C6\uC74C" : `${winner ? seatName(seat) + " \uD654\uB8CC\uD328" : "\uB0B4 \uD328"} \uB3C4\uB77C ${view.count}\uD310${view.uraCount !== null ? " \xB7 \uC6B0\uB77C\uB3C4\uB77C " + view.uraCount + "\uD310" : ""}`;
+  heading.append(node("strong", "\uB3C4\uB77C"), node("span", count));
+  panel.append(heading);
+  for (const [label, pairs] of [["\uD45C\uC2DC\uD328 \u2192 \uB3C4\uB77C", view.visible], ["\uC6B0\uB77C \uD45C\uC2DC\uD328 \u2192 \uC6B0\uB77C\uB3C4\uB77C", view.ura]]) {
+    if (!pairs.length) continue;
+    const group = node("div", void 0, "dora-group");
+    group.append(node("span", label, "dora-label"));
+    for (const pair of pairs) {
+      const item = node("span", void 0, "dora-pair");
+      item.title = `\uD45C\uC2DC\uD328 ${tileName(pair.indicator)} \u2192 \uB3C4\uB77C ${tileName(pair.dora)}`;
+      item.append(tileFace(pair.indicator, { small: true }), node("span", "\u2192", "dora-arrow"), tileFace(pair.dora, { small: true }));
+      group.append(item);
+    }
+    panel.append(group);
+  }
+  panel.append(node("p", "1\uC7A5\uB2F9 1\uD310 \xB7 \uD654\uB8CC \uC5ED\uC774 \uC788\uC5B4\uC57C \uB3C4\uB77C\uB97C \uAC00\uC0B0\uD569\uB2C8\uB2E4.", "dora-note"));
+}
+function renderHanBreakdown(detail) {
+  const section = node("div", void 0, "han-breakdown"), groups = node("div", void 0, "han-groups");
+  const bonusEntries = [...detail.bonuses];
+  if (!detail.yakuman && !bonusEntries.some((e) => e.id === "dora")) bonusEntries.push({ name: "\uB3C4\uB77C", han: 0 });
+  for (const [label, entries] of [["\uC131\uB9BD \uC5ED", detail.yaku], ["\uAC00\uC0B0", detail.yakuman ? [] : bonusEntries]]) {
+    if (!entries.length) continue;
+    const group = node("div", void 0, "han-group"), list = node("ul", void 0, "han-list");
+    group.append(node("h3", label));
+    for (const entry of entries) {
+      const row = node("li");
+      row.append(node("span", entry.name), node("strong", detail.yakuman ? "\uC5ED\uB9CC" : `${entry.han}\uD310`));
+      list.append(row);
+    }
+    group.append(list);
+    groups.append(group);
+  }
+  section.append(groups, node("p", detail.summary, "han-total"));
+  return section;
+}
 function discardMetrics(discard) {
   return `${discard.shanten === 0 ? "\uD150\uD30C\uC774 (0\uC0E8\uD150)" : discard.shanten + "\uC0E8\uD150"} \xB7 \uC720\uD6A8\uD328 \uCD94\uC815 ${discard.ukeire}\uC7A5`;
 }
@@ -2487,7 +2571,8 @@ function render() {
   document.querySelector(".room-label").textContent = `${variant} RULE \xB7 ${match ? match.label : online ? "4\uC778 \uB300\uAD6D" : "\uD63C\uC790 \uC5F0\uC2B5"}`;
   document.querySelector(".wind-mark").textContent = variant;
   $("s-rule-status").hidden = variant !== "S";
-  if (variant === "S") $("s-rule-status").textContent = `${state.rules.roundWind === 28 ? "\uB0A8\uC7A5" : "\uB3D9\uC7A5"} \xB7 ${match ? "\uBC18\uC7A5 \uB204\uC801 \uAE30\uB85D \xB7 " : ""}\uCE5C ${seatName(state.dealer)} \xB7 \uB3C4\uB77C \uD45C\uC2DC ${((online ? state.doraIndicators : indicators(state)) ?? []).map(tileName).join(" \xB7 ")} \xB7 \uACF5\uD0C1 ${match?.pot ?? state.pot ?? 0}\uC810`;
+  if (variant === "S") $("s-rule-status").textContent = `${state.rules.roundWind === 28 ? "\uB0A8\uC7A5" : "\uB3D9\uC7A5"} \xB7 ${match ? "\uBC18\uC7A5 \uB204\uC801 \uAE30\uB85D \xB7 " : ""}\uCE5C ${seatName(state.dealer)} \xB7 \uACF5\uD0C1 ${match?.pot ?? state.pot ?? 0}\uC810`;
+  renderDora();
   const a = actor4(state), shownTurn = displayedTurn(state), p = state.players[humanSeat], positions = seatPositions(humanSeat);
   const reacting = state.phase === "reaction", humanChoice = reacting && a === humanSeat && !auto && !needsPass(state, humanSeat);
   $("game-status").textContent = match?.status === "complete" ? "\uB0A84\uAD6D \uC885\uB8CC \xB7 \uBC18\uC7A5 \uC644\uB8CC" : state.end ? `${state.end === "three-winners" ? "\uC138 \uBC88\uC9F8 \uD654\uB8CC" : state.end === "win" ? "\uD654\uB8CC" : "\uC720\uAD6D"} \xB7 \uAD6D \uC885\uB8CC` : p.won ? "\uD654\uB8CC \uC644\uB8CC \xB7 \uB0A8\uC740 \uB300\uAD6D \uC9C4\uD589 \uC911" : reacting ? humanChoice ? "\uB860 \xB7 \uD6C4\uB85C \uC120\uD0DD" : "\uD6C4\uB85C \uD655\uC778 \uC911" : a === humanSeat ? "\uB0B4 \uCC28\uB840 \xB7 \uBC84\uB9BC\uD328 \uC120\uD0DD" : `${seatName(a)} \uD50C\uB808\uC774\uC5B4 \uCC28\uB840`;
@@ -2528,11 +2613,13 @@ function render() {
   $("self-title").replaceChildren(node("span", wind(humanSeat), "seat-badge"), node("span", `${seatName(humanSeat)} \xB7 \uB098`), node("span", match ? `\uBC18\uC7A5 ${match.totals[humanSeat].toLocaleString()}\uC810` : `\uAD6D \uB204\uC801 ${signedPoints(p.score)}\uC810`, "self-score"));
   if (p.riichi) $("self-title").append(riichiMarker(humanSeat));
   if (p.won) $("self-title").append(node("span", `${p.win.order}\uBC88\uC9F8 \uD654\uB8CC`, "player-sub"));
-  const settlement = winSettlement(state, humanSeat), result = $("win-settlement");
+  const settledSeat = variant === "S" ? state.winners[0] : humanSeat, settlement = settledSeat === void 0 ? null : winSettlement(state, settledSeat), result = $("win-settlement");
   result.hidden = !settlement;
   result.replaceChildren();
   if (settlement) {
-    result.append(node("strong", settlement.title), node("p", settlement.calculation));
+    result.append(node("strong", `${variant === "S" ? seatName(settledSeat) + " \xB7 " : ""}${settlement.title}`));
+    if (settlement.breakdown) result.append(renderHanBreakdown(settlement.breakdown));
+    result.append(node("p", settlement.calculation));
     if (settlement.previousNet !== 0) result.append(node("p", `\uD654\uB8CC \uC804 \uB204\uC801 ${signedPoints(settlement.previousNet)}\uC810 \u2192 \uAD6D \uB204\uC801 ${signedPoints(settlement.net)}\uC810`));
   }
   const legal = a === humanSeat ? legalActions4(state) : [], hand = handDisplay(state, humanSeat), automaticPass = needsPass(state, humanSeat);

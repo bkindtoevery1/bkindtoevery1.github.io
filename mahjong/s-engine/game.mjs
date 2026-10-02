@@ -7,6 +7,7 @@ const meldView=m=>({type:m.type,tile:m.tile,open:m.open,from:m.from});
 const key=a=>JSON.stringify(a),same=(a,b)=>key(a)===key(b);
 export const actor=s=>s.phase==='turn'?s.turn:s.phase==='reaction'?s.reaction.pending[0]:null;
 export const indicators=(s,ura=false)=>Array.from({length:s.kans+1},(_,n)=>typeOf(s.dead[4+2*n+(ura?1:0)]));
+export const revealedUraIndicators=s=>s.end==='win'&&s.winners.some(seat=>s.players[seat].riichi)?indicators(s,true):[];
 function context(s,seat,method,tile){const p=s.players[seat];return {method,winTile:tile,seatWind:27+(seat-s.dealer+4)%4,dealer:seat===s.dealer,riichi:p.riichi,ippatsu:p.ippatsu,
   rinshan:p.drawSource==='kan',lastTile:s.wall.length===0,chankan:method==='ron'&&s.reaction?.kind==='kakan',doraIndicators:indicators(s),uraIndicators:indicators(s,true)};}
 export function createGame({seed=1,rules={},dealer=0,wall=null,pot=0,startingScores=null}={}){

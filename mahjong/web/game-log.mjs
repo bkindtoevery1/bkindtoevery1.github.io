@@ -1,5 +1,6 @@
 import {step,assertInvariants} from '../game/engine.mjs';
 import {tileName,typeOf} from '../engine/tiles.mjs';
+import {scoreBreakdownText} from './score-display.mjs';
 
 export const LOG_FORMAT='h-mahjong-log/v1';
 export const COMPACT_FORMAT='wellness-mahjong-log/v2';
@@ -102,13 +103,14 @@ export function logText(log){
   for(const entry of log.actions){
     const action=entry.action,tile=Number.isInteger(action.tile)?` ${tileName(action.tile)}`:'';
     if(action.type!=='pass')lines.push(`#${entry.n+1} ${seats[entry.seat]} ${({discard:'버림',riichi:'리치·버림',tsumo:'쯔모',ron:'론',chi:'치',pon:'퐁',ankan:'안깡',minkan:'명깡',kakan:'가깡'})[action.type]??action.type}${tile}`);
-    for(const win of entry.wins){const detail=variant==='S'?`${win.score.yakuman?'역만':win.score.han+'판'}`:`역 ${win.score.base}${win.score.bonus?' + 가산 '+win.score.bonus:''}${win.tsumoBonus?' + 쯔모 '+win.tsumoBonus:''}`;lines.push(`  ${seats[win.seat]} ${win.score.name} (${detail})`);if(win.issues.length)lines.push(`  규칙상 ${win.expectedReceipt}, 실제 수입 ${win.actualReceipt}`);}
+    for(const win of entry.wins){const detail=variant==='S'?scoreBreakdownText(win.score):`역 ${win.score.base}${win.score.bonus?' + 가산 '+win.score.bonus:''}${win.tsumoBonus?' + 쯔모 '+win.tsumoBonus:''}`;lines.push(variant==='S'?`  ${seats[win.seat]} ${detail}`:`  ${seats[win.seat]} ${win.score.name} (${detail})`);if(win.issues.length)lines.push(`  규칙상 ${win.expectedReceipt}, 실제 수입 ${win.actualReceipt}`);}
     for(const payment of entry.payments)lines.push(`  ${seats[payment.from]??'공탁'} → ${seats[payment.to]??'공탁'}: ${payment.amount}점`);
     for(const draw of entry.draws)lines.push(`  ${seats[draw.seat]} ${draw.type==='kanDraw'?'보충패':'뽑은 패'}: ${tileName(typeOf(draw.id))}`);
     for(const issue of entry.issues)lines.push(`  [정산 확인 필요] ${issue}`);
     if(entry.error)lines.push(`  [실행 오류] ${entry.error}`);
   }
   for(const entry of log.observations)if(entry.delta.some(Boolean))lines.push(`수신 ${entry.revision} 점수 변동: ${entry.delta.map((v,i)=>v?seats[i]+' '+signed(v):'').filter(Boolean).join(' / ')}`);
+  if(log.mode==='online'&&variant==='S')for(const seat of game.winners)lines.push(`${seats[seat]} ${scoreBreakdownText(game.players[seat].win.score)}`);
   lines.push('','현재 손패·후로 (JSON에는 원본 패 번호와 상세 기록 포함)');
   for(let seat=0;seat<4;seat++){const p=game.players[seat];lines.push(`${seats[seat]}: ${p.hand.map(id=>tileName(typeOf(id))).join(' ')} / ${p.melds.map(m=>`${m.type} ${m.ids.map(id=>tileName(typeOf(id))).join(' ')}`).join(' / ')}`);}
   for(const error of log.errors)lines.push(`[오류 ${error.at}] ${error.message}`);
@@ -120,12 +122,13 @@ export function reviewText(input){
  for(const e of log.actions){
   if(['ankan','minkan','kakan'].includes(e.action.type))lines.push(`${seats[e.seat]} ${e.action.type==='ankan'?'안깡':e.action.type==='minkan'?'명깡':'가깡'}${Number.isInteger(e.action.tile)?' · '+tileName(e.action.tile):''} (이때는 점수 이동 없음)`);
   for(const win of e.wins){const extra=Object.entries(win.score.bonuses??{}).filter(([,value])=>typeof value==='number'&&value).map(([name,value])=>`${({kan:'깡',dragon:'삼원패',roundWind:'장풍',seatWind:'자풍'})[name]??name} ${value}`);
-   lines.push(`${seats[win.seat]} ${win.score.name} ${win.method==='ron'?'론':'쯔모'} · ${s?(win.score.yakuman?'역만':win.score.han+'판'):`역 ${win.score.base}${extra.length?' + '+extra.join(' + '):''}${win.tsumoBonus?' + 쯔모 '+win.tsumoBonus+' / 지급자':''}`}`);
+   lines.push(s?`${seats[win.seat]} ${win.method==='ron'?'론':'쯔모'} · ${scoreBreakdownText(win.score)}`:`${seats[win.seat]} ${win.score.name} ${win.method==='ron'?'론':'쯔모'} · 역 ${win.score.base}${extra.length?' + '+extra.join(' + '):''}${win.tsumoBonus?' + 쯔모 '+win.tsumoBonus+' / 지급자':''}`);
   }
   for(const p of e.payments)lines.push(`  ${seats[p.from]??'공탁'} → ${seats[p.to]??'공탁'}: ${p.amount}점`);
   for(const issue of e.issues)lines.push(`[정산 확인 필요] ${issue}`);
  }
  if(log.mode==='online')for(const entry of log.observations)if(entry.delta.some(Boolean))lines.push(`수신 ${entry.revision}: ${entry.delta.map((v,i)=>v?seats[i]+' '+signed(v):'').filter(Boolean).join(' / ')}`);
+ if(log.mode==='online'&&s)for(const seat of game.winners){const win=game.players[seat].win;lines.push(`${seats[seat]} ${win.method==='ron'?'론':'쯔모'} · ${scoreBreakdownText(win.score)}`);}
  return lines.join('\n');
 }
 
