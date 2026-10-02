@@ -1,0 +1,190 @@
+{
+  "partition": "validation-frozen-policies",
+  "seedStart": 1000000,
+  "seedCount": 500,
+  "seats": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "policies": [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E"
+  ],
+  "profiles": [
+    "speed",
+    "pinfu",
+    "value",
+    "cautious",
+    "mixed"
+  ],
+  "rules": {
+    "id": "H-2026-literal-v1",
+    "ronPassAllowed": true,
+    "passRonLock": "none",
+    "selfDiscardFuriten": false,
+    "pinfuClosedOnly": false,
+    "peikouClosedOnly": false,
+    "ryanpeikouDistinctSuits": true,
+    "concealedKanBreaksMenzen": true,
+    "menzenRequiresTsumo": false,
+    "sevenPairsQuadAsTwo": false,
+    "greenTiles": [
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      32
+    ],
+    "kanBonus": 100,
+    "dragonBonus": 100,
+    "roundWindBonus": 100,
+    "seatWindBonus": 100,
+    "tsumoBonusPerPayer": 100,
+    "drawIncludesBonuses": false,
+    "drawWaitAvailability": "structural",
+    "deadWallTiles": 0,
+    "maxKans": 32,
+    "kanReplacement": "live-tail",
+    "addedKanRobAllowed": true,
+    "multipleRon": "all",
+    "chiFrom": "next-active",
+    "allowKuikae": true,
+    "revealWinnerHand": true,
+    "revealTsumoWinningTile": false,
+    "roundWind": 27
+  },
+  "weights": {},
+  "policyDefinitions": {
+    "A": {
+      "name": "최속 화료 · 론 수락",
+      "speed": 1000,
+      "ukeire": 1,
+      "value": 0,
+      "pinfu": 0,
+      "risk": 0,
+      "maxShantenLoss": 0,
+      "callCost": 0.2,
+      "declineRon": false
+    },
+    "B": {
+      "name": "핑후 우선 · 론 수락",
+      "speed": 65,
+      "ukeire": 1,
+      "value": 0,
+      "pinfu": 24,
+      "risk": 0,
+      "maxShantenLoss": 1,
+      "callCost": 0.2,
+      "declineRon": false
+    },
+    "C": {
+      "name": "핑후 우선 · 론 거절",
+      "speed": 65,
+      "ukeire": 1,
+      "value": 0,
+      "pinfu": 24,
+      "risk": 0,
+      "maxShantenLoss": 1,
+      "callCost": 0.2,
+      "declineRon": true
+    },
+    "D": {
+      "name": "고득점 지향",
+      "speed": 38,
+      "ukeire": 0.7,
+      "value": 0.11,
+      "pinfu": 0,
+      "risk": 0,
+      "maxShantenLoss": 1,
+      "callCost": 0.2,
+      "declineRon": false
+    },
+    "E": {
+      "name": "균형형",
+      "speed": 65,
+      "ukeire": 1,
+      "value": 0.045,
+      "pinfu": 3,
+      "risk": 18,
+      "maxShantenLoss": 1,
+      "callCost": 0.5,
+      "declineRon": false
+    }
+  },
+  "opponentDefinitions": {
+    "speed": [
+      {
+        "id": "A"
+      },
+      {
+        "id": "A"
+      },
+      {
+        "id": "A"
+      }
+    ],
+    "pinfu": [
+      {
+        "id": "B"
+      },
+      {
+        "id": "B"
+      },
+      {
+        "id": "B"
+      }
+    ],
+    "value": [
+      {
+        "id": "D"
+      },
+      {
+        "id": "D"
+      },
+      {
+        "id": "D"
+      }
+    ],
+    "cautious": [
+      {
+        "id": "E",
+        "weights": {
+          "risk": 45
+        }
+      },
+      {
+        "id": "E",
+        "weights": {
+          "risk": 45
+        }
+      },
+      {
+        "id": "E",
+        "weights": {
+          "risk": 45
+        }
+      }
+    ],
+    "mixed": [
+      {
+        "id": "A"
+      },
+      {
+        "id": "D"
+      },
+      {
+        "id": "E"
+      }
+    ]
+  }
+}

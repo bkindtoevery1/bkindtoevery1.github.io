@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#102b32"><title>H룰 마작 · 혼자 연습하기</title><meta name="description" content="AI 3명과 H룰 마작을 연습하세요. 전략별 추천, 무작위 자리와 실제 10,000국 실험 결과를 제공합니다."><link rel="stylesheet" href="./web/style.css"></head>
+<body>
+<header class="site-header"><a class="brand" href="./" aria-label="H룰 마작 연습실"><span class="brand-mark" aria-hidden="true">發</span><span><small>WELLNESS MAHJONG</small><h1>H룰 마작 연습실</h1></span></a><a class="header-link" href="#results">전략 실험 결과 ↗</a></header>
+<main>
+<section class="controls" aria-label="대국 설정">
+<button id="random-game" class="primary">새 대국 ↻</button>
+<label>상대 성향<select id="profile"><option value="mixed">혼합 · A/D/E</option><option value="speed">최속 · A/A/A</option><option value="pinfu">핑후 · B/B/B</option><option value="value">고득점 · D/D/D</option><option value="cautious">신중 · E/E/E</option></select></label>
+<label>내 자동 대국 전략<select id="policy"></select></label><button id="autoplay" aria-pressed="false">내 자리도 AI로</button>
+<details class="game-settings"><summary>배패 번호 · 패보</summary><div class="settings-content"><label>배패 번호 (재현 시드)<input id="seed" type="number" value="1000051" min="0" max="4294967295"></label><button id="new-game">이 번호로 다시 시작</button><button id="export">패보 저장 ↓</button><p>같은 번호는 배패와 내 자리를 함께 재현합니다.</p></div></details>
+</section>
+<p id="practice-info" class="practice-info">동·남·서·북 중 무작위 자리에서 AI 3명과 연습합니다.</p>
+<div class="play-layout">
+<section class="board" aria-label="마작 대국">
+<div class="board-heading"><span class="room-label">H RULE · 1국 연습</span><span id="turn-indicator" class="turn-indicator"></span></div>
+<div class="table-surface"><div id="opponents" class="opponents"></div><div id="rivers" class="rivers"></div><div class="table-center"><div class="center-winds" aria-hidden="true"><span id="wind-top"></span><span id="wind-left"></span><span class="wind-mark">H</span><span id="wind-right"></span><span id="wind-bottom"></span></div><span id="wall" class="wall-count"></span><span id="win-count" class="win-count"></span></div><div id="self-river" class="river river-bottom" aria-label="내 버림패"></div></div>
+<section class="self" aria-label="내 손패와 행동"><div class="self-heading"><div id="self-title" class="self-title"></div><h2 id="game-status" aria-live="polite">대국 준비</h2></div><div id="melds" class="melds"></div><div id="hand" class="hand" aria-label="내 손패"></div><div class="decision-row"><p id="selection-hint" class="selection-hint">패를 눌러 선택하세요.</p><div id="actions" class="actions" aria-label="가능한 행동"></div></div><p id="error" role="alert"></p></section>
+</section>
+<aside class="recommendations" aria-labelledby="recommendation-title"><div class="recommendation-heading"><h2 id="recommendation-title">전략별 추천</h2><span>A—E</span></div><p id="recommendation-status" class="recommendation-status" aria-live="polite">내 차례를 기다리는 중입니다.</p><div id="recommendation-list" class="recommendation-grid"></div><p class="recommendation-note">버튼은 추천 행동을 바로 실행합니다. 샨텐은 완성까지의 거리이며 0은 텐파이입니다. 유효패 수는 내 손패와 공개패를 기준으로 추정합니다.</p></aside>
+</div>
+<section id="results" class="results"><div class="section-heading"><div><small>실행 완료 · 500개 시드 × 4자리 × 5전략</small><h2>실제 10,000국 비교</h2></div><div class="result-downloads"><a href="./results/baseline/report.ko.md" download>한국어 보고서 ↓</a><a href="./results/baseline/summary.csv" download>요약 CSV ↓</a></div></div><p id="conclusion">완료된 실험을 불러오는 중입니다.</p><div class="table-wrap"><table><thead><tr><th>정책</th><th>평균 순수익</th><th>95% 신뢰구간</th><th>화료율</th></tr></thead><tbody id="summary"></tbody></table></div><p class="note">500개 시드 묶음 단위 신뢰구간. 각 묶음의 4자리·5정책을 함께 재표본합니다. 수치는 점수이며, 전역 최적 전략이나 대회 순위점수의 우위를 뜻하지 않습니다.</p></section>
+<details class="rules"><summary>적용 규칙과 대국 기록</summary><p>단일 최고 역 + 지정 가산점. 기본 가산점은 항목당 100점이며 쯔모는 미화료자마다 100점을 추가 지급합니다. 핑후·페코 부로를 허용하고 후리텐은 적용하지 않습니다. 세 번째 화료 또는 유국에서 끝납니다. 실제 대회 세칙으로 미확정인 부분은 보고서에 명시했습니다.</p><a href="./docs/rules-audit.ko.md" download>상세 가정 문서 ↓</a><ol id="events"></ol></details>
+</main><footer>대국은 내 브라우저에서 진행됩니다. 새로고침하면 국이 초기화됩니다. 기록을 남기려면 ‘패보 저장’을 사용하세요.</footer><script type="module" src="./web/app.mjs"></script></body></html>

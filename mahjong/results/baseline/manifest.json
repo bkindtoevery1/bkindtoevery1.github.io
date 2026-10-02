@@ -1,0 +1,274 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-09-15T07:28:56.306Z",
+  "configPath": "configs/baseline.json",
+  "config": {
+    "partition": "validation-frozen-policies",
+    "seedStart": 1000000,
+    "seedCount": 500,
+    "seats": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "policies": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "profiles": [
+      "speed",
+      "pinfu",
+      "value",
+      "cautious",
+      "mixed"
+    ],
+    "rules": {
+      "id": "H-2026-literal-v1",
+      "ronPassAllowed": true,
+      "passRonLock": "none",
+      "selfDiscardFuriten": false,
+      "pinfuClosedOnly": false,
+      "peikouClosedOnly": false,
+      "ryanpeikouDistinctSuits": true,
+      "concealedKanBreaksMenzen": true,
+      "menzenRequiresTsumo": false,
+      "sevenPairsQuadAsTwo": false,
+      "greenTiles": [
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        32
+      ],
+      "kanBonus": 100,
+      "dragonBonus": 100,
+      "roundWindBonus": 100,
+      "seatWindBonus": 100,
+      "tsumoBonusPerPayer": 100,
+      "drawIncludesBonuses": false,
+      "drawWaitAvailability": "structural",
+      "deadWallTiles": 0,
+      "maxKans": 32,
+      "kanReplacement": "live-tail",
+      "addedKanRobAllowed": true,
+      "multipleRon": "all",
+      "chiFrom": "next-active",
+      "allowKuikae": true,
+      "revealWinnerHand": true,
+      "revealTsumoWinningTile": false,
+      "roundWind": 27
+    },
+    "weights": {},
+    "policyDefinitions": {
+      "A": {
+        "name": "최속 화료 · 론 수락",
+        "speed": 1000,
+        "ukeire": 1,
+        "value": 0,
+        "pinfu": 0,
+        "risk": 0,
+        "maxShantenLoss": 0,
+        "callCost": 0.2,
+        "declineRon": false
+      },
+      "B": {
+        "name": "핑후 우선 · 론 수락",
+        "speed": 65,
+        "ukeire": 1,
+        "value": 0,
+        "pinfu": 24,
+        "risk": 0,
+        "maxShantenLoss": 1,
+        "callCost": 0.2,
+        "declineRon": false
+      },
+      "C": {
+        "name": "핑후 우선 · 론 거절",
+        "speed": 65,
+        "ukeire": 1,
+        "value": 0,
+        "pinfu": 24,
+        "risk": 0,
+        "maxShantenLoss": 1,
+        "callCost": 0.2,
+        "declineRon": true
+      },
+      "D": {
+        "name": "고득점 지향",
+        "speed": 38,
+        "ukeire": 0.7,
+        "value": 0.11,
+        "pinfu": 0,
+        "risk": 0,
+        "maxShantenLoss": 1,
+        "callCost": 0.2,
+        "declineRon": false
+      },
+      "E": {
+        "name": "균형형",
+        "speed": 65,
+        "ukeire": 1,
+        "value": 0.045,
+        "pinfu": 3,
+        "risk": 18,
+        "maxShantenLoss": 1,
+        "callCost": 0.5,
+        "declineRon": false
+      }
+    },
+    "opponentDefinitions": {
+      "speed": [
+        {
+          "id": "A"
+        },
+        {
+          "id": "A"
+        },
+        {
+          "id": "A"
+        }
+      ],
+      "pinfu": [
+        {
+          "id": "B"
+        },
+        {
+          "id": "B"
+        },
+        {
+          "id": "B"
+        }
+      ],
+      "value": [
+        {
+          "id": "D"
+        },
+        {
+          "id": "D"
+        },
+        {
+          "id": "D"
+        }
+      ],
+      "cautious": [
+        {
+          "id": "E",
+          "weights": {
+            "risk": 45
+          }
+        },
+        {
+          "id": "E",
+          "weights": {
+            "risk": 45
+          }
+        },
+        {
+          "id": "E",
+          "weights": {
+            "risk": 45
+          }
+        }
+      ],
+      "mixed": [
+        {
+          "id": "A"
+        },
+        {
+          "id": "D"
+        },
+        {
+          "id": "E"
+        }
+      ]
+    }
+  },
+  "configHash": "abd64fceb276a6ad2c40ece26b7bb118643ea85defbd15399267995e652b0683",
+  "code": {
+    "sha256": "b61454a4bb64f176350d905ec44df9af92baa8fa75905cf67901f01a5356bdb4",
+    "files": [
+      {
+        "name": "engine/game.mjs",
+        "sha256": "eb37720a165bd8a26404908b837a65d9dd466ef6c772ca370fc414bc1d066dbd"
+      },
+      {
+        "name": "engine/rules.mjs",
+        "sha256": "31e7c5febff407d497b1d1b412e9cab0b680f3b74a27655b1bc9a766cc4905b2"
+      },
+      {
+        "name": "engine/score.mjs",
+        "sha256": "505f54e972e25b10f355cc6051512a726058bf0f2150846e6cad73408cfdf675"
+      },
+      {
+        "name": "engine/shanten.mjs",
+        "sha256": "b091251b815e49ab2e5f22b127445c6ac24c4770b4c6200d6b37d9980e09c416"
+      },
+      {
+        "name": "engine/tiles.mjs",
+        "sha256": "fba4a96fecb8755ccca3dc594373e3490c92aa5533d48d6aa66b0c23aed19034"
+      },
+      {
+        "name": "policies/index.mjs",
+        "sha256": "ca006dea00eabd76174702750f13f70ae63b18c6c64f29e8371c2c06c53396a8"
+      },
+      {
+        "name": "sim/io.mjs",
+        "sha256": "d95ac4042f198d8a241ad8b9837dda22f74211e0d7f1b68b52de70dc75b084cc"
+      },
+      {
+        "name": "sim/play.mjs",
+        "sha256": "4953652728f0e73ef642467ee29d4b47f9298ccfa01208f3a2b3c78bae6f8d7b"
+      },
+      {
+        "name": "sim/report.mjs",
+        "sha256": "a06f9613e2bfe6f1deb5ca05161a022a23739f9c9671802d44ca616c3e915459"
+      },
+      {
+        "name": "sim/run.mjs",
+        "sha256": "4fc1178561dd8e25c69d1912b2b875b2a313c67098c724030a200cd9a85750c1"
+      },
+      {
+        "name": "sim/stats.mjs",
+        "sha256": "7b3c7baa972e6ba40c51352d3cb848e15361afd4df4bfe14317848c1b46bc545"
+      },
+      {
+        "name": "sim/worker.mjs",
+        "sha256": "4130249e1ff3b69c069d866f138384ddadf9420aa330f02d98a08ab0b224d699"
+      }
+    ]
+  },
+  "node": "v22.22.3",
+  "platform": "darwin",
+  "arch": "arm64",
+  "cpu": "Apple M4",
+  "total": 10000,
+  "completed": 10000,
+  "status": "complete",
+  "runs": [
+    {
+      "startedAt": "2026-09-15T07:28:56.309Z",
+      "command": [
+        "node",
+        "sim/run.mjs",
+        "--config",
+        "configs/baseline.json"
+      ],
+      "workers": 4,
+      "previousCompleted": 0,
+      "completed": 10000,
+      "finishedAt": "2026-09-15T07:29:57.549Z",
+      "elapsedSeconds": 61.240926458000004
+    }
+  ],
+  "wallSeconds": 61.240926458000004,
+  "publicCopyNote": "실제 실행 기록의 로컬 실행 파일·작업 폴더 경로만 상대 경로로 표기했습니다. 원본 기록은 로컬에 보존됩니다."
+}
