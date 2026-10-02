@@ -15,10 +15,10 @@ export function displayedTurn(state) {
 // Resolve the other players' checks together without painting intermediate seats.
 // Always stop at the human: their legal choices and 700ms automatic pass stay intact.
 // Each decision receives only the engine's own-hand/public-information view.
-export function resolveAiReactions(state, humanSeat, choose) {
+export function resolveAiReactions(state, humanSeat, choose, apply = step) {
   while (state.phase === 'reaction' && actor(state) !== humanSeat) {
     const seat = actor(state);
-    step(state, seat, choose(observation(state, seat)));
+    apply(state, seat, choose(observation(state, seat)));
   }
 }
 
