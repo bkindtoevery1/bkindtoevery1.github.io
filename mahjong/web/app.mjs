@@ -555,11 +555,11 @@ __export(game_exports2, {
 
 // s-engine/rules.mjs
 var S_DEFAULTS = Object.freeze({
-  id: "S-2026-v1",
+  id: "S-2026-v2",
   variant: "S",
   pinfuHan: 2,
   roundWind: 27,
-  startingPoints: 3e4,
+  startingPoints: 25e3,
   riichiDeposit: 1e3,
   peikouClosedOnly: true,
   pinfuValuePairAllowed: false,
@@ -1535,11 +1535,16 @@ function bird(svg) {
 }
 function eightBamboo(svg) {
   svg.setAttribute("data-design", "bamboo-eight");
-  for (const [x1, y1, x2, y2] of [[13, 43, 29, 16], [29, 16, 45, 43], [55, 43, 71, 16], [71, 16, 87, 43], [13, 65, 29, 92], [29, 92, 45, 65], [55, 65, 71, 92], [71, 92, 87, 65]]) {
-    const g = element("g", { "data-bamboo-stem": "true" }), mx = (x1 + x2) / 2, my = (y1 + y2) / 2, dx = (y2 - y1) / 9, dy = -(x2 - x1) / 9;
-    g.append(element("path", { d: `M${x1} ${y1} L${x2} ${y2}`, fill: "none", stroke: "#1a7952", "stroke-width": 6, "stroke-linecap": "round" }));
-    g.append(element("path", { d: `M${mx - dx} ${my - dy} L${mx + dx} ${my + dy}`, fill: "none", stroke: "#125c40", "stroke-width": 3, "stroke-linecap": "round" }));
-    svg.append(g);
+  for (const points of [[[5, 43], [24, 18], [43, 43]], [[57, 43], [76, 18], [95, 43]], [[5, 67], [24, 92], [43, 67]], [[57, 67], [76, 92], [95, 67]]]) {
+    svg.append(element("path", { d: points.map(([x, y], i) => `${i ? "L" : "M"}${x} ${y}`).join(" "), fill: "none", stroke: "#166b46", "stroke-width": 8, "stroke-linecap": "butt", "stroke-linejoin": "miter", "stroke-miterlimit": 2 }));
+    for (let i = 0; i < 2; i++) {
+      const [x1, y1] = points[i], [x2, y2] = points[i + 1], length = Math.hypot(x2 - x1, y2 - y1), dx = (y2 - y1) / length * 3.5, dy = -(x2 - x1) / length * 3.5, g = element("g", { "data-bamboo-stem": "true" });
+      for (const t of [0.3, 0.7]) {
+        const x = x1 + (x2 - x1) * t, y = y1 + (y2 - y1) * t;
+        g.append(element("path", { d: `M${x - dx} ${y - dy} L${x + dx} ${y + dy}`, fill: "none", stroke: "#0d4e33", "stroke-width": 1.7 }));
+      }
+      svg.append(g);
+    }
   }
 }
 function tileFace(type, { button = false, small = false } = {}) {
@@ -1558,7 +1563,7 @@ function tileFace(type, { button = false, small = false } = {}) {
     else if (type === 25) eightBamboo(svg);
     else for (const [index, [x, y]] of dots[n].entries()) {
       if (type < 18) {
-        const color = n === 1 ? "#245176" : n === 5 && index === 2 ? "#b12739" : index % 3 === 0 ? "#b12739" : "#245176";
+        const color = "#222222";
         svg.append(element("circle", { cx: x, cy: y + 5, r: n === 1 ? 25 : n < 6 ? 14 : 10, fill: "none", stroke: color, "stroke-width": n === 1 ? 8 : 6 }));
         svg.append(element("circle", { cx: x, cy: y + 5, r: n === 1 ? 11 : 3, fill: color }));
       } else {
@@ -2302,6 +2307,17 @@ function node(tag, text, cls) {
   if (cls) el.className = cls;
   return el;
 }
+function riichiMarker(seat) {
+  const marker = node("span", void 0, "riichi-status"), stick = node("span", void 0, "riichi-stick");
+  marker.setAttribute("role", "img");
+  marker.setAttribute("aria-label", `${seatName(seat)} \uB9AC\uCE58`);
+  marker.title = `${seatName(seat)} \uB9AC\uCE58`;
+  stick.setAttribute("aria-hidden", "true");
+  const label = node("span", "\uB9AC\uCE58");
+  label.setAttribute("aria-hidden", "true");
+  marker.append(stick, label);
+  return marker;
+}
 function tiles(parent, types) {
   for (const t of types) parent.append(tileFace(t, { small: true }));
 }
@@ -2472,7 +2488,8 @@ function render() {
     const pl = state.players[i], card = node("div", void 0, `opponent opponent-${position}${pl.won ? " won" : ""}${shownTurn === i ? " active" : ""}`), title = node("div", void 0, "player-title"), who = node("span", void 0, "player-seat");
     who.append(node("span", wind(i), "seat-badge"), node("span", online ? remote.members.find((m) => m.seat === i)?.name ?? "\uD50C\uB808\uC774\uC5B4" : "AI", "player-name"));
     title.append(who, node("span", match ? `${match.totals[i].toLocaleString()}\uC810` : signedPoints(pl.score), "player-score"));
-    card.append(title, node("p", pl.won ? `${pl.win.order}\uBC88\uC9F8 ${pl.win.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 ${pl.win.score.name}` : `${seatName(i)}${pl.riichi ? " \xB7 \uB9AC\uCE58" : ""} \xB7 \uC190\uD328 ${pl.handSize ?? pl.hand.length}\uC7A5`, "player-sub"));
+    card.append(title, node("p", pl.won ? `${pl.win.order}\uBC88\uC9F8 ${pl.win.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 ${pl.win.score.name}` : `${seatName(i)} \xB7 \uC190\uD328 ${pl.handSize ?? pl.hand.length}\uC7A5`, "player-sub"));
+    if (pl.riichi) card.append(riichiMarker(i));
     for (const m of pl.melds) card.append(renderMeld(m));
     if (state.end || pl.won) {
       const revealed = node("div", void 0, "revealed-hand");
@@ -2491,7 +2508,7 @@ function render() {
     $("rivers").append(river);
   }
   $("self-title").replaceChildren(node("span", wind(humanSeat), "seat-badge"), node("span", `${seatName(humanSeat)} \xB7 \uB098`), node("span", match ? `\uBC18\uC7A5 ${match.totals[humanSeat].toLocaleString()}\uC810` : `\uAD6D \uB204\uC801 ${signedPoints(p.score)}\uC810`, "self-score"));
-  if (p.riichi) $("self-title").append(node("span", "\uB9AC\uCE58", "player-sub"));
+  if (p.riichi) $("self-title").append(riichiMarker(humanSeat));
   if (p.won) $("self-title").append(node("span", `${p.win.order}\uBC88\uC9F8 \uD654\uB8CC`, "player-sub"));
   const settlement = winSettlement(state, humanSeat), result = $("win-settlement");
   result.hidden = !settlement;
@@ -2539,6 +2556,7 @@ function render() {
   updateSelection();
   renderRecommendations();
   renderMatch();
+  updateTableLayout();
   $("events").replaceChildren();
   for (const e of state.events.filter((e2) => ["win", "kan", "drawSettlement", "call"].includes(e2.type)).slice(-30)) {
     const settlement2 = e.type === "win" ? winSettlement(state, e.seat) : null;
@@ -2546,6 +2564,33 @@ function render() {
     $("events").append(node("li", text));
   }
 }
+function updateTableLayout() {
+  const surface = document.querySelector(".table-surface"), center = surface?.querySelector(".table-center"), own = $("self-river");
+  if (!surface?.clientWidth || !center || !state) return;
+  const style = getComputedStyle(own), rowHeight = parseFloat(style.gridAutoRows), gap = parseFloat(style.rowGap), riverWidth = own.offsetWidth;
+  if (!Number.isFinite(rowHeight) || !Number.isFinite(gap)) return;
+  const depth = (position) => {
+    const el = surface.querySelector(".river-" + position);
+    return Math.max(3, Math.ceil((el?.children.length ?? 0) / 6)) * (rowHeight + gap) - gap;
+  };
+  const compact = matchMedia("(max-width:760px)").matches, topCard = surface.querySelector(".opponent-top"), leftCard = surface.querySelector(".opponent-left"), rightCard = surface.querySelector(".opponent-right");
+  const sideCardHeight = Math.max(leftCard?.offsetHeight ?? 0, rightCard?.offsetHeight ?? 0), sideCardWidth = Math.max(leftCard?.offsetWidth ?? 0, rightCard?.offsetWidth ?? 0);
+  const topOffset = Math.max(compact ? 112 : 114, (topCard?.offsetTop ?? 14) + (topCard?.offsetHeight ?? 80) + 14), topDepth = depth("top"), bottomDepth = depth("bottom");
+  const topBand = Math.max(topDepth, compact ? sideCardHeight : 0), sideSpace = Math.max(20, (surface.clientWidth - center.offsetWidth) / 2 - 12 - (compact ? 12 : sideCardWidth + 30));
+  const leftScale = Math.min(1, sideSpace / depth("left")), rightScale = Math.min(1, sideSpace / depth("right"));
+  const middleBand = Math.max(center.offsetHeight + 8, riverWidth * leftScale, riverWidth * rightScale, compact ? 0 : sideCardHeight), centerY = topOffset + topBand + 14 + middleBand / 2;
+  const set = (name, value) => surface.style.setProperty(name, `${value}px`);
+  set("--river-min-depth", 3 * (rowHeight + gap) - gap);
+  set("--top-river-y", topOffset + (topBand - topDepth) / 2);
+  set("--side-card-y", topOffset + topBand / 2);
+  set("--table-center-y", centerY);
+  set("--table-required-height", centerY + middleBand / 2 + 14 + bottomDepth + 14);
+  set("--left-river-x", surface.clientWidth / 2 - center.offsetWidth / 2 - 12 - depth("left") * leftScale / 2);
+  set("--right-river-x", surface.clientWidth / 2 + center.offsetWidth / 2 + 12 + depth("right") * rightScale / 2);
+  surface.style.setProperty("--left-river-scale", String(leftScale));
+  surface.style.setProperty("--right-river-scale", String(rightScale));
+}
+window.addEventListener("resize", updateTableLayout);
 function aiAction(view) {
   const spec = view.seat === humanSeat ? { id: $("policy").value } : OPPONENT_PROFILES2[$("profile").value][(view.seat - humanSeat + 4) % 4 - 1];
   return chooseAction3(view, spec.id, spec.weights);
@@ -2723,6 +2768,7 @@ function renderMatch() {
   $("match-panel").hidden = !match;
   $("resume-s-match").hidden = !matchStore.read()?.active || !online && !!sMatch;
   if (!match) return;
+  $("match-starting-points").textContent = match.startingPoints.toLocaleString();
   $("match-title").textContent = match.status === "complete" ? "S\uB8F0 \uBC18\uC7A5 \uCD5C\uC885 \uACB0\uACFC" : `S\uB8F0 \uBC18\uC7A5 \xB7 ${match.label}`;
   $("match-save-status").textContent = online ? matchStore.persisted ? "\uC9C4\uD589 \uC0C1\uD0DC\uB294 \uBC29 \uB9CC\uB8CC\uAE4C\uC9C0 \xB7 \uC810\uC218\uD45C\uB294 \uC774 \uAE30\uAE30\uC5D0 \uC800\uC7A5" : matchStore.error ?? "\uC810\uC218\uD45C\uB97C \uD30C\uC77C\uB85C \uC800\uC7A5\uD574 \uC8FC\uC138\uC694." : matchStore.persisted ? "\uC774 \uAE30\uAE30\uC5D0 \uC790\uB3D9 \uC800\uC7A5\uB428" : matchStore.error ?? "\uC790\uB3D9 \uC800\uC7A5 \uBD88\uAC00 \xB7 \uC810\uC218\uD45C\uB97C \uB0B4\uB824\uBC1B\uC73C\uC138\uC694.";
   $("match-seat-note").textContent = `\uB0B4 \uC2DC\uC791 \uC790\uB9AC\uB294 ${SEAT_NAMES[humanSeat]}\uC785\uB2C8\uB2E4. \uC544\uB798 \uC810\uC218\uD45C\uB294 \uC2DC\uC791 \uC790\uB9AC\uB97C \uAE30\uC900\uC73C\uB85C \uB05D\uAE4C\uC9C0 \uAE30\uB85D\uD569\uB2C8\uB2E4.`;
@@ -2934,7 +2980,10 @@ function toggleRecommendations(enabled) {
   document.querySelector(".recommendations").hidden = !recommendationsEnabled;
   document.querySelector(".play-layout").classList.toggle("without-recommendations", !recommendationsEnabled);
   persistPreferences();
-  if (state) renderRecommendations();
+  if (state) {
+    renderRecommendations();
+    updateTableLayout();
+  }
   return { enabled: recommendationsEnabled };
 }
 $("rule-h").onclick = () => setVariant("H");

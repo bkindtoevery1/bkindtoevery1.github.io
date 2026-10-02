@@ -19,3 +19,18 @@
 .rule-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;font-size:14px}.rule-controls [role=group]{display:flex;gap:5px}.rule-controls button[aria-pressed=true]{background:#315f62;border-color:var(--gold);color:var(--gold)}.rule-controls small{letter-spacing:0}#toggle-recommendations{margin-left:auto}.play-layout.without-recommendations{grid-template-columns:minmax(0,1fr)}.s-rule-status{padding:9px 18px;margin:0;background:#163d3e;color:#f2dca7;font-size:13px}.river .tile-face.riichi-discard{outline:2px solid var(--gold)}#log-review{font:13px/1.6 ui-monospace,monospace;white-space:pre-wrap;background:#112a32;border:1px solid var(--line);padding:12px;border-radius:8px;max-height:320px;overflow:auto}@media(max-width:600px){.rule-controls small{flex-basis:100%;order:3}#toggle-recommendations{font-size:13px;padding:8px}}
 
 .match-panel{margin:16px 0;padding:18px;border:1px solid #37646a;border-radius:14px;background:#13343b}.match-heading,.match-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.match-heading{justify-content:space-between}.match-heading h2{font-size:1.1rem;margin:0}.match-heading span{font-size:.8rem;color:#b7d4d6}.match-scores{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:14px 0}.match-scores>div{padding:10px;background:#0d2930;border-radius:8px;font-variant-numeric:tabular-nums}.match-panel details{margin-top:12px}.match-panel table{white-space:nowrap}.match-panel .note{margin-bottom:0}#match-review{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.85rem;line-height:1.7;max-height:360px;overflow:auto}@media(max-width:700px){.match-scores{grid-template-columns:repeat(2,minmax(0,1fr));font-size:.84rem}.match-actions button{font-size:.8rem}}
+
+/* A declared riichi remains visible beside its player's seat and score. */
+.riichi-status{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font:600 12px/1.4 ui-sans-serif,system-ui;color:#fff5df;vertical-align:middle}
+.opponent .riichi-status{margin-top:6px}
+.riichi-stick{position:relative;display:inline-block;width:42px;height:9px;border:1px solid #a4a49b;border-radius:2px;background:#fffdf3;box-shadow:0 1px 2px #0005;flex:none}
+.riichi-stick::after{content:"";position:absolute;left:50%;top:50%;width:5px;height:5px;transform:translate(-50%,-50%);border-radius:50%;background:#b51f2c}
+/* Rivers keep six tiles per row and grow into reserved table space. */
+.board .table-surface{min-height:var(--table-required-height,640px)}
+.board .river{overflow:visible;max-height:none;height:auto;min-height:var(--river-min-depth,109px)}
+.board .river-top{top:var(--top-river-y,114px);transform-origin:50% 50%}
+.board .river-bottom{bottom:14px}
+.board .table-center,.board .opponent-left,.board .opponent-right{top:var(--table-center-y,320px)}
+.board .river-left{left:var(--left-river-x,calc(50% - 150px));top:var(--table-center-y,320px);transform:translate(-50%,-50%) rotate(90deg) scale(var(--left-river-scale,1))}
+.board .river-right{left:var(--right-river-x,calc(50% + 150px));top:var(--table-center-y,320px);transform:translate(-50%,-50%) rotate(-90deg) scale(var(--right-river-scale,1))}
+@media(max-width:760px){.board .opponent-left,.board .opponent-right{top:var(--side-card-y,150px)}.opponent .riichi-status{gap:4px;font-size:12px}.opponent .riichi-stick{width:27px;height:8px}.opponent .riichi-stick::after{width:4px;height:4px}}

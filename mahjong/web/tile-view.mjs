@@ -15,11 +15,15 @@ function bird(svg){
 }
 function eightBamboo(svg){
  svg.setAttribute('data-design','bamboo-eight');
- // Eight separate stems in the conventional opposing chevrons, not eight dots.
- for(const [x1,y1,x2,y2]of [[13,43,29,16],[29,16,45,43],[55,43,71,16],[71,16,87,43],[13,65,29,92],[29,92,45,65],[55,65,71,92],[71,92,87,65]]){
-  const g=element('g',{'data-bamboo-stem':'true'}),mx=(x1+x2)/2,my=(y1+y2)/2,dx=(y2-y1)/9,dy=-(x2-x1)/9;
-  g.append(element('path',{d:`M${x1} ${y1} L${x2} ${y2}`,fill:'none',stroke:'#1a7952','stroke-width':6,'stroke-linecap':'round'}));
-  g.append(element('path',{d:`M${mx-dx} ${my-dy} L${mx+dx} ${my+dy}`,fill:'none',stroke:'#125c40','stroke-width':3,'stroke-linecap':'round'}));svg.append(g);
+ // Joined, angular tips keep each V readable even on a small river tile.
+ // Two stems per chevron, with a clear gap between the left and right pairs.
+ for(const points of [[[5,43],[24,18],[43,43]],[[57,43],[76,18],[95,43]],[[5,67],[24,92],[43,67]],[[57,67],[76,92],[95,67]]]){
+  svg.append(element('path',{d:points.map(([x,y],i)=>`${i?'L':'M'}${x} ${y}`).join(' '),fill:'none',stroke:'#166b46','stroke-width':8,'stroke-linecap':'butt','stroke-linejoin':'miter','stroke-miterlimit':2}));
+  for(let i=0;i<2;i++){
+   const [x1,y1]=points[i],[x2,y2]=points[i+1],length=Math.hypot(x2-x1,y2-y1),dx=(y2-y1)/length*3.5,dy=-(x2-x1)/length*3.5,g=element('g',{'data-bamboo-stem':'true'});
+   for(const t of [.3,.7]){const x=x1+(x2-x1)*t,y=y1+(y2-y1)*t;g.append(element('path',{d:`M${x-dx} ${y-dy} L${x+dx} ${y+dy}`,fill:'none',stroke:'#0d4e33','stroke-width':1.7}));}
+   svg.append(g);
+  }
  }
 }
 // Local functional tile faces; accessible names always identify the exact kind.
@@ -27,7 +31,7 @@ export function tileFace(type,{button=false,small=false}={}){
  const tile=document.createElement(button?'button':'span');tile.className=`tile-face ${small?'tile-small':'tile'}`;tile.dataset.type=String(type);tile.dataset.suit=type<27?['m','p','s'][Math.floor(type/9)]:'z';tile.title=tileName(type);tile.setAttribute('aria-label',tileName(type));if(button)tile.type='button';
  if(type<9){tile.append(span(['一','二','三','四','五','六','七','八','九'][type],'tile-number'),span('萬','tile-man'));}
  else if(type<27){const n=type%9+1,svg=element('svg',{viewBox:'0 0 100 110',class:'tile-symbol','aria-hidden':'true',focusable:'false'});if(type===18)bird(svg);else if(type===25)eightBamboo(svg);else for(const [index,[x,y]]of dots[n].entries()){
-  if(type<18){const color=n===1?'#245176':n===5&&index===2?'#b12739':index%3===0?'#b12739':'#245176';svg.append(element('circle',{cx:x,cy:y+5,r:n===1?25:n<6?14:10,fill:'none',stroke:color,'stroke-width':n===1?8:6}));svg.append(element('circle',{cx:x,cy:y+5,r:n===1?11:3,fill:color}));}
+  if(type<18){const color='#222222';svg.append(element('circle',{cx:x,cy:y+5,r:n===1?25:n<6?14:10,fill:'none',stroke:color,'stroke-width':n===1?8:6}));svg.append(element('circle',{cx:x,cy:y+5,r:n===1?11:3,fill:color}));}
   else{const color=n===7&&index<3?'#b12739':'#1a7952',length=n===1?56:n<4?30:20,thick=n===1?13:7;svg.append(element('path',{d:`M ${x} ${y+5-length/2} v ${length} M ${x-thick/2} ${y+5-length/2+4} h ${thick} M ${x-thick/2} ${y+5+length/2-4} h ${thick}`,fill:'none',stroke:color,'stroke-width':thick,'stroke-linecap':'round'}));}
  }tile.append(svg);}
  else if(type===31){tile.append(span('','tile-white'));}

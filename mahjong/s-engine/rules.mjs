@@ -1,6 +1,6 @@
 // Tournament guide §8.1 takes priority. Supplemental choices are documented in
 // docs/s-rules.ko.md; they never enter the frozen H engine or its experiment.
-export const S_DEFAULTS=Object.freeze({id:'S-2026-v1',variant:'S',pinfuHan:2,roundWind:27,startingPoints:30000,riichiDeposit:1000,
+export const S_DEFAULTS=Object.freeze({id:'S-2026-v2',variant:'S',pinfuHan:2,roundWind:27,startingPoints:25000,riichiDeposit:1000,
   peikouClosedOnly:true,pinfuValuePairAllowed:false,openSequenceReduction:false,standardYakuman:true,multipleRon:'nearest',
   sevenPairsQuadAsTwo:false,allowKuikae:true,selfDiscardFuriten:true,ronPassAllowed:true,passRonLock:'until-draw',
   maxKans:4,deadWallTiles:14,revealWinnerHand:true,revealTsumoWinningTile:true});
