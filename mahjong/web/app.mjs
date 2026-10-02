@@ -1,7 +1,7 @@
 import {createGame,actor,legalActions,observation,step} from '../engine/game.mjs';
 import {tileName,typeOf} from '../engine/tiles.mjs';
 import {chooseAction,POLICIES,OPPONENT_PROFILES} from '../policies/index.mjs';
-import {handDisplay,needsAutomaticPass,nextDelay,practiceSeat,SEAT_NAMES} from './practice-flow.mjs';
+import {handDisplay,needsAutomaticPass,nextDelay,practiceSeat,SEAT_NAMES,displayedTurn,resolveAiReactions} from './practice-flow.mjs';
 import {actionLabel,strategyRecommendations} from './recommendations.mjs';
 import {tileFace} from './tile-view.mjs';
 import {canSelectTile,selectedDiscard,seatPositions} from './selection.mjs';
@@ -51,15 +51,16 @@ function executeRecommendation(policy,mode,revision){
 }
 function actRecommendation(policy,mode,revision){try{return executeRecommendation(policy,mode,revision);}catch(e){$('error').textContent=e.message;}}
 function render(){
- const a=actor(state),p=state.players[humanSeat],positions=seatPositions(humanSeat);
- $('game-status').textContent=state.end?`${state.end==='three-winners'?'세 번째 화료':'유국'} · 국 종료`:p.won?'화료 완료 · 남은 대국 진행 중':a===humanSeat?(state.phase==='reaction'?'론 · 후로 선택':'내 차례 · 버림패 선택'):`${SEAT_NAMES[a]} 플레이어 차례`;
- $('turn-indicator').textContent=state.end?'국 종료':a===humanSeat?'● 내 차례':`${SEAT_NAMES[a]} 진행 중`;
+ const a=actor(state),shownTurn=displayedTurn(state),p=state.players[humanSeat],positions=seatPositions(humanSeat);
+ const reacting=state.phase==='reaction',humanChoice=reacting&&a===humanSeat&&!auto&&!needsAutomaticPass(state,humanSeat);
+ $('game-status').textContent=state.end?`${state.end==='three-winners'?'세 번째 화료':'유국'} · 국 종료`:p.won?'화료 완료 · 남은 대국 진행 중':reacting?(humanChoice?'론 · 후로 선택':'후로 확인 중'):a===humanSeat?'내 차례 · 버림패 선택':`${SEAT_NAMES[a]} 플레이어 차례`;
+ $('turn-indicator').textContent=state.end?'국 종료':reacting?(humanChoice?'론 · 후로 선택 가능':'후로 확인 중'):a===humanSeat?'● 내 차례':`${SEAT_NAMES[a]} 진행 중`;
  $('wall').textContent=`남은 패 ${state.wall.length}`;$('win-count').textContent=`화료 ${state.winners.length} / 3명`;
  $('opponents').replaceChildren();$('rivers').replaceChildren();
  for(const [position,i]of Object.entries(positions)){
-  const wind=$(`wind-${position}`);wind.textContent=['東','南','西','北'][i];wind.classList.toggle('active-wind',i===a);
+  const wind=$(`wind-${position}`);wind.textContent=['東','南','西','北'][i];wind.classList.toggle('active-wind',i===shownTurn);
   if(position==='bottom')continue;
-  const pl=state.players[i],card=node('div',undefined,`opponent opponent-${position}${pl.won?' won':''}${a===i?' active':''}`),title=node('div',undefined,'player-title'),who=node('span',undefined,'player-seat');
+  const pl=state.players[i],card=node('div',undefined,`opponent opponent-${position}${pl.won?' won':''}${shownTurn===i?' active':''}`),title=node('div',undefined,'player-title'),who=node('span',undefined,'player-seat');
   who.append(node('span',['東','南','西','北'][i],'seat-badge'),node('span','AI'));title.append(who,node('span',`${pl.score>0?'+':''}${pl.score}`,'player-score'));card.append(title,node('p',pl.won?`${pl.win.order}번째 ${pl.win.method==='ron'?'론':'쯔모'} · ${pl.win.score.name}`:`${SEAT_NAMES[i]} · 손패 ${pl.hand.length}장`,'player-sub'));
   for(const m of pl.melds)card.append(renderMeld(m));
   if(state.end||pl.won){const revealed=node('div',undefined,'revealed-hand');tiles(revealed,pl.hand.filter(id=>state.end||pl.win.method!=='tsumo'||id!==pl.win.tile).map(typeOf));card.append(revealed);}
@@ -79,9 +80,11 @@ function render(){
  renderRiver($('self-river'),p);updateSelection();renderRecommendations();
  $('events').replaceChildren();for(const e of state.events.filter(e=>['win','kan','drawSettlement','call'].includes(e.type)).slice(-30)){const text=e.type==='win'?`${SEAT_NAMES[e.seat]}: ${e.name??e.score.name} ${e.method==='ron'?'론':'쯔모'}, ${e.score.total}점`:e.type==='call'?`${SEAT_NAMES[e.seat]}: ${e.action.type}`:e.type==='kan'?`${SEAT_NAMES[e.seat]}: 깡, 보충패 수령`:'유국 텐파이 정산 완료';$('events').append(node('li',text));}
 }
-function playHumanAction(action){if(auto||actor(state)!==humanSeat)throw new Error('내 차례에 직접 선택할 수 있습니다.');step(state,humanSeat,action);selectedTileId=null;$('error').textContent='';render();schedule();return {seat:humanSeat,phase:state.phase,turn:actor(state)};}
+function aiAction(view){const spec=view.seat===humanSeat?{id:$('policy').value}:OPPONENT_PROFILES[$('profile').value][(view.seat-humanSeat+4)%4-1];return chooseAction(view,spec.id,spec.weights);}
+function finishAction(){resolveAiReactions(state,humanSeat,aiAction);render();schedule();}
+function playHumanAction(action){if(auto||actor(state)!==humanSeat)throw new Error('내 차례에 직접 선택할 수 있습니다.');step(state,humanSeat,action);selectedTileId=null;$('error').textContent='';finishAction();return {seat:humanSeat,phase:state.phase,turn:actor(state)};}
 function act(action){try{return playHumanAction(action);}catch(e){$('error').textContent=e.message;}}
-function tick(){timer=null;if(state.phase==='end'){render();return;}const seat=actor(state),automaticPass=needsAutomaticPass(state,humanSeat);if(seat===humanSeat&&!auto&&!automaticPass){render();return;}try{if(automaticPass){step(state,humanSeat,{type:'pass'});}else{const spec=seat===humanSeat?{id:$('policy').value}:OPPONENT_PROFILES[$('profile').value][(seat-humanSeat+4)%4-1],o=observation(state);step(state,seat,chooseAction(o,spec.id,spec.weights));}render();schedule();}catch(e){$('error').textContent=e.message;auto=false;updateAuto();}}
+function tick(){timer=null;if(state.phase==='end'){render();return;}const seat=actor(state),automaticPass=needsAutomaticPass(state,humanSeat);if(seat===humanSeat&&!auto&&!automaticPass){render();return;}try{if(automaticPass){step(state,humanSeat,{type:'pass'});}else{step(state,seat,aiAction(observation(state)));}finishAction();}catch(e){$('error').textContent=e.message;auto=false;updateAuto();}}
 function schedule(){if(timer)clearTimeout(timer);timer=null;const delay=nextDelay(state,auto,humanSeat);if(delay!==null)timer=setTimeout(tick,delay);}
 function updateAuto(){$('autoplay').setAttribute('aria-pressed',String(auto));$('autoplay').textContent=auto?'자동 대국 멈추기':'내 자리도 AI로';}
 function start(seed){if(!Number.isInteger(seed)||seed<0||seed>4294967295)throw new Error('시드는 0–4294967295의 정수여야 합니다.');if(timer)clearTimeout(timer);auto=false;selectedTileId=null;updateAuto();humanSeat=practiceSeat(seed);state=createGame({seed});$('seed').value=String(seed);$('practice-info').textContent=`내 자리는 ${SEAT_NAMES[humanSeat]}입니다. 상대 3명은 AI이며 동부터 시작합니다. 패를 선택한 뒤 다시 누르거나 버리기 버튼으로 확정하세요. 론·치·퐁·깡이 불가능하면 0.7초 뒤 자동으로 넘깁니다.`;$('error').textContent='';render();schedule();return {seed,seat:humanSeat,remaining:state.wall.length};}

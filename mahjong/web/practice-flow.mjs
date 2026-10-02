@@ -1,10 +1,26 @@
-import {actor, legalActions} from '../engine/game.mjs';
+import {actor, legalActions, observation, step} from '../engine/game.mjs';
 
 export const AUTO_PASS_DELAY_MS = 700;
 export const SEAT_NAMES = ['동', '남', '서', '북'];
 
 // A random 32-bit deal number gives a uniform seat; replay keeps the same seat.
 export const practiceSeat = seed => (seed >>> 16) & 3;
+
+// A reaction is a check on the last play, not a new draw/discard turn.
+export function displayedTurn(state) {
+  if (state.phase === 'reaction') return state.reaction.source;
+  return state.phase === 'turn' ? state.turn : null;
+}
+
+// Resolve the other players' checks together without painting intermediate seats.
+// Always stop at the human: their legal choices and 700ms automatic pass stay intact.
+// Each decision receives only the engine's own-hand/public-information view.
+export function resolveAiReactions(state, humanSeat, choose) {
+  while (state.phase === 'reaction' && actor(state) !== humanSeat) {
+    const seat = actor(state);
+    step(state, seat, choose(observation(state, seat)));
+  }
+}
 
 export function handDisplay(state, seat = 0) {
   const player = state.players[seat];
