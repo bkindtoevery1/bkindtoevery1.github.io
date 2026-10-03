@@ -73,3 +73,4 @@
 .han-list strong{white-space:nowrap}
 .win-settlement .han-total{font-size:17px;font-weight:700;color:#ffdfa4;margin:12px 0 8px}
 @media(max-width:480px){.dora-panel{padding:10px 12px}.dora-label{flex-basis:100%}.han-groups{gap:12px}.board>.win-settlement{margin:10px 8px}}
+.archive-notice{font-size:14px;color:var(--muted);margin:8px 0 12px}.archive-notice #archive-status{color:var(--gold);display:inline-block;margin-left:6px}

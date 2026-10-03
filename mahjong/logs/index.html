@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><title>서버 패보 · 웰니스 마작</title><link rel="stylesheet" href="../web/style.css?v=30190ef05584bb94"><link rel="stylesheet" href="../web/logs/style.css?v=f3927b91a99a7436"></head>
+<body><header class="site-header"><a class="brand" href="../"><span class="brand-mark" aria-hidden="true">發</span><h1>서버 패보</h1></a><a href="../">연습으로 돌아가기</a></header>
+<main>
+<section id="archive-login" class="archive-card"><h2>운영자 조회</h2><p>조회 코드를 입력하면 수집된 패보를 확인할 수 있습니다.</p><form id="login-form"><label>조회 코드<input id="admin-code" type="password" required autocomplete="current-password" spellcheck="false"></label><button class="primary" type="submit">패보 열기</button></form></section>
+<p id="archive-message" role="status" aria-live="polite"></p>
+<section id="archive-content" hidden>
+<form id="filter-form" class="archive-filters"><label>패보 찾기<input id="search" type="search" maxlength="80" placeholder="패보 번호 · 배패 번호 · 방 코드"></label><label>룰<select id="filter-variant"><option value="">모두</option><option>H</option><option>S</option></select></label><label>모드<select id="filter-mode"><option value="">모두</option><option value="practice">혼자 연습</option><option value="online">4인 대국</option></select></label><label>상태<select id="filter-status"><option value="">모두</option><option value="active">진행 중</option><option value="ended">종료</option><option value="error">오류 기록 있음</option></select></label><button class="primary" type="submit">조회</button><button id="archive-logout" type="button">잠그기</button></form>
+<p class="archive-help">업로드된 시점까지의 기록입니다. 4인 대국 패보는 각 이용자가 받은 공개 정보와 자기 손패를 담습니다.</p>
+<div class="archive-layout"><section aria-label="패보 목록"><p id="archive-empty" hidden>조건에 맞는 패보가 없습니다.</p><div id="archive-list"></div><button id="load-more" hidden>이전 패보 더 보기</button></section>
+<section class="archive-card archive-detail" aria-label="선택한 패보"><h2 id="detail-title">패보를 선택하세요</h2><p id="detail-meta"></p><div id="detail-actions" hidden><button id="download-archive">JSON 저장</button><button id="download-archive-text">TXT 저장</button></div><div id="detail-hands"></div><pre id="detail-review"></pre><details id="detail-history" hidden><summary>전체 행동 기록</summary><pre id="detail-text"></pre></details></section></div>
+</section></main><script type="module" src="../web/logs/app.mjs?v=b425bb9f4e075676"></script></body></html>
