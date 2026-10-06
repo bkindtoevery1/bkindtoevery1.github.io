@@ -3,7 +3,7 @@ export const archiveOrigin=()=>['localhost','127.0.0.1'].includes(globalThis.loc
 const TOKEN='mahjong-archive-device-v1',OUTBOX='mahjong-archive-outbox-v1:',ACK='mahjong-archive-ack-v1:';
 const stamp=log=>[log.actions.length,log.observations.at(-1)?.revision??0,log.errors.length,log.game.events.length,log.game.end??''].join(':');
 export class ArchiveClient{
- constructor({storage=null,fetcher=globalThis.fetch,origin=archiveOrigin(),onStatus=()=>{},setTimer=setTimeout,clearTimer=clearTimeout}={}){
+ constructor({storage=null,fetcher=(...args)=>globalThis.fetch(...args),origin=archiveOrigin(),onStatus=()=>{},setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args)}={}){
   Object.assign(this,{storage,fetcher,origin,onStatus,setTimer,clearTimer});this.pending=new Map();this.acks=new Map();this.busy=false;this.timer=null;this.failures=0;this.blocked=new Set();this.stopped=false;
   try{this.token=storage?.getItem(TOKEN);}catch{}
   if(!/^[0-9a-f]{64}$/.test(this.token??'')){this.token=Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');try{storage?.setItem(TOKEN,this.token);}catch{}}
@@ -40,4 +40,9 @@ export class ArchiveClient{
  }
  retry(){this.blocked.clear();this.failures=0;void this.flush();}
  stop(){this.stopped=true;if(this.timer!==null)this.clearTimer(this.timer);this.timer=null;}
+}
+// Server archiving is optional: a transport/UI callback failure must not stop play.
+export function archiveTask(action,onError=()=>{}){
+ const failed=error=>{try{onError(error);}catch{}};
+ try{const result=action();return result?.catch?result.catch(failed):result;}catch(error){failed(error);}
 }

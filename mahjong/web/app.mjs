@@ -2385,8 +2385,8 @@ var OUTBOX = "mahjong-archive-outbox-v1:";
 var ACK = "mahjong-archive-ack-v1:";
 var stamp = (log) => [log.actions.length, log.observations.at(-1)?.revision ?? 0, log.errors.length, log.game.events.length, log.game.end ?? ""].join(":");
 var ArchiveClient = class {
-  constructor({ storage = null, fetcher = globalThis.fetch, origin = archiveOrigin(), onStatus = () => {
-  }, setTimer = setTimeout, clearTimer = clearTimeout } = {}) {
+  constructor({ storage = null, fetcher = (...args) => globalThis.fetch(...args), origin = archiveOrigin(), onStatus = () => {
+  }, setTimer = (...args) => globalThis.setTimeout(...args), clearTimer = (...args) => globalThis.clearTimeout(...args) } = {}) {
     Object.assign(this, { storage, fetcher, origin, onStatus, setTimer, clearTimer });
     this.pending = /* @__PURE__ */ new Map();
     this.acks = /* @__PURE__ */ new Map();
@@ -2506,6 +2506,21 @@ var ArchiveClient = class {
     this.timer = null;
   }
 };
+function archiveTask(action, onError = () => {
+}) {
+  const failed = (error) => {
+    try {
+      onError(error);
+    } catch {
+    }
+  };
+  try {
+    const result = action();
+    return result?.catch ? result.catch(failed) : result;
+  } catch (error) {
+    failed(error);
+  }
+}
 
 // web/trained-policies.mjs
 var value = {
@@ -2608,17 +2623,23 @@ var chosenVariant = preferences.variant;
 var journal = new GameJournal({ storage: logStorage });
 var buildId = new URL(import.meta.url).searchParams.get("v") ?? "local-source";
 var archiveStatuses = /* @__PURE__ */ new Map();
-var archiveClient = new ArchiveClient({ storage: logStorage, onStatus: (status) => {
+var archiveFailure = null;
+var useArchive = (action) => archiveTask(action, () => {
+  archiveFailure = "\uC11C\uBC84 \uC800\uC7A5 \uC624\uB958 \xB7 \uAE30\uAE30 \uAE30\uB85D\uC740 \uC720\uC9C0\uB429\uB2C8\uB2E4.";
+  renderArchiveStatus();
+});
+var archiveClient = useArchive(() => new ArchiveClient({ storage: logStorage, onStatus: (status) => {
+  archiveFailure = null;
   archiveStatuses.set(status.id, status);
   renderArchiveStatus();
-} });
+} }));
 function renderArchiveStatus() {
   const id = journal.current?.id, status = archiveStatuses.get(id);
-  $("archive-status").textContent = `\uC11C\uBC84 \uD328\uBCF4 ${id?.slice(0, 8) ?? "\uC900\uBE44 \uC911"} \xB7 ${{ saved: "\uC800\uC7A5\uB428", waiting: "\uC800\uC7A5 \uB300\uAE30", uploading: "\uC5C5\uB85C\uB4DC \uC911" }[status?.state] ?? status?.message ?? "\uC800\uC7A5 \uB300\uAE30"}`;
+  $("archive-status").textContent = `\uC11C\uBC84 \uD328\uBCF4 ${id?.slice(0, 8) ?? "\uC900\uBE44 \uC911"} \xB7 ${archiveFailure ?? { saved: "\uC800\uC7A5\uB428", waiting: "\uC800\uC7A5 \uB300\uAE30", uploading: "\uC5C5\uB85C\uB4DC \uC911" }[status?.state] ?? status?.message ?? "\uC800\uC7A5 \uB300\uAE30"}`;
 }
-window.addEventListener("online", () => archiveClient.retry());
+window.addEventListener("online", () => useArchive(() => archiveClient?.retry()));
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "hidden") void archiveClient.flush({ keepalive: true });
+  if (document.visibilityState === "hidden") void useArchive(() => archiveClient?.flush({ keepalive: true }));
 });
 var needsPass = (s, seat) => online && s === state ? s.phase === "reaction" && remote?.legalActions.length === 1 && remote.legalActions[0].type === "pass" : needsAutomaticPass(s, seat);
 var actor4 = (s) => online && remote && s === state ? remote.legalActions.length ? humanSeat : actor3(s) : actor3(s);
@@ -3367,7 +3388,7 @@ $("copy-room-link").onclick = async () => {
   }
 };
 function renderLogs() {
-  archiveClient.enqueue(journal.current);
+  useArchive(() => archiveClient?.enqueue(journal.current));
   renderArchiveStatus();
   $("download-current-log").disabled = online && !remote?.state;
   const selected = $("saved-logs").value, logs = journal.list();
@@ -3500,7 +3521,7 @@ if (!restorePractice()) {
     $("error").textContent = message;
   } else randomGame();
 }
-for (const saved of journal.list()) if (saved.id !== journal.current?.id) archiveClient.enqueue(journal.read(saved.id));
+for (const saved of journal.list()) if (saved.id !== journal.current?.id) useArchive(() => archiveClient?.enqueue(journal.read(saved.id)));
 var invitedRoom = /^#room=([A-Z2-9]{8})$/.exec(location.hash);
 if (invitedRoom) {
   showOnline();
