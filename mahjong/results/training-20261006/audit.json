@@ -1,0 +1,636 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "auditedAt": "2026-10-06T02:45:47.520694+00:00",
+  "auditor": "independent Python standard-library audit; no JavaScript statistics functions used",
+  "scriptSha256": "b92ec9417d429c502792fd89d652dd7af7bcd7200bdb11b7e84d4a749d14ef70",
+  "bootstrapRerun": false,
+  "completedGamesChecked": 188100,
+  "csvRowsChecked": 188100,
+  "experimentCount": 69,
+  "stageCounts": {
+    "confirmation": 45000,
+    "holdout": 80000,
+    "pilot": 100,
+    "screening": 63000
+  },
+  "uniqueSeeds": 3005,
+  "holdoutPairedGames": 40000,
+  "summaryMetricChecks": 1140,
+  "arithmeticComparisonsChecked": 40,
+  "checks": [
+    "complete manifests and planned totals",
+    "complete seed/seat/policy combinations and no duplicates",
+    "every CSV field agrees with JSONL",
+    "per-game net ledger decomposition",
+    "fixed initial conditions across candidates and versions",
+    "fixed holdout rules/opponents",
+    "all aggregate and profile summary metrics independently recalculated",
+    "policy improvement and pair-difference arithmetic",
+    "confidence-interval bounds and nesting only",
+    "weights frozen before holdout; B/C weights identical",
+    "original engine/policy source hashes preserved"
+  ],
+  "sourceHashes": [
+    {
+      "path": "engine/game.mjs",
+      "sha256": "eb37720a165bd8a26404908b837a65d9dd466ef6c772ca370fc414bc1d066dbd",
+      "sameAsOriginalBaseline": true
+    },
+    {
+      "path": "engine/rules.mjs",
+      "sha256": "31e7c5febff407d497b1d1b412e9cab0b680f3b74a27655b1bc9a766cc4905b2",
+      "sameAsOriginalBaseline": true
+    },
+    {
+      "path": "engine/score.mjs",
+      "sha256": "505f54e972e25b10f355cc6051512a726058bf0f2150846e6cad73408cfdf675",
+      "sameAsOriginalBaseline": true
+    },
+    {
+      "path": "engine/shanten.mjs",
+      "sha256": "b091251b815e49ab2e5f22b127445c6ac24c4770b4c6200d6b37d9980e09c416",
+      "sameAsOriginalBaseline": true
+    },
+    {
+      "path": "engine/tiles.mjs",
+      "sha256": "fba4a96fecb8755ccca3dc594373e3490c92aa5533d48d6aa66b0c23aed19034",
+      "sameAsOriginalBaseline": true
+    },
+    {
+      "path": "policies/index.mjs",
+      "sha256": "ca006dea00eabd76174702750f13f70ae63b18c6c64f29e8371c2c06c53396a8",
+      "sameAsOriginalBaseline": true
+    }
+  ],
+  "inputs": [
+    {
+      "path": "results/training-20261006/training-manifest.json",
+      "sha256": "09179ca67b04e045fcb48d408dfd92bbd5fe8969566163df17d3442e193a866f"
+    },
+    {
+      "path": "results/training-20261006/analysis.json",
+      "sha256": "cd103cbea3050a18f11c27e4fa256e42fe2abe1594a78b1f284b5bf2a25765b1"
+    },
+    {
+      "path": "results/training-20261006/selection.json",
+      "sha256": "2a6a9fc022c2fbfe92de694c42751f7e448f03cd0ba3bfb51e8d4d5e4d08f776"
+    }
+  ],
+  "experiments": [
+    {
+      "key": "confirmation/A-00",
+      "games": 3000,
+      "csvRows": 3000,
+      "configSha256": "2b3dbcb32bfff0aed592b0ac986f23aeb90f36032f87530d4ce39effb195049c",
+      "rawSha256": "50e71f4b82391b025379e90ee55c2f5bc0592639592064c5b17d5f5244074e22",
+      "csvSha256": "0823413b8e3574b6615a0db9ec4f504219e9de745ac0ee84dfe48fc0b53d1c24"
+    },
+    {
+      "key": "confirmation/A-02",
+      "games": 3000,
+      "csvRows": 3000,
+      "configSha256": "a92d2a3b43d118cca58bc82fd0e0435b458d3ba4088e5d8d66e947695e8fc27c",
+      "rawSha256": "c3f6dde02d54c42a573499f62aa8b1e7488dc3a686851f3b2ffeb658ad3ebc4d",
+      "csvSha256": "a90a58f50365bb46ec83f441f23052fb55aa2470da5eafabf3a707a9682b62f1"
+    },
+    {
+      "key": "confirmation/A-04",
+      "games": 3000,
+      "csvRows": 3000,
+      "configSha256": "a840d022eb6d932b3becc54963d303ff722d281f4ac8bc25a3f3ffa81131b52b",
+      "rawSha256": "ef4a9536d5c6a28415b1aa518a3189a0d0c750b4005ea16b3d8e3acffb02e8a7",
+      "csvSha256": "e184c34514cfde91915e7d38ff22c10189c06da8337a1890d2544c89a4946474"
+    },
+    {
+      "key": "confirmation/BC-03",
+      "games": 6000,
+      "csvRows": 6000,
+      "configSha256": "7e9061ab72f0bb12f768da67af6ba182cb19c3dd214aa45a15e4d9acb1b47ee5",
+      "rawSha256": "3790526e705df23b3cac7e2642a46b7ee76483eea6f7b10ec331689eae99098a",
+      "csvSha256": "ccd1757e9cc13e5ff866a9dc4d5918dbeda0b1ea69afa1a32ee4a967b45627aa"
+    },
+    {
+      "key": "confirmation/BC-04",
+      "games": 6000,
+      "csvRows": 6000,
+      "configSha256": "89506f1e5810baf40298f241613b6f1dac2b0c976d1f7ee4503e43d02f945293",
+      "rawSha256": "d0026365812030c323743b60dd56cfdf3729a837215d969ab9691bcfe35407ce",
+      "csvSha256": "158733e633d871bff61330757e1b66f9dc6c196b6e560029323414468cf60623"
+    },
+    {
+      "key": "confirmation/BC-06",
+      "games": 6000,
+      "csvRows": 6000,
+      "configSha256": "363928e5c9428b29ab3c043254f020262628492b5a858812199d63fecced20b8",
+      "rawSha256": "3e92f018d5983b630cef2d8b24ed8507eb031349760ef39217741aa09b17bcd8",
+      "csvSha256": "5ae63edb71a8929fa0a00ee1bb713d28b66959948ca8f45b8da33f1c5a1cd668"
+    },
+    {
+      "key": "confirmation/D-04",
+      "games": 3000,
+      "csvRows": 3000,
+      "configSha256": "1afbaa3d7e872a14c398581ae52b2f77a060354f72b87ce5a7c31b461a7f2bb3",
+      "rawSha256": "5fa665098b51e06e46ab9eea7618b9d4408a2949bc3f02f7b0f836f1492662e1",
+      "csvSha256": "332ab6debb17a0e84b689e268250dfeb266ccbba49e577965bccce0ed852e4c4"
+    },
+    {
+      "key": "confirmation/D-05",
+      "games": 3000,
+      "csvRows": 3000,
+      "configSha256": "127a3e7b0c08515d2bfe553fe0c632af2120d8d1b9599d0dfd2b8418d597aa22",
+      "rawSha256": "17b80f7536a13855e1ab6ee0796bdd0a0b6afb2dc9eaaca8362989d6b381fe57",
+      "csvSha256": "68f8c306dd944df65cfd17b39855cfd65c0f47ace21ddd6e82fbea61f6ef7df7"
+    },
+    {
+      "key": "confirmation/D-06",
+      "games": 3000,
+      "csvRows": 3000,
+      "configSha256": "444d6a486632d870ff22ecbf6b0c845e18cc94d1feb4638ff536963a63e16f74",
+      "rawSha256": "cbac36a1087baca46fc3260268d92b9dfff806a5aa3aee64708f3853d31e0115",
+      "csvSha256": "cd69aec8b92b40208829a6073c71e625debbf4b3eebe806e39dcffd1f5b4c820"
+    },
+    {
+      "key": "confirmation/E-13",
+      "games": 3000,
+      "csvRows": 3000,
+      "configSha256": "fa0e4b90e41de30da06131cc448c1cd8f0466438fc7891fec0d3aeb788fbb2e5",
+      "rawSha256": "40e56462bd141c55b2ed41d40155d90817b7ca37c617bb285328274e6c97f1f9",
+      "csvSha256": "fbeaec5666d7e2eea897d889bc1c44652d63b630befe1221a47886c01d6dcba3"
+    },
+    {
+      "key": "confirmation/E-15",
+      "games": 3000,
+      "csvRows": 3000,
+      "configSha256": "80e1dead9cb6747d964f644dace7e1051d62ac4071682482e982b1f65317629a",
+      "rawSha256": "28161cf6a3893938e96a836b2bef668786f56d054820f7f57227f7a666fb6f50",
+      "csvSha256": "8986e86dc06c2f52ac95d4ce708cd3796b008a493bc4181b695637b167f287fe"
+    },
+    {
+      "key": "confirmation/E-24",
+      "games": 3000,
+      "csvRows": 3000,
+      "configSha256": "b6a06e4f05359f8e82bf57048123d0d3b4477f85b4d50cb30c4be634c182a455",
+      "rawSha256": "6b31973a688edc0c1b20bd48caee060747f9ae3cd9c0716e2a9e86e803aa426c",
+      "csvSha256": "b3fc4ed5f272bc68b988a3af149e7868283a61c659567b58bc6babc777672524"
+    },
+    {
+      "key": "holdout/baseline",
+      "games": 40000,
+      "csvRows": 40000,
+      "configSha256": "50cfa566d9e170db2f77895c0fb10c8a61894b3b2002c7b15f8d366a962f7bbe",
+      "rawSha256": "d40f28758c88ae5945e786bc36a84ffa14f6c227f7a53357effcb9ae2f00c2b6",
+      "csvSha256": "922a5b035affa482a0d5ed709a09c7e93854d12357fd07c1b85332a479408287"
+    },
+    {
+      "key": "holdout/tuned",
+      "games": 40000,
+      "csvRows": 40000,
+      "configSha256": "1d9fc42525935137dfb4942013d467b44f80917900b3da0b60bf3a9bcd564071",
+      "rawSha256": "36334359189ba3af458c5c9b7d8026123decf0441efd690406e20079dace6f48",
+      "csvSha256": "e71cea9d3e11cf6a8192411334204598b2e09da930b1b75bc3f0b2ef4db3a84b"
+    },
+    {
+      "key": "pilot/speed-check",
+      "games": 100,
+      "csvRows": 100,
+      "configSha256": "36479db0f94aed3e51db43cbacd459c8e255a7d73eec89aa6fdefdb4e5fc4d54",
+      "rawSha256": "e8ecb32a55d86bb7b5657ac1856358f0c68937ec6e4e0cbf7c1423ab9cb3af3d",
+      "csvSha256": "d5246bdf07daaa4e9d5bc1f11f00b36bab16c18d53e3d8f90896354a869a9b44"
+    },
+    {
+      "key": "screening/A-00",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "bcb48b076a4738eee484280ccd3546d109720dbb1f6b42dc255182d35e6d4df3",
+      "rawSha256": "82e4a838a65c3045e0c2e068150d9736546096834a766585d6dfa47b4dfe4bb3",
+      "csvSha256": "436fe03d8db63f9d01f3f2cb7499dce9e20e11e87b0c1ab1bf58e8f855a660c0"
+    },
+    {
+      "key": "screening/A-01",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "e6efe963b015c7be5a2cf5dce72a7233ccdf63a6e5039a75aa3f025c51cfd9e3",
+      "rawSha256": "15cba59f529a73d0fb853e50ffb1caa264c8413a68e201cea3cbe36f94d4d43e",
+      "csvSha256": "436fe03d8db63f9d01f3f2cb7499dce9e20e11e87b0c1ab1bf58e8f855a660c0"
+    },
+    {
+      "key": "screening/A-02",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "26e11f883be844c94c353fac7cedca08bbdfff495414fda388621b0fe51dbf74",
+      "rawSha256": "25237e2265f7d3636986de7a648078b4a6193aa0952bb5c29f644df8226040fe",
+      "csvSha256": "7f292ee476b30eea410c371581694a36c37644fb9cc912aa77b69fd6843bc0ac"
+    },
+    {
+      "key": "screening/A-03",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "e15021049a72a015e74cc25c1ed59959e45273c9822d09ada66353ebf22760ce",
+      "rawSha256": "5cbda83872de7addf619163f5af95c10bced8bce1a9eb254ce6a9decd1ef4a87",
+      "csvSha256": "8156bde1206436df6f2809502c2b70486dea56c28de0797a781d04726c2fc5a6"
+    },
+    {
+      "key": "screening/A-04",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "8eedff4c397f6bda43a25a2a262eb4bcf6cc9cf443030f83b90e400ce1dc01b2",
+      "rawSha256": "7eddc5387e92fc1d1a31a7d874d1aae0c980dfbbd1537495aa7d248ba7f30f5a",
+      "csvSha256": "8156bde1206436df6f2809502c2b70486dea56c28de0797a781d04726c2fc5a6"
+    },
+    {
+      "key": "screening/A-05",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "0fea00e022a5abdd85c440f81a3e87b765f889637df4fd95ecdc8f890a1996a6",
+      "rawSha256": "b19a40035f000de9eb7b8b039914a01c9092cf74edb6ba9469ac5ce41e95a5a2",
+      "csvSha256": "8156bde1206436df6f2809502c2b70486dea56c28de0797a781d04726c2fc5a6"
+    },
+    {
+      "key": "screening/A-06",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "e7215b877ba33ef7187ea4f39610aa2704168980be37d98026466caf3fe053b0",
+      "rawSha256": "01f34b5834cf7acf70b78f903fa249e2f91c98d548a5da1062a88ac05c34ac3f",
+      "csvSha256": "8156bde1206436df6f2809502c2b70486dea56c28de0797a781d04726c2fc5a6"
+    },
+    {
+      "key": "screening/A-07",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "18a17fddf2796881b31d2f73fd4b9113657661d3b3bfea88cbf4018163245c27",
+      "rawSha256": "b586eb08955eb3459efc7a3439c00ac69d897ecba9dab1815c52f98017da0fdc",
+      "csvSha256": "8156bde1206436df6f2809502c2b70486dea56c28de0797a781d04726c2fc5a6"
+    },
+    {
+      "key": "screening/A-08",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "a01ab86fed9c236744cbb4582465860800d780e5a62b5ecf01d70c59f7db67cd",
+      "rawSha256": "0e3d532d4e4220a2a22f80fab9767c3d425fb673c88ea6b2560a68f2c2e8296b",
+      "csvSha256": "5a306b272e7cef0580375ff27cc55287b66985431beeff2d68980b2d8f936704"
+    },
+    {
+      "key": "screening/BC-00",
+      "games": 2000,
+      "csvRows": 2000,
+      "configSha256": "2abee8f198b9f4322a3917573bb1f6f48087ca6b6559c21bfd425fa95a3e869a",
+      "rawSha256": "cbdf03fcf7bc0374e44e32886a2ca94c40fad6521c356442c4614f33dae55317",
+      "csvSha256": "892b6aab364856c6ac6e0b89a868f3c084115785b4eb21b0c7eaebfe5c46dc72"
+    },
+    {
+      "key": "screening/BC-01",
+      "games": 2000,
+      "csvRows": 2000,
+      "configSha256": "d2efe249b648ac6ea01ebbdbf69feb1940c286d0c44800e32209efd4e4d88852",
+      "rawSha256": "1f0f1d0785360735f5d573c8577e9b3114616d0b7ccf996c34af26896b58ee23",
+      "csvSha256": "0dce242c1ee1fa3f142c5eb8c45d1f113ddf7f966a08fbad3d10c8c4e4ea240e"
+    },
+    {
+      "key": "screening/BC-02",
+      "games": 2000,
+      "csvRows": 2000,
+      "configSha256": "3093419713e95fddca008b92ad1a2ef3bbf8b6a8bfcbeaa765b2b26431c323f8",
+      "rawSha256": "c7a2076fee14b4f7c29c179fbcffc66a5129f0f815e430ed2ec147bd5bca0d30",
+      "csvSha256": "98641ce87d6624077194170ae619af4d953ac06cb0bd57a807e0a1587d3a7ab3"
+    },
+    {
+      "key": "screening/BC-03",
+      "games": 2000,
+      "csvRows": 2000,
+      "configSha256": "c9021444abdf2d8cdf3a0f56cb358fd41c348630404cdc42095cc6c3c63dcd08",
+      "rawSha256": "8ef06c2b72ea0a527cad6809ffcf1f3495254e28f19eb7968977585d7a48cb7a",
+      "csvSha256": "f1c5577a6bdbeb9687f465f4f1b7ce1279e515f525f3ef60828abb0997a8745b"
+    },
+    {
+      "key": "screening/BC-04",
+      "games": 2000,
+      "csvRows": 2000,
+      "configSha256": "c2d7989a50ac985cad86e38f5a1d4bbb1e026efccbc94d0807064a2619308640",
+      "rawSha256": "3ec295c15c360f0cce71c1d3fa29e3256d36d8eb3baa59443f653e7705bc836d",
+      "csvSha256": "863b4f9e9ec009fa9456ce06e60b1e108fbbb2cbd3011ee84bb0a6280a2b6ea5"
+    },
+    {
+      "key": "screening/BC-05",
+      "games": 2000,
+      "csvRows": 2000,
+      "configSha256": "a9dcf636fa360142df58eab9135db5d10bd424e9d2c36e181454031af03ca949",
+      "rawSha256": "16a517fd4e0e7927fadf17acae7d3108e3a8b6345f9001d86d1244912f345721",
+      "csvSha256": "6e58deeebb2992741ea2280cf03974339ab93f7acbd05dd60347da8ccbde9126"
+    },
+    {
+      "key": "screening/BC-06",
+      "games": 2000,
+      "csvRows": 2000,
+      "configSha256": "4f156a24bc94dc64ff9df60e35ab29297f4046966c83486e7249ac490c2f2935",
+      "rawSha256": "339ee7cdaa8ee5d36a966c32f4b950dd1ec162a1e36336608e63f8f80b4396dd",
+      "csvSha256": "4a9da74eeef791d54886d84271a83c0cb790b4744aa2769314b03ab4b8bc42fa"
+    },
+    {
+      "key": "screening/BC-07",
+      "games": 2000,
+      "csvRows": 2000,
+      "configSha256": "9ded68ec376b8089f1d34f0565381ea5a1aaa4893e1a8f39392836c922f77af0",
+      "rawSha256": "fc55c8bb33c29e48b62beec0ad667c7af7263faf33b1e62d67dc4b5a73cae65d",
+      "csvSha256": "c14c305bb11059b633e08eb5b3c5948d4c5a535a95cac15a9b3ffe30e8dba4f0"
+    },
+    {
+      "key": "screening/BC-08",
+      "games": 2000,
+      "csvRows": 2000,
+      "configSha256": "c4a9963840d7fb4015bcaaf8e3369aec38f6370501211c727432a04c398dc199",
+      "rawSha256": "a061d796b101f6a1e9fc39e1c2be540a3fd997f3eb95400a8b8850c8efdada08",
+      "csvSha256": "5dc2ef139ff843bd4ced20123ecbb8cff4495ef8ddd0311b6ff899757c958f07"
+    },
+    {
+      "key": "screening/D-00",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "9db504ad3d1c524acb1a895fc0b18e48258979003ce880b915d800e79fb380ca",
+      "rawSha256": "822615c3a730db2a46eac5a3bcc566f6faf87be28cf7b11e7f02d2f512d490ff",
+      "csvSha256": "17bb1a98a08a2a6bfb9c6846d7a53f00796d342b164d194bdb845c62acf0cd72"
+    },
+    {
+      "key": "screening/D-01",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "c7330bd1a5046ca6a8aecc85a047000a61bc784c3c8d929697f5541b8a63d041",
+      "rawSha256": "b6861e08ccefd5811ef3edd5f20e749f33403d993b1cf9de7cf4cc67e89b02be",
+      "csvSha256": "c37cd7918c1a36b4cc1850c748429cc6ec52422efeb075c91cad52c467be60de"
+    },
+    {
+      "key": "screening/D-02",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "7e9f7df3fbfd79d8c9331e3df59ee728f69ab4f54c7f071402960b29241f7019",
+      "rawSha256": "ab8915a2786adee543b2fb666293feb9654ca35802d36110e52c81c08d734248",
+      "csvSha256": "cc2479a28a839b9d2c548dcdcef09bfb722b938281a42cbbb61cd4e13aff2619"
+    },
+    {
+      "key": "screening/D-03",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "2b145aed4e041cc9b19fe238e00dcdc40033b4ec30353c6008b4115c98609937",
+      "rawSha256": "ab80748e1e2380a6e5474ab2e4a6abdbfb0c7bb23218d509c7df2783b03a110b",
+      "csvSha256": "4becc5c9cf76eb569ba64b01d05bac6cb04d09ca821c8371ee8f5fc0ae6813a8"
+    },
+    {
+      "key": "screening/D-04",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "914478ba72aec84c6ff1b7df91ed17bdd46a0a806f04e35a7b1bc6733d1d592f",
+      "rawSha256": "21cf60bb0b25dc761896f92f3ae4eee49d865b5ea97059a5b1f914eb403a1c9f",
+      "csvSha256": "e21644e464ef68de42436452900dc49442dc03387a47a64f525ae371a52550fc"
+    },
+    {
+      "key": "screening/D-05",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "8e3148aed157b8692c89a2a9bff1d4ed01ad6663eb00e9bb6a2692f7c578e342",
+      "rawSha256": "fbc7b62aefae89c4d2714541241e4ed4a873fe89e8500996665ce6f2a2aa95f6",
+      "csvSha256": "00129b0236c63463cbe3634f3653338a91663f8a063fe395f1000aa866db8eff"
+    },
+    {
+      "key": "screening/D-06",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "2613d9fa600a32bdb19b40c68986487f4dee8ad14c9dafb48c75ef6925e80ff2",
+      "rawSha256": "4499eb651e793e0199dd77b452ba9f5773499b521d7ab0f6f835bb8a5b5ec269",
+      "csvSha256": "f341b73c9242157f77eeceae0995d05e08539c80e9997a8f190e440ca31f2ff8"
+    },
+    {
+      "key": "screening/D-07",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "78f803e7f3c1674df8b2b02982b172524df70cc8253a5fbb4622154bd63445b9",
+      "rawSha256": "ea93cb33e9f368c9dcb4bff4afd28075336533dc4cb90ac7979c1116467099c9",
+      "csvSha256": "b18589f23302e0afb8fdbebe36bd62772ca212d24ba4ff9a69474f20b32d53db"
+    },
+    {
+      "key": "screening/D-08",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "41b4bde47a8bd7c39ab633e273b63b97f26bed649b92a04a9cf2ce3cd90b4ee6",
+      "rawSha256": "460b0154e69866ccfbbb9db4a20caa0f46cd6cadb00f297b738f13a75d305ade",
+      "csvSha256": "80f186854ddf0cc56eecd806ac75592534813db869e168575beb7765b0a7592c"
+    },
+    {
+      "key": "screening/E-00",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "56caa7ad6d96b1e66fd0ca9a53129c15f8a06333d45c5193bcaca2f0913345cb",
+      "rawSha256": "ca989c2307b67d1d93f35ef150a16ad0835e42b2b1169e87e0cea9ae18d72a56",
+      "csvSha256": "6dde9c4585be3202672401b740d2423e0743ceff1b5878d3709f2499196f1029"
+    },
+    {
+      "key": "screening/E-01",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "307b499ce151eb7c85774428a93af62627ca24b9978dd83777b17a4e38b5a97d",
+      "rawSha256": "ca2d1868d04312d86d7fd5501180e2c35a85e57e4910956285409cb921a0f2f0",
+      "csvSha256": "258e97f076151aefda8f065172beae795ea7916e081384ebc0bc0bfc816f6047"
+    },
+    {
+      "key": "screening/E-02",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "a9d346105b4024751eab7d59131152b2c5c69863408852e97b90dd70ab02a7c1",
+      "rawSha256": "01db7001c656d927807cdefdd34569b57e457fce620c9f32ceb46b5df60b3941",
+      "csvSha256": "e5eff716340b8076d71ac2069734b2cbe2f55b0b49e2a55e2a48b3202f83e881"
+    },
+    {
+      "key": "screening/E-03",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "9a8814e7ad6524c415359e52ae9e29be97d0ed182fe6c967ef233b370383cb5f",
+      "rawSha256": "ddc4d1b1cac299ceb7fb276aa6cd7e8b762727ec47f90f90e978adf60ce44092",
+      "csvSha256": "a1506522300ec7119feb438242d3657b1e2fe7be7579c893ea01350161d12315"
+    },
+    {
+      "key": "screening/E-04",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "a483a7d33850e3fb857431344f51c890cede55b95b14d9ba163258e7015fab3f",
+      "rawSha256": "369dcd823c3ef46ce9b3cfbfa1a72c01dc3e62aeab9a8103180a062c57bf58b7",
+      "csvSha256": "a26838def3cf217544825997b6be121c639e6cee52cd45a1f48f84aa85bdb09d"
+    },
+    {
+      "key": "screening/E-05",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "646ec0711f43c923273ab394d2dbfedae66ae4f75ea3553caa4fe3600b8f042b",
+      "rawSha256": "ca66d50be3d978d7e2d1b6e3959681c9cbba9dd8e0fe3760f82c1dc86f36b289",
+      "csvSha256": "796354771089867925276bdc64f10972cc85492c4a8b8a1615c961a1cff51101"
+    },
+    {
+      "key": "screening/E-06",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "8cb1df798a80470392c8dc85d86290afdec9774ab6d942a12a01fe05627e36ac",
+      "rawSha256": "1773370a651ca599c9f489f0eb04a9311341a16054fec3193338458c6dac66f0",
+      "csvSha256": "373ec02d290f0b972e7351e23471b883e74c8a0558e1770d8d9e6d808884b019"
+    },
+    {
+      "key": "screening/E-07",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "2e67cd0657e3a20b0dd6978af8419e8846796c49e074ff126416be9fbde83c5b",
+      "rawSha256": "bca97bc44fc27a7f409ee5f22fb5615d5da75520927126205d2ed2a24c8d67f4",
+      "csvSha256": "35bb4eadded3d7e50ddf393c19b3d7cf17933a440f9ac2ca0ddc77b17dfd6f46"
+    },
+    {
+      "key": "screening/E-08",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "6d7c8128c8f4d478a020cbd32574c7e343d817f7609bbb796de5aa35b1d63a92",
+      "rawSha256": "f11023dad637be19f91de03f4c61a659dda320c2673bdc5dadc2fd2f23f1571e",
+      "csvSha256": "5f797f274988bc7fd66b9ed529ca7abb0cc234c3261ea181e0c42656173a6ce4"
+    },
+    {
+      "key": "screening/E-09",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "ed535845a3dbcbd3cfab9ab89d48564a81189f77c93e7cd442a4fb439870fd20",
+      "rawSha256": "8e588809ec7460bf3e61597ff8515eec30bb8b12b4c8613aea7e04691524b480",
+      "csvSha256": "3cfe3c31541e2370589f010790a0c5149b0c9bd8733d57394c544a8f6993c511"
+    },
+    {
+      "key": "screening/E-10",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "767a60622f175fd1afe54c67b2f3f60ab53d540b7e84f7e448c9288332a34580",
+      "rawSha256": "37483566289c90108e1c5687ccd73d59de32c3be8468af3d5cbcd1f8b8a0d917",
+      "csvSha256": "6b0417d01d27a1d73a1d0b2c36070a647851bdc99c942ae8cefddf31442fba1d"
+    },
+    {
+      "key": "screening/E-11",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "fa199cb20bdfe40a2594d8c4d57689e066fa83ab7c107fb373b77e31a310c137",
+      "rawSha256": "b91b5aba1cd1c87e3723d0289c9e717595ff84a6677bb16395b53d48b03bfa08",
+      "csvSha256": "da11c371cf527009ee54d512baea64ef30befa58c03f58fa9c913c4d65a71762"
+    },
+    {
+      "key": "screening/E-12",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "5ea181fec6dd561e5a8ec7980616b14e3db1fb2569a33a46fbcf9db839b2edef",
+      "rawSha256": "326e007c920eeee36a303fe04ca30a12d70cef0897d1c2b701bf4dd25dde1ba3",
+      "csvSha256": "af2e717c9ad1272daf97d859ab77cdc3c99415d8f79dbf00862fdb870a7a8ca8"
+    },
+    {
+      "key": "screening/E-13",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "22d77fbaaa6733842bca5e609b9c930d0fb5b5edcc9b5fa9ed4351494fe4ed00",
+      "rawSha256": "1728875138558d348c7c3ccd23128744ccebfe2d0fb23f2bc25ebf7022755743",
+      "csvSha256": "05b72f552e37f067d3a3c76c41a9c77b16268b48233f68c32635c3fc281fdaf2"
+    },
+    {
+      "key": "screening/E-14",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "37055adf1e4610a1ae209c78f8668325ddd9bc8768fde6669dbddfec35187dd7",
+      "rawSha256": "20b9423b05606fb8685a6d0094a17228bce85d4f57eaa6aeb20bee36d3041b97",
+      "csvSha256": "134ba6008474f58b196201eb5b9cdb043c22748727c2fe78d4499b9b1340404b"
+    },
+    {
+      "key": "screening/E-15",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "d353ea047ae06ef8304f1f9fe8752bcc119c334a7619c26d59adf001ea20b2bb",
+      "rawSha256": "e30531ad9dc109fa993348eaca003e3a851fe51eb6ddc0c996872604e6f88d21",
+      "csvSha256": "6bc23dd61735eb51571aa04b901a2f0bfd3e8b97ba1196bd08379d7ddb823106"
+    },
+    {
+      "key": "screening/E-16",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "0617baee9093eda17475a050860a85b46dbdb6439dc81c952287543f97323d3e",
+      "rawSha256": "9c6b42fc872b1f97b912a04e7222518e37925de8656f1f6aea4257dd5052a7e4",
+      "csvSha256": "741f7541eadad03c375c431c50875aa6af655f5c9e6fb3b9b73db73bc24efb04"
+    },
+    {
+      "key": "screening/E-17",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "beac410c1c06e69bf037ce6bac922ca5f95addf3f43c58d90b6b29c59e538717",
+      "rawSha256": "6d78136b09382c05446997672260085bb155d51829384d78a177b71aa1353270",
+      "csvSha256": "4e7895d5b8e09c23062efaa0bb4bc1a63bf769fbe775535a2b051e810b015e4e"
+    },
+    {
+      "key": "screening/E-18",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "613b8d126a99c6d9adee0d7311c1adff36bcf25249eafcd273d609c9303375be",
+      "rawSha256": "191eaacf3dde303874cfc36f8cb01440b0435cbed2ecdae1150a5ca80ac701da",
+      "csvSha256": "5f9d7dd3d001d7c67a7ea2438caded6ffa8ff4eda04b6e9fdf7002e21a20ed16"
+    },
+    {
+      "key": "screening/E-19",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "c0dd164ca3c75e3ea0015cb5e5e7b11bfdb1e53a9abe2805ac9e45134b8fe141",
+      "rawSha256": "86c9a3487fe10087dbd7bb89858e2fa74ca2f862354a3ba99fdf28e604a19c48",
+      "csvSha256": "bf997c512042c41cb01830d256d2cd96d43171de5e1025f2e8894bd1314eb7c7"
+    },
+    {
+      "key": "screening/E-20",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "89734bb16a8034cf6498e833f4815b36a89abb3ee798825e5d35233430c51659",
+      "rawSha256": "e801af51abe6f93fbe17d6e1e64623f256736c2b3ef4819c0e7dd745dd1d9fb5",
+      "csvSha256": "104c5a5f239f40eca8b3e8628089311c612ea211758d316cc7d0ed61fc2e081e"
+    },
+    {
+      "key": "screening/E-21",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "b0e8a9ee15f04aca43fb382dac953c89ea9921dfef76821c55e7166abbf56103",
+      "rawSha256": "664c7091d9e96d3adf3fec215bf93af6e0f49c74b2733ace1a81572bff53a9aa",
+      "csvSha256": "e4234f85d50bdf082c8b05f7cf83d09e870864230a15e2bb66ed6a94ab1aef1a"
+    },
+    {
+      "key": "screening/E-22",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "dfe1d8ed9e6f1ff29fd9fc411dc42f16d30691e34083acde2e5894c7f5b722b6",
+      "rawSha256": "25de7674cee37744acea64b5d117afcf40dc93c218fccecbecdcc5075f0ffdd6",
+      "csvSha256": "982c64211dc651c5aa763e84e14d5435602312254ee242f9704bffed1cb62743"
+    },
+    {
+      "key": "screening/E-23",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "6c3d2f732c8b6ed8937b4d459a30b04437d1a254f93c791ef45a44541472008d",
+      "rawSha256": "faa0e6057f3d3dacaae0fbfd9f3846c65a3a092bdb765742fe894982d87d827b",
+      "csvSha256": "fb4ddb1dbd9b0f9f175ce57e2b253ebf83313df09b109936f03cd61f3a3eb679"
+    },
+    {
+      "key": "screening/E-24",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "0a030c5bbe77018311ff652e05b7076341d4b93b4db8f8102ba0133bf5f3081c",
+      "rawSha256": "641219fbef02775501c5d38b1901b039f7fdc6645723a2b86afdef769ccae64a",
+      "csvSha256": "8a0e26141e205f69b86dc07f5bf82599c7b6fda98dc1177bcaf59edcb5b061aa"
+    },
+    {
+      "key": "screening/E-25",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "3acfd412380b1860bbf3d259f20523d7170c2efb9fb4929f1676a93190c51d06",
+      "rawSha256": "544ed3eaaf82d841a220aac4068af20977598129bdabde6ef135f7a0c9ff0aba",
+      "csvSha256": "7314a1d94f07aab6b1ab35881b71265bce2e76186801a091bb3aed744bef0ab8"
+    },
+    {
+      "key": "screening/E-26",
+      "games": 1000,
+      "csvRows": 1000,
+      "configSha256": "518222c9a561fbcde057c7482d358316489c0d193d6d9e4a0219bcd4f5424976",
+      "rawSha256": "761978d8fd90d794862a2bf4f3a32a1de69679c7eeff81aada5c8f77e7a051c7",
+      "csvSha256": "a5f00f6a1633dd92e1fbba07933e81ad03e0e6f3acaf691465e283be828c309d"
+    }
+  ],
+  "elapsedSeconds": 3.3954486679285765,
+  "errors": []
+}

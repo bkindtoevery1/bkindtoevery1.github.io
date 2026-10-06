@@ -1,0 +1,44 @@
+{
+  "id": "H-20261006-expanded-v1",
+  "weights": {
+    "D": {
+      "speed": 38,
+      "value": 0.17
+    },
+    "E": {
+      "speed": 90,
+      "value": 0.075,
+      "risk": 0
+    }
+  },
+  "selectedWeights": {
+    "A": {
+      "ukeire": 0.7,
+      "callCost": 0.8
+    },
+    "B": {
+      "speed": 90,
+      "pinfu": 12
+    },
+    "C": {
+      "speed": 90,
+      "pinfu": 12
+    },
+    "D": {
+      "speed": 38,
+      "value": 0.17
+    },
+    "E": {
+      "speed": 90,
+      "value": 0.075,
+      "risk": 0
+    }
+  },
+  "rule": "Freeze weights before holdout. Promote only changed weights with tuned-minus-baseline ci99Low > 0 (five predeclared comparisons, Bonferroni familywise 5%). B/C must both pass and are promoted together.",
+  "validationSeeds": {
+    "seedStart": 32000000,
+    "seedCount": 2000
+  },
+  "selectionSha256": "2a6a9fc022c2fbfe92de694c42751f7e448f03cd0ba3bfb51e8d4d5e4d08f776",
+  "analysisSha256": "4c4cd3877ea311d7fd8b588837ea126ffdfc10560889d6555b94804dd19a75a6"
+}

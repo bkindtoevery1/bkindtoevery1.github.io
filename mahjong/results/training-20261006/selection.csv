@@ -1,0 +1,13 @@
+family,candidate,selected,baseline,games,meanNet,screeningMean,confirmationMean,weights
+A,A-02,true,false,4000,38.4875,45.7,36.083333333333336,"{""ukeire"":0.7,""callCost"":0.8}"
+A,A-00,false,false,4000,37.525,43.45,35.55,"{""ukeire"":0.7,""callCost"":0.05}"
+A,A-04,false,true,4000,36.9125,42.95,34.9,"{""ukeire"":1,""callCost"":0.2}"
+BC,BC-06,true,false,8000,-10.95,-17.525,-8.758333333333333,"{""speed"":90,""pinfu"":12}"
+BC,BC-03,false,false,8000,-15.9,-18.375,-15.075,"{""speed"":65,""pinfu"":12}"
+BC,BC-04,false,true,8000,-27.01875,-36.2,-23.958333333333332,"{""speed"":65,""pinfu"":24}"
+D,D-05,true,false,4000,51.7875,67.55,46.53333333333333,"{""speed"":38,""value"":0.17}"
+D,D-06,false,false,4000,47.7875,61.6,43.18333333333333,"{""speed"":60,""value"":0.07}"
+D,D-04,false,true,4000,45.6,59.1,41.1,"{""speed"":38,""value"":0.11}"
+E,E-24,true,false,4000,52.425,56.35,51.11666666666667,"{""speed"":90,""value"":0.075,""risk"":0}"
+E,E-15,false,false,4000,50.9375,56.35,49.13333333333333,"{""speed"":65,""value"":0.075,""risk"":0}"
+E,E-13,false,true,4000,8.9625,17.3,6.183333333333334,"{""speed"":65,""value"":0.045,""risk"":18}"

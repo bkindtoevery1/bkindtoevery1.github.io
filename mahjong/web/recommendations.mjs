@@ -1,5 +1,6 @@
 import {tileName} from '../engine/tiles.mjs';
-import {chooseAction, evaluateDiscards, POLICIES} from '../game/policies.mjs';
+import {chooseAction, POLICIES} from '../game/policies.mjs';
+import {explainDiscards} from './recommendation-explanation.mjs';
 
 const focus = {
   A: '샨텐을 먼저 줄이고 유효패가 많은 쪽을 고릅니다.',
@@ -25,7 +26,7 @@ export function actionLabel(action, view = {}) {
   }
 }
 
-function reasonFor(action, view, policy) {
+function reasonFor(action, view, policy, weights) {
   if(action.type==='riichi')return '멘젠 텐파이로 1,000점을 공탁합니다. 리치만으로는 S룰의 화료 역 조건을 충족하지 않습니다.';
   if (action.type === 'tsumo') return '지금 쯔모 화료할 수 있습니다.';
   if (action.type === 'ron') return policy === 'C'
@@ -37,30 +38,33 @@ function reasonFor(action, view, policy) {
   }
   if (action.type === 'chi' || action.type === 'pon') return '후로 이후에 버릴 패까지 비교한 선택입니다.';
   if (['ankan', 'kakan', 'minkan'].includes(action.type)) return '보충패를 받기 전의 형태를 기준으로 깡을 평가했습니다.';
+  if(policy==='E'&&weights?.risk===0)return '속도·역 가치·남은 상대 수를 봅니다. 이 학습 버전은 위험도 감점을 쓰지 않습니다.';
   return focus[policy];
 }
 
 // The only input is the engine's own-hand/public-information observation.
 // Recommendation actions use the exact same policy function as automatic play.
-export function strategyRecommendations(view) {
+export function strategyRecommendations(view, weights = {}) {
   if (!view.legalActions.length) return [];
   const discards = view.legalActions.filter(a => a.type === 'discard');
   return Object.entries(POLICIES).map(([policy, config]) => {
-    const action = chooseAction(view, policy);
+    const action = chooseAction(view, policy, weights[policy]);
     let discard = null;
     if (discards.length && action.type !== 'tsumo') {
       // Keep the policy's shanten-loss limit when offering a discard instead of a kan.
       const selected = action.type === 'discard' ? action
-        : chooseAction({...view, legalActions: discards}, policy);
-      const metrics = evaluateDiscards({...view, legalActions: [selected]}, policy)[0];
+        : chooseAction({...view, legalActions: discards}, policy, weights[policy]);
+      const explanation=explainDiscards({...view,legalActions:discards},policy,weights[policy],selected);
+      const metrics=explanation.ranking.find(row=>row.tile===selected.tile);
       discard = {
         action: {...selected}, label: actionLabel(selected),
         shanten: metrics.shanten, ukeire: metrics.ukeire,
+        reason:explanation.reason,ranking:explanation.ranking,excludedCount:explanation.excludedCount,
       };
     }
     return {
       policy, name: config.name, action: {...action}, label: actionLabel(action, view),
-      reason: reasonFor(action, view, policy), discard,
+      reason: action.type==='discard'?discard.reason:reasonFor(action, view, policy, weights[policy]), discard,
     };
   });
 }

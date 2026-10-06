@@ -581,8 +581,8 @@ function sRules(overrides = {}) {
   for (const key3 of Object.keys(overrides)) if (!(key3 in S_DEFAULTS)) throw new Error(`Unknown S rule: ${key3}`);
   const rules = { ...S_DEFAULTS, ...overrides };
   for (const key3 of Object.keys(S_DEFAULTS)) {
-    const value = rules[key3], base = S_DEFAULTS[key3];
-    if (typeof value !== typeof base || typeof base === "number" && (!Number.isSafeInteger(value) || value < 0)) throw new Error(`Invalid S rule: ${key3}`);
+    const value2 = rules[key3], base = S_DEFAULTS[key3];
+    if (typeof value2 !== typeof base || typeof base === "number" && (!Number.isSafeInteger(value2) || value2 < 0)) throw new Error(`Invalid S rule: ${key3}`);
   }
   if (rules.variant !== "S" || rules.maxKans !== 4 || rules.deadWallTiles !== 14 || rules.multipleRon !== "nearest" || rules.riichiDeposit !== 1e3 || rules.sevenPairsQuadAsTwo || !rules.selfDiscardFuriten || !rules.ronPassAllowed || rules.passRonLock !== "until-draw" || ![27, 28, 29, 30].includes(rules.roundWind)) throw new Error("Unsupported S rule configuration");
   return rules;
@@ -1315,22 +1315,22 @@ function metrics(c, melds, o, w, discard = null) {
   }
   const closed = melds.every((m) => !m.open), all = [...c];
   for (const m of melds) for (const t of m.type === "chi" ? [m.tile, m.tile + 1, m.tile + 2] : Array(m.type === "kan" ? 4 : 3).fill(m.tile)) all[t]++;
-  let value = closed ? 100 : 0, connections = 0;
+  let value2 = closed ? 100 : 0, connections = 0;
   for (let t = 0; t < 27; t++) {
     if (t % 9 < 8) connections += Math.min(c[t], c[t + 1]);
     if (t % 9 < 7) connections += 0.35 * Math.min(c[t], c[t + 2]);
   }
-  for (let t = 27; t < 34; t++) if (t >= 31 || t === o.rules.roundWind || t === 27 + (o.seat - o.dealer + 4) % 4) value += all[t] >= 3 ? 200 : all[t] === 2 ? 75 : 0;
-  value += (o.doraIndicators ?? []).reduce((n, t) => n + all[doraAfter(t)] * 100, 0);
+  for (let t = 27; t < 34; t++) if (t >= 31 || t === o.rules.roundWind || t === 27 + (o.seat - o.dealer + 4) % 4) value2 += all[t] >= 3 ? 200 : all[t] === 2 ? 75 : 0;
+  value2 += (o.doraIndicators ?? []).reduce((n, t) => n + all[doraAfter(t)] * 100, 0);
   const size = all.reduce((a, b) => a + b, 0), simple = all.reduce((n, count, t) => n + (!isYao(t) ? count : 0), 0);
-  value += 100 * (simple / size) ** 5;
-  for (let suit = 0; suit < 3; suit++) value = Math.max(value, 600 * (all.slice(suit * 9, suit * 9 + 9).reduce((a, b) => a + b, 0) / size) ** 5);
+  value2 += 100 * (simple / size) ** 5;
+  for (let suit = 0; suit < 3; suit++) value2 = Math.max(value2, 600 * (all.slice(suit * 9, suit * 9 + 9).reduce((a, b) => a + b, 0) / size) ** 5);
   const pinfu = closed ? connections / 4 - c.filter((n) => n >= 3).length * 0.3 : 0;
   let risk = 0;
   if (discard !== null) {
     for (const p of o.players) if (p.seat !== o.seat && !p.discards.some((d) => d.tile === discard)) risk += (p.riichi ? 3 : 0.2 + Math.min(1, p.discards.length / 16)) * (4 - o.visible[discard]) / 4 * (discard >= 27 ? 0.45 : 1);
   }
-  return { shanten: s, ukeire, value, pinfu, risk, score: -w.speed * s + w.ukeire * ukeire + w.value * value + w.pinfu * pinfu - w.risk * risk };
+  return { shanten: s, ukeire, value: value2, pinfu, risk, score: -w.speed * s + w.ukeire * ukeire + w.value * value2 + w.pinfu * pinfu - w.risk * risk };
 }
 function bestDiscard2(c, melds, o, w, allowed) {
   const rows = [];
@@ -1438,6 +1438,90 @@ function nextDelay(state2, autoplay, seat = 0) {
   return null;
 }
 
+// web/recommendation-explanation.mjs
+var LABELS = { speed: "\uC644\uC131 \uC18D\uB3C4", ukeire: "\uC720\uD6A8\uD328", value: "\uC5ED \uAC00\uCE58", pinfu: "\uD551\uD6C4 \uD615\uD0DC", risk: "\uACF5\uAC1C \uC815\uBCF4 \uC704\uD5D8" };
+var format = (value2) => value2 !== 0 && Math.abs(value2) < 5e-3 ? value2.toPrecision(2) : Number(value2.toFixed(2)).toLocaleString("ko-KR");
+var signed = (value2) => `${value2 >= 0 ? "+" : "\u2212"}${format(Math.abs(value2))}`;
+var distance2 = (value2) => value2 === 0 ? "\uD150\uD30C\uC774(0\uC0E8\uD150)" : `${value2}\uC0E8\uD150`;
+function components(row, view, weights, variant) {
+  return {
+    speed: -weights.speed * row.shanten,
+    ukeire: weights.ukeire * row.ukeire,
+    value: weights.value * row.value * (variant === "H" ? 0.6 + view.activeCount / 5 : 1),
+    pinfu: weights.pinfu * row.pinfu,
+    risk: -weights.risk * row.risk * (variant === "H" && row.shanten >= 2 ? 1.35 : 1)
+  };
+}
+function rankRows(rows, variant) {
+  const remaining = [...rows].sort((a, b) => a.tile - b.tile), ranked = [];
+  while (remaining.length) {
+    let best = 0;
+    for (let index = 1; index < remaining.length; index++) {
+      if (remaining[index].score > remaining[best].score + (variant === "H" ? 1e-9 : 0)) best = index;
+    }
+    ranked.push(remaining.splice(best, 1)[0]);
+  }
+  return ranked;
+}
+function explainDiscards(view, policy, weights = {}, selectedAction = null) {
+  if (selectedAction && selectedAction.type !== "discard") return null;
+  const discards = view.legalActions.filter((action) => action.type === "discard");
+  if (!discards.length) return null;
+  const variant = view.rules.variant === "S" ? "S" : "H", config = policyConfig(policy, weights);
+  const rows = evaluateDiscards3({ ...view, legalActions: discards }, policy, weights);
+  const minShanten = Math.min(...rows.map((row) => row.shanten));
+  const eligible = rows.filter((row) => row.shanten <= minShanten + config.maxShantenLoss);
+  const ordered = rankRows(eligible, variant), selectedTile = selectedAction?.tile ?? ordered[0].tile;
+  if (!discards.some((action) => action.tile === selectedTile)) throw new Error("\uC124\uBA85\uD560 \uBC84\uB9BC\uD328\uAC00 \uD604\uC7AC \uD569\uBC95 \uD589\uB3D9\uC5D0 \uC5C6\uC2B5\uB2C8\uB2E4.");
+  if (!eligible.some((row) => row.tile === selectedTile)) throw new Error("\uC124\uBA85\uD560 \uBC84\uB9BC\uD328\uAC00 \uC774 \uC804\uB7B5\uC758 \uC0E8\uD150 \uC81C\uD55C\uC5D0\uC11C \uC81C\uC678\uB418\uC5C8\uC2B5\uB2C8\uB2E4.");
+  const ranked = ordered.map((row, index) => ({
+    rank: index + 1,
+    tile: row.tile,
+    score: row.score,
+    shanten: row.shanten,
+    ukeire: row.ukeire,
+    components: components(row, view, config, variant),
+    metrics: { value: row.value, pinfu: row.pinfu, risk: row.risk },
+    selected: row.tile === selectedTile
+  }));
+  const selected = ranked.find((row) => row.selected), alternative = ranked.find((row) => !row.selected);
+  const ranking = ranked.filter((row) => row.rank <= 3 || row.selected);
+  let reason = `${tileName(selected.tile)}\uB97C \uBC84\uB9AC\uBA74 ${distance2(selected.shanten)}, \uC720\uD6A8\uD328 \uCD94\uC815 ${selected.ukeire}\uC7A5\uC785\uB2C8\uB2E4.`;
+  let comparison = null;
+  if (alternative) {
+    const differences = Object.entries(selected.components).map(([component, value2]) => ({
+      component,
+      label: LABELS[component],
+      difference: value2 - alternative.components[component]
+    })).sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference));
+    const scoreDifference = selected.score - alternative.score;
+    comparison = { tile: alternative.tile, scoreDifference, components: Object.fromEntries(differences.map((row) => [row.component, row.difference])) };
+    const nearTie = variant === "H" ? Math.abs(scoreDifference) <= 1e-9 : scoreDifference === 0;
+    if (nearTie) {
+      reason += ` ${tileName(alternative.tile)}\uC640 ${variant === "H" ? "\uD3C9\uAC00\uC810\uC218\uAC00 0.000000001 \uC774\uB0B4\uB85C \uAC19\uC544" : "\uD3C9\uAC00\uC810\uC218\uAC00 \uAC19\uC544"} \uD0C0\uC77C \uBC88\uD638 \uC21C\uC11C\uB85C \uC6B0\uC120\uC21C\uC704\uB97C \uC815\uD569\uB2C8\uB2E4.`;
+    } else {
+      const main = differences.filter((row) => row.difference !== 0).slice(0, 2);
+      reason += ` ${tileName(alternative.tile)}\uC640 \uBE44\uAD50\uD55C \uC8FC\uC694 \uD3C9\uAC00 \uAE30\uC5EC \uCC28\uC774\uB294 ${main.map((row) => `${row.label} ${signed(row.difference)}`).join(", ")}\uC774\uBA70, \uCD1D \uD3C9\uAC00\uC810\uC218 \uCC28\uC774\uB294 ${signed(scoreDifference)}\uC785\uB2C8\uB2E4.`;
+    }
+  } else reason += " \uC774 \uC804\uB7B5\uC758 \uC0E8\uD150 \uC81C\uD55C\uC744 \uB9CC\uC871\uD558\uB294 \uBC84\uB9BC\uD328 \uD6C4\uBCF4\uAC00 \uD558\uB098\uC785\uB2C8\uB2E4.";
+  if (policy === "E" && config.risk === 0) reason += " \uC774 \uAC00\uC911\uCE58\uC5D0\uC11C\uB294 \uC704\uD5D8\uB3C4 \uAC10\uC810\uC744 \uC801\uC6A9\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
+  return {
+    policy,
+    variant,
+    reason,
+    ranking,
+    selectedRank: selected.rank,
+    comparison,
+    excludedCount: rows.length - eligible.length,
+    totalCount: rows.length,
+    eligibleCount: eligible.length,
+    minShanten,
+    maxShantenLoss: config.maxShantenLoss,
+    scoreNote: "\uAC19\uC740 \uC804\uB7B5 \uC548\uC5D0\uC11C \uBC84\uB9BC\uD328 \uD6C4\uBCF4\uB97C \uBE44\uAD50\uD558\uB294 \uD734\uB9AC\uC2A4\uD2F1 \uD3C9\uAC00\uC810\uC218\uC785\uB2C8\uB2E4. \uC608\uC0C1 \uC218\uC775\uC774\uB098 \uAC15\uD654\uD559\uC2B5 Q\uAC12\uC774 \uC544\uB2C8\uBA70, \uC74C\uC218\uB3C4 \uC815\uC0C1\uC785\uB2C8\uB2E4.",
+    tieRule: variant === "H" ? "\uD0C0\uC77C \uBC88\uD638 \uC624\uB984\uCC28\uC21C \uAC80\uC0AC, 1e-9\uBCF4\uB2E4 \uD06C\uAC8C \uB192\uC744 \uB54C\uB9CC \uC6B0\uC120 \uD6C4\uBCF4 \uAD50\uCCB4" : "\uD3C9\uAC00\uC810\uC218 \uB0B4\uB9BC\uCC28\uC21C, \uAC19\uC740 \uC810\uC218\uB294 \uD0C0\uC77C \uBC88\uD638 \uC624\uB984\uCC28\uC21C"
+  };
+}
+
 // web/recommendations.mjs
 var focus = {
   A: "\uC0E8\uD150\uC744 \uBA3C\uC800 \uC904\uC774\uACE0 \uC720\uD6A8\uD328\uAC00 \uB9CE\uC740 \uCABD\uC744 \uACE0\uB985\uB2C8\uB2E4.",
@@ -1472,7 +1556,7 @@ function actionLabel(action, view = {}) {
       throw new Error("\uC54C \uC218 \uC5C6\uB294 \uCD94\uCC9C \uD589\uB3D9\uC785\uB2C8\uB2E4.");
   }
 }
-function reasonFor(action, view, policy) {
+function reasonFor(action, view, policy, weights) {
   if (action.type === "riichi") return "\uBA58\uC820 \uD150\uD30C\uC774\uB85C 1,000\uC810\uC744 \uACF5\uD0C1\uD569\uB2C8\uB2E4. \uB9AC\uCE58\uB9CC\uC73C\uB85C\uB294 S\uB8F0\uC758 \uD654\uB8CC \uC5ED \uC870\uAC74\uC744 \uCDA9\uC871\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
   if (action.type === "tsumo") return "\uC9C0\uAE08 \uCBD4\uBAA8 \uD654\uB8CC\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.";
   if (action.type === "ron") return policy === "C" ? "\uC774 \uADDC\uCE59\uC5D0\uC11C\uB294 \uB860\uC744 \uB118\uAE38 \uC218 \uC5C6\uC5B4 \uD654\uB8CC\uD569\uB2C8\uB2E4." : "\uC644\uC131\uB41C \uD328\uB85C \uC9C0\uAE08 \uB860 \uD654\uB8CC\uD569\uB2C8\uB2E4.";
@@ -1483,22 +1567,27 @@ function reasonFor(action, view, policy) {
   }
   if (action.type === "chi" || action.type === "pon") return "\uD6C4\uB85C \uC774\uD6C4\uC5D0 \uBC84\uB9B4 \uD328\uAE4C\uC9C0 \uBE44\uAD50\uD55C \uC120\uD0DD\uC785\uB2C8\uB2E4.";
   if (["ankan", "kakan", "minkan"].includes(action.type)) return "\uBCF4\uCDA9\uD328\uB97C \uBC1B\uAE30 \uC804\uC758 \uD615\uD0DC\uB97C \uAE30\uC900\uC73C\uB85C \uAE61\uC744 \uD3C9\uAC00\uD588\uC2B5\uB2C8\uB2E4.";
+  if (policy === "E" && weights?.risk === 0) return "\uC18D\uB3C4\xB7\uC5ED \uAC00\uCE58\xB7\uB0A8\uC740 \uC0C1\uB300 \uC218\uB97C \uBD05\uB2C8\uB2E4. \uC774 \uD559\uC2B5 \uBC84\uC804\uC740 \uC704\uD5D8\uB3C4 \uAC10\uC810\uC744 \uC4F0\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
   return focus[policy];
 }
-function strategyRecommendations(view) {
+function strategyRecommendations(view, weights = {}) {
   if (!view.legalActions.length) return [];
   const discards = view.legalActions.filter((a) => a.type === "discard");
   return Object.entries(POLICIES2).map(([policy, config]) => {
-    const action = chooseAction3(view, policy);
+    const action = chooseAction3(view, policy, weights[policy]);
     let discard = null;
     if (discards.length && action.type !== "tsumo") {
-      const selected = action.type === "discard" ? action : chooseAction3({ ...view, legalActions: discards }, policy);
-      const metrics2 = evaluateDiscards3({ ...view, legalActions: [selected] }, policy)[0];
+      const selected = action.type === "discard" ? action : chooseAction3({ ...view, legalActions: discards }, policy, weights[policy]);
+      const explanation = explainDiscards({ ...view, legalActions: discards }, policy, weights[policy], selected);
+      const metrics2 = explanation.ranking.find((row) => row.tile === selected.tile);
       discard = {
         action: { ...selected },
         label: actionLabel(selected),
         shanten: metrics2.shanten,
-        ukeire: metrics2.ukeire
+        ukeire: metrics2.ukeire,
+        reason: explanation.reason,
+        ranking: explanation.ranking,
+        excludedCount: explanation.excludedCount
       };
     }
     return {
@@ -1506,7 +1595,7 @@ function strategyRecommendations(view) {
       name: config.name,
       action: { ...action },
       label: actionLabel(action, view),
-      reason: reasonFor(action, view, policy),
+      reason: action.type === "discard" ? discard.reason : reasonFor(action, view, policy, weights[policy]),
       discard
     };
   });
@@ -1517,7 +1606,7 @@ var SVG = "http://www.w3.org/2000/svg";
 var dots = { 1: [[50, 50]], 2: [[50, 24], [50, 76]], 3: [[24, 22], [50, 50], [76, 78]], 4: [[24, 24], [76, 24], [24, 76], [76, 76]], 5: [[24, 24], [76, 24], [50, 50], [24, 76], [76, 76]], 6: [[24, 18], [76, 18], [24, 50], [76, 50], [24, 82], [76, 82]], 7: [[24, 16], [50, 31], [76, 16], [24, 57], [76, 57], [24, 84], [76, 84]], 8: [[24, 13], [76, 13], [24, 38], [76, 38], [24, 63], [76, 63], [24, 88], [76, 88]], 9: [[22, 16], [50, 16], [78, 16], [22, 50], [50, 50], [78, 50], [22, 84], [50, 84], [78, 84]] };
 function element(tag, attributes) {
   const el = document.createElementNS(SVG, tag);
-  for (const [key3, value] of Object.entries(attributes)) el.setAttribute(key3, String(value));
+  for (const [key3, value2] of Object.entries(attributes)) el.setAttribute(key3, String(value2));
   return el;
 }
 function span(text, cls) {
@@ -1729,7 +1818,7 @@ var RoomClient = class {
 };
 
 // web/score-display.mjs
-var signedPoints = (value) => `${value > 0 ? "+" : ""}${value}`;
+var signedPoints = (value2) => `${value2 > 0 ? "+" : ""}${value2}`;
 function scoreBreakdown(score) {
   if (score?.variant !== "S") return null;
   const yaku = (score.yakuEntries ?? []).map((e) => ({ ...e })), bonuses = score.yakuman ? [] : (score.bonuses ?? []).map((e) => ({ ...e }));
@@ -1808,23 +1897,23 @@ var PREFIX = "h-mahjong-log-v1:";
 var INDEX = PREFIX + "index";
 var MAX_LOGS = 10;
 var MAX_CHARS = 15e5;
-var clone = (value) => structuredClone(value);
+var clone = (value2) => structuredClone(value2);
 var scores = (game) => game.players.map((player) => player.score);
 var seats = ["\uB3D9", "\uB0A8", "\uC11C", "\uBD81"];
 var seatLabels = (game) => game.rules.variant === "S" ? seats.map((_, i) => seats[(i - game.dealer + 4) % 4]) : seats;
-var signed = (value) => `${value > 0 ? "+" : ""}${value}`;
+var signed2 = (value2) => `${value2 > 0 ? "+" : ""}${value2}`;
 function beforeAction(game) {
   return { scores: scores(game), active: game.players.flatMap((p, i) => p.won ? [] : [i]), events: game.events.length, ledger: game.ledger.length, pot: game.pot ?? 0 };
 }
 function actionRecord(game, seat, action, before, error = null) {
   const seats2 = seatLabels(game);
   const after = scores(game), payments = clone(game.ledger.slice(before.ledger)), issues = [];
-  const delta = after.map((value, i) => value - before.scores[i]), ledgerDelta = [0, 0, 0, 0];
+  const delta = after.map((value2, i) => value2 - before.scores[i]), ledgerDelta = [0, 0, 0, 0];
   for (const payment of payments) {
     if (Number.isInteger(payment.from)) ledgerDelta[payment.from] -= payment.amount;
     if (Number.isInteger(payment.to)) ledgerDelta[payment.to] += payment.amount;
   }
-  if (delta.some((value, i) => value !== ledgerDelta[i])) issues.push("\uC810\uC218 \uBCC0\uD654\uC640 \uC2E4\uC81C \uC774\uCCB4 \uB0B4\uC5ED\uC774 \uC77C\uCE58\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
+  if (delta.some((value2, i) => value2 !== ledgerDelta[i])) issues.push("\uC810\uC218 \uBCC0\uD654\uC640 \uC2E4\uC81C \uC774\uCCB4 \uB0B4\uC5ED\uC774 \uC77C\uCE58\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
   const wins = game.events.slice(before.events).filter((e) => e.type === "win").map((win3) => {
     if (game.rules.variant === "S") {
       const actual2 = payments.filter((p) => p.to === win3.seat), actualReceipt2 = actual2.reduce((n, p) => n + p.amount, 0), expected = [], pao = win3.score.yakuman ? game.players[win3.seat].pao : null;
@@ -1901,8 +1990,8 @@ var GameJournal = class {
   }
   index() {
     try {
-      const value = JSON.parse(this.storage?.getItem(INDEX) ?? "[]");
-      return Array.isArray(value) ? value.filter((x) => x && typeof x.id === "string" && typeof x.updatedAt === "string" && Number.isSafeInteger(x.chars) && x.chars >= 0) : [];
+      const value2 = JSON.parse(this.storage?.getItem(INDEX) ?? "[]");
+      return Array.isArray(value2) ? value2.filter((x) => x && typeof x.id === "string" && typeof x.updatedAt === "string" && Number.isSafeInteger(x.chars) && x.chars >= 0) : [];
     } catch {
       return [];
     }
@@ -1959,7 +2048,7 @@ function logText(log) {
     `${variant}\uB8F0 \uB9C8\uC791 \uB300\uAD6D \uB85C\uADF8`,
     `${log.startedAt} \xB7 ${log.mode === "practice" ? "\uD63C\uC790 \uC5F0\uC2B5" : "4\uC778 \uB300\uAD6D"} \xB7 \uB0B4 \uC790\uB9AC ${seats2[log.humanSeat]}`,
     `\uBC30\uD328 \uBC88\uD638: ${game.seed ?? "\uC11C\uBC84 \uBE44\uACF5\uAC1C"} \xB7 \uD654\uBA74 \uBC84\uC804: ${log.build ?? "\uBBF8\uAE30\uB85D"}`,
-    `${variant === "S" ? "\uC774\uBC88 \uAD6D \uC99D\uAC10" : "\uCD5C\uC885 \uC810\uC218"}: ${scores(game).map((score, i) => `${seats2[i]} ${signed(score)}`).join(" / ")}`,
+    `${variant === "S" ? "\uC774\uBC88 \uAD6D \uC99D\uAC10" : "\uCD5C\uC885 \uC810\uC218"}: ${scores(game).map((score, i) => `${seats2[i]} ${signed2(score)}`).join(" / ")}`,
     ""
   ];
   if (game.startingScores) lines.push(`\uBC18\uC7A5 \uB204\uC801 (\uC885\uB8CC \uACF5\uD0C1 \uBCC4\uB3C4): ${game.startingScores.map((n, i) => seats2[i] + " " + (n + game.players[i].score)).join(" / ")}`, "");
@@ -1976,7 +2065,7 @@ function logText(log) {
     for (const issue of entry.issues) lines.push(`  [\uC815\uC0B0 \uD655\uC778 \uD544\uC694] ${issue}`);
     if (entry.error) lines.push(`  [\uC2E4\uD589 \uC624\uB958] ${entry.error}`);
   }
-  for (const entry of log.observations) if (entry.delta.some(Boolean)) lines.push(`\uC218\uC2E0 ${entry.revision} \uC810\uC218 \uBCC0\uB3D9: ${entry.delta.map((v, i) => v ? seats2[i] + " " + signed(v) : "").filter(Boolean).join(" / ")}`);
+  for (const entry of log.observations) if (entry.delta.some(Boolean)) lines.push(`\uC218\uC2E0 ${entry.revision} \uC810\uC218 \uBCC0\uB3D9: ${entry.delta.map((v, i) => v ? seats2[i] + " " + signed2(v) : "").filter(Boolean).join(" / ")}`);
   if (log.mode === "online" && variant === "S") for (const seat of game.winners) lines.push(`${seats2[seat]} ${scoreBreakdownText(game.players[seat].win.score)}`);
   lines.push("", "\uD604\uC7AC \uC190\uD328\xB7\uD6C4\uB85C (JSON\uC5D0\uB294 \uC6D0\uBCF8 \uD328 \uBC88\uD638\uC640 \uC0C1\uC138 \uAE30\uB85D \uD3EC\uD568)");
   for (let seat = 0; seat < 4; seat++) {
@@ -1987,18 +2076,18 @@ function logText(log) {
   return lines.join("\n") + "\n";
 }
 function reviewText(input) {
-  const log = expandLog(input), game = log.game, seats2 = seatLabels(game), s = game.rules.variant === "S", lines = [`${s ? "S" : "H"}\uB8F0 \xB7 ${game.seed ?? log.room}`, `${s ? "\uC774\uBC88 \uAD6D \uC99D\uAC10" : "\uCD5C\uC885"}: ${game.players.map((p, i) => seats2[i] + " " + signed(p.score)).join(" / ")}`];
+  const log = expandLog(input), game = log.game, seats2 = seatLabels(game), s = game.rules.variant === "S", lines = [`${s ? "S" : "H"}\uB8F0 \xB7 ${game.seed ?? log.room}`, `${s ? "\uC774\uBC88 \uAD6D \uC99D\uAC10" : "\uCD5C\uC885"}: ${game.players.map((p, i) => seats2[i] + " " + signed2(p.score)).join(" / ")}`];
   for (const e of log.actions) {
     if (["ankan", "minkan", "kakan"].includes(e.action.type)) lines.push(`${seats2[e.seat]} ${e.action.type === "ankan" ? "\uC548\uAE61" : e.action.type === "minkan" ? "\uBA85\uAE61" : "\uAC00\uAE61"}${Number.isInteger(e.action.tile) ? " \xB7 " + tileName(e.action.tile) : ""} (\uC774\uB54C\uB294 \uC810\uC218 \uC774\uB3D9 \uC5C6\uC74C)`);
     for (const win3 of e.wins) {
-      const extra = Object.entries(win3.score.bonuses ?? {}).filter(([, value]) => typeof value === "number" && value).map(([name, value]) => `${{ kan: "\uAE61", dragon: "\uC0BC\uC6D0\uD328", roundWind: "\uC7A5\uD48D", seatWind: "\uC790\uD48D" }[name] ?? name} ${value}`);
+      const extra = Object.entries(win3.score.bonuses ?? {}).filter(([, value2]) => typeof value2 === "number" && value2).map(([name, value2]) => `${{ kan: "\uAE61", dragon: "\uC0BC\uC6D0\uD328", roundWind: "\uC7A5\uD48D", seatWind: "\uC790\uD48D" }[name] ?? name} ${value2}`);
       lines.push(s ? `${seats2[win3.seat]} ${win3.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 ${scoreBreakdownText(win3.score)}` : `${seats2[win3.seat]} ${win3.score.name} ${win3.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 \uC5ED ${win3.score.base}${extra.length ? " + " + extra.join(" + ") : ""}${win3.tsumoBonus ? " + \uCBD4\uBAA8 " + win3.tsumoBonus + " / \uC9C0\uAE09\uC790" : ""}`);
     }
     for (const p of e.payments) lines.push(`  ${seats2[p.from] ?? "\uACF5\uD0C1"} \u2192 ${seats2[p.to] ?? "\uACF5\uD0C1"}: ${p.amount}\uC810`);
     for (const issue of e.issues) lines.push(`[\uC815\uC0B0 \uD655\uC778 \uD544\uC694] ${issue}`);
   }
   if (log.mode === "online") {
-    for (const entry of log.observations) if (entry.delta.some(Boolean)) lines.push(`\uC218\uC2E0 ${entry.revision}: ${entry.delta.map((v, i) => v ? seats2[i] + " " + signed(v) : "").filter(Boolean).join(" / ")}`);
+    for (const entry of log.observations) if (entry.delta.some(Boolean)) lines.push(`\uC218\uC2E0 ${entry.revision}: ${entry.delta.map((v, i) => v ? seats2[i] + " " + signed2(v) : "").filter(Boolean).join(" / ")}`);
   }
   if (log.mode === "online" && s) for (const seat of game.winners) {
     const win3 = game.players[seat].win;
@@ -2078,9 +2167,9 @@ function readPreferences(storage) {
     return { recommendations: true, variant: "H" };
   }
 }
-function savePreferences(storage, value) {
+function savePreferences(storage, value2) {
   try {
-    storage?.setItem(KEY, JSON.stringify({ recommendations: !!value.recommendations, variant: value.variant === "S" ? "S" : "H" }));
+    storage?.setItem(KEY, JSON.stringify({ recommendations: !!value2.recommendations, variant: value2.variant === "S" ? "S" : "H" }));
     return !!storage;
   } catch {
     return false;
@@ -2277,7 +2366,7 @@ var MatchStore = class {
   }
 };
 function matchCSV(summary, names = ["\uC2DC\uC791 \uB3D9", "\uC2DC\uC791 \uB0A8", "\uC2DC\uC791 \uC11C", "\uC2DC\uC791 \uBD81"]) {
-  const cell = (value) => '"' + String(value ?? "").replaceAll('"', '""') + '"', rows = [["\uAD6D", "\uACB0\uACFC", ...names.map((n) => n + " \uC99D\uAC10"), ...names.map((n) => n + " \uB204\uC801"), "\uACF5\uD0C1"]];
+  const cell = (value2) => '"' + String(value2 ?? "").replaceAll('"', '""') + '"', rows = [["\uAD6D", "\uACB0\uACFC", ...names.map((n) => n + " \uC99D\uAC10"), ...names.map((n) => n + " \uB204\uC801"), "\uACF5\uD0C1"]];
   for (const r of summary.rounds) rows.push([r.label, r.result === "win" ? "\uD654\uB8CC" : "\uC720\uAD6D", ...r.delta, ...r.totals, r.pot]);
   for (const t of summary.finalTransfers) {
     const delta = [0, 0, 0, 0];
@@ -2418,6 +2507,81 @@ var ArchiveClient = class {
   }
 };
 
+// web/trained-policies.mjs
+var value = {
+  "id": "H-20261006-expanded-v1",
+  "weights": {
+    "D": {
+      "speed": 38,
+      "value": 0.17
+    },
+    "E": {
+      "speed": 90,
+      "value": 0.075,
+      "risk": 0
+    }
+  },
+  "completedGames": 188100,
+  "elapsedSeconds": 1451.881,
+  "validationSeeds": 2e3,
+  "trainingSeeds": 1e3,
+  "analysisSha256": "4c4cd3877ea311d7fd8b588837ea126ffdfc10560889d6555b94804dd19a75a6",
+  "selectionSha256": "2a6a9fc022c2fbfe92de694c42751f7e448f03cd0ba3bfb51e8d4d5e4d08f776"
+};
+for (const weights of Object.values(value.weights)) Object.freeze(weights);
+Object.freeze(value.weights);
+var TRAINING = Object.freeze(value);
+
+// web/training-results.mjs
+async function renderTrainingResults(get, training) {
+  try {
+    const response = await fetch(new URL("../results/training-20261006/analysis.json", import.meta.url));
+    if (!response.ok) throw new Error("\uACB0\uACFC \uD30C\uC77C\uC744 \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.");
+    const data = await response.json(), pair = data.tunedPairs.find((r) => r.comparison === "C-B");
+    get("training-run-status").textContent = `\uC2E4\uD589 \uC644\uB8CC \xB7 \uCD1D ${training.completedGames.toLocaleString()}\uAD6D \xB7 \uD29C\uB2DD ${training.trainingSeeds.toLocaleString()}\uAC1C / \uAC80\uC99D ${training.validationSeeds.toLocaleString()}\uAC1C \uC2DC\uB4DC`;
+    get("training-conclusion").textContent = `\uD559\uC2B5 \uD6C4\uBCF4\uB07C\uB9AC \uBE44\uAD50\uD588\uC744 \uB54C C\u2212B\uB294 \uAD6D\uB2F9 ${pair.meanDifference.toFixed(2)}\uC810 (95% \uC2E0\uB8B0\uAD6C\uAC04 ${pair.ci95Low.toFixed(2)} ~ ${pair.ci95High.toFixed(2)})\uC785\uB2C8\uB2E4. \uAC80\uC99D\uB41C \uAC1C\uC120 \uC815\uCC45: ${Object.keys(training.weights).join(", ") || "\uC5C6\uC74C"}.`;
+    get("training-summary").replaceChildren();
+    for (const r of data.improvements) {
+      const old = data.baselineSummary.find((x) => x.policy === r.policy), tuned = data.tunedSummary.find((x) => x.policy === r.policy), row = document.createElement("tr");
+      for (const value2 of [r.policy, old.meanNet.toFixed(2), tuned.meanNet.toFixed(2), r.meanDifference.toFixed(2), `${r.ci95Low.toFixed(2)} ~ ${r.ci95High.toFixed(2)}`, Object.hasOwn(training.weights, r.policy) ? "\uD559\uC2B5 \uAC00\uC911\uCE58" : "\uAE30\uC874 \uC720\uC9C0"]) {
+        const cell = document.createElement("td");
+        cell.textContent = value2;
+        row.append(cell);
+      }
+      get("training-summary").append(row);
+    }
+  } catch {
+    get("training-conclusion").textContent = "\uACB0\uACFC \uD30C\uC77C\uC744 \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. \uD55C\uAD6D\uC5B4 \uBCF4\uACE0\uC11C\uC5D0\uC11C \uC2E4\uC81C \uAC80\uC99D \uACB0\uACFC\uB97C \uD655\uC778\uD558\uC138\uC694.";
+  }
+}
+
+// web/training-profile.mjs
+var KEY3 = "wellness-mahjong-training-profile-v1";
+function hasTrainedPolicies(training) {
+  return Object.keys(training.weights).length > 0;
+}
+function readTrainingMode(storage, training) {
+  try {
+    if (storage?.getItem(KEY3) === "original") return "original";
+  } catch {
+  }
+  return hasTrainedPolicies(training) ? "trained" : "original";
+}
+function saveTrainingMode(storage, mode) {
+  try {
+    storage?.setItem(KEY3, mode === "trained" ? "trained" : "original");
+  } catch {
+  }
+}
+function trainingWeights(view, mode, training) {
+  return view.rules.variant !== "S" && mode === "trained" ? training.weights : {};
+}
+function practiceAction(view, { humanSeat: humanSeat2, policy, profile, mode, training }) {
+  if (view.seat === humanSeat2) return chooseAction3(view, policy, trainingWeights(view, mode, training)[policy]);
+  const spec = OPPONENT_PROFILES2[profile][(view.seat - humanSeat2 + 4) % 4 - 1];
+  return chooseAction3(view, spec.id, spec.weights);
+}
+
 // web/app.mjs
 var $ = (id) => document.getElementById(id);
 var state = null;
@@ -2438,6 +2602,7 @@ try {
 }
 var matchStore = new MatchStore(logStorage);
 var preferences = readPreferences(logStorage);
+var trainingMode = readTrainingMode(logStorage, TRAINING);
 var recommendationsEnabled = preferences.recommendations;
 var chosenVariant = preferences.variant;
 var journal = new GameJournal({ storage: logStorage });
@@ -2631,6 +2796,21 @@ function renderHanBreakdown(detail) {
 function discardMetrics(discard) {
   return `${discard.shanten === 0 ? "\uD150\uD30C\uC774 (0\uC0E8\uD150)" : discard.shanten + "\uC0E8\uD150"} \xB7 \uC720\uD6A8\uD328 \uCD94\uC815 ${discard.ukeire}\uC7A5`;
 }
+function renderDiscardRanking(discard) {
+  const details = node("details", void 0, "discard-ranking");
+  details.append(node("summary", `\uBC84\uB9BC\uD328 \uD6C4\uBCF4 ${discard.ranking.length}\uAC1C \xB7 \uC810\uC218\uC640 \uC774\uC720`));
+  if (discard.reason) details.append(node("p", discard.reason));
+  const list = node("ol");
+  for (const row of discard.ranking) {
+    const li = node("li"), title = node("strong", `${row.rank}\uC704 \xB7 ${tileName(row.tile)}${row.selected ? " \xB7 \uCD94\uCC9C" : ""}`);
+    li.append(title, node("span", `\uD3C9\uAC00 ${row.score.toFixed(2)} \xB7 ${row.shanten}\uC0E8\uD150 \xB7 \uC720\uD6A8\uD328 ${row.ukeire}\uC7A5`));
+    li.append(node("span", Object.entries(row.components).map(([key3, value2]) => `${{ speed: "\uC0E8\uD150", ukeire: "\uC720\uD6A8\uD328", value: "\uC5ED \uAC00\uCE58", pinfu: "\uD551\uD6C4 \uD615\uD0DC", risk: "\uC704\uD5D8" }[key3]} ${value2 >= 0 ? "+" : ""}${value2.toFixed(2)}`).join(" / "), "ranking-components"));
+    list.append(li);
+  }
+  details.append(list, node("p", "\uAC19\uC740 \uC804\uB7B5 \uC548\uC758 \uD6C4\uBCF4 \uBE44\uAD50\uC6A9 \uD3C9\uAC00\uC810\uC218\uC785\uB2C8\uB2E4. \uC608\uC0C1 \uC218\uC775\xB7\uD655\uB960\xB7\uAC15\uD654\uD559\uC2B5 Q\uAC12\uC774 \uC544\uB2D9\uB2C8\uB2E4."));
+  if (discard.excludedCount) details.append(node("p", `\uC0E8\uD150\uC774 \uB108\uBB34 \uB298\uC5B4\uB098\uB294 \uBC84\uB9BC\uD328 ${discard.excludedCount}\uC885\uC740 \uC774 \uC804\uB7B5\uC758 \uD6C4\uBCF4\uC5D0\uC11C \uC81C\uC678\uD588\uC2B5\uB2C8\uB2E4.`));
+  return details;
+}
 function renderRecommendations() {
   const revision = ++recommendationRevision, list = $("recommendation-list"), status = $("recommendation-status");
   currentRecommendations = [];
@@ -2663,7 +2843,8 @@ function renderRecommendations() {
     status.textContent = "\uC9C0\uAE08\uC740 \uB118\uAE30\uAE30\uB9CC \uAC00\uB2A5\uD574 0.7\uCD08 \uB4A4 \uC790\uB3D9\uC73C\uB85C \uC9C4\uD589\uD569\uB2C8\uB2E4.";
     return;
   }
-  currentRecommendations = strategyRecommendations(observation4(state, humanSeat));
+  const view = observation4(state, humanSeat);
+  currentRecommendations = strategyRecommendations(view, trainingWeights(view, trainingMode, TRAINING));
   status.textContent = "\uBC84\uD2BC\uC744 \uB204\uB974\uBA74 \uD574\uB2F9 \uC804\uB7B5\uC758 \uC120\uD0DD\uC744 \uD55C \uBC88 \uC2E4\uD589\uD569\uB2C8\uB2E4.";
   for (const rec of currentRecommendations) {
     const card = node("article", void 0, "recommendation-card"), title = node("h4");
@@ -2683,6 +2864,7 @@ function renderRecommendations() {
       alternative.append(discardButton);
       card.append(alternative);
     }
+    if (rec.discard?.ranking?.length) card.append(renderDiscardRanking(rec.discard));
     list.append(card);
   }
 }
@@ -2694,7 +2876,7 @@ function executeRecommendation(policy, mode, revision) {
   const rec = currentRecommendations.find((r) => r.policy === policy), action = mode === "discard" ? rec?.discard?.action : rec?.action;
   if (!action) throw new Error("\uC9C0\uAE08 \uC2E4\uD589\uD560 \uC218 \uC788\uB294 \uCD94\uCC9C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.");
   const result = playHumanAction(action);
-  return result?.then ? result.then((value) => ({ policy, action: { ...action }, ...value })) : { policy, action: { ...action }, ...result };
+  return result?.then ? result.then((value2) => ({ policy, action: { ...action }, ...value2 })) : { policy, action: { ...action }, ...result };
 }
 function actRecommendation(policy, mode, revision) {
   try {
@@ -2709,6 +2891,7 @@ function actRecommendation(policy, mode, revision) {
 }
 function render() {
   const variant = state.rules.variant === "S" ? "S" : "H";
+  renderTrainingMode(variant);
   const match = currentMatch();
   document.querySelector(".room-label").textContent = `${variant} RULE \xB7 ${match ? match.label : online ? "4\uC778 \uB300\uAD6D" : "\uD63C\uC790 \uC5F0\uC2B5"}`;
   document.querySelector(".wind-mark").textContent = variant;
@@ -2819,7 +3002,7 @@ function updateTableLayout() {
     return Math.max(3, el?.children.length ?? 0) * (rowHeight + gap) - gap;
   };
   const compact = matchMedia("(max-width:760px)").matches, topCard = surface.querySelector(".opponent-top"), leftCard = surface.querySelector(".opponent-left"), rightCard = surface.querySelector(".opponent-right");
-  const set = (name, value) => surface.style.setProperty(name, `${value}px`), edge = compact ? 8 : 14, meldSizes = {};
+  const set = (name, value2) => surface.style.setProperty(name, `${value2}px`), edge = compact ? 8 : 14, meldSizes = {};
   for (const position of ["bottom", "right", "top", "left"]) {
     const zone = surface.querySelector(".meld-zone-" + position), rack = zone?.querySelector(".meld-rack");
     if (!rack) {
@@ -2860,8 +3043,7 @@ function updateTableLayout() {
 }
 window.addEventListener("resize", updateTableLayout);
 function aiAction(view) {
-  const spec = view.seat === humanSeat ? { id: $("policy").value } : OPPONENT_PROFILES2[$("profile").value][(view.seat - humanSeat + 4) % 4 - 1];
-  return chooseAction3(view, spec.id, spec.weights);
+  return practiceAction(view, { humanSeat, policy: $("policy").value, profile: $("profile").value, mode: trainingMode, training: TRAINING });
 }
 function loggedStep(game, seat, action) {
   const before = beforeAction(game);
@@ -3065,11 +3247,11 @@ function renderMatch() {
   }
   $("match-final-pot").textContent = match.finalTransfers.map((p) => `\uB0A84\uAD6D \uC885\uB8CC \uACF5\uD0C1 ${p.amount}\uC810 \u2192 \uC2DC\uC791 ${SEAT_NAMES[p.to]} \uC790\uB9AC`).join(" / ");
 }
-function downloadMatch(format = "json", summary = currentMatch()) {
+function downloadMatch(format2 = "json", summary = currentMatch()) {
   if (!summary) throw new Error("S\uB8F0 \uBC18\uC7A5 \uAE30\uB85D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.");
-  const a = node("a"), text = format === "csv" ? matchCSV(summary) : JSON.stringify({ format: "wellness-s-match-scores/v1", ...summary }, null, 2), blob = new Blob([text], { type: format === "csv" ? "text/csv;charset=utf-8" : "application/json" });
+  const a = node("a"), text = format2 === "csv" ? matchCSV(summary) : JSON.stringify({ format: "wellness-s-match-scores/v1", ...summary }, null, 2), blob = new Blob([text], { type: format2 === "csv" ? "text/csv;charset=utf-8" : "application/json" });
   a.href = URL.createObjectURL(blob);
-  a.download = `S-\uBC18\uC7A5-${summary.id.slice(0, 8)}-\uC810\uC218\uD45C.${format}`;
+  a.download = `S-\uBC18\uC7A5-${summary.id.slice(0, 8)}-\uC810\uC218\uD45C.${format2}`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1e3);
   return { filename: a.download, completedRounds: summary.rounds.length };
@@ -3103,6 +3285,7 @@ function showOnline() {
   $("practice-info").textContent = "\uAC19\uC740 \uBC29 \uCF54\uB4DC\uB85C \uB124 \uBA85\uC774 \uBAA8\uC774\uBA74 \uC2DC\uC791\uD569\uB2C8\uB2E4. \uAC01\uC790 \uC190\uD328\uB9CC \uBCFC \uC218 \uC788\uC2B5\uB2C8\uB2E4.";
   renderMatch();
   renderLogs();
+  renderTrainingMode(remote?.variant ?? chosenVariant);
 }
 function receiveRoom(snapshot) {
   if (!online) return;
@@ -3117,6 +3300,7 @@ function receiveRoom(snapshot) {
   $("room-code-input").value = snapshot.code;
   $("room-error").textContent = "";
   $("room-members").replaceChildren();
+  if (!snapshot.state) renderTrainingMode(snapshot.variant ?? "H");
   if (snapshot.match) matchStore.saveSummary(snapshot.match, { seat: snapshot.seat });
   else renderMatch();
   for (let i = 0; i < 4; i++) {
@@ -3211,20 +3395,20 @@ function renderLogs() {
 function savedMatch() {
   return matchStore.list().find((x) => x.summary.id === $("saved-matches").value)?.summary;
 }
-function downloadLog(id, format = "json") {
+function downloadLog(id, format2 = "json") {
   const log = journal.read(id);
   if (!log) throw new Error("\uC800\uC7A5\uB41C \uB300\uAD6D\uC744 \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
-  const text = format === "txt" ? logText(log) : JSON.stringify(compactLog(log)), a = node("a"), blob = new Blob([text], { type: format === "txt" ? "text/plain;charset=utf-8" : "application/json" });
+  const text = format2 === "txt" ? logText(log) : JSON.stringify(compactLog(log)), a = node("a"), blob = new Blob([text], { type: format2 === "txt" ? "text/plain;charset=utf-8" : "application/json" });
   a.href = URL.createObjectURL(blob);
-  const filename = `${log.game.rules.variant === "S" ? "S" : "H"}-${log.game.seed ?? log.room}-${log.id.slice(0, 8)}-\uB300\uAD6D\uB85C\uADF8.${format}`;
+  const filename = `${log.game.rules.variant === "S" ? "S" : "H"}-${log.game.seed ?? log.room}-${log.id.slice(0, 8)}-\uB300\uAD6D\uB85C\uADF8.${format2}`;
   a.download = filename;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1e3);
   return { filename, actions: log.actions.length };
 }
-function saveCurrentLog(format = "json") {
+function saveCurrentLog(format2 = "json") {
   if (online && !remote?.state) throw new Error("\uC544\uC9C1 4\uC778 \uB300\uAD6D\uC774 \uC2DC\uC791\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.");
-  return downloadLog(journal.current?.id, format);
+  return downloadLog(journal.current?.id, format2);
 }
 function download() {
   return saveCurrentLog();
@@ -3232,6 +3416,21 @@ function download() {
 function randomGame() {
   return start(crypto.getRandomValues(new Uint32Array(1))[0], chosenVariant);
 }
+function renderTrainingMode(variant) {
+  const enabled = hasTrainedPolicies(TRAINING);
+  $("training-mode").value = trainingMode;
+  $("training-mode").disabled = variant === "S" || !enabled;
+  $("training-note").textContent = variant === "S" ? "S\uB8F0\uC740 \uAE30\uC874 \uC804\uC6A9 \uC804\uB7B5\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4." : !enabled ? "\uCD94\uAC00 \uAC80\uC99D\uC5D0\uC11C \uAC1C\uC120\uC774 \uD655\uC778\uB41C \uC815\uCC45\uC774 \uC5C6\uC5B4 \uAE30\uC874 \uC804\uB7B5\uC744 \uC720\uC9C0\uD569\uB2C8\uB2E4." : trainingMode === "trained" ? `${Object.keys(TRAINING.weights).join("\xB7")}\uC5D0 \uAC80\uC99D\uB41C \uAC00\uC911\uCE58 \uC801\uC6A9 \xB7 \uB098\uBA38\uC9C0\uB294 \uAE30\uC874 \uC804\uB7B5 \xB7 \uB0B4 \uCD94\uCC9C\uACFC \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9` : "\uAE30\uC874 A\u2013E \uC804\uB7B5 \xB7 \uB0B4 \uCD94\uCC9C\uACFC \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9";
+}
+function setTrainingMode(mode) {
+  if (!["original", "trained"].includes(mode) || mode === "trained" && !hasTrainedPolicies(TRAINING)) throw new Error("\uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC804\uB7B5 \uBC84\uC804\uC744 \uC120\uD0DD\uD558\uC138\uC694.");
+  trainingMode = mode;
+  saveTrainingMode(logStorage, mode);
+  if (state && (!online || remote?.state)) render();
+  else renderTrainingMode(remote?.variant ?? chosenVariant);
+  return { mode, policies: Object.keys(TRAINING.weights) };
+}
+$("training-mode").onchange = () => setTrainingMode($("training-mode").value);
 function persistPreferences() {
   savePreferences(logStorage, { variant: chosenVariant, recommendations: recommendationsEnabled });
 }
@@ -3321,15 +3520,16 @@ fetch(new URL("../results/baseline/analysis.json", import.meta.url)).then((r) =>
   if (reverse.length) $("conclusion").textContent += " \uC0C1\uB300\uBCC4 \uC608\uC678: " + reverse.map((r) => `${r.profile} C\u2212B +${r.meanDifference.toFixed(2)}\uC810`).join(", ") + ".";
   for (const r of data.summary) {
     const tr = node("tr", void 0, r.policy === data.conclusion.bestMeanPolicy ? "best" : "");
-    for (const value of [`${r.policy} \xB7 ${POLICIES2[r.policy].name}`, r.meanNet.toFixed(2) + "\uC810", `${r.ci95Low.toFixed(2)} ~ ${r.ci95High.toFixed(2)}`, (r.winRate * 100).toFixed(1) + "%"]) tr.append(node("td", value));
+    for (const value2 of [`${r.policy} \xB7 ${POLICIES2[r.policy].name}`, r.meanNet.toFixed(2) + "\uC810", `${r.ci95Low.toFixed(2)} ~ ${r.ci95High.toFixed(2)}`, (r.winRate * 100).toFixed(1) + "%"]) tr.append(node("td", value2));
     $("summary").append(tr);
   }
 }).catch(() => {
   $("conclusion").textContent = "\uC644\uB8CC\uB41C \uACB0\uACFC \uD30C\uC77C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4. headless \uC2E4\uD5D8 \uD6C4 \uBCF4\uACE0\uC11C\uB97C \uC0DD\uC131\uD558\uBA74 \uC5EC\uAE30\uC5D0 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
 });
+void renderTrainingResults($, TRAINING);
 function readGame() {
   if (online && !remote?.state) return { mode: "online", phase: "waiting", room: remote ? { code: remote.code, members: remote.members } : null, legalActions: [], recommendations: [] };
-  return { match: currentMatch(), variant: state.rules.variant === "S" ? "S" : "H", recommendationsEnabled, selectedVariant: chosenVariant, mode: online ? "online" : "practice", room: online && remote ? { code: remote.code, members: remote.members, gameNumber: remote.gameNumber } : null, seat: humanSeat, phase: online && !remote?.state ? "waiting" : state.phase, turn: actor4(state), ownHand: state.players[humanSeat].hand.map(typeOf), drawnTile: handDisplay(state, humanSeat).drawn === null ? null : typeOf(handDisplay(state, humanSeat).drawn), scores: state.players.map((p) => p.score), winners: [...state.winners], legalActions: actor4(state) === humanSeat ? legalActions4(state) : [], recommendationRevision, recommendations: structuredClone(currentRecommendations) };
+  return { match: currentMatch(), variant: state.rules.variant === "S" ? "S" : "H", trainingMode: state.rules.variant === "S" ? "original" : trainingMode, trainingId: TRAINING.id, recommendationsEnabled, selectedVariant: chosenVariant, mode: online ? "online" : "practice", room: online && remote ? { code: remote.code, members: remote.members, gameNumber: remote.gameNumber } : null, seat: humanSeat, phase: online && !remote?.state ? "waiting" : state.phase, turn: actor4(state), ownHand: state.players[humanSeat].hand.map(typeOf), drawnTile: handDisplay(state, humanSeat).drawn === null ? null : typeOf(handDisplay(state, humanSeat).drawn), scores: state.players.map((p) => p.score), winners: [...state.winners], legalActions: actor4(state) === humanSeat ? legalActions4(state) : [], recommendationRevision, recommendations: structuredClone(currentRecommendations) };
 }
 if (document.modelContext?.registerTool) {
   const life = new AbortController();
@@ -3349,10 +3549,10 @@ if (document.modelContext?.registerTool) {
     { name: "start_h_game", title: "H\uB8F0 \uC0C8 \uAD6D", description: "\uC9C0\uC815\uD55C \uBC30\uD328 \uBC88\uD638\uB85C \uC0C8 \uAD6D\uC744 \uC2DC\uC791\uD569\uB2C8\uB2E4. \uAC19\uC740 \uBC88\uD638\uB294 \uB0B4 \uC790\uB9AC\uB3C4 \uB3D9\uC77C\uD558\uAC8C \uC7AC\uD604\uD569\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { seed: { type: "integer", minimum: 0, maximum: 4294967295 } }, required: ["seed"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: ({ seed }) => start(seed, "H") },
     { name: "start_practice_game", title: "H/S\uB8F0 \uC0C8 \uC5F0\uC2B5 \uB300\uAD6D", description: "H\uB294 \uD55C \uAD6D, S\uB294 \uB3D91\uAD6D\uBD80\uD130 \uB0A84\uAD6D\uAE4C\uC9C0 \uC0C8 \uBC18\uC7A5\uC744 \uC2DC\uC791\uD569\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { seed: { type: "integer", minimum: 0, maximum: 4294967295 }, variant: { type: "string", enum: ["H", "S"] } }, required: ["seed", "variant"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: ({ seed, variant }) => start(seed, variant) },
     { name: "next_s_hand", title: "S\uB8F0 \uB2E4\uC74C \uAD6D", description: "\uD604\uC7AC \uAD6D\uC774 \uB05D\uB098\uBA74 \uC810\uC218\uB97C \uC774\uC6D4\uD558\uACE0 \uAC19\uC740 \uC790\uB9AC\uC5D0\uC11C \uB2E4\uC74C \uAD6D\uC744 \uC2DC\uC791\uD569\uB2C8\uB2E4. \uB0A84\uAD6D \uC885\uB8CC \uD6C4\uC5D0\uB294 \uAC70\uC808\uD569\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { handNumber: { type: "integer", minimum: 1 } }, required: ["handNumber"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: ({ handNumber }) => nextPracticeHand(handNumber) },
-    { name: "save_s_match_scores", title: "S\uB8F0 \uBC18\uC7A5 \uC810\uC218\uD45C \uC800\uC7A5", description: "\uB3D91\uAD6D\uBD80\uD130 \uD604\uC7AC \uAD6D\uAE4C\uC9C0\uC758 \uC810\uC218 \uBCC0\uD654\uC640 \uB204\uC801 \uC810\uC218, \uCD5C\uC885 \uC21C\uC704\uB97C \uD30C\uC77C\uB85C \uC800\uC7A5\uD569\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { format: { type: "string", enum: ["json", "csv"] } }, required: ["format"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: ({ format }) => downloadMatch(format) },
+    { name: "save_s_match_scores", title: "S\uB8F0 \uBC18\uC7A5 \uC810\uC218\uD45C \uC800\uC7A5", description: "\uB3D91\uAD6D\uBD80\uD130 \uD604\uC7AC \uAD6D\uAE4C\uC9C0\uC758 \uC810\uC218 \uBCC0\uD654\uC640 \uB204\uC801 \uC810\uC218, \uCD5C\uC885 \uC21C\uC704\uB97C \uD30C\uC77C\uB85C \uC800\uC7A5\uD569\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { format: { type: "string", enum: ["json", "csv"] } }, required: ["format"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: ({ format: format2 }) => downloadMatch(format2) },
     { name: "set_recommendations", title: "\uC804\uB7B5 \uCD94\uCC9C \uCF1C\uAE30\xB7\uB044\uAE30", description: "\uD604\uC7AC \uB300\uAD6D\uC744 \uC720\uC9C0\uD558\uBA74\uC11C \uCD94\uCC9C \uD45C\uC2DC\uB97C \uCF1C\uAC70\uB098 \uB055\uB2C8\uB2E4. \uC124\uC815\uC740 \uC774 \uAE30\uAE30\uC5D0 \uC800\uC7A5\uB429\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { enabled: { type: "boolean" } }, required: ["enabled"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: ({ enabled }) => toggleRecommendations(enabled) },
     { name: "read_h_game", title: "\uB300\uAD6D \uACF5\uAC1C \uC0C1\uD0DC", description: "\uB0B4 \uC790\uB9AC\xB7\uC190\uD328, \uACF5\uAC1C \uB300\uAD6D \uC0C1\uD0DC, \uD569\uBC95 \uD589\uB3D9\uACFC \uD654\uBA74\uC758 \uC804\uB7B5\uBCC4 \uCD94\uCC9C\uC744 \uD655\uC778\uD569\uB2C8\uB2E4.", inputSchema: { type: "object", properties: {}, additionalProperties: false }, annotations: { readOnlyHint: true }, execute: readGame },
-    { name: "save_h_game_log", title: "\uD604\uC7AC \uB300\uAD6D \uB85C\uADF8 \uC800\uC7A5", description: "\uD604\uC7AC \uB300\uAD6D\uC758 \uD589\uB3D9\xB7\uC810\uC218 \uC774\uB3D9\xB7\uD654\uB8CC \uACC4\uC0B0\uACFC \uD328\uBCF4\uB97C JSON \uB610\uB294 \uC77D\uAE30 \uC26C\uC6B4 TXT \uD30C\uC77C\uB85C \uB0B4\uB824\uBC1B\uC2B5\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { format: { type: "string", enum: ["json", "txt"] } }, required: ["format"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: ({ format }) => saveCurrentLog(format) },
+    { name: "save_h_game_log", title: "\uD604\uC7AC \uB300\uAD6D \uB85C\uADF8 \uC800\uC7A5", description: "\uD604\uC7AC \uB300\uAD6D\uC758 \uD589\uB3D9\xB7\uC810\uC218 \uC774\uB3D9\xB7\uD654\uB8CC \uACC4\uC0B0\uACFC \uD328\uBCF4\uB97C JSON \uB610\uB294 \uC77D\uAE30 \uC26C\uC6B4 TXT \uD30C\uC77C\uB85C \uB0B4\uB824\uBC1B\uC2B5\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { format: { type: "string", enum: ["json", "txt"] } }, required: ["format"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: ({ format: format2 }) => saveCurrentLog(format2) },
     { name: "play_h_recommendation", title: "\uC804\uB7B5 \uCD94\uCC9C \uD55C \uBC88 \uC2E4\uD589", description: "\uB0B4 \uC218\uB3D9 \uC120\uD0DD \uCC28\uB840\uC5D0 \uD654\uBA74\uC758 \uC804\uB7B5 \uCD94\uCC9C \uBC84\uD2BC\uC744 \uD55C \uBC88 \uC2E4\uD589\uD569\uB2C8\uB2E4. read_h_game\uC5D0\uC11C \uBC1B\uC740 \uCD5C\uC2E0 recommendationRevision\uC744 revision\uC73C\uB85C \uC804\uB2EC\uD558\uC138\uC694. mode=discard\uB294 \uAE61 \uB300\uC2E0 \uD45C\uC2DC\uB41C \uBC84\uB9BC\uD328 \uB300\uC548\uC744 \uC120\uD0DD\uD569\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { policy: { type: "string", enum: ["A", "B", "C", "D", "E"] }, mode: { type: "string", enum: ["recommended", "discard"] }, revision: { type: "integer", minimum: 0 } }, required: ["policy", "mode", "revision"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: ({ policy, mode, revision }) => executeRecommendation(policy, mode, revision) }
   ]) Promise.resolve(document.modelContext.registerTool(tool, { signal: life.signal })).catch(() => {
   });

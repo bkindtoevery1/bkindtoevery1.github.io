@@ -74,3 +74,7 @@
 .win-settlement .han-total{font-size:17px;font-weight:700;color:#ffdfa4;margin:12px 0 8px}
 @media(max-width:480px){.dora-panel{padding:10px 12px}.dora-label{flex-basis:100%}.han-groups{gap:12px}.board>.win-settlement{margin:10px 8px}}
 .archive-notice{font-size:14px;color:var(--muted);margin:8px 0 12px}.archive-notice #archive-status{color:var(--gold);display:inline-block;margin-left:6px}
+
+.training-controls{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:0 0 16px;font-size:14px}.training-controls select{max-width:100%}#training-note{font-size:13px;color:var(--muted)}#training-conclusion{margin:18px 0;color:#cee0e1}
+
+.discard-ranking{font-size:12px;border-top:1px solid var(--line);padding-top:8px;line-height:1.5}.discard-ranking summary{cursor:pointer;color:var(--gold)}.discard-ranking p{margin:7px 0;color:var(--muted)}.discard-ranking ol{list-style:none;padding:0;margin:7px 0;display:grid;gap:8px}.discard-ranking li{display:grid;gap:3px;background:#102b32;padding:8px;border-radius:5px}.discard-ranking .ranking-components{color:var(--muted);overflow-wrap:anywhere}

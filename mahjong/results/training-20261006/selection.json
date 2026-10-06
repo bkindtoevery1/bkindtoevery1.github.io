@@ -1,0 +1,314 @@
+{
+  "planHash": "25f804b48fe42c0a69d6bdfd416c15da8e3c8ce2952119e54ae9d935fd27b689",
+  "selection": [
+    {
+      "family": "A",
+      "ranked": [
+        {
+          "id": "A-02",
+          "family": "A",
+          "policies": [
+            "A"
+          ],
+          "weights": {
+            "ukeire": 0.7,
+            "callCost": 0.8
+          },
+          "baseline": false,
+          "games": 4000,
+          "meanNet": 38.4875,
+          "screeningMean": 45.7,
+          "confirmationMean": 36.083333333333336
+        },
+        {
+          "id": "A-00",
+          "family": "A",
+          "policies": [
+            "A"
+          ],
+          "weights": {
+            "ukeire": 0.7,
+            "callCost": 0.05
+          },
+          "baseline": false,
+          "games": 4000,
+          "meanNet": 37.525,
+          "screeningMean": 43.45,
+          "confirmationMean": 35.55
+        },
+        {
+          "id": "A-04",
+          "family": "A",
+          "policies": [
+            "A"
+          ],
+          "weights": {
+            "ukeire": 1,
+            "callCost": 0.2
+          },
+          "baseline": true,
+          "games": 4000,
+          "meanNet": 36.9125,
+          "screeningMean": 42.95,
+          "confirmationMean": 34.9
+        }
+      ],
+      "selected": {
+        "id": "A-02",
+        "family": "A",
+        "policies": [
+          "A"
+        ],
+        "weights": {
+          "ukeire": 0.7,
+          "callCost": 0.8
+        },
+        "baseline": false,
+        "games": 4000,
+        "meanNet": 38.4875,
+        "screeningMean": 45.7,
+        "confirmationMean": 36.083333333333336
+      }
+    },
+    {
+      "family": "BC",
+      "ranked": [
+        {
+          "id": "BC-06",
+          "family": "BC",
+          "policies": [
+            "B",
+            "C"
+          ],
+          "weights": {
+            "speed": 90,
+            "pinfu": 12
+          },
+          "baseline": false,
+          "games": 8000,
+          "meanNet": -10.95,
+          "screeningMean": -17.525,
+          "confirmationMean": -8.758333333333333
+        },
+        {
+          "id": "BC-03",
+          "family": "BC",
+          "policies": [
+            "B",
+            "C"
+          ],
+          "weights": {
+            "speed": 65,
+            "pinfu": 12
+          },
+          "baseline": false,
+          "games": 8000,
+          "meanNet": -15.9,
+          "screeningMean": -18.375,
+          "confirmationMean": -15.075
+        },
+        {
+          "id": "BC-04",
+          "family": "BC",
+          "policies": [
+            "B",
+            "C"
+          ],
+          "weights": {
+            "speed": 65,
+            "pinfu": 24
+          },
+          "baseline": true,
+          "games": 8000,
+          "meanNet": -27.01875,
+          "screeningMean": -36.2,
+          "confirmationMean": -23.958333333333332
+        }
+      ],
+      "selected": {
+        "id": "BC-06",
+        "family": "BC",
+        "policies": [
+          "B",
+          "C"
+        ],
+        "weights": {
+          "speed": 90,
+          "pinfu": 12
+        },
+        "baseline": false,
+        "games": 8000,
+        "meanNet": -10.95,
+        "screeningMean": -17.525,
+        "confirmationMean": -8.758333333333333
+      }
+    },
+    {
+      "family": "D",
+      "ranked": [
+        {
+          "id": "D-05",
+          "family": "D",
+          "policies": [
+            "D"
+          ],
+          "weights": {
+            "speed": 38,
+            "value": 0.17
+          },
+          "baseline": false,
+          "games": 4000,
+          "meanNet": 51.7875,
+          "screeningMean": 67.55,
+          "confirmationMean": 46.53333333333333
+        },
+        {
+          "id": "D-06",
+          "family": "D",
+          "policies": [
+            "D"
+          ],
+          "weights": {
+            "speed": 60,
+            "value": 0.07
+          },
+          "baseline": false,
+          "games": 4000,
+          "meanNet": 47.7875,
+          "screeningMean": 61.6,
+          "confirmationMean": 43.18333333333333
+        },
+        {
+          "id": "D-04",
+          "family": "D",
+          "policies": [
+            "D"
+          ],
+          "weights": {
+            "speed": 38,
+            "value": 0.11
+          },
+          "baseline": true,
+          "games": 4000,
+          "meanNet": 45.6,
+          "screeningMean": 59.1,
+          "confirmationMean": 41.1
+        }
+      ],
+      "selected": {
+        "id": "D-05",
+        "family": "D",
+        "policies": [
+          "D"
+        ],
+        "weights": {
+          "speed": 38,
+          "value": 0.17
+        },
+        "baseline": false,
+        "games": 4000,
+        "meanNet": 51.7875,
+        "screeningMean": 67.55,
+        "confirmationMean": 46.53333333333333
+      }
+    },
+    {
+      "family": "E",
+      "ranked": [
+        {
+          "id": "E-24",
+          "family": "E",
+          "policies": [
+            "E"
+          ],
+          "weights": {
+            "speed": 90,
+            "value": 0.075,
+            "risk": 0
+          },
+          "baseline": false,
+          "games": 4000,
+          "meanNet": 52.425,
+          "screeningMean": 56.35,
+          "confirmationMean": 51.11666666666667
+        },
+        {
+          "id": "E-15",
+          "family": "E",
+          "policies": [
+            "E"
+          ],
+          "weights": {
+            "speed": 65,
+            "value": 0.075,
+            "risk": 0
+          },
+          "baseline": false,
+          "games": 4000,
+          "meanNet": 50.9375,
+          "screeningMean": 56.35,
+          "confirmationMean": 49.13333333333333
+        },
+        {
+          "id": "E-13",
+          "family": "E",
+          "policies": [
+            "E"
+          ],
+          "weights": {
+            "speed": 65,
+            "value": 0.045,
+            "risk": 18
+          },
+          "baseline": true,
+          "games": 4000,
+          "meanNet": 8.9625,
+          "screeningMean": 17.3,
+          "confirmationMean": 6.183333333333334
+        }
+      ],
+      "selected": {
+        "id": "E-24",
+        "family": "E",
+        "policies": [
+          "E"
+        ],
+        "weights": {
+          "speed": 90,
+          "value": 0.075,
+          "risk": 0
+        },
+        "baseline": false,
+        "games": 4000,
+        "meanNet": 52.425,
+        "screeningMean": 56.35,
+        "confirmationMean": 51.11666666666667
+      }
+    }
+  ],
+  "weights": {
+    "A": {
+      "ukeire": 0.7,
+      "callCost": 0.8
+    },
+    "B": {
+      "speed": 90,
+      "pinfu": 12
+    },
+    "C": {
+      "speed": 90,
+      "pinfu": 12
+    },
+    "D": {
+      "speed": 38,
+      "value": 0.17
+    },
+    "E": {
+      "speed": 90,
+      "value": 0.075,
+      "risk": 0
+    }
+  },
+  "trainingSeedCount": 1000,
+  "frozenAt": "2026-10-06T02:34:48.404Z"
+}

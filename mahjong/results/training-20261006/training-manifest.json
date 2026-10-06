@@ -1,0 +1,705 @@
+{
+  "id": "H-20261006-expanded-v1",
+  "createdAt": "2026-10-06T02:21:15.030Z",
+  "plan": {
+    "id": "H-20261006-expanded-v1",
+    "output": "results/training-20261006",
+    "workers": 4,
+    "rules": {},
+    "seats": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "profiles": [
+      "speed",
+      "pinfu",
+      "value",
+      "cautious",
+      "mixed"
+    ],
+    "pilot": {
+      "seedStart": 30000000,
+      "seedCount": 5
+    },
+    "screening": {
+      "seedStart": 31000000,
+      "seedCount": 250
+    },
+    "confirmation": {
+      "seedStart": 31000250,
+      "seedCount": 750
+    },
+    "holdout": {
+      "seedStart": 32000000,
+      "seedCount": 2000
+    },
+    "families": [
+      {
+        "id": "A",
+        "policies": [
+          "A"
+        ],
+        "grid": {
+          "ukeire": [
+            0.7,
+            1,
+            1.3
+          ],
+          "callCost": [
+            0.05,
+            0.2,
+            0.8
+          ]
+        }
+      },
+      {
+        "id": "BC",
+        "policies": [
+          "B",
+          "C"
+        ],
+        "grid": {
+          "speed": [
+            45,
+            65,
+            90
+          ],
+          "pinfu": [
+            12,
+            24,
+            40
+          ]
+        }
+      },
+      {
+        "id": "D",
+        "policies": [
+          "D"
+        ],
+        "grid": {
+          "speed": [
+            25,
+            38,
+            60
+          ],
+          "value": [
+            0.07,
+            0.11,
+            0.17
+          ]
+        }
+      },
+      {
+        "id": "E",
+        "policies": [
+          "E"
+        ],
+        "grid": {
+          "speed": [
+            45,
+            65,
+            90
+          ],
+          "value": [
+            0.025,
+            0.045,
+            0.075
+          ],
+          "risk": [
+            0,
+            18,
+            36
+          ]
+        }
+      }
+    ],
+    "selection": "Each family retains its baseline and the two best non-baseline screening candidates. Select by mean net across all 1000 tuning seeds. BC uses the equally weighted mean of B and C and always shares weights. Exact ties prefer baseline, then candidate ID.",
+    "promotion": "Freeze weights before holdout. Promote only changed weights with tuned-minus-baseline ci99Low > 0 (five predeclared comparisons, Bonferroni familywise 5%). B/C must both pass and are promoted together.",
+    "bootstrap": {
+      "samples": 10000,
+      "seed": 20261006
+    },
+    "opponents": "Always frozen original A-E defaults and original opponent profile overrides; focal weights only.",
+    "scope": "H rules only. Local simulated games and heuristic weight search; no neural-network training or human-log ingestion. No global-optimum claim."
+  },
+  "planHash": "25f804b48fe42c0a69d6bdfd416c15da8e3c8ce2952119e54ae9d935fd27b689",
+  "engineHash": {
+    "sha256": "b61454a4bb64f176350d905ec44df9af92baa8fa75905cf67901f01a5356bdb4",
+    "files": [
+      {
+        "name": "engine/game.mjs",
+        "sha256": "eb37720a165bd8a26404908b837a65d9dd466ef6c772ca370fc414bc1d066dbd"
+      },
+      {
+        "name": "engine/rules.mjs",
+        "sha256": "31e7c5febff407d497b1d1b412e9cab0b680f3b74a27655b1bc9a766cc4905b2"
+      },
+      {
+        "name": "engine/score.mjs",
+        "sha256": "505f54e972e25b10f355cc6051512a726058bf0f2150846e6cad73408cfdf675"
+      },
+      {
+        "name": "engine/shanten.mjs",
+        "sha256": "b091251b815e49ab2e5f22b127445c6ac24c4770b4c6200d6b37d9980e09c416"
+      },
+      {
+        "name": "engine/tiles.mjs",
+        "sha256": "fba4a96fecb8755ccca3dc594373e3490c92aa5533d48d6aa66b0c23aed19034"
+      },
+      {
+        "name": "policies/index.mjs",
+        "sha256": "ca006dea00eabd76174702750f13f70ae63b18c6c64f29e8371c2c06c53396a8"
+      },
+      {
+        "name": "sim/io.mjs",
+        "sha256": "d95ac4042f198d8a241ad8b9837dda22f74211e0d7f1b68b52de70dc75b084cc"
+      },
+      {
+        "name": "sim/play.mjs",
+        "sha256": "4953652728f0e73ef642467ee29d4b47f9298ccfa01208f3a2b3c78bae6f8d7b"
+      },
+      {
+        "name": "sim/report.mjs",
+        "sha256": "a06f9613e2bfe6f1deb5ca05161a022a23739f9c9671802d44ca616c3e915459"
+      },
+      {
+        "name": "sim/run.mjs",
+        "sha256": "4fc1178561dd8e25c69d1912b2b875b2a313c67098c724030a200cd9a85750c1"
+      },
+      {
+        "name": "sim/stats.mjs",
+        "sha256": "7b3c7baa972e6ba40c51352d3cb848e15361afd4df4bfe14317848c1b46bc545"
+      },
+      {
+        "name": "sim/worker.mjs",
+        "sha256": "4130249e1ff3b69c069d866f138384ddadf9420aa330f02d98a08ab0b224d699"
+      }
+    ]
+  },
+  "estimate": {
+    "pilotGames": 100,
+    "screeningGames": 63000,
+    "confirmationGames": 45000,
+    "holdoutGames": 80000,
+    "totalGames": 188100,
+    "estimatedSeconds": 1151.9418266749801
+  },
+  "runs": [
+    {
+      "startedAt": "2026-10-06T02:21:15.036Z",
+      "command": [
+        "node",
+        "training/run.mjs",
+        "--execute"
+      ],
+      "finishedAt": "2026-10-06T02:45:26.917Z",
+      "elapsedSeconds": 1451.881
+    }
+  ],
+  "experiments": [
+    {
+      "key": "pilot/speed-check",
+      "manifest": "results/training-20261006/pilot/speed-check/manifest.json",
+      "games": 100,
+      "seconds": 0.8737517919999999,
+      "rawSha256": "e8ecb32a55d86bb7b5657ac1856358f0c68937ec6e4e0cbf7c1423ab9cb3af3d"
+    },
+    {
+      "key": "screening/A-00",
+      "manifest": "results/training-20261006/screening/A-00/manifest.json",
+      "games": 1000,
+      "seconds": 6.383719583,
+      "rawSha256": "82e4a838a65c3045e0c2e068150d9736546096834a766585d6dfa47b4dfe4bb3"
+    },
+    {
+      "key": "screening/A-01",
+      "manifest": "results/training-20261006/screening/A-01/manifest.json",
+      "games": 1000,
+      "seconds": 6.016103875,
+      "rawSha256": "15cba59f529a73d0fb853e50ffb1caa264c8413a68e201cea3cbe36f94d4d43e"
+    },
+    {
+      "key": "screening/A-02",
+      "manifest": "results/training-20261006/screening/A-02/manifest.json",
+      "games": 1000,
+      "seconds": 6.103476624999999,
+      "rawSha256": "25237e2265f7d3636986de7a648078b4a6193aa0952bb5c29f644df8226040fe"
+    },
+    {
+      "key": "screening/A-03",
+      "manifest": "results/training-20261006/screening/A-03/manifest.json",
+      "games": 1000,
+      "seconds": 7.029131874999999,
+      "rawSha256": "5cbda83872de7addf619163f5af95c10bced8bce1a9eb254ce6a9decd1ef4a87"
+    },
+    {
+      "key": "screening/A-04",
+      "manifest": "results/training-20261006/screening/A-04/manifest.json",
+      "games": 1000,
+      "seconds": 7.043464,
+      "rawSha256": "7eddc5387e92fc1d1a31a7d874d1aae0c980dfbbd1537495aa7d248ba7f30f5a"
+    },
+    {
+      "key": "screening/A-05",
+      "manifest": "results/training-20261006/screening/A-05/manifest.json",
+      "games": 1000,
+      "seconds": 7.054342291,
+      "rawSha256": "b19a40035f000de9eb7b8b039914a01c9092cf74edb6ba9469ac5ce41e95a5a2"
+    },
+    {
+      "key": "screening/A-06",
+      "manifest": "results/training-20261006/screening/A-06/manifest.json",
+      "games": 1000,
+      "seconds": 6.198422084,
+      "rawSha256": "01f34b5834cf7acf70b78f903fa249e2f91c98d548a5da1062a88ac05c34ac3f"
+    },
+    {
+      "key": "screening/A-07",
+      "manifest": "results/training-20261006/screening/A-07/manifest.json",
+      "games": 1000,
+      "seconds": 6.0792847089999995,
+      "rawSha256": "b586eb08955eb3459efc7a3439c00ac69d897ecba9dab1815c52f98017da0fdc"
+    },
+    {
+      "key": "screening/A-08",
+      "manifest": "results/training-20261006/screening/A-08/manifest.json",
+      "games": 1000,
+      "seconds": 6.103352291999999,
+      "rawSha256": "0e3d532d4e4220a2a22f80fab9767c3d425fb673c88ea6b2560a68f2c2e8296b"
+    },
+    {
+      "key": "screening/BC-00",
+      "manifest": "results/training-20261006/screening/BC-00/manifest.json",
+      "games": 2000,
+      "seconds": 14.444605208,
+      "rawSha256": "cbdf03fcf7bc0374e44e32886a2ca94c40fad6521c356442c4614f33dae55317"
+    },
+    {
+      "key": "screening/BC-01",
+      "manifest": "results/training-20261006/screening/BC-01/manifest.json",
+      "games": 2000,
+      "seconds": 14.842278166,
+      "rawSha256": "1f0f1d0785360735f5d573c8577e9b3114616d0b7ccf996c34af26896b58ee23"
+    },
+    {
+      "key": "screening/BC-02",
+      "manifest": "results/training-20261006/screening/BC-02/manifest.json",
+      "games": 2000,
+      "seconds": 14.350956125,
+      "rawSha256": "c7a2076fee14b4f7c29c179fbcffc66a5129f0f815e430ed2ec147bd5bca0d30"
+    },
+    {
+      "key": "screening/BC-03",
+      "manifest": "results/training-20261006/screening/BC-03/manifest.json",
+      "games": 2000,
+      "seconds": 13.723770624999998,
+      "rawSha256": "8ef06c2b72ea0a527cad6809ffcf1f3495254e28f19eb7968977585d7a48cb7a"
+    },
+    {
+      "key": "screening/BC-04",
+      "manifest": "results/training-20261006/screening/BC-04/manifest.json",
+      "games": 2000,
+      "seconds": 13.933869999999999,
+      "rawSha256": "3ec295c15c360f0cce71c1d3fa29e3256d36d8eb3baa59443f653e7705bc836d"
+    },
+    {
+      "key": "screening/BC-05",
+      "manifest": "results/training-20261006/screening/BC-05/manifest.json",
+      "games": 2000,
+      "seconds": 14.267046333,
+      "rawSha256": "16a517fd4e0e7927fadf17acae7d3108e3a8b6345f9001d86d1244912f345721"
+    },
+    {
+      "key": "screening/BC-06",
+      "manifest": "results/training-20261006/screening/BC-06/manifest.json",
+      "games": 2000,
+      "seconds": 13.666947166,
+      "rawSha256": "339ee7cdaa8ee5d36a966c32f4b950dd1ec162a1e36336608e63f8f80b4396dd"
+    },
+    {
+      "key": "screening/BC-07",
+      "manifest": "results/training-20261006/screening/BC-07/manifest.json",
+      "games": 2000,
+      "seconds": 13.674840458,
+      "rawSha256": "fc55c8bb33c29e48b62beec0ad667c7af7263faf33b1e62d67dc4b5a73cae65d"
+    },
+    {
+      "key": "screening/BC-08",
+      "manifest": "results/training-20261006/screening/BC-08/manifest.json",
+      "games": 2000,
+      "seconds": 13.885430709,
+      "rawSha256": "a061d796b101f6a1e9fc39e1c2be540a3fd997f3eb95400a8b8850c8efdada08"
+    },
+    {
+      "key": "screening/D-00",
+      "manifest": "results/training-20261006/screening/D-00/manifest.json",
+      "games": 1000,
+      "seconds": 7.364013792,
+      "rawSha256": "822615c3a730db2a46eac5a3bcc566f6faf87be28cf7b11e7f02d2f512d490ff"
+    },
+    {
+      "key": "screening/D-01",
+      "manifest": "results/training-20261006/screening/D-01/manifest.json",
+      "games": 1000,
+      "seconds": 7.267243166999999,
+      "rawSha256": "b6861e08ccefd5811ef3edd5f20e749f33403d993b1cf9de7cf4cc67e89b02be"
+    },
+    {
+      "key": "screening/D-02",
+      "manifest": "results/training-20261006/screening/D-02/manifest.json",
+      "games": 1000,
+      "seconds": 7.258355583,
+      "rawSha256": "ab8915a2786adee543b2fb666293feb9654ca35802d36110e52c81c08d734248"
+    },
+    {
+      "key": "screening/D-03",
+      "manifest": "results/training-20261006/screening/D-03/manifest.json",
+      "games": 1000,
+      "seconds": 6.934019333,
+      "rawSha256": "ab80748e1e2380a6e5474ab2e4a6abdbfb0c7bb23218d509c7df2783b03a110b"
+    },
+    {
+      "key": "screening/D-04",
+      "manifest": "results/training-20261006/screening/D-04/manifest.json",
+      "games": 1000,
+      "seconds": 7.045565375,
+      "rawSha256": "21cf60bb0b25dc761896f92f3ae4eee49d865b5ea97059a5b1f914eb403a1c9f"
+    },
+    {
+      "key": "screening/D-05",
+      "manifest": "results/training-20261006/screening/D-05/manifest.json",
+      "games": 1000,
+      "seconds": 7.023342457999999,
+      "rawSha256": "fbc7b62aefae89c4d2714541241e4ed4a873fe89e8500996665ce6f2a2aa95f6"
+    },
+    {
+      "key": "screening/D-06",
+      "manifest": "results/training-20261006/screening/D-06/manifest.json",
+      "games": 1000,
+      "seconds": 6.930621790999999,
+      "rawSha256": "4499eb651e793e0199dd77b452ba9f5773499b521d7ab0f6f835bb8a5b5ec269"
+    },
+    {
+      "key": "screening/D-07",
+      "manifest": "results/training-20261006/screening/D-07/manifest.json",
+      "games": 1000,
+      "seconds": 6.93396425,
+      "rawSha256": "ea93cb33e9f368c9dcb4bff4afd28075336533dc4cb90ac7979c1116467099c9"
+    },
+    {
+      "key": "screening/D-08",
+      "manifest": "results/training-20261006/screening/D-08/manifest.json",
+      "games": 1000,
+      "seconds": 6.960466375,
+      "rawSha256": "460b0154e69866ccfbbb9db4a20caa0f46cd6cadb00f297b738f13a75d305ade"
+    },
+    {
+      "key": "screening/E-00",
+      "manifest": "results/training-20261006/screening/E-00/manifest.json",
+      "games": 1000,
+      "seconds": 7.117373042,
+      "rawSha256": "ca989c2307b67d1d93f35ef150a16ad0835e42b2b1169e87e0cea9ae18d72a56"
+    },
+    {
+      "key": "screening/E-01",
+      "manifest": "results/training-20261006/screening/E-01/manifest.json",
+      "games": 1000,
+      "seconds": 7.9105745,
+      "rawSha256": "ca2d1868d04312d86d7fd5501180e2c35a85e57e4910956285409cb921a0f2f0"
+    },
+    {
+      "key": "screening/E-02",
+      "manifest": "results/training-20261006/screening/E-02/manifest.json",
+      "games": 1000,
+      "seconds": 8.27801625,
+      "rawSha256": "01db7001c656d927807cdefdd34569b57e457fce620c9f32ceb46b5df60b3941"
+    },
+    {
+      "key": "screening/E-03",
+      "manifest": "results/training-20261006/screening/E-03/manifest.json",
+      "games": 1000,
+      "seconds": 7.00401325,
+      "rawSha256": "ddc4d1b1cac299ceb7fb276aa6cd7e8b762727ec47f90f90e978adf60ce44092"
+    },
+    {
+      "key": "screening/E-04",
+      "manifest": "results/training-20261006/screening/E-04/manifest.json",
+      "games": 1000,
+      "seconds": 8.111864917,
+      "rawSha256": "369dcd823c3ef46ce9b3cfbfa1a72c01dc3e62aeab9a8103180a062c57bf58b7"
+    },
+    {
+      "key": "screening/E-05",
+      "manifest": "results/training-20261006/screening/E-05/manifest.json",
+      "games": 1000,
+      "seconds": 8.238384458,
+      "rawSha256": "ca66d50be3d978d7e2d1b6e3959681c9cbba9dd8e0fe3760f82c1dc86f36b289"
+    },
+    {
+      "key": "screening/E-06",
+      "manifest": "results/training-20261006/screening/E-06/manifest.json",
+      "games": 1000,
+      "seconds": 7.350430832999999,
+      "rawSha256": "1773370a651ca599c9f489f0eb04a9311341a16054fec3193338458c6dac66f0"
+    },
+    {
+      "key": "screening/E-07",
+      "manifest": "results/training-20261006/screening/E-07/manifest.json",
+      "games": 1000,
+      "seconds": 7.535352,
+      "rawSha256": "bca97bc44fc27a7f409ee5f22fb5615d5da75520927126205d2ed2a24c8d67f4"
+    },
+    {
+      "key": "screening/E-08",
+      "manifest": "results/training-20261006/screening/E-08/manifest.json",
+      "games": 1000,
+      "seconds": 8.204611334,
+      "rawSha256": "f11023dad637be19f91de03f4c61a659dda320c2673bdc5dadc2fd2f23f1571e"
+    },
+    {
+      "key": "screening/E-09",
+      "manifest": "results/training-20261006/screening/E-09/manifest.json",
+      "games": 1000,
+      "seconds": 6.965583166,
+      "rawSha256": "8e588809ec7460bf3e61597ff8515eec30bb8b12b4c8613aea7e04691524b480"
+    },
+    {
+      "key": "screening/E-10",
+      "manifest": "results/training-20261006/screening/E-10/manifest.json",
+      "games": 1000,
+      "seconds": 7.225434959,
+      "rawSha256": "37483566289c90108e1c5687ccd73d59de32c3be8468af3d5cbcd1f8b8a0d917"
+    },
+    {
+      "key": "screening/E-11",
+      "manifest": "results/training-20261006/screening/E-11/manifest.json",
+      "games": 1000,
+      "seconds": 7.968749207999999,
+      "rawSha256": "b91b5aba1cd1c87e3723d0289c9e717595ff84a6677bb16395b53d48b03bfa08"
+    },
+    {
+      "key": "screening/E-12",
+      "manifest": "results/training-20261006/screening/E-12/manifest.json",
+      "games": 1000,
+      "seconds": 6.903920416000001,
+      "rawSha256": "326e007c920eeee36a303fe04ca30a12d70cef0897d1c2b701bf4dd25dde1ba3"
+    },
+    {
+      "key": "screening/E-13",
+      "manifest": "results/training-20261006/screening/E-13/manifest.json",
+      "games": 1000,
+      "seconds": 7.218399167,
+      "rawSha256": "1728875138558d348c7c3ccd23128744ccebfe2d0fb23f2bc25ebf7022755743"
+    },
+    {
+      "key": "screening/E-14",
+      "manifest": "results/training-20261006/screening/E-14/manifest.json",
+      "games": 1000,
+      "seconds": 7.798088584,
+      "rawSha256": "20b9423b05606fb8685a6d0094a17228bce85d4f57eaa6aeb20bee36d3041b97"
+    },
+    {
+      "key": "screening/E-15",
+      "manifest": "results/training-20261006/screening/E-15/manifest.json",
+      "games": 1000,
+      "seconds": 6.856371125,
+      "rawSha256": "e30531ad9dc109fa993348eaca003e3a851fe51eb6ddc0c996872604e6f88d21"
+    },
+    {
+      "key": "screening/E-16",
+      "manifest": "results/training-20261006/screening/E-16/manifest.json",
+      "games": 1000,
+      "seconds": 7.2986260000000005,
+      "rawSha256": "9c6b42fc872b1f97b912a04e7222518e37925de8656f1f6aea4257dd5052a7e4"
+    },
+    {
+      "key": "screening/E-17",
+      "manifest": "results/training-20261006/screening/E-17/manifest.json",
+      "games": 1000,
+      "seconds": 7.79225,
+      "rawSha256": "6d78136b09382c05446997672260085bb155d51829384d78a177b71aa1353270"
+    },
+    {
+      "key": "screening/E-18",
+      "manifest": "results/training-20261006/screening/E-18/manifest.json",
+      "games": 1000,
+      "seconds": 6.968280667,
+      "rawSha256": "191eaacf3dde303874cfc36f8cb01440b0435cbed2ecdae1150a5ca80ac701da"
+    },
+    {
+      "key": "screening/E-19",
+      "manifest": "results/training-20261006/screening/E-19/manifest.json",
+      "games": 1000,
+      "seconds": 9.715875292,
+      "rawSha256": "86c9a3487fe10087dbd7bb89858e2fa74ca2f862354a3ba99fdf28e604a19c48"
+    },
+    {
+      "key": "screening/E-20",
+      "manifest": "results/training-20261006/screening/E-20/manifest.json",
+      "games": 1000,
+      "seconds": 8.745411499999998,
+      "rawSha256": "e801af51abe6f93fbe17d6e1e64623f256736c2b3ef4819c0e7dd745dd1d9fb5"
+    },
+    {
+      "key": "screening/E-21",
+      "manifest": "results/training-20261006/screening/E-21/manifest.json",
+      "games": 1000,
+      "seconds": 6.924395833,
+      "rawSha256": "664c7091d9e96d3adf3fec215bf93af6e0f49c74b2733ace1a81572bff53a9aa"
+    },
+    {
+      "key": "screening/E-22",
+      "manifest": "results/training-20261006/screening/E-22/manifest.json",
+      "games": 1000,
+      "seconds": 7.923215583999999,
+      "rawSha256": "25de7674cee37744acea64b5d117afcf40dc93c218fccecbecdcc5075f0ffdd6"
+    },
+    {
+      "key": "screening/E-23",
+      "manifest": "results/training-20261006/screening/E-23/manifest.json",
+      "games": 1000,
+      "seconds": 7.382730917000001,
+      "rawSha256": "faa0e6057f3d3dacaae0fbfd9f3846c65a3a092bdb765742fe894982d87d827b"
+    },
+    {
+      "key": "screening/E-24",
+      "manifest": "results/training-20261006/screening/E-24/manifest.json",
+      "games": 1000,
+      "seconds": 7.294147457999999,
+      "rawSha256": "641219fbef02775501c5d38b1901b039f7fdc6645723a2b86afdef769ccae64a"
+    },
+    {
+      "key": "screening/E-25",
+      "manifest": "results/training-20261006/screening/E-25/manifest.json",
+      "games": 1000,
+      "seconds": 7.521144167,
+      "rawSha256": "544ed3eaaf82d841a220aac4068af20977598129bdabde6ef135f7a0c9ff0aba"
+    },
+    {
+      "key": "screening/E-26",
+      "manifest": "results/training-20261006/screening/E-26/manifest.json",
+      "games": 1000,
+      "seconds": 7.348940917,
+      "rawSha256": "761978d8fd90d794862a2bf4f3a32a1de69679c7eeff81aada5c8f77e7a051c7"
+    },
+    {
+      "key": "confirmation/A-04",
+      "manifest": "results/training-20261006/confirmation/A-04/manifest.json",
+      "games": 3000,
+      "seconds": 17.874173042000002,
+      "rawSha256": "ef4a9536d5c6a28415b1aa518a3189a0d0c750b4005ea16b3d8e3acffb02e8a7"
+    },
+    {
+      "key": "confirmation/A-02",
+      "manifest": "results/training-20261006/confirmation/A-02/manifest.json",
+      "games": 3000,
+      "seconds": 18.064986584000003,
+      "rawSha256": "c3f6dde02d54c42a573499f62aa8b1e7488dc3a686851f3b2ffeb658ad3ebc4d"
+    },
+    {
+      "key": "confirmation/A-00",
+      "manifest": "results/training-20261006/confirmation/A-00/manifest.json",
+      "games": 3000,
+      "seconds": 18.051831209,
+      "rawSha256": "50e71f4b82391b025379e90ee55c2f5bc0592639592064c5b17d5f5244074e22"
+    },
+    {
+      "key": "confirmation/BC-04",
+      "manifest": "results/training-20261006/confirmation/BC-04/manifest.json",
+      "games": 6000,
+      "seconds": 44.302497792000004,
+      "rawSha256": "d0026365812030c323743b60dd56cfdf3729a837215d969ab9691bcfe35407ce"
+    },
+    {
+      "key": "confirmation/BC-06",
+      "manifest": "results/training-20261006/confirmation/BC-06/manifest.json",
+      "games": 6000,
+      "seconds": 47.326533458,
+      "rawSha256": "3e92f018d5983b630cef2d8b24ed8507eb031349760ef39217741aa09b17bcd8"
+    },
+    {
+      "key": "confirmation/BC-03",
+      "manifest": "results/training-20261006/confirmation/BC-03/manifest.json",
+      "games": 6000,
+      "seconds": 49.171093792,
+      "rawSha256": "3790526e705df23b3cac7e2642a46b7ee76483eea6f7b10ec331689eae99098a"
+    },
+    {
+      "key": "confirmation/D-04",
+      "manifest": "results/training-20261006/confirmation/D-04/manifest.json",
+      "games": 3000,
+      "seconds": 27.444832208,
+      "rawSha256": "5fa665098b51e06e46ab9eea7618b9d4408a2949bc3f02f7b0f836f1492662e1"
+    },
+    {
+      "key": "confirmation/D-05",
+      "manifest": "results/training-20261006/confirmation/D-05/manifest.json",
+      "games": 3000,
+      "seconds": 27.364355459000002,
+      "rawSha256": "17b80f7536a13855e1ab6ee0796bdd0a0b6afb2dc9eaaca8362989d6b381fe57"
+    },
+    {
+      "key": "confirmation/D-06",
+      "manifest": "results/training-20261006/confirmation/D-06/manifest.json",
+      "games": 3000,
+      "seconds": 27.458015166000003,
+      "rawSha256": "cbac36a1087baca46fc3260268d92b9dfff806a5aa3aee64708f3853d31e0115"
+    },
+    {
+      "key": "confirmation/E-13",
+      "manifest": "results/training-20261006/confirmation/E-13/manifest.json",
+      "games": 3000,
+      "seconds": 27.331383333999998,
+      "rawSha256": "40e56462bd141c55b2ed41d40155d90817b7ca37c617bb285328274e6c97f1f9"
+    },
+    {
+      "key": "confirmation/E-15",
+      "manifest": "results/training-20261006/confirmation/E-15/manifest.json",
+      "games": 3000,
+      "seconds": 24.633469292,
+      "rawSha256": "28161cf6a3893938e96a836b2bef668786f56d054820f7f57227f7a666fb6f50"
+    },
+    {
+      "key": "confirmation/E-24",
+      "manifest": "results/training-20261006/confirmation/E-24/manifest.json",
+      "games": 3000,
+      "seconds": 24.843526208,
+      "rawSha256": "6b31973a688edc0c1b20bd48caee060747f9ae3cd9c0716e2a9e86e803aa426c"
+    },
+    {
+      "key": "holdout/baseline",
+      "manifest": "results/training-20261006/holdout/baseline/manifest.json",
+      "games": 40000,
+      "seconds": 335.66434816599997,
+      "rawSha256": "d40f28758c88ae5945e786bc36a84ffa14f6c227f7a53357effcb9ae2f00c2b6"
+    },
+    {
+      "key": "holdout/tuned",
+      "manifest": "results/training-20261006/holdout/tuned/manifest.json",
+      "games": 40000,
+      "seconds": 301.93777525,
+      "rawSha256": "36334359189ba3af458c5c9b7d8026123decf0441efd690406e20079dace6f48"
+    }
+  ],
+  "status": "complete",
+  "phase": "holdout",
+  "current": "tuned",
+  "completedGames": 188100,
+  "pilotEstimate": {
+    "seconds": 0.8737517919999999,
+    "games": 100,
+    "projectedTotalSeconds": 1643.5271207519997
+  },
+  "selectionSha256": "2a6a9fc022c2fbfe92de694c42751f7e448f03cd0ba3bfb51e8d4d5e4d08f776",
+  "frozenAt": "2026-10-06T02:34:48.404Z",
+  "simulationSeconds": 1446.4633925439998,
+  "approvedPolicies": [
+    "D",
+    "E"
+  ],
+  "analysisSha256": "4c4cd3877ea311d7fd8b588837ea126ffdfc10560889d6555b94804dd19a75a6",
+  "elapsedSeconds": 1451.881,
+  "publicCopyNote": "로컬 실행 파일·작업 폴더 경로만 정규화했습니다. 기록된 해시는 정규화 전 로컬 원본 기준이므로 공개 복사본의 파일 해시와 다를 수 있습니다. 원본 manifest와 원시 games.jsonl은 로컬에 보존됩니다."
+}
