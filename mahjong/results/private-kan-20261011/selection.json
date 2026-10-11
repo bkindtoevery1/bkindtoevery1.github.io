@@ -1,0 +1,100 @@
+{
+  "id": "H-private-kan-20261011-v1",
+  "planHash": "f65e15363a1737e9cbee6e6c47760e1966a916e288a66e41a46ffe54fc2a43c0",
+  "versions": [
+    {
+      "id": "V1",
+      "name": "고득점·속도 유지",
+      "description": "고득점 가치와 완성 속도를 함께 높임",
+      "policy": "D",
+      "candidate": "V1-2",
+      "weights": {
+        "speed": 60,
+        "ukeire": 1,
+        "value": 0.24,
+        "maxShantenLoss": 1
+      },
+      "tuningMean": 69.39484126984127
+    },
+    {
+      "id": "V2",
+      "name": "고득점·강한 추구",
+      "description": "한 샨텐 손해까지 감수하며 고득점 형태 추구",
+      "policy": "D",
+      "candidate": "V2-1",
+      "weights": {
+        "speed": 35,
+        "ukeire": 0.7,
+        "value": 0.28,
+        "maxShantenLoss": 1
+      },
+      "tuningMean": 72.0734126984127
+    },
+    {
+      "id": "V3",
+      "name": "고득점·속도 보존",
+      "description": "최소 샨텐을 유지하는 후보 안에서 고득점 추구",
+      "policy": "D",
+      "candidate": "V3-1",
+      "weights": {
+        "speed": 65,
+        "ukeire": 1,
+        "value": 0.2,
+        "maxShantenLoss": 0
+      },
+      "tuningMean": 69.84126984126983
+    },
+    {
+      "id": "G1",
+      "name": "0·1판 수비·약",
+      "description": "저판수 손에 약한 수비, 2판 이상은 공격",
+      "policy": "E",
+      "candidate": "G1-1",
+      "weights": {
+        "speed": 65,
+        "ukeire": 1,
+        "value": 0.14,
+        "risk": 5,
+        "lowValueThreshold": 100,
+        "lowValueRisk": 35,
+        "maxShantenLoss": 1
+      },
+      "tuningMean": -22.470238095238095
+    },
+    {
+      "id": "G2",
+      "name": "0·1판 수비·중",
+      "description": "저판수 손에 중간 수비, 2판 이상은 공격",
+      "policy": "E",
+      "candidate": "G2-1",
+      "weights": {
+        "speed": 60,
+        "ukeire": 1,
+        "value": 0.18,
+        "risk": 8,
+        "lowValueThreshold": 100,
+        "lowValueRisk": 70,
+        "maxShantenLoss": 1
+      },
+      "tuningMean": -138.4920634920635
+    },
+    {
+      "id": "G3",
+      "name": "0·1판 수비·강",
+      "description": "저판수 손에 강한 수비, 두 샨텐까지 후퇴 허용",
+      "policy": "E",
+      "candidate": "G3-1",
+      "weights": {
+        "speed": 55,
+        "ukeire": 0.9,
+        "value": 0.2,
+        "risk": 12,
+        "lowValueThreshold": 100,
+        "lowValueRisk": 110,
+        "maxShantenLoss": 2
+      },
+      "tuningMean": -188.29365079365078
+    }
+  ],
+  "frozenAt": "2026-10-11T03:58:46.898Z"
+}

@@ -9,6 +9,7 @@ const clone=value=>structuredClone(value);
 const scores=game=>game.players.map(player=>player.score);
 const seats=['동','남','서','북'];
 const seatLabels=game=>seats.map((_,i)=>seats[(i-(game.dealer??0)+4)%4]);
+const concealedForViewer=(game,seat,viewer)=>game.rules.concealedKanPrivate===true&&seat!==viewer;
 const signed=value=>`${value>0?'+':''}${value}`;
 const canonical=value=>JSON.stringify(value,(_,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.entries(v).sort(([a],[b])=>a.localeCompare(b))):v);
 
@@ -105,7 +106,7 @@ export function logText(log){
     `${variant==='S'||game.startingScores||game.startingScores||game.matchContext?'이번 국 증감':'최종 점수'}: ${scores(game).map((score,i)=>`${seats[i]} ${signed(score)}`).join(' / ')}`,''];
   if(game.startingScores)lines.push(`누적 점수 (종료 공탁 별도): ${game.startingScores.map((n,i)=>seats[i]+' '+(n+game.players[i].score)).join(' / ')}`,'');
   for(const entry of log.actions){
-    const action=entry.action,tile=Number.isInteger(action.tile)?` ${tileName(action.tile)}`:'';
+    const action=entry.action,tile=action.type==='ankan'&&concealedForViewer(game,entry.seat,log.humanSeat)?' (비공개)':Number.isInteger(action.tile)?` ${tileName(action.tile)}`:'';
     if(action.type!=='pass')lines.push(`#${entry.n+1} ${seats[entry.seat]} ${({discard:'버림',riichi:'리치·버림',tsumo:'쯔모',ron:'론',chi:'치',pon:'퐁',ankan:'안깡',minkan:'명깡',kakan:'가깡'})[action.type]??action.type}${tile}`);
     for(const win of entry.wins){const detail=variant==='S'?scoreBreakdownText(win.score):`역 ${win.score.base}${win.score.bonus?' + '+(hBonusDetails(win.score,game.rules)||'가산 '+win.score.bonus):''}${win.tsumoBonus?' + 쯔모 '+win.tsumoBonus:''}`;lines.push(variant==='S'?`  ${seats[win.seat]} ${detail}`:`  ${seats[win.seat]} ${win.score.name} (${detail})`);if(win.issues.length)lines.push(`  규칙상 ${win.expectedReceipt}, 실제 수입 ${win.actualReceipt}`);}
     for(const payment of entry.payments)lines.push(`  ${seats[payment.from]??'공탁'} → ${seats[payment.to]??'공탁'}: ${payment.amount}점`);
@@ -116,7 +117,7 @@ export function logText(log){
   for(const entry of log.observations)if(entry.delta.some(Boolean))lines.push(`수신 ${entry.revision} 점수 변동: ${entry.delta.map((v,i)=>v?seats[i]+' '+signed(v):'').filter(Boolean).join(' / ')}`);
   if(log.mode==='online'&&variant==='S')for(const seat of game.winners)lines.push(`${seats[seat]} ${scoreBreakdownText(game.players[seat].win.score)}`);
   lines.push('','현재 손패·후로 (JSON에는 원본 패 번호와 상세 기록 포함)');
-  for(let seat=0;seat<4;seat++){const p=game.players[seat];lines.push(`${seats[seat]}: ${p.hand.map(id=>tileName(typeOf(id))).join(' ')} / ${p.melds.map(m=>`${m.type} ${m.ids.map(id=>tileName(typeOf(id))).join(' ')}`).join(' / ')}`);}
+  for(let seat=0;seat<4;seat++){const p=game.players[seat];lines.push(`${seats[seat]}: ${p.hand.map(id=>tileName(typeOf(id))).join(' ')} / ${p.melds.map(m=>m.hidden||m.ids.some(id=>!Number.isInteger(id))||m.type==='kan'&&!m.open&&concealedForViewer(game,seat,log.humanSeat)?'안깡 (비공개)':`${m.type} ${m.ids.map(id=>tileName(typeOf(id))).join(' ')}`).join(' / ')}`);}
   for(const error of log.errors)lines.push(`[오류 ${error.at}] ${error.message}`);
   return lines.join('\n')+'\n';
 }
@@ -124,7 +125,7 @@ export function logText(log){
 export function reviewText(input){
  const log=expandLog(input),game=log.game,seats=seatLabels(game),s=game.rules.variant==='S',lines=[`${s?'S':'H'}룰 · ${game.seed??log.room}`,`${s||game.startingScores||game.matchContext?'이번 국 증감':'최종'}: ${game.players.map((p,i)=>seats[i]+' '+signed(p.score)).join(' / ')}`];
  for(const e of log.actions){
-  if(['ankan','minkan','kakan'].includes(e.action.type))lines.push(`${seats[e.seat]} ${e.action.type==='ankan'?'안깡':e.action.type==='minkan'?'명깡':'가깡'}${Number.isInteger(e.action.tile)?' · '+tileName(e.action.tile):''} (이때는 점수 이동 없음)`);
+  if(['ankan','minkan','kakan'].includes(e.action.type))lines.push(`${seats[e.seat]} ${e.action.type==='ankan'?'안깡':e.action.type==='minkan'?'명깡':'가깡'}${e.action.type==='ankan'&&concealedForViewer(game,e.seat,log.humanSeat)?' · 비공개':Number.isInteger(e.action.tile)?' · '+tileName(e.action.tile):''} (이때는 점수 이동 없음)`);
   for(const win of e.wins){const extra=Object.entries(win.score.bonuses??{}).filter(([,value])=>typeof value==='number'&&value).map(([name,value])=>`${({kan:game.rules.fourOfAKindBonus?'사귀일':'깡',dragon:'삼원패',roundWind:'장풍',seatWind:'자풍'})[name]??name} ${value}`);
    lines.push(s?`${seats[win.seat]} ${win.method==='ron'?'론':'쯔모'} · ${scoreBreakdownText(win.score)}`:`${seats[win.seat]} ${win.score.name} ${win.method==='ron'?'론':'쯔모'} · 역 ${win.score.base}${extra.length?' + '+extra.join(' + '):''}${win.tsumoBonus?' + 쯔모 '+win.tsumoBonus+' / 지급자':''}`);
   }

@@ -1,0 +1,22 @@
+{
+  "id":"H-private-kan-20261011-v1",
+  "output":"results/private-kan-20261011",
+  "workers":4,
+  "rules":{"id":"H-2026-private-kan-v1"},
+  "profiles":["speed","pinfu","value","cautious","mixed","valuePressure"],
+  "pilot":{"seedStart":41000000,"seedCount":5},
+  "tuning":{"seedStart":41100000,"seedCount":252},
+  "holdout":{"seedStart":41200000,"seedCount":504},
+  "bootstrap":{"samples":10000,"seed":20261011},
+  "families":[
+    {"id":"V1","name":"고득점·속도 유지","policy":"D","description":"고득점 가치와 완성 속도를 함께 높임","weights":{"speed":60,"ukeire":1,"value":0.18,"maxShantenLoss":1},"grid":{"value":[0.18,0.24]}},
+    {"id":"V2","name":"고득점·강한 추구","policy":"D","description":"한 샨텐 손해까지 감수하며 고득점 형태 추구","weights":{"speed":35,"ukeire":0.7,"value":0.28,"maxShantenLoss":1},"grid":{"value":[0.28,0.36]}},
+    {"id":"V3","name":"고득점·속도 보존","policy":"D","description":"최소 샨텐을 유지하는 후보 안에서 고득점 추구","weights":{"speed":65,"ukeire":1,"value":0.2,"maxShantenLoss":0},"grid":{"value":[0.2,0.3]}},
+    {"id":"G1","name":"0·1판 수비·약","policy":"E","description":"저판수 손에 약한 수비, 2판 이상은 공격","weights":{"speed":65,"ukeire":1,"value":0.14,"risk":5,"lowValueThreshold":100,"lowValueRisk":35,"maxShantenLoss":1},"grid":{"lowValueRisk":[35,50]}},
+    {"id":"G2","name":"0·1판 수비·중","policy":"E","description":"저판수 손에 중간 수비, 2판 이상은 공격","weights":{"speed":60,"ukeire":1,"value":0.18,"risk":8,"lowValueThreshold":100,"lowValueRisk":70,"maxShantenLoss":1},"grid":{"lowValueRisk":[70,90]}},
+    {"id":"G3","name":"0·1판 수비·강","policy":"E","description":"저판수 손에 강한 수비, 두 샨텐까지 후퇴 허용","weights":{"speed":55,"ukeire":0.9,"value":0.2,"risk":12,"lowValueThreshold":100,"lowValueRisk":110,"maxShantenLoss":2},"grid":{"lowValueRisk":[110,140]}}
+  ],
+  "selection":"각 계열의 두 후보 중 튜닝 평균 순수익이 높은 하나를 고정한다. 동률은 후보 ID 순서. 이후 holdout 결과로 가중치를 바꾸지 않는다.",
+  "objective":"배패부터 세 번째 화료 또는 유국까지 H 단일 국당 평균 순수익. 국별 점수 순위는 보조 지표이며 반장 순위나 사람 상대 성능이 아니다.",
+  "scope":"로컬 휴리스틱 가중치 탐색. 신경망 미세조정, 강화학습 Q 학습, 사람 패보 학습이 아니다. 안깡 완전 비공개는 사용자 요청 앱 설정."
+}

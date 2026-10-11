@@ -1,0 +1,293 @@
+[
+  {
+    "id": "V1",
+    "name": "고득점·속도 유지",
+    "description": "고득점 가치와 완성 속도를 함께 높임",
+    "policy": "D",
+    "ranked": [
+      {
+        "id": "V1-2",
+        "policy": "D",
+        "weights": {
+          "speed": 60,
+          "ukeire": 1,
+          "value": 0.24,
+          "maxShantenLoss": 1
+        },
+        "games": 1008,
+        "meanNet": 69.39484126984127
+      },
+      {
+        "id": "V1-1",
+        "policy": "D",
+        "weights": {
+          "speed": 60,
+          "ukeire": 1,
+          "value": 0.18,
+          "maxShantenLoss": 1
+        },
+        "games": 1008,
+        "meanNet": 64.38492063492063
+      }
+    ],
+    "selected": {
+      "id": "V1-2",
+      "policy": "D",
+      "weights": {
+        "speed": 60,
+        "ukeire": 1,
+        "value": 0.24,
+        "maxShantenLoss": 1
+      },
+      "games": 1008,
+      "meanNet": 69.39484126984127
+    }
+  },
+  {
+    "id": "V2",
+    "name": "고득점·강한 추구",
+    "description": "한 샨텐 손해까지 감수하며 고득점 형태 추구",
+    "policy": "D",
+    "ranked": [
+      {
+        "id": "V2-1",
+        "policy": "D",
+        "weights": {
+          "speed": 35,
+          "ukeire": 0.7,
+          "value": 0.28,
+          "maxShantenLoss": 1
+        },
+        "games": 1008,
+        "meanNet": 72.0734126984127
+      },
+      {
+        "id": "V2-2",
+        "policy": "D",
+        "weights": {
+          "speed": 35,
+          "ukeire": 0.7,
+          "value": 0.36,
+          "maxShantenLoss": 1
+        },
+        "games": 1008,
+        "meanNet": 66.07142857142857
+      }
+    ],
+    "selected": {
+      "id": "V2-1",
+      "policy": "D",
+      "weights": {
+        "speed": 35,
+        "ukeire": 0.7,
+        "value": 0.28,
+        "maxShantenLoss": 1
+      },
+      "games": 1008,
+      "meanNet": 72.0734126984127
+    }
+  },
+  {
+    "id": "V3",
+    "name": "고득점·속도 보존",
+    "description": "최소 샨텐을 유지하는 후보 안에서 고득점 추구",
+    "policy": "D",
+    "ranked": [
+      {
+        "id": "V3-1",
+        "policy": "D",
+        "weights": {
+          "speed": 65,
+          "ukeire": 1,
+          "value": 0.2,
+          "maxShantenLoss": 0
+        },
+        "games": 1008,
+        "meanNet": 69.84126984126983
+      },
+      {
+        "id": "V3-2",
+        "policy": "D",
+        "weights": {
+          "speed": 65,
+          "ukeire": 1,
+          "value": 0.3,
+          "maxShantenLoss": 0
+        },
+        "games": 1008,
+        "meanNet": 67.55952380952381
+      }
+    ],
+    "selected": {
+      "id": "V3-1",
+      "policy": "D",
+      "weights": {
+        "speed": 65,
+        "ukeire": 1,
+        "value": 0.2,
+        "maxShantenLoss": 0
+      },
+      "games": 1008,
+      "meanNet": 69.84126984126983
+    }
+  },
+  {
+    "id": "G1",
+    "name": "0·1판 수비·약",
+    "description": "저판수 손에 약한 수비, 2판 이상은 공격",
+    "policy": "E",
+    "ranked": [
+      {
+        "id": "G1-1",
+        "policy": "E",
+        "weights": {
+          "speed": 65,
+          "ukeire": 1,
+          "value": 0.14,
+          "risk": 5,
+          "lowValueThreshold": 100,
+          "lowValueRisk": 35,
+          "maxShantenLoss": 1
+        },
+        "games": 1008,
+        "meanNet": -22.470238095238095
+      },
+      {
+        "id": "G1-2",
+        "policy": "E",
+        "weights": {
+          "speed": 65,
+          "ukeire": 1,
+          "value": 0.14,
+          "risk": 5,
+          "lowValueThreshold": 100,
+          "lowValueRisk": 50,
+          "maxShantenLoss": 1
+        },
+        "games": 1008,
+        "meanNet": -82.88690476190476
+      }
+    ],
+    "selected": {
+      "id": "G1-1",
+      "policy": "E",
+      "weights": {
+        "speed": 65,
+        "ukeire": 1,
+        "value": 0.14,
+        "risk": 5,
+        "lowValueThreshold": 100,
+        "lowValueRisk": 35,
+        "maxShantenLoss": 1
+      },
+      "games": 1008,
+      "meanNet": -22.470238095238095
+    }
+  },
+  {
+    "id": "G2",
+    "name": "0·1판 수비·중",
+    "description": "저판수 손에 중간 수비, 2판 이상은 공격",
+    "policy": "E",
+    "ranked": [
+      {
+        "id": "G2-1",
+        "policy": "E",
+        "weights": {
+          "speed": 60,
+          "ukeire": 1,
+          "value": 0.18,
+          "risk": 8,
+          "lowValueThreshold": 100,
+          "lowValueRisk": 70,
+          "maxShantenLoss": 1
+        },
+        "games": 1008,
+        "meanNet": -138.4920634920635
+      },
+      {
+        "id": "G2-2",
+        "policy": "E",
+        "weights": {
+          "speed": 60,
+          "ukeire": 1,
+          "value": 0.18,
+          "risk": 8,
+          "lowValueThreshold": 100,
+          "lowValueRisk": 90,
+          "maxShantenLoss": 1
+        },
+        "games": 1008,
+        "meanNet": -164.28571428571428
+      }
+    ],
+    "selected": {
+      "id": "G2-1",
+      "policy": "E",
+      "weights": {
+        "speed": 60,
+        "ukeire": 1,
+        "value": 0.18,
+        "risk": 8,
+        "lowValueThreshold": 100,
+        "lowValueRisk": 70,
+        "maxShantenLoss": 1
+      },
+      "games": 1008,
+      "meanNet": -138.4920634920635
+    }
+  },
+  {
+    "id": "G3",
+    "name": "0·1판 수비·강",
+    "description": "저판수 손에 강한 수비, 두 샨텐까지 후퇴 허용",
+    "policy": "E",
+    "ranked": [
+      {
+        "id": "G3-1",
+        "policy": "E",
+        "weights": {
+          "speed": 55,
+          "ukeire": 0.9,
+          "value": 0.2,
+          "risk": 12,
+          "lowValueThreshold": 100,
+          "lowValueRisk": 110,
+          "maxShantenLoss": 2
+        },
+        "games": 1008,
+        "meanNet": -188.29365079365078
+      },
+      {
+        "id": "G3-2",
+        "policy": "E",
+        "weights": {
+          "speed": 55,
+          "ukeire": 0.9,
+          "value": 0.2,
+          "risk": 12,
+          "lowValueThreshold": 100,
+          "lowValueRisk": 140,
+          "maxShantenLoss": 2
+        },
+        "games": 1008,
+        "meanNet": -207.8373015873016
+      }
+    ],
+    "selected": {
+      "id": "G3-1",
+      "policy": "E",
+      "weights": {
+        "speed": 55,
+        "ukeire": 0.9,
+        "value": 0.2,
+        "risk": 12,
+        "lowValueThreshold": 100,
+        "lowValueRisk": 110,
+        "maxShantenLoss": 2
+      },
+      "games": 1008,
+      "meanNet": -188.29365079365078
+    }
+  }
+]

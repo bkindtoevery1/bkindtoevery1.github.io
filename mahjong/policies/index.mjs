@@ -14,11 +14,12 @@ export const OPPONENT_PROFILES=Object.freeze({
   pinfu:[{id:'B'},{id:'B'},{id:'B'}],
   value:[{id:'D'},{id:'D'},{id:'D'}],
   cautious:[{id:'E',weights:{risk:45}},{id:'E',weights:{risk:45}},{id:'E',weights:{risk:45}}],
-  mixed:[{id:'A'},{id:'D'},{id:'E'}]
+  mixed:[{id:'A'},{id:'D'},{id:'E'}],
+  valuePressure:[{id:'D',weights:{speed:55,value:0.2}},{id:'D',weights:{speed:30,value:0.3}},{id:'E',weights:{value:0.14,lowValueRisk:60,risk:8}}]
 });
 export function policyConfig(id,weights={}){
-  if(!POLICIES[id])throw new Error(`Unknown policy ${id}`);for(const [k,v]of Object.entries(weights))if(!['speed','ukeire','value','pinfu','risk','maxShantenLoss','callCost'].includes(k)||!Number.isFinite(v)||v<0)throw new Error(`Invalid policy weight ${k}`);
-  return {...POLICIES[id],...weights};
+  if(!POLICIES[id])throw new Error(`Unknown policy ${id}`);for(const [k,v]of Object.entries(weights))if(!['speed','ukeire','value','pinfu','risk','maxShantenLoss','callCost','lowValueRisk','lowValueThreshold'].includes(k)||!Number.isFinite(v)||v<0)throw new Error(`Invalid policy weight ${k}`);
+  return {lowValueRisk:0,lowValueThreshold:100,...POLICIES[id],...weights};
 }
 function potential(c,melds,o){
   const tiles=[];for(let t=0;t<34;t++)for(let k=0;k<c[t];k++)tiles.push(t);
@@ -40,18 +41,19 @@ function potential(c,melds,o){
   if(!o.rules.greenRequiresDragon||frequency[32]>0)attract(1000,t=>o.rules.greenTiles.includes(t));
   if(!melds.some(m=>m.type==='chi'))val=Math.max(val,200*Math.min(1,(2*(triplets+openTrip)+pairs)/9));
   if(!melds.length)val=Math.max(val,400*(pairs/7)**3);
+  const baseValue=val;
   for(let t=27;t<34;t++){
     const unit=t>=31?o.rules.dragonBonus:(t===o.rules.roundWind?o.rules.roundWindBonus:0)+(t===27+(o.seat-o.dealer+4)%4?o.rules.seatWindBonus:0);
     val+=unit*(frequency[t]>=3?1:frequency[t]===2?0.45:0.05);
   }
   val+=(o.rules.fourOfAKindBonus?frequency.filter(n=>n===4).length:melds.filter(m=>m.type==='kan').length)*o.rules.kanBonus;
-  return {value:val,pinfu};
+  return {value:val,baseValue,pinfu};
 }
 export function publicRisk(tile,o){
   const availability=(4-o.visible[tile])/4,shape=tile>=27?0.45:[0,8].includes(tile%9)?0.7:1;
   let threat=0;
   for(const p of o.players)if(p.seat!==o.seat&&!p.won){
-    const suits=p.melds.filter(m=>m.tile<27).map(m=>Math.floor(m.tile/9));
+    const suits=p.melds.filter(m=>!m.hidden&&Number.isInteger(m.tile)&&m.tile<27).map(m=>Math.floor(m.tile/9));
     const focus=suits.length>=2&&new Set(suits).size===1&&tile<27&&Math.floor(tile/9)===suits[0]?1.35:1;
     threat+=(0.15+Math.min(1,p.discards.length/16)+p.melds.length*0.25)*focus;
   }
@@ -62,8 +64,19 @@ function value13(c,melds,o,w,discard=null){
   const e=effectiveTiles(c,melds.length,o.visible,o.rules),p=potential(c,melds,o);
   const activeFactor=0.6+o.activeCount/5;
   const risk=discard===null?0:publicRisk(discard,o);
-  const score=-w.speed*e.shanten+w.ukeire*e.ukeire+w.value*p.value*activeFactor+w.pinfu*p.pinfu-w.risk*risk*(e.shanten>=2?1.35:1);
-  return {score,shanten:e.shanten,ukeire:e.ukeire,value:p.value,pinfu:p.pinfu,risk};
+  let estimatedBase=p.baseValue;
+  // At tenpai use the best structurally possible ron base, without bonuses.
+  // Earlier shapes use a heuristic, never a promised future yaku or payout.
+  if(w.lowValueRisk>0&&e.shanten===0){
+    const tiles=[];for(let t=0;t<34;t++)for(let n=0;n<c[t];n++)tiles.push(t);
+    let bestBase=0;
+    for(let t=0;t<34;t++)if(c[t]<4){const hand=scoreHand([...tiles,t],melds,{method:'ron',winTile:t,seatWind:27+(o.seat-o.dealer+4)%4},o.rules);if(hand)bestBase=Math.max(bestBase,hand.base);}
+    if(bestBase)estimatedBase=bestBase;
+  }
+  const defensive=w.lowValueRisk>0&&estimatedBase<=w.lowValueThreshold;
+  const riskWeight=defensive?w.lowValueRisk:w.risk;
+  const score=-w.speed*e.shanten+w.ukeire*e.ukeire+w.value*p.value*activeFactor+w.pinfu*p.pinfu-riskWeight*risk*(e.shanten>=2?1.35:1);
+  return {score,shanten:e.shanten,ukeire:e.ukeire,value:p.value,pinfu:p.pinfu,risk,estimatedBase,defensive,riskWeight};
 }
 function bestDiscard(c,melds,o,w,allowed=null){
   const raw=[];for(let t=0;t<34;t++)if(c[t]&&(!allowed||allowed.includes(t))){c[t]--;const s=shanten(c,melds.length,o.rules.sevenPairsQuadAsTwo);c[t]++;raw.push({tile:t,shanten:s});}

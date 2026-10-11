@@ -62,6 +62,7 @@ var LEGACY_RULES = Object.freeze({
   peikouClosedOnly: false,
   ryanpeikouDistinctSuits: true,
   concealedKanBreaksMenzen: true,
+  concealedKanPrivate: false,
   menzenRequiresTsumo: false,
   sevenPairsQuadAsTwo: false,
   greenTiles: [18, 19, 20, 21, 22, 23, 24, 25, 26, 32],
@@ -86,16 +87,21 @@ var LEGACY_RULES = Object.freeze({
   fourOfAKindBonus: false,
   ronContinuation: "discarder"
 });
-var DEFAULT_RULES = Object.freeze({
+var CLARIFIED_RULES = Object.freeze({
   ...LEGACY_RULES,
   id: "H-2026-clarified-20261011",
   greenRequiresDragon: true,
   fourOfAKindBonus: true,
   ronContinuation: "last-winner"
 });
+var DEFAULT_RULES = Object.freeze({
+  ...CLARIFIED_RULES,
+  id: "H-2026-private-kan-v1",
+  concealedKanPrivate: true
+});
 function ruleset(overrides = {}) {
   for (const k of Object.keys(overrides)) if (!(k in DEFAULT_RULES)) throw new Error(`Unknown H ruleset key: ${k}`);
-  const defaults = overrides.id && overrides.id !== DEFAULT_RULES.id ? LEGACY_RULES : DEFAULT_RULES;
+  const defaults = overrides.id === CLARIFIED_RULES.id ? CLARIFIED_RULES : overrides.id && overrides.id !== DEFAULT_RULES.id ? LEGACY_RULES : DEFAULT_RULES;
   const r = { ...defaults, ...overrides, greenTiles: [...overrides.greenTiles ?? defaults.greenTiles] };
   for (const k of Object.keys(DEFAULT_RULES)) {
     if (typeof DEFAULT_RULES[k] === "boolean" && typeof r[k] !== "boolean") throw new Error(`Invalid boolean ${k}`);
@@ -266,6 +272,8 @@ function winningTiles(tiles2, melds = [], context2 = {}, r = DEFAULT_RULES) {
 // engine/game.mjs
 var actionKey = (a) => JSON.stringify(a);
 var meldView = (m) => ({ type: m.type, tile: m.tile, open: m.open, from: m.from });
+var privateKan = (s, m, owner, viewer) => s.rules.concealedKanPrivate === true && owner !== viewer && m.type === "kan" && !m.open;
+var visibleMeld = (s, m, owner, viewer) => privateKan(s, m, owner, viewer) ? { ...meldView(m), tile: null, hidden: true } : meldView(m);
 function activeSeats(s) {
   return s.players.map((p, i) => p.won ? null : i).filter((i) => i !== null);
 }
@@ -350,7 +358,7 @@ function visibleCounts(s, seat) {
   const add = (id) => out[typeOf(id)]++;
   for (let i = 0; i < 4; i++) {
     const p = s.players[i];
-    for (const m of p.melds) for (const id of m.ids) add(id);
+    for (const m of p.melds) if (!privateKan(s, m, i, seat)) for (const id of m.ids) add(id);
     for (const d of p.river) if (!d.claimed) add(d.id);
     if (i === seat || p.won && s.rules.revealWinnerHand) for (const id of p.hand) {
       if (i !== seat && p.win.method === "tsumo" && !s.rules.revealTsumoWinningTile && id === p.win.tile) continue;
@@ -526,7 +534,7 @@ function step(s, seat, a, { validate = true } = {}) {
 function observation(s, seat = actor(s)) {
   if (seat !== actor(s)) throw new Error("Not this player\u2019s decision");
   const p = s.players[seat];
-  const players = s.players.map((p2, i) => ({ seat: i, won: p2.won, score: p2.score, handSize: p2.hand.length, melds: p2.melds.map(meldView), discards: p2.river.map((d) => ({ tile: typeOf(d.id), claimed: d.claimed })), revealed: p2.won && s.rules.revealWinnerHand ? p2.hand.filter((id) => s.rules.revealTsumoWinningTile || p2.win.method !== "tsumo" || id !== p2.win.tile).map(typeOf) : [] }));
+  const players = s.players.map((p2, i) => ({ seat: i, won: p2.won, score: p2.score, handSize: p2.hand.length, melds: p2.melds.map((m) => visibleMeld(s, m, i, seat)), discards: p2.river.map((d) => ({ tile: typeOf(d.id), claimed: d.claimed })), revealed: p2.won && s.rules.revealWinnerHand ? p2.hand.filter((id) => s.rules.revealTsumoWinningTile || p2.win.method !== "tsumo" || id !== p2.win.tile).map(typeOf) : [] }));
   return { seat, dealer: s.dealer, rules: structuredClone(s.rules), hand: handTypes(p), melds: p.melds.map(meldView), players, visible: visibleCounts(s, seat), activeCount: activeSeats(s).length, wallRemaining: s.wall.length, draws: s.draws, phase: s.phase, lastDiscard: s.reaction ? { seat: s.reaction.source, tile: typeOf(s.reaction.id), kind: s.reaction.kind } : null, legalActions: legalActions(s, seat) };
 }
 function assertInvariants(s) {
@@ -572,7 +580,7 @@ __export(game_exports2, {
 
 // s-engine/rules.mjs
 var S_DEFAULTS = Object.freeze({
-  id: "S-2026-v2",
+  id: "S-2026-private-kan-v1",
   variant: "S",
   pinfuHan: 2,
   roundWind: 27,
@@ -591,11 +599,13 @@ var S_DEFAULTS = Object.freeze({
   maxKans: 4,
   deadWallTiles: 14,
   revealWinnerHand: true,
-  revealTsumoWinningTile: true
+  revealTsumoWinningTile: true,
+  concealedKanPrivate: true
 });
 function sRules(overrides = {}) {
   for (const key3 of Object.keys(overrides)) if (!(key3 in S_DEFAULTS)) throw new Error(`Unknown S rule: ${key3}`);
-  const rules = { ...S_DEFAULTS, ...overrides };
+  const defaults = overrides.id && overrides.id !== S_DEFAULTS.id ? { ...S_DEFAULTS, concealedKanPrivate: false } : S_DEFAULTS;
+  const rules = { ...defaults, ...overrides };
   for (const key3 of Object.keys(S_DEFAULTS)) {
     const value2 = rules[key3], base = S_DEFAULTS[key3];
     if (typeof value2 !== typeof base || typeof base === "number" && (!Number.isSafeInteger(value2) || value2 < 0)) throw new Error(`Invalid S rule: ${key3}`);
@@ -709,6 +719,8 @@ function scoreS(tiles2, melds = [], context2 = {}, rules = S_DEFAULTS) {
 var handTypes2 = (p) => p.hand.map(typeOf);
 var event2 = (s, e) => s.events.push({ n: s.events.length, ...e });
 var meldView2 = (m) => ({ type: m.type, tile: m.tile, open: m.open, from: m.from });
+var privateKan2 = (s, m, owner, viewer) => s.rules.concealedKanPrivate === true && owner !== viewer && m.type === "kan" && !m.open;
+var visibleMeld2 = (s, m, owner, viewer) => privateKan2(s, m, owner, viewer) ? { ...meldView2(m), tile: null, hidden: true } : meldView2(m);
 var key = (a) => JSON.stringify(a);
 var same = (a, b) => key(a) === key(b);
 var actor2 = (s) => s.phase === "turn" ? s.turn : s.phase === "reaction" ? s.reaction.pending[0] : null;
@@ -853,7 +865,7 @@ function visibleCounts2(s, seat) {
   const out = Array(34).fill(0), add = (id) => out[typeOf(id)]++;
   for (let i = 0; i < 4; i++) {
     const p = s.players[i];
-    for (const m of p.melds) for (const id of m.ids) add(id);
+    for (const m of p.melds) if (!privateKan2(s, m, i, seat)) for (const id of m.ids) add(id);
     for (const d of p.river) if (!d.claimed) add(d.id);
     if (i === seat || p.won && s.rules.revealWinnerHand) for (const id of p.hand) add(id);
   }
@@ -1032,7 +1044,7 @@ function step2(s, seat, a, { validate = true } = {}) {
 function observation2(s, seat = actor2(s)) {
   if (seat !== actor2(s)) throw new Error("Not this player\u2019s decision");
   const p = s.players[seat];
-  const players = s.players.map((p2, i) => ({ seat: i, won: p2.won, score: p2.score, handSize: p2.hand.length, riichi: p2.riichi, melds: p2.melds.map(meldView2), discards: p2.river.map((d) => ({ tile: typeOf(d.id), claimed: d.claimed, riichi: !!d.riichi })), revealed: p2.won && s.rules.revealWinnerHand ? handTypes2(p2) : [] }));
+  const players = s.players.map((p2, i) => ({ seat: i, won: p2.won, score: p2.score, handSize: p2.hand.length, riichi: p2.riichi, melds: p2.melds.map((m) => visibleMeld2(s, m, i, seat)), discards: p2.river.map((d) => ({ tile: typeOf(d.id), claimed: d.claimed, riichi: !!d.riichi })), revealed: p2.won && s.rules.revealWinnerHand ? handTypes2(p2) : [] }));
   return { seat, dealer: s.dealer, rules: structuredClone(s.rules), hand: handTypes2(p), melds: p.melds.map(meldView2), players, visible: visibleCounts2(s, seat), riichi: p.riichi, pot: s.pot, doraIndicators: indicators(s), activeCount: 4, wallRemaining: s.wall.length, draws: s.draws, phase: s.phase, lastDiscard: s.reaction ? { seat: s.reaction.source, tile: typeOf(s.reaction.id), kind: s.reaction.kind } : null, legalActions: legalActions2(s, seat) };
 }
 function assertInvariants2(s) {
@@ -1174,12 +1186,13 @@ var OPPONENT_PROFILES = Object.freeze({
   pinfu: [{ id: "B" }, { id: "B" }, { id: "B" }],
   value: [{ id: "D" }, { id: "D" }, { id: "D" }],
   cautious: [{ id: "E", weights: { risk: 45 } }, { id: "E", weights: { risk: 45 } }, { id: "E", weights: { risk: 45 } }],
-  mixed: [{ id: "A" }, { id: "D" }, { id: "E" }]
+  mixed: [{ id: "A" }, { id: "D" }, { id: "E" }],
+  valuePressure: [{ id: "D", weights: { speed: 55, value: 0.2 } }, { id: "D", weights: { speed: 30, value: 0.3 } }, { id: "E", weights: { value: 0.14, lowValueRisk: 60, risk: 8 } }]
 });
 function policyConfig(id, weights = {}) {
   if (!POLICIES[id]) throw new Error(`Unknown policy ${id}`);
-  for (const [k, v] of Object.entries(weights)) if (!["speed", "ukeire", "value", "pinfu", "risk", "maxShantenLoss", "callCost"].includes(k) || !Number.isFinite(v) || v < 0) throw new Error(`Invalid policy weight ${k}`);
-  return { ...POLICIES[id], ...weights };
+  for (const [k, v] of Object.entries(weights)) if (!["speed", "ukeire", "value", "pinfu", "risk", "maxShantenLoss", "callCost", "lowValueRisk", "lowValueThreshold"].includes(k) || !Number.isFinite(v) || v < 0) throw new Error(`Invalid policy weight ${k}`);
+  return { lowValueRisk: 0, lowValueThreshold: 100, ...POLICIES[id], ...weights };
 }
 function potential(c, melds, o) {
   const tiles2 = [];
@@ -1211,18 +1224,19 @@ function potential(c, melds, o) {
   if (!o.rules.greenRequiresDragon || frequency[32] > 0) attract(1e3, (t) => o.rules.greenTiles.includes(t));
   if (!melds.some((m) => m.type === "chi")) val = Math.max(val, 200 * Math.min(1, (2 * (triplets + openTrip) + pairs) / 9));
   if (!melds.length) val = Math.max(val, 400 * (pairs / 7) ** 3);
+  const baseValue = val;
   for (let t = 27; t < 34; t++) {
     const unit = t >= 31 ? o.rules.dragonBonus : (t === o.rules.roundWind ? o.rules.roundWindBonus : 0) + (t === 27 + (o.seat - o.dealer + 4) % 4 ? o.rules.seatWindBonus : 0);
     val += unit * (frequency[t] >= 3 ? 1 : frequency[t] === 2 ? 0.45 : 0.05);
   }
   val += (o.rules.fourOfAKindBonus ? frequency.filter((n) => n === 4).length : melds.filter((m) => m.type === "kan").length) * o.rules.kanBonus;
-  return { value: val, pinfu };
+  return { value: val, baseValue, pinfu };
 }
 function publicRisk(tile, o) {
   const availability = (4 - o.visible[tile]) / 4, shape = tile >= 27 ? 0.45 : [0, 8].includes(tile % 9) ? 0.7 : 1;
   let threat = 0;
   for (const p of o.players) if (p.seat !== o.seat && !p.won) {
-    const suits = p.melds.filter((m) => m.tile < 27).map((m) => Math.floor(m.tile / 9));
+    const suits = p.melds.filter((m) => !m.hidden && Number.isInteger(m.tile) && m.tile < 27).map((m) => Math.floor(m.tile / 9));
     const focus2 = suits.length >= 2 && new Set(suits).size === 1 && tile < 27 && Math.floor(tile / 9) === suits[0] ? 1.35 : 1;
     threat += (0.15 + Math.min(1, p.discards.length / 16) + p.melds.length * 0.25) * focus2;
   }
@@ -1232,8 +1246,21 @@ function value13(c, melds, o, w, discard = null) {
   const e = effectiveTiles(c, melds.length, o.visible, o.rules), p = potential(c, melds, o);
   const activeFactor = 0.6 + o.activeCount / 5;
   const risk = discard === null ? 0 : publicRisk(discard, o);
-  const score = -w.speed * e.shanten + w.ukeire * e.ukeire + w.value * p.value * activeFactor + w.pinfu * p.pinfu - w.risk * risk * (e.shanten >= 2 ? 1.35 : 1);
-  return { score, shanten: e.shanten, ukeire: e.ukeire, value: p.value, pinfu: p.pinfu, risk };
+  let estimatedBase = p.baseValue;
+  if (w.lowValueRisk > 0 && e.shanten === 0) {
+    const tiles2 = [];
+    for (let t = 0; t < 34; t++) for (let n = 0; n < c[t]; n++) tiles2.push(t);
+    let bestBase = 0;
+    for (let t = 0; t < 34; t++) if (c[t] < 4) {
+      const hand = scoreHand([...tiles2, t], melds, { method: "ron", winTile: t, seatWind: 27 + (o.seat - o.dealer + 4) % 4 }, o.rules);
+      if (hand) bestBase = Math.max(bestBase, hand.base);
+    }
+    if (bestBase) estimatedBase = bestBase;
+  }
+  const defensive = w.lowValueRisk > 0 && estimatedBase <= w.lowValueThreshold;
+  const riskWeight = defensive ? w.lowValueRisk : w.risk;
+  const score = -w.speed * e.shanten + w.ukeire * e.ukeire + w.value * p.value * activeFactor + w.pinfu * p.pinfu - riskWeight * risk * (e.shanten >= 2 ? 1.35 : 1);
+  return { score, shanten: e.shanten, ukeire: e.ukeire, value: p.value, pinfu: p.pinfu, risk, estimatedBase, defensive, riskWeight };
 }
 function bestDiscard(c, melds, o, w, allowed = null) {
   const raw = [];
@@ -1461,7 +1488,7 @@ function components(row, view, weights, variant) {
     ukeire: weights.ukeire * row.ukeire,
     value: weights.value * row.value * (variant === "H" ? 0.6 + view.activeCount / 5 : 1),
     pinfu: weights.pinfu * row.pinfu,
-    risk: -weights.risk * row.risk * (variant === "H" && row.shanten >= 2 ? 1.35 : 1)
+    risk: -(row.riskWeight ?? weights.risk) * row.risk * (variant === "H" && row.shanten >= 2 ? 1.35 : 1)
   };
 }
 function rankRows(rows, variant) {
@@ -1493,7 +1520,7 @@ function explainDiscards(view, policy, weights = {}, selectedAction = null) {
     shanten: row.shanten,
     ukeire: row.ukeire,
     components: components(row, view, config, variant),
-    metrics: { value: row.value, pinfu: row.pinfu, risk: row.risk },
+    metrics: { value: row.value, pinfu: row.pinfu, risk: row.risk, estimatedBase: row.estimatedBase, defensive: row.defensive, riskWeight: row.riskWeight },
     selected: row.tile === selectedTile
   }));
   const selected = ranked.find((row) => row.selected), alternative = ranked.find((row) => !row.selected);
@@ -1516,7 +1543,8 @@ function explainDiscards(view, policy, weights = {}, selectedAction = null) {
       reason += ` ${tileName(alternative.tile)}\uC640 \uBE44\uAD50\uD55C \uC8FC\uC694 \uD3C9\uAC00 \uAE30\uC5EC \uCC28\uC774\uB294 ${main.map((row) => `${row.label} ${signed(row.difference)}`).join(", ")}\uC774\uBA70, \uCD1D \uD3C9\uAC00\uC810\uC218 \uCC28\uC774\uB294 ${signed(scoreDifference)}\uC785\uB2C8\uB2E4.`;
     }
   } else reason += " \uC774 \uC804\uB7B5\uC758 \uC0E8\uD150 \uC81C\uD55C\uC744 \uB9CC\uC871\uD558\uB294 \uBC84\uB9BC\uD328 \uD6C4\uBCF4\uAC00 \uD558\uB098\uC785\uB2C8\uB2E4.";
-  if (policy === "E" && config.risk === 0) reason += " \uC774 \uAC00\uC911\uCE58\uC5D0\uC11C\uB294 \uC704\uD5D8\uB3C4 \uAC10\uC810\uC744 \uC801\uC6A9\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
+  if (selected.metrics.defensive) reason += ` \uAC00\uC0B0\uC810 \uC81C\uC678 \uC5ED \uC810\uC218 \uCD94\uC815 ${Math.round(selected.metrics.estimatedBase)}\uC810\uC73C\uB85C \uC800\uD310\uC218 \uC218\uBE44 \uAC00\uC911\uCE58\uB97C \uC801\uC6A9\uD569\uB2C8\uB2E4.`;
+  if (policy === "E" && config.risk === 0 && !config.lowValueRisk) reason += " \uC774 \uAC00\uC911\uCE58\uC5D0\uC11C\uB294 \uC704\uD5D8\uB3C4 \uAC10\uC810\uC744 \uC801\uC6A9\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
   return {
     policy,
     variant,
@@ -1865,8 +1893,28 @@ var RoomClient = class {
 // web/meld-view.mjs
 var SOURCES = { 1: "right", 2: "across", 3: "left" };
 var MELD_SOURCE_LABELS = { left: "\uC67C\uCABD", across: "\uB9DE\uC740\uD3B8", right: "\uC624\uB978\uCABD" };
-function meldDisplay(meld, seat, players = [], { variant = "H" } = {}) {
+function meldDisplay(meld, seat, players = [], { variant = "H", concealedKanPrivate = false, viewerSeat, revealed = false } = {}) {
   const ids = [...meld.ids];
+  if (!meld.open && meld.type === "kan" && (concealedKanPrivate === true || meld.hidden === true)) {
+    const canReveal = viewerSeat === seat && !meld.hidden && ids.length === 4 && ids.every(Number.isInteger);
+    const show = canReveal && revealed === true;
+    return {
+      source: null,
+      calledId: null,
+      addedId: null,
+      private: true,
+      canReveal,
+      revealed: show,
+      // Do not retain types or physical IDs in the covered view, even in solo play.
+      slots: Array.from({ length: 4 }, (_, i) => ({
+        id: show ? ids[i] : null,
+        tile: show ? typeOf(ids[i]) : null,
+        called: false,
+        added: null,
+        faceDown: !show
+      }))
+    };
+  }
   if (!meld.open) return {
     source: null,
     calledId: null,
@@ -1895,6 +1943,100 @@ function meldDisplay(meld, seat, players = [], { variant = "H" } = {}) {
     added: addedId === null ? null : { id: addedId, tile: typeOf(addedId) }
   });
   return { source, calledId, addedId, slots };
+}
+function node(tag, text, cls) {
+  const el = document.createElement(tag);
+  if (text !== void 0) el.textContent = text;
+  if (cls) el.className = cls;
+  return el;
+}
+function meldText(meld) {
+  return `${meld.type === "kan" ? meld.open ? "\uBA85\uAE61" : "\uC548\uAE61" : meld.type === "pon" ? "\uD401" : "\uCE58"} ${meld.type === "chi" ? [meld.tile, meld.tile + 1, meld.tile + 2].map(tileName).join(" ") : tileName(meld.tile)}`;
+}
+function renderMeldElement(meld, seat, players, options = {}) {
+  const display = meldDisplay(meld, seat, players, options);
+  const el = node(display.canReveal ? "button" : "div", void 0, "meld" + (display.canReveal ? " meld-peek" : ""));
+  const source = display.source ? `${MELD_SOURCE_LABELS[display.source]}\uC5D0\uC11C \uAC00\uC838\uC628 ${tileName(typeOf(display.calledId))}` : "";
+  const label2 = display.private ? display.revealed ? `${meldText(meld)} \xB7 1.5\uCD08 \uB4A4 \uB2E4\uC2DC \uB4A4\uC9D1\uD799\uB2C8\uB2E4. \uB2E4\uC2DC \uB204\uB974\uBA74 \uBC14\uB85C \uAC00\uB9BD\uB2C8\uB2E4.` : display.canReveal ? "\uC548\uAE61 \xB7 \uB20C\uB7EC\uC11C \uC7A0\uAE50 \uD655\uC778" : "\uC548\uAE61 \xB7 \uBE44\uACF5\uAC1C" : [
+    meldText(meld),
+    meld.type === "kan" && !meld.open ? "\uD328 \uC885\uB958 \uACF5\uAC1C" : "",
+    source,
+    display.addedId !== null ? "\uAC00\uAE61\uC740 \uAC00\uC838\uC628 \uD328 \uC704\uC5D0 \uACB9\uCCD0 \uD45C\uC2DC" : ""
+  ].filter(Boolean).join(" \xB7 ");
+  if (display.canReveal) {
+    el.type = "button";
+    el.dataset.meldKey = options.key;
+    el.setAttribute("aria-pressed", String(display.revealed));
+    el.onclick = options.onToggle;
+  }
+  el.setAttribute("aria-label", label2);
+  el.title = label2;
+  el.append(node("span", display.canReveal ? display.revealed ? "\uC548\uAE61 \xB7 \uD655\uC778 \uC911" : "\uC548\uAE61 \xB7 \uD130\uCE58 \uD655\uC778" : meld.type === "kan" ? meld.open ? "\uAE61" : "\uC548\uAE61" : meld.type === "pon" ? "\uD401" : "\uCE58", "meld-label"));
+  for (const slot of display.slots) {
+    const group = node("span", void 0, "meld-slot" + (slot.called ? " is-called" : "") + (slot.added ? " is-added-kan" : ""));
+    const add = (tile, extra = false) => {
+      const wrap = node("span", void 0, "meld-tile" + (slot.called ? " sideways" : ""));
+      if (tile.id !== null) wrap.dataset.tileId = String(tile.id);
+      wrap.setAttribute("aria-label", tile.faceDown ? "\uC548\uAE61 \uB4B7\uBA74" : `${tileName(tile.tile)}${extra ? " \xB7 \uAC00\uAE61\uC73C\uB85C \uB354\uD55C \uD328" : slot.called ? " \xB7 " + source : ""}`);
+      if (tile.faceDown) {
+        const back = node("span", void 0, "tile-back meld-back");
+        back.setAttribute("role", "img");
+        back.setAttribute("aria-label", "\uC548\uAE61 \uB4B7\uBA74");
+        wrap.append(back);
+      } else wrap.append(tileFace(tile.tile, { small: true }));
+      group.append(wrap);
+    };
+    add(slot);
+    if (slot.added) add(slot.added, true);
+    el.append(group);
+  }
+  return el;
+}
+
+// web/kan-peek.mjs
+function createKanPeek({
+  durationMs = 1500,
+  now = () => Date.now(),
+  setTimeout: schedule2 = globalThis.setTimeout,
+  clearTimeout: cancel = globalThis.clearTimeout,
+  onChange = () => {
+  }
+} = {}) {
+  if (!Number.isFinite(durationMs) || durationMs <= 0) throw new RangeError("\uD655\uC778 \uC2DC\uAC04\uC740 \uC591\uC218\uC5EC\uC57C \uD569\uB2C8\uB2E4.");
+  let context2 = null, activeKey = null, deadline = 0, timer2 = null, generation = 0;
+  const clear = ({ notify = true } = {}) => {
+    const changed = activeKey !== null;
+    if (timer2 !== null) cancel(timer2);
+    timer2 = null;
+    activeKey = null;
+    deadline = 0;
+    generation++;
+    if (changed && notify) onChange();
+    return changed;
+  };
+  const isRevealed = (key3) => activeKey === key3 && now() < deadline;
+  const reveal = (key3) => {
+    if (typeof key3 !== "string" || !key3) throw new TypeError("\uC548\uAE61 \uD655\uC778 \uC704\uCE58\uAC00 \uD544\uC694\uD569\uB2C8\uB2E4.");
+    clear({ notify: false });
+    activeKey = key3;
+    deadline = now() + durationMs;
+    const current = generation;
+    const expire = () => {
+      if (current !== generation) return;
+      const remaining = deadline - now();
+      if (remaining > 0) timer2 = schedule2(expire, remaining);
+      else clear();
+    };
+    timer2 = schedule2(expire, durationMs);
+    onChange();
+  };
+  const setContext = (value2) => {
+    if (value2 === context2) return false;
+    context2 = value2;
+    clear({ notify: false });
+    return true;
+  };
+  return { setContext, reveal, isRevealed, clear };
 }
 
 // web/score-display.mjs
@@ -1986,6 +2128,7 @@ var clone = (value2) => structuredClone(value2);
 var scores = (game) => game.players.map((player) => player.score);
 var seats = ["\uB3D9", "\uB0A8", "\uC11C", "\uBD81"];
 var seatLabels = (game) => seats.map((_, i) => seats[(i - (game.dealer ?? 0) + 4) % 4]);
+var concealedForViewer = (game, seat, viewer) => game.rules.concealedKanPrivate === true && seat !== viewer;
 var signed2 = (value2) => `${value2 > 0 ? "+" : ""}${value2}`;
 function beforeAction(game) {
   return { scores: scores(game), active: game.players.flatMap((p, i) => p.won ? [] : [i]), events: game.events.length, ledger: game.ledger.length, pot: game.pot ?? 0 };
@@ -2142,7 +2285,7 @@ function logText(log) {
   ];
   if (game.startingScores) lines.push(`\uB204\uC801 \uC810\uC218 (\uC885\uB8CC \uACF5\uD0C1 \uBCC4\uB3C4): ${game.startingScores.map((n, i) => seats2[i] + " " + (n + game.players[i].score)).join(" / ")}`, "");
   for (const entry of log.actions) {
-    const action = entry.action, tile = Number.isInteger(action.tile) ? ` ${tileName(action.tile)}` : "";
+    const action = entry.action, tile = action.type === "ankan" && concealedForViewer(game, entry.seat, log.humanSeat) ? " (\uBE44\uACF5\uAC1C)" : Number.isInteger(action.tile) ? ` ${tileName(action.tile)}` : "";
     if (action.type !== "pass") lines.push(`#${entry.n + 1} ${seats2[entry.seat]} ${{ discard: "\uBC84\uB9BC", riichi: "\uB9AC\uCE58\xB7\uBC84\uB9BC", tsumo: "\uCBD4\uBAA8", ron: "\uB860", chi: "\uCE58", pon: "\uD401", ankan: "\uC548\uAE61", minkan: "\uBA85\uAE61", kakan: "\uAC00\uAE61" }[action.type] ?? action.type}${tile}`);
     for (const win3 of entry.wins) {
       const detail = variant === "S" ? scoreBreakdownText(win3.score) : `\uC5ED ${win3.score.base}${win3.score.bonus ? " + " + (hBonusDetails(win3.score, game.rules) || "\uAC00\uC0B0 " + win3.score.bonus) : ""}${win3.tsumoBonus ? " + \uCBD4\uBAA8 " + win3.tsumoBonus : ""}`;
@@ -2159,7 +2302,7 @@ function logText(log) {
   lines.push("", "\uD604\uC7AC \uC190\uD328\xB7\uD6C4\uB85C (JSON\uC5D0\uB294 \uC6D0\uBCF8 \uD328 \uBC88\uD638\uC640 \uC0C1\uC138 \uAE30\uB85D \uD3EC\uD568)");
   for (let seat = 0; seat < 4; seat++) {
     const p = game.players[seat];
-    lines.push(`${seats2[seat]}: ${p.hand.map((id) => tileName(typeOf(id))).join(" ")} / ${p.melds.map((m) => `${m.type} ${m.ids.map((id) => tileName(typeOf(id))).join(" ")}`).join(" / ")}`);
+    lines.push(`${seats2[seat]}: ${p.hand.map((id) => tileName(typeOf(id))).join(" ")} / ${p.melds.map((m) => m.hidden || m.ids.some((id) => !Number.isInteger(id)) || m.type === "kan" && !m.open && concealedForViewer(game, seat, log.humanSeat) ? "\uC548\uAE61 (\uBE44\uACF5\uAC1C)" : `${m.type} ${m.ids.map((id) => tileName(typeOf(id))).join(" ")}`).join(" / ")}`);
   }
   for (const error of log.errors) lines.push(`[\uC624\uB958 ${error.at}] ${error.message}`);
   return lines.join("\n") + "\n";
@@ -2167,7 +2310,7 @@ function logText(log) {
 function reviewText(input) {
   const log = expandLog(input), game = log.game, seats2 = seatLabels(game), s = game.rules.variant === "S", lines = [`${s ? "S" : "H"}\uB8F0 \xB7 ${game.seed ?? log.room}`, `${s || game.startingScores || game.matchContext ? "\uC774\uBC88 \uAD6D \uC99D\uAC10" : "\uCD5C\uC885"}: ${game.players.map((p, i) => seats2[i] + " " + signed2(p.score)).join(" / ")}`];
   for (const e of log.actions) {
-    if (["ankan", "minkan", "kakan"].includes(e.action.type)) lines.push(`${seats2[e.seat]} ${e.action.type === "ankan" ? "\uC548\uAE61" : e.action.type === "minkan" ? "\uBA85\uAE61" : "\uAC00\uAE61"}${Number.isInteger(e.action.tile) ? " \xB7 " + tileName(e.action.tile) : ""} (\uC774\uB54C\uB294 \uC810\uC218 \uC774\uB3D9 \uC5C6\uC74C)`);
+    if (["ankan", "minkan", "kakan"].includes(e.action.type)) lines.push(`${seats2[e.seat]} ${e.action.type === "ankan" ? "\uC548\uAE61" : e.action.type === "minkan" ? "\uBA85\uAE61" : "\uAC00\uAE61"}${e.action.type === "ankan" && concealedForViewer(game, e.seat, log.humanSeat) ? " \xB7 \uBE44\uACF5\uAC1C" : Number.isInteger(e.action.tile) ? " \xB7 " + tileName(e.action.tile) : ""} (\uC774\uB54C\uB294 \uC810\uC218 \uC774\uB3D9 \uC5C6\uC74C)`);
     for (const win3 of e.wins) {
       const extra = Object.entries(win3.score.bonuses ?? {}).filter(([, value2]) => typeof value2 === "number" && value2).map(([name, value2]) => `${{ kan: game.rules.fourOfAKindBonus ? "\uC0AC\uADC0\uC77C" : "\uAE61", dragon: "\uC0BC\uC6D0\uD328", roundWind: "\uC7A5\uD48D", seatWind: "\uC790\uD48D" }[name] ?? name} ${value2}`);
       lines.push(s ? `${seats2[win3.seat]} ${win3.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 ${scoreBreakdownText(win3.score)}` : `${seats2[win3.seat]} ${win3.score.name} ${win3.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 \uC5ED ${win3.score.base}${extra.length ? " + " + extra.join(" + ") : ""}${win3.tsumoBonus ? " + \uCBD4\uBAA8 " + win3.tsumoBonus + " / \uC9C0\uAE09\uC790" : ""}`);
@@ -2756,13 +2899,109 @@ Object.freeze(value.weights);
 var TRAINING = Object.freeze(value);
 
 // web/training-results.mjs
-async function renderTrainingResults(get, training) {
+var BASE_NAMES = { A: "\uCD5C\uC18D \uD654\uB8CC", B: "\uD551\uD6C4\xB7\uB860 \uC218\uB77D", C: "\uD551\uD6C4\xB7\uCBD4\uBAA8 \uC9C0\uD5A5", D: "\uACE0\uB4DD\uC810", E: "\uADE0\uD615" };
+var PROFILE_NAMES = { speed: "\uC18D\uB3C4\uD615", pinfu: "\uD551\uD6C4\uD615", value: "\uACE0\uB4DD\uC810\uD615", cautious: "\uC2E0\uC911\uD615", mixed: "\uD63C\uD569\uD615", valuePressure: "\uACE0\uB4DD\uC810 \uC555\uBC15\uD615" };
+var fixed = (value2) => Number.isFinite(value2) ? value2.toFixed(2) : "\u2014";
+var percent = (value2) => Number.isFinite(value2) ? `${(value2 * 100).toFixed(1)}%` : "\u2014";
+var range = (low, high) => `${fixed(low)} ~ ${fixed(high)}`;
+var improved = (row) => row.simultaneousLow > 0;
+var verdict = (row) => improved(row) ? "\uAE30\uC900 \uB300\uBE44 \uAC1C\uC120 \uD655\uC778" : row.simultaneousHigh < 0 ? "\uAE30\uC900 \uB300\uBE44 \uB0AE\uC74C" : "\uCC28\uC774 \uBBF8\uD655\uC815";
+function privateTrainingResultModel(manifest, selection, data) {
+  const counts2 = manifest?.counts, versions = selection?.versions, seeds = manifest?.plan?.holdout?.seedCount;
+  if (manifest?.status !== "complete" || !Number.isSafeInteger(manifest.completedGames) || !counts2 || manifest.completedGames !== counts2.total || counts2.total !== counts2.pilot + counts2.tuning + counts2.holdout)
+    throw new Error("\uC804\uCCB4 \uC790\uB3D9 \uB300\uAD6D\uC774 \uC644\uB8CC\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.");
+  if (selection?.id !== manifest.id || !Array.isArray(versions) || versions.length !== 6 || !selection.frozenAt || !Number.isSafeInteger(seeds) || seeds < 2 || !manifest.rules?.concealedKanPrivate)
+    throw new Error("\uAC80\uC99D \uC870\uAC74\uACFC \uACE0\uC815\uD55C \uC804\uB7B5 \uBC84\uC804\uC744 \uD655\uC778\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.");
+  const ids = ["A", "B", "C", "D", "E", ...versions.map((v) => v.id)], expectedGames = seeds * 4;
+  if (new Set(ids).size !== 11 || !data?.summary || data.summary.length !== ids.length || !data.bootstrap || data.bootstrap.seedClusters !== seeds || counts2.holdout !== expectedGames * ids.length || ids.some((id) => data.summary.filter((row) => row.policy === id && row.games === expectedGames && [row.meanNet, row.ci95Low, row.ci95High, row.meanRank, row.topScoreRate, row.winRate].every(Number.isFinite)).length !== 1))
+    throw new Error("\uCD5C\uC885 \uAC80\uC99D\uC758 \uC644\uB8CC \uAD6D \uC218\uAC00 \uB9DE\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
+  if (!Array.isArray(data.improvements) || data.improvements.length !== 6 || versions.some((v) => data.improvements.filter((row) => row.policy === v.id && row.reference === v.policy && [row.meanDifference, row.ci95Low, row.ci95High, row.simultaneousLow, row.simultaneousHigh].every(Number.isFinite)).length !== 1))
+    throw new Error("\uAE30\uC900 \uC815\uCC45\uACFC\uC758 \uBE44\uAD50 \uACB0\uACFC\uAC00 \uB9DE\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
+  const names = { ...BASE_NAMES, ...Object.fromEntries(versions.map((v) => [v.id, v.name])) };
+  const label2 = (id) => `${id} \xB7 ${names[id] ?? id}`;
+  const summary = [...data.summary].sort((a, b) => b.meanNet - a.meanNet || a.policy.localeCompare(b.policy));
+  const approved = data.improvements.filter(improved).map((row) => `${row.policy} (${row.reference} \uB300\uBE44)`);
+  const best = summary[0];
+  return {
+    summary,
+    versions,
+    names,
+    label: label2,
+    best,
+    seeds,
+    conclusion: `\uC774\uBC88 \uC790\uB3D9 \uB300\uAD6D\uC758 \uD3C9\uADE0 \uC21C\uC218\uC775\uC740 ${label2(best.policy)}\uAC00 \uAD6D\uB2F9 ${fixed(best.meanNet)}\uC810\uC73C\uB85C \uAC00\uC7A5 \uB192\uC558\uC2B5\uB2C8\uB2E4. \uC5EC\uC12F \uC0AC\uC804 \uC9C0\uC815 \uBE44\uAD50\uB97C \uBCF4\uC815\uD55C \uB4A4 \uAE30\uC900\uBCF4\uB2E4 \uAC1C\uC120\uC774 \uD655\uC778\uB41C \uBC84\uC804: ${approved.join(", ") || "\uC5C6\uC74C"}.`,
+    improvements: data.improvements,
+    profiles: data.profileSummary ?? [],
+    pairCB: data.pairs?.find((row) => row.policy === "C" && row.reference === "B")
+  };
+}
+function fillRows(element2, rows, format2) {
+  element2.replaceChildren();
+  for (const row of rows) {
+    const tr = document.createElement("tr");
+    for (const value2 of format2(row)) {
+      const td = document.createElement("td");
+      td.textContent = value2;
+      tr.append(td);
+    }
+    element2.append(tr);
+  }
+}
+async function readResult(name) {
+  const response = await fetch(new URL(`../results/private-kan-20261011/${name}.json`, import.meta.url));
+  if (!response.ok) throw new Error("\uAC80\uC99D \uAE30\uB85D\uC744 \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.");
+  return response.json();
+}
+async function renderPrivateTrainingResults(get) {
+  const content = get("private-training-data"), status = get("private-training-run-status"), conclusion = get("private-training-conclusion");
+  if (!content || !status || !conclusion) return;
+  content.hidden = true;
+  try {
+    const manifest = await readResult("manifest");
+    if (manifest.status !== "complete") {
+      status.textContent = `\uC548\uAE61 \uBE44\uACF5\uAC1C H\uB8F0 \xB7 ${Number.isSafeInteger(manifest.completedGames) ? manifest.completedGames.toLocaleString() + "\uAD6D \uC644\uB8CC" : "\uC2E4\uD589 \uAE30\uB85D \uD655\uC778 \uC911"}`;
+      conclusion.textContent = "\uC804\uCCB4 \uAC80\uC99D\uC774 \uC644\uB8CC\uB418\uC9C0 \uC54A\uC544 \uC804\uB7B5\uC758 \uC6B0\uC5F4\uC744 \uD45C\uC2DC\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uD55C\uAD6D\uC5B4 \uBCF4\uACE0\uC11C\uC640 \uC2E4\uD589 \uAE30\uB85D\uC5D0\uC11C \uC9C4\uD589 \uC0C1\uD0DC\uB97C \uD655\uC778\uD558\uC138\uC694.";
+      return;
+    }
+    const [selection, data] = await Promise.all([readResult("selection"), readResult("analysis")]), model = privateTrainingResultModel(manifest, selection, data);
+    const time = Number.isFinite(manifest.elapsedSeconds) ? ` \xB7 \uC2E4\uD589 ${fixed(manifest.elapsedSeconds / 60)}\uBD84` : "";
+    status.textContent = `\uC2E4\uD589 \uC644\uB8CC \xB7 \uCD1D ${manifest.completedGames.toLocaleString()}\uAD6D${time}`;
+    conclusion.textContent = model.conclusion;
+    const plan = manifest.plan;
+    get("private-training-design").textContent = `\uC810\uAC80 ${manifest.counts.pilot.toLocaleString()}\uAD6D \u2192 \uD29C\uB2DD ${manifest.counts.tuning.toLocaleString()}\uAD6D (${plan.tuning.seedCount}\uAC1C \uC2DC\uB4DC, \uACC4\uC5F4\uB2F9 \uD6C4\uBCF4 2\uAC1C) \u2192 \uCD5C\uC885 \uAC80\uC99D ${manifest.counts.holdout.toLocaleString()}\uAD6D (${model.seeds}\uAC1C \uC0C8 \uC2DC\uB4DC \xD7 4\uC790\uB9AC \xD7 11\uC804\uB7B5). \uC0C1\uB300 \uC131\uD5A5 ${plan.profiles.length}\uC885. \uB3D9\uC77C \uC2DC\uB4DC\uC758 \uBAA8\uB4E0 \uC790\uB9AC\xB7\uC815\uCC45\uC744 \uD568\uAED8 \uC7AC\uD45C\uBCF8\uD558\uACE0 \uC0C1\uB300 \uC131\uD5A5 \uBE44\uC728\uC744 \uC720\uC9C0\uD574 95% \uC2E0\uB8B0\uAD6C\uAC04\uC744 \uACC4\uC0B0\uD588\uC2B5\uB2C8\uB2E4.`;
+    const cards = get("private-training-versions");
+    cards.replaceChildren();
+    for (const version of model.versions) {
+      const card = document.createElement("article");
+      card.className = "training-version-card";
+      const title = document.createElement("h3"), description = document.createElement("p"), comparison = document.createElement("p");
+      title.textContent = model.label(version.id);
+      description.textContent = version.description;
+      const row = model.improvements.find((r) => r.policy === version.id);
+      comparison.textContent = `\uAE30\uC900 ${version.policy} \xB7 ${verdict(row)}`;
+      comparison.className = "training-version-verdict";
+      card.append(title, description, comparison);
+      cards.append(card);
+    }
+    fillRows(get("private-training-summary"), model.summary, (row) => [model.label(row.policy), fixed(row.meanNet), range(row.ci95Low, row.ci95High), fixed(row.meanRank), percent(row.topScoreRate), percent(row.winRate)]);
+    fillRows(get("private-training-improvements"), model.improvements, (row) => [`${row.policy} \u2212 ${row.reference}`, fixed(row.meanDifference), range(row.ci95Low, row.ci95High), range(row.simultaneousLow, row.simultaneousHigh), verdict(row)]);
+    fillRows(get("private-training-details"), model.summary, (row) => [row.policy, percent(row.ronShareAmongWins), percent(row.tsumoShareAmongWins), percent(row.firstWinRate), fixed(row.averageWinOrder), fixed(row.averageWinDrawNumber), fixed(row.netAmongWins), fixed(row.dealInLossPerGame), fixed(row.tsumoPaidPerGame), fixed(row.drawLossPerGame)]);
+    fillRows(get("private-training-profiles"), model.profiles, (row) => [PROFILE_NAMES[row.profile] ?? row.profile, row.policy, fixed(row.meanNet), range(row.ci95Low, row.ci95High), fixed(row.meanRank)]);
+    const pair = model.pairCB;
+    get("private-training-cb").textContent = pair ? `\uCC98\uC74C\uC758 \uC9C8\uBB38\uC778 C \u2212 B (\uD551\uD6C4 \uCBD4\uBAA8 \uC9C0\uD5A5 \u2212 \uB860 \uC218\uB77D)\uB294 \uAD6D\uB2F9 ${fixed(pair.meanDifference)}\uC810, \uCC28\uC774\uC758 95% \uC2E0\uB8B0\uAD6C\uAC04 ${range(pair.ci95Low, pair.ci95High)}\uC810\uC785\uB2C8\uB2E4. \uC774 \uBE44\uAD50\uB294 \uD0D0\uC0C9\uC6A9\uC774\uBA70 \uC5EC\uB7EC \uC815\uCC45 \uC30D\uC5D0 \uB300\uD55C \uBCF4\uC815\uC740 \uD558\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.` : "";
+    content.hidden = false;
+  } catch {
+    status.textContent = "\uC548\uAE61 \uBE44\uACF5\uAC1C H\uB8F0 \xB7 \uC644\uB8CC \uAE30\uB85D \uD655\uC778 \uD544\uC694";
+    conclusion.textContent = "\uC644\uB8CC\uB41C \uACB0\uACFC \uD30C\uC77C\uC744 \uD655\uC778\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. \uC218\uCE58\uB97C \uD45C\uC2DC\uD558\uC9C0 \uC54A\uC73C\uBA70, \uD55C\uAD6D\uC5B4 \uBCF4\uACE0\uC11C\uC5D0\uC11C \uC2E4\uC81C \uC2E4\uD589 \uAE30\uB85D\uC744 \uD655\uC778\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.";
+  }
+}
+async function renderLegacyTrainingResults(get, training) {
   try {
     const response = await fetch(new URL("../results/training-20261006/analysis.json", import.meta.url));
     if (!response.ok) throw new Error("\uACB0\uACFC \uD30C\uC77C\uC744 \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.");
     const data = await response.json(), pair = data.tunedPairs.find((r) => r.comparison === "C-B");
     get("training-run-status").textContent = `\uC774\uC804 H\uB8F0\uC5D0\uC11C \uC2E4\uD589 \uC644\uB8CC \xB7 \uCD1D ${training.completedGames.toLocaleString()}\uAD6D \xB7 \uD29C\uB2DD ${training.trainingSeeds.toLocaleString()}\uAC1C / \uAC80\uC99D ${training.validationSeeds.toLocaleString()}\uAC1C \uC2DC\uB4DC`;
-    get("training-conclusion").textContent = `\uC774\uC804 \uADDC\uCE59\uC758 \uD559\uC2B5 \uD6C4\uBCF4\uB07C\uB9AC C\u2212B\uB294 \uAD6D\uB2F9 ${pair.meanDifference.toFixed(2)}\uC810 (95% \uC2E0\uB8B0\uAD6C\uAC04 ${pair.ci95Low.toFixed(2)} ~ ${pair.ci95High.toFixed(2)})\uC785\uB2C8\uB2E4. \uB2F9\uC2DC \uAC80\uC99D\uB41C \uAC1C\uC120 \uC815\uCC45: ${Object.keys(training.weights).join(", ") || "\uC5C6\uC74C"}. 10/11 \uBB38\uC758 \uB2F5\uBCC0\uC744 \uBC18\uC601\uD55C \uC0C8 \uADDC\uCE59\uC5D0\uC11C\uB294 \uC7AC\uAC80\uC99D\uD558\uC9C0 \uC54A\uC558\uC73C\uBA70, \uC774 \uAC00\uC911\uCE58\uB97C \uC790\uB3D9 \uC801\uC6A9\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.`;
+    get("training-conclusion").textContent = `\uC774\uC804 \uADDC\uCE59\uC758 \uD559\uC2B5 \uD6C4\uBCF4\uB07C\uB9AC C\u2212B\uB294 \uAD6D\uB2F9 ${pair.meanDifference.toFixed(2)}\uC810 (95% \uC2E0\uB8B0\uAD6C\uAC04 ${pair.ci95Low.toFixed(2)} ~ ${pair.ci95High.toFixed(2)})\uC785\uB2C8\uB2E4. \uB2F9\uC2DC \uAC80\uC99D\uB41C \uAC1C\uC120 \uC815\uCC45: ${Object.keys(training.weights).join(", ") || "\uC5C6\uC74C"}. \uC774 \uAD6C \uADDC\uCE59 \uAC00\uC911\uCE58\uC758 \uC218\uCE58\uB97C \uC0C8 \uADDC\uCE59 \uC131\uB2A5\uC73C\uB85C \uC62E\uACA8 \uD574\uC11D\uD558\uC9C0 \uC54A\uC73C\uBA70, \uC0C8 \uB300\uAD6D\uC5D0 \uC790\uB3D9 \uC801\uC6A9\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uC548\uAE61 \uBE44\uACF5\uAC1C \uADDC\uCE59\uC758 \uBCC4\uB3C4 \uC2E4\uD5D8\uC740 \uC704\uC5D0\uC11C \uD655\uC778\uD558\uC138\uC694.`;
     get("training-summary").replaceChildren();
     for (const r of data.improvements) {
       const old = data.baselineSummary.find((x) => x.policy === r.policy), tuned = data.tunedSummary.find((x) => x.policy === r.policy), row = document.createElement("tr");
@@ -2777,30 +3016,245 @@ async function renderTrainingResults(get, training) {
     get("training-conclusion").textContent = "\uACB0\uACFC \uD30C\uC77C\uC744 \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. \uD55C\uAD6D\uC5B4 \uBCF4\uACE0\uC11C\uC5D0\uC11C \uC2E4\uC81C \uAC80\uC99D \uACB0\uACFC\uB97C \uD655\uC778\uD558\uC138\uC694.";
   }
 }
+async function renderTrainingResults(get, training) {
+  await Promise.allSettled([renderPrivateTrainingResults(get), renderLegacyTrainingResults(get, training)]);
+}
+
+// web/private-kan-training.mjs
+var PRIVATE_KAN_TRAINING = {
+  "id": "H-private-kan-20261011-v1",
+  "rulesetId": "H-2026-private-kan-v1",
+  "rules": {
+    "id": "H-2026-private-kan-v1",
+    "ronPassAllowed": true,
+    "passRonLock": "none",
+    "selfDiscardFuriten": false,
+    "pinfuClosedOnly": false,
+    "peikouClosedOnly": false,
+    "ryanpeikouDistinctSuits": true,
+    "concealedKanBreaksMenzen": true,
+    "concealedKanPrivate": true,
+    "menzenRequiresTsumo": false,
+    "sevenPairsQuadAsTwo": false,
+    "greenTiles": [
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      32
+    ],
+    "kanBonus": 100,
+    "dragonBonus": 100,
+    "roundWindBonus": 100,
+    "seatWindBonus": 100,
+    "tsumoBonusPerPayer": 100,
+    "drawIncludesBonuses": false,
+    "drawWaitAvailability": "structural",
+    "deadWallTiles": 0,
+    "maxKans": 32,
+    "kanReplacement": "live-tail",
+    "addedKanRobAllowed": true,
+    "multipleRon": "all",
+    "chiFrom": "next-active",
+    "allowKuikae": true,
+    "revealWinnerHand": true,
+    "revealTsumoWinningTile": false,
+    "roundWind": 27,
+    "greenRequiresDragon": true,
+    "fourOfAKindBonus": true,
+    "ronContinuation": "last-winner"
+  },
+  "status": "complete",
+  "completedGames": 34372,
+  "tuningSeeds": 252,
+  "validationSeeds": 504,
+  "versions": [
+    {
+      "id": "V1",
+      "name": "\uACE0\uB4DD\uC810\xB7\uC18D\uB3C4 \uC720\uC9C0",
+      "description": "\uACE0\uB4DD\uC810 \uAC00\uCE58\uC640 \uC644\uC131 \uC18D\uB3C4\uB97C \uD568\uAED8 \uB192\uC784",
+      "policy": "D",
+      "candidate": "V1-2",
+      "weights": {
+        "speed": 60,
+        "ukeire": 1,
+        "value": 0.24,
+        "maxShantenLoss": 1
+      },
+      "tuningMean": 69.39484126984127,
+      "improved": false,
+      "validation": {
+        "meanNet": 64.2609126984127,
+        "ci95Low": 49.15674603174603,
+        "ci95High": 80.10974702380952,
+        "meanDifference": 6.894841269841265,
+        "simultaneousLow": -7.135416666666667,
+        "simultaneousHigh": 21.644035218253922
+      }
+    },
+    {
+      "id": "V2",
+      "name": "\uACE0\uB4DD\uC810\xB7\uAC15\uD55C \uCD94\uAD6C",
+      "description": "\uD55C \uC0E8\uD150 \uC190\uD574\uAE4C\uC9C0 \uAC10\uC218\uD558\uBA70 \uACE0\uB4DD\uC810 \uD615\uD0DC \uCD94\uAD6C",
+      "policy": "D",
+      "candidate": "V2-1",
+      "weights": {
+        "speed": 35,
+        "ukeire": 0.7,
+        "value": 0.28,
+        "maxShantenLoss": 1
+      },
+      "tuningMean": 72.0734126984127,
+      "improved": false,
+      "validation": {
+        "meanNet": 63.56646825396825,
+        "ci95Low": 48.16468253968254,
+        "ci95High": 79.66269841269842,
+        "meanDifference": 6.2003968253968225,
+        "simultaneousLow": -11.05375744047619,
+        "simultaneousHigh": 24.90916418650793
+      }
+    },
+    {
+      "id": "V3",
+      "name": "\uACE0\uB4DD\uC810\xB7\uC18D\uB3C4 \uBCF4\uC874",
+      "description": "\uCD5C\uC18C \uC0E8\uD150\uC744 \uC720\uC9C0\uD558\uB294 \uD6C4\uBCF4 \uC548\uC5D0\uC11C \uACE0\uB4DD\uC810 \uCD94\uAD6C",
+      "policy": "D",
+      "candidate": "V3-1",
+      "weights": {
+        "speed": 65,
+        "ukeire": 1,
+        "value": 0.2,
+        "maxShantenLoss": 0
+      },
+      "tuningMean": 69.84126984126983,
+      "improved": false,
+      "validation": {
+        "meanNet": 60.267857142857146,
+        "ci95Low": 44.717261904761905,
+        "ci95High": 75.94246031746032,
+        "meanDifference": 2.9017857142857153,
+        "simultaneousLow": -13.302021329365079,
+        "simultaneousHigh": 19.601624503968246
+      }
+    },
+    {
+      "id": "G1",
+      "name": "0\xB71\uD310 \uC218\uBE44\xB7\uC57D",
+      "description": "\uC800\uD310\uC218 \uC190\uC5D0 \uC57D\uD55C \uC218\uBE44, 2\uD310 \uC774\uC0C1\uC740 \uACF5\uACA9",
+      "policy": "E",
+      "candidate": "G1-1",
+      "weights": {
+        "speed": 65,
+        "ukeire": 1,
+        "value": 0.14,
+        "risk": 5,
+        "lowValueThreshold": 100,
+        "lowValueRisk": 35,
+        "maxShantenLoss": 1
+      },
+      "tuningMean": -22.470238095238095,
+      "improved": false,
+      "validation": {
+        "meanNet": -22.767857142857142,
+        "ci95Low": -38.78968253968254,
+        "ci95High": -6.496155753968281,
+        "meanDifference": -50.89285714285714,
+        "simultaneousLow": -73.01587301587301,
+        "simultaneousHigh": -28.777901785714306
+      }
+    },
+    {
+      "id": "G2",
+      "name": "0\xB71\uD310 \uC218\uBE44\xB7\uC911",
+      "description": "\uC800\uD310\uC218 \uC190\uC5D0 \uC911\uAC04 \uC218\uBE44, 2\uD310 \uC774\uC0C1\uC740 \uACF5\uACA9",
+      "policy": "E",
+      "candidate": "G2-1",
+      "weights": {
+        "speed": 60,
+        "ukeire": 1,
+        "value": 0.18,
+        "risk": 8,
+        "lowValueThreshold": 100,
+        "lowValueRisk": 70,
+        "maxShantenLoss": 1
+      },
+      "tuningMean": -138.4920634920635,
+      "improved": false,
+      "validation": {
+        "meanNet": -133.06051587301587,
+        "ci95Low": -149.578373015873,
+        "ci95High": -116.44345238095238,
+        "meanDifference": -161.18551587301587,
+        "simultaneousLow": -188.64118303571428,
+        "simultaneousHigh": -132.72972470238096
+      }
+    },
+    {
+      "id": "G3",
+      "name": "0\xB71\uD310 \uC218\uBE44\xB7\uAC15",
+      "description": "\uC800\uD310\uC218 \uC190\uC5D0 \uAC15\uD55C \uC218\uBE44, \uB450 \uC0E8\uD150\uAE4C\uC9C0 \uD6C4\uD1F4 \uD5C8\uC6A9",
+      "policy": "E",
+      "candidate": "G3-1",
+      "weights": {
+        "speed": 55,
+        "ukeire": 0.9,
+        "value": 0.2,
+        "risk": 12,
+        "lowValueThreshold": 100,
+        "lowValueRisk": 110,
+        "maxShantenLoss": 2
+      },
+      "tuningMean": -188.29365079365078,
+      "improved": false,
+      "validation": {
+        "meanNet": -190.50099206349208,
+        "ci95Low": -207.04427083333331,
+        "ci95High": -173.70969742063494,
+        "meanDifference": -218.62599206349208,
+        "simultaneousLow": -246.80896577380952,
+        "simultaneousHigh": -191.36904761904762
+      }
+    }
+  ]
+};
 
 // web/training-profile.mjs
+var privateTrainingVersions = () => PRIVATE_KAN_TRAINING.status === "complete" ? PRIVATE_KAN_TRAINING.versions : [];
+var privateTrainingVersion = (mode) => privateTrainingVersions().find((v) => v.id === mode);
+function privateTrainingCompatible(view) {
+  return PRIVATE_KAN_TRAINING.status === "complete" && view?.rules?.variant !== "S" && view?.rules?.concealedKanPrivate === true && Object.entries(PRIVATE_KAN_TRAINING.rules).every(([key3, value2]) => JSON.stringify(view.rules[key3]) === JSON.stringify(value2));
+}
 var KEY3 = "wellness-mahjong-training-profile-v1";
 function hasTrainedPolicies(training) {
   return Object.keys(training.weights).length > 0;
 }
 function trainingCompatible(view, training) {
   const rules = view?.rules;
-  return !!rules && rules.variant !== "S" && rules.id === (training.rulesetId ?? "H-2026-literal-v1") && !rules.greenRequiresDragon && !rules.fourOfAKindBonus && (!rules.ronContinuation || rules.ronContinuation === "discarder");
+  return !!rules && rules.variant !== "S" && rules.id === (training.rulesetId ?? "H-2026-literal-v1") && !rules.concealedKanPrivate && !rules.greenRequiresDragon && !rules.fourOfAKindBonus && (!rules.ronContinuation || rules.ronContinuation === "discarder");
 }
 function readTrainingMode(storage, training) {
   try {
-    if (storage?.getItem(KEY3) === "original") return "original";
+    const saved = storage?.getItem(KEY3);
+    if (saved === "original" || privateTrainingVersion(saved)) return saved;
   } catch {
   }
   return hasTrainedPolicies(training) ? "trained" : "original";
 }
 function saveTrainingMode(storage, mode) {
   try {
-    storage?.setItem(KEY3, mode === "trained" ? "trained" : "original");
+    storage?.setItem(KEY3, mode === "trained" || privateTrainingVersion(mode) ? mode : "original");
   } catch {
   }
 }
 function trainingWeights(view, mode, training) {
+  const version = privateTrainingVersion(mode);
+  if (version) return privateTrainingCompatible(view) ? { [version.policy]: version.weights } : {};
   return trainingCompatible(view, training) && mode === "trained" ? training.weights : {};
 }
 function practiceAction(view, { humanSeat: humanSeat2, policy, profile, mode, training }) {
@@ -2836,6 +3290,15 @@ var chosenVariant = preferences.variant;
 var chosenFormat = preferences.format;
 var journal = new GameJournal({ storage: logStorage });
 var buildId = new URL(import.meta.url).searchParams.get("v") ?? "local-source";
+var kanPeek = createKanPeek({ onChange: () => {
+  if (state && (!online || remote?.state)) renderMelds();
+} });
+var coverPrivateKan = () => kanPeek.clear();
+window.addEventListener("blur", coverPrivateKan);
+window.addEventListener("pagehide", coverPrivateKan);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") coverPrivateKan();
+});
 var archiveStatuses = /* @__PURE__ */ new Map();
 var archiveFailure = null;
 var useArchive = (action) => archiveTask(action, () => {
@@ -2882,32 +3345,36 @@ for (const [id, p] of Object.entries(POLICIES2)) {
   $("policy").append(opt);
 }
 $("policy").value = "D";
+for (const v of privateTrainingVersions()) {
+  const option = document.createElement("option");
+  option.value = v.id;
+  option.textContent = `${v.id} \xB7 ${v.name}${v.improved ? " \xB7 \uAE30\uC874 \uB300\uBE44 \uAC1C\uC120 \uD655\uC778" : " \xB7 \uC2E4\uD5D8 \uD6C4\uBCF4"}`;
+  $("training-mode").append(option);
+}
+if (privateTrainingVersion(trainingMode)) $("policy").value = privateTrainingVersion(trainingMode).policy;
 var seatIndex = (seat) => (seat - (state?.dealer ?? 0) + 4) % 4;
 var seatName = (seat) => SEAT_NAMES[seatIndex(seat)];
 var wind = (seat) => ["\u6771", "\u5357", "\u897F", "\u5317"][seatIndex(seat)];
 var currentMatch = () => online ? remote?.match ?? null : practiceMatch ? matchSummary3(practiceMatch, state) : null;
-function node(tag, text, cls) {
+function node2(tag, text, cls) {
   const el = document.createElement(tag);
   if (text !== void 0) el.textContent = text;
   if (cls) el.className = cls;
   return el;
 }
 function riichiMarker(seat) {
-  const marker = node("span", void 0, "riichi-status"), stick = node("span", void 0, "riichi-stick");
+  const marker = node2("span", void 0, "riichi-status"), stick = node2("span", void 0, "riichi-stick");
   marker.setAttribute("role", "img");
   marker.setAttribute("aria-label", `${seatName(seat)} \uB9AC\uCE58`);
   marker.title = `${seatName(seat)} \uB9AC\uCE58`;
   stick.setAttribute("aria-hidden", "true");
-  const label2 = node("span", "\uB9AC\uCE58");
+  const label2 = node2("span", "\uB9AC\uCE58");
   label2.setAttribute("aria-hidden", "true");
   marker.append(stick, label2);
   return marker;
 }
 function tiles(parent, types) {
   for (const t of types) parent.append(tileFace(t, { small: true }));
-}
-function meldText(m) {
-  return `${m.type === "kan" ? m.open ? "\uBA85\uAE61" : "\uC548\uAE61" : m.type === "pon" ? "\uD401" : "\uCE58"} ${m.type === "chi" ? [m.tile, m.tile + 1, m.tile + 2].map(tileName).join(" ") : tileName(m.tile)}`;
 }
 function handTile(id, legal, drawn = false) {
   const t = typeOf(id), b = tileFace(t, { button: true });
@@ -2953,51 +3420,41 @@ function updateSelection() {
   }
   $("selection-hint").textContent = state.end ? currentMatch()?.status === "between-rounds" ? "\uC704\uC758 \uB2E4\uC74C \uAD6D \uC2DC\uC791 \uBC84\uD2BC\uC73C\uB85C \uC810\uC218\uB97C \uC774\uC5B4\uAC11\uB2C8\uB2E4." : "\uC0C8 \uB300\uAD6D\uC73C\uB85C \uB2E4\uC2DC \uC5F0\uC2B5\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." : state.players[humanSeat].won ? "\uD654\uB8CC\uD588\uC2B5\uB2C8\uB2E4. \uB0A8\uC740 \uB300\uAD6D\uC744 \uC9C0\uCF1C\uBCF4\uC138\uC694." : auto ? "\uC120\uD0DD\uD55C \uC804\uB7B5\uC73C\uB85C \uC790\uB3D9 \uB300\uAD6D \uC911\uC785\uB2C8\uB2E4." : actor4(state) !== humanSeat ? "\uC0C1\uB300\uAC00 \uC9C4\uD589 \uC911\uC785\uB2C8\uB2E4." : state.phase === "reaction" ? "\uAC00\uB2A5\uD55C \uD589\uB3D9\uC744 \uC120\uD0DD\uD558\uC138\uC694." : selectedTileId === null ? "\uD328\uB97C \uC120\uD0DD \u2192 \uB2E4\uC2DC \uB204\uB974\uAC70\uB098 \u2018\uBC84\uB9AC\uAE30\u2019\uB85C \uD655\uC815" : `${tileName(typeOf(selectedTileId))} \uC120\uD0DD \xB7 \uB2E4\uC2DC \uB204\uB974\uAC70\uB098 \u2018\uBC84\uB9AC\uAE30\u2019\uB85C \uD655\uC815`;
 }
-function renderMeld(m, seat) {
-  const display = meldDisplay(m, seat, state.players, { variant: state.rules.variant ?? "H" }), el = node("div", void 0, "meld");
-  const source = display.source ? `${MELD_SOURCE_LABELS[display.source]}\uC5D0\uC11C \uAC00\uC838\uC628 ${tileName(typeOf(display.calledId))}` : "";
-  const label2 = [meldText(m), m.type === "kan" && !m.open ? "\uD328 \uC885\uB958 \uACF5\uAC1C" : "", source, display.addedId !== null ? "\uAC00\uAE61\uC740 \uAC00\uC838\uC628 \uD328 \uC704\uC5D0 \uACB9\uCCD0 \uD45C\uC2DC" : ""].filter(Boolean).join(" \xB7 ");
-  el.setAttribute("aria-label", label2);
-  el.title = label2;
-  el.append(node("span", m.type === "kan" ? m.open ? "\uAE61" : "\uC548\uAE61" : m.type === "pon" ? "\uD401" : "\uCE58", "meld-label"));
-  for (const slot of display.slots) {
-    const group = node("span", void 0, "meld-slot" + (slot.called ? " is-called" : "") + (slot.added ? " is-added-kan" : ""));
-    const add = (tile, extra = false) => {
-      const wrap = node("span", void 0, "meld-tile" + (slot.called ? " sideways" : ""));
-      wrap.dataset.tileId = String(tile.id);
-      wrap.setAttribute("aria-label", tile.faceDown ? "\uC548\uAE61 \uB4B7\uBA74" : `${tileName(tile.tile)}${extra ? " \xB7 \uAC00\uAE61\uC73C\uB85C \uB354\uD55C \uD328" : slot.called ? " \xB7 " + source : ""}`);
-      if (tile.faceDown) {
-        const back = node("span", void 0, "tile-back meld-back");
-        back.setAttribute("role", "img");
-        back.setAttribute("aria-label", "\uC548\uAE61 \uB4B7\uBA74");
-        wrap.append(back);
-      } else wrap.append(tileFace(tile.tile, { small: true }));
-      group.append(wrap);
-    };
-    add(slot);
-    if (slot.added) add(slot.added, true);
-    el.append(group);
-  }
-  return el;
+function renderMeld(m, seat, index) {
+  const key3 = `${seat}:${index}`;
+  return renderMeldElement(m, seat, state.players, { key: key3, variant: state.rules.variant ?? "H", concealedKanPrivate: state.rules.concealedKanPrivate, viewerSeat: humanSeat, revealed: kanPeek.isRevealed(key3), onToggle: () => {
+    if (kanPeek.isRevealed(key3)) kanPeek.clear();
+    else kanPeek.reveal(key3);
+  } });
 }
 function renderMeldZone(player, position, seat) {
   if (!player.melds.length) return;
-  const zone = node("div", void 0, `meld-zone meld-zone-${position}`), rack = node("div", void 0, "meld-rack");
-  zone.setAttribute("aria-label", `${seatName(seat)} \uACF5\uAC1C \uBAB8\uD1B5 \xB7 \uC790\uAE30 \uAE30\uC900 \uC67C\uCABD`);
+  const zone = node2("div", void 0, `meld-zone meld-zone-${position}`), rack = node2("div", void 0, "meld-rack");
+  zone.setAttribute("aria-label", `${seatName(seat)} \uBAB8\uD1B5 \xB7 \uC790\uAE30 \uAE30\uC900 \uC67C\uCABD`);
   for (const [index, m] of player.melds.entries()) {
-    const group = renderMeld(m, seat);
+    const group = renderMeld(m, seat, index);
     group.dataset.meldOrder = String(index + 1);
     rack.append(group);
   }
   zone.append(rack);
   $("melds").append(zone);
 }
+function renderMelds() {
+  kanPeek.setContext(JSON.stringify([online ? "online" : "practice", humanSeat, journal.current?.id, remote?.code, remote?.gameNumber]));
+  const focused = document.hasFocus() ? document.activeElement?.dataset.meldKey : null;
+  $("melds").replaceChildren();
+  for (const [position, seat] of Object.entries(seatPositions(humanSeat))) renderMeldZone(state.players[seat], position, seat);
+  if (focused) {
+    for (const button of $("melds").querySelectorAll("button[data-meld-key]")) if (button.dataset.meldKey === focused) button.focus({ preventScroll: true });
+  }
+  updateTableLayout();
+}
 function renderRiver(parent, player) {
   parent.replaceChildren();
   let row;
   for (const [index, d] of player.river.entries()) {
     if (index % 6 === 0) {
-      row = node("div", void 0, "river-row");
+      row = node2("div", void 0, "river-row");
       parent.append(row);
     }
     const t = tileFace(typeOf(d.id), { small: true });
@@ -3015,59 +3472,59 @@ function renderDora() {
   panel.hidden = !view;
   panel.replaceChildren();
   if (!view) return;
-  const heading = node("div", void 0, "dora-heading"), winner = state.players[seat].won;
+  const heading = node2("div", void 0, "dora-heading"), winner = state.players[seat].won;
   const count = winner && state.players[seat].win.score.yakuman ? "\uC5ED\uB9CC \xB7 \uB3C4\uB77C \uAC00\uC0B0 \uC5C6\uC74C" : `${winner ? seatName(seat) + " \uD654\uB8CC\uD328" : "\uB0B4 \uD328"} \uB3C4\uB77C ${view.count}\uD310${view.uraCount !== null ? " \xB7 \uC6B0\uB77C\uB3C4\uB77C " + view.uraCount + "\uD310" : ""}`;
-  heading.append(node("strong", "\uB3C4\uB77C"), node("span", count));
+  heading.append(node2("strong", "\uB3C4\uB77C"), node2("span", count));
   panel.append(heading);
   for (const [label2, pairs] of [["\uD45C\uC2DC\uD328 \u2192 \uB3C4\uB77C", view.visible], ["\uC6B0\uB77C \uD45C\uC2DC\uD328 \u2192 \uC6B0\uB77C\uB3C4\uB77C", view.ura]]) {
     if (!pairs.length) continue;
-    const group = node("div", void 0, "dora-group");
-    group.append(node("span", label2, "dora-label"));
+    const group = node2("div", void 0, "dora-group");
+    group.append(node2("span", label2, "dora-label"));
     for (const pair of pairs) {
-      const item = node("span", void 0, "dora-pair");
+      const item = node2("span", void 0, "dora-pair");
       item.title = `\uD45C\uC2DC\uD328 ${tileName(pair.indicator)} \u2192 \uB3C4\uB77C ${tileName(pair.dora)}`;
-      item.append(tileFace(pair.indicator, { small: true }), node("span", "\u2192", "dora-arrow"), tileFace(pair.dora, { small: true }));
+      item.append(tileFace(pair.indicator, { small: true }), node2("span", "\u2192", "dora-arrow"), tileFace(pair.dora, { small: true }));
       group.append(item);
     }
     panel.append(group);
   }
-  panel.append(node("p", "1\uC7A5\uB2F9 1\uD310 \xB7 \uD654\uB8CC \uC5ED\uC774 \uC788\uC5B4\uC57C \uB3C4\uB77C\uB97C \uAC00\uC0B0\uD569\uB2C8\uB2E4.", "dora-note"));
+  panel.append(node2("p", "1\uC7A5\uB2F9 1\uD310 \xB7 \uD654\uB8CC \uC5ED\uC774 \uC788\uC5B4\uC57C \uB3C4\uB77C\uB97C \uAC00\uC0B0\uD569\uB2C8\uB2E4.", "dora-note"));
 }
 function renderHanBreakdown(detail) {
-  const section = node("div", void 0, "han-breakdown"), groups = node("div", void 0, "han-groups");
+  const section = node2("div", void 0, "han-breakdown"), groups = node2("div", void 0, "han-groups");
   const bonusEntries = [...detail.bonuses];
   if (!detail.yakuman && !bonusEntries.some((e) => e.id === "dora")) bonusEntries.push({ name: "\uB3C4\uB77C", han: 0 });
   for (const [label2, entries] of [["\uC131\uB9BD \uC5ED", detail.yaku], ["\uAC00\uC0B0", detail.yakuman ? [] : bonusEntries]]) {
     if (!entries.length) continue;
-    const group = node("div", void 0, "han-group"), list = node("ul", void 0, "han-list");
-    group.append(node("h3", label2));
+    const group = node2("div", void 0, "han-group"), list = node2("ul", void 0, "han-list");
+    group.append(node2("h3", label2));
     for (const entry of entries) {
-      const row = node("li");
-      row.append(node("span", entry.name), node("strong", detail.yakuman ? "\uC5ED\uB9CC" : `${entry.han}\uD310`));
+      const row = node2("li");
+      row.append(node2("span", entry.name), node2("strong", detail.yakuman ? "\uC5ED\uB9CC" : `${entry.han}\uD310`));
       list.append(row);
     }
     group.append(list);
     groups.append(group);
   }
-  section.append(groups, node("p", detail.summary, "han-total"));
+  section.append(groups, node2("p", detail.summary, "han-total"));
   return section;
 }
 function discardMetrics(discard) {
   return `${discard.shanten === 0 ? "\uD150\uD30C\uC774 (0\uC0E8\uD150)" : discard.shanten + "\uC0E8\uD150"} \xB7 \uC720\uD6A8\uD328 \uCD94\uC815 ${discard.ukeire}\uC7A5`;
 }
 function renderDiscardRanking(discard) {
-  const details = node("details", void 0, "discard-ranking");
-  details.append(node("summary", `\uBC84\uB9BC\uD328 \uD6C4\uBCF4 ${discard.ranking.length}\uAC1C \xB7 \uC810\uC218\uC640 \uC774\uC720`));
-  if (discard.reason) details.append(node("p", discard.reason));
-  const list = node("ol");
+  const details = node2("details", void 0, "discard-ranking");
+  details.append(node2("summary", `\uBC84\uB9BC\uD328 \uD6C4\uBCF4 ${discard.ranking.length}\uAC1C \xB7 \uC810\uC218\uC640 \uC774\uC720`));
+  if (discard.reason) details.append(node2("p", discard.reason));
+  const list = node2("ol");
   for (const row of discard.ranking) {
-    const li = node("li"), title = node("strong", `${row.rank}\uC704 \xB7 ${tileName(row.tile)}${row.selected ? " \xB7 \uCD94\uCC9C" : ""}`);
-    li.append(title, node("span", `\uD3C9\uAC00 ${row.score.toFixed(2)} \xB7 ${row.shanten}\uC0E8\uD150 \xB7 \uC720\uD6A8\uD328 ${row.ukeire}\uC7A5`));
-    li.append(node("span", Object.entries(row.components).map(([key3, value2]) => `${{ speed: "\uC0E8\uD150", ukeire: "\uC720\uD6A8\uD328", value: "\uC5ED \uAC00\uCE58", pinfu: "\uD551\uD6C4 \uD615\uD0DC", risk: "\uC704\uD5D8" }[key3]} ${value2 >= 0 ? "+" : ""}${value2.toFixed(2)}`).join(" / "), "ranking-components"));
+    const li = node2("li"), title = node2("strong", `${row.rank}\uC704 \xB7 ${tileName(row.tile)}${row.selected ? " \xB7 \uCD94\uCC9C" : ""}`);
+    li.append(title, node2("span", `\uD3C9\uAC00 ${row.score.toFixed(2)} \xB7 ${row.shanten}\uC0E8\uD150 \xB7 \uC720\uD6A8\uD328 ${row.ukeire}\uC7A5`));
+    li.append(node2("span", Object.entries(row.components).map(([key3, value2]) => `${{ speed: "\uC0E8\uD150", ukeire: "\uC720\uD6A8\uD328", value: "\uC5ED \uAC00\uCE58", pinfu: "\uD551\uD6C4 \uD615\uD0DC", risk: "\uC704\uD5D8" }[key3]} ${value2 >= 0 ? "+" : ""}${value2.toFixed(2)}`).join(" / "), "ranking-components"));
     list.append(li);
   }
-  details.append(list, node("p", "\uAC19\uC740 \uC804\uB7B5 \uC548\uC758 \uD6C4\uBCF4 \uBE44\uAD50\uC6A9 \uD3C9\uAC00\uC810\uC218\uC785\uB2C8\uB2E4. \uC608\uC0C1 \uC218\uC775\xB7\uD655\uB960\xB7\uAC15\uD654\uD559\uC2B5 Q\uAC12\uC774 \uC544\uB2D9\uB2C8\uB2E4."));
-  if (discard.excludedCount) details.append(node("p", `\uC0E8\uD150\uC774 \uB108\uBB34 \uB298\uC5B4\uB098\uB294 \uBC84\uB9BC\uD328 ${discard.excludedCount}\uC885\uC740 \uC774 \uC804\uB7B5\uC758 \uD6C4\uBCF4\uC5D0\uC11C \uC81C\uC678\uD588\uC2B5\uB2C8\uB2E4.`));
+  details.append(list, node2("p", "\uAC19\uC740 \uC804\uB7B5 \uC548\uC758 \uD6C4\uBCF4 \uBE44\uAD50\uC6A9 \uD3C9\uAC00\uC810\uC218\uC785\uB2C8\uB2E4. \uC608\uC0C1 \uC218\uC775\xB7\uD655\uB960\xB7\uAC15\uD654\uD559\uC2B5 Q\uAC12\uC774 \uC544\uB2D9\uB2C8\uB2E4."));
+  if (discard.excludedCount) details.append(node2("p", `\uC0E8\uD150\uC774 \uB108\uBB34 \uB298\uC5B4\uB098\uB294 \uBC84\uB9BC\uD328 ${discard.excludedCount}\uC885\uC740 \uC774 \uC804\uB7B5\uC758 \uD6C4\uBCF4\uC5D0\uC11C \uC81C\uC678\uD588\uC2B5\uB2C8\uB2E4.`));
   return details;
 }
 function renderRecommendations() {
@@ -3104,20 +3561,24 @@ function renderRecommendations() {
   }
   const view = observation4(state, humanSeat);
   currentRecommendations = strategyRecommendations(view, trainingWeights(view, trainingMode, TRAINING));
+  const selectedVersion = privateTrainingCompatible(view) && privateTrainingVersion(trainingMode);
+  if (selectedVersion) {
+    for (const rec of currentRecommendations) if (rec.policy === selectedVersion.policy) rec.name = `${selectedVersion.id} \xB7 ${selectedVersion.name}`;
+  }
   status.textContent = "\uBC84\uD2BC\uC744 \uB204\uB974\uBA74 \uD574\uB2F9 \uC804\uB7B5\uC758 \uC120\uD0DD\uC744 \uD55C \uBC88 \uC2E4\uD589\uD569\uB2C8\uB2E4.";
   for (const rec of currentRecommendations) {
-    const card = node("article", void 0, "recommendation-card"), title = node("h4");
-    title.append(node("span", rec.policy, "policy-badge"), node("span", rec.name));
-    card.append(title, node("p", rec.reason, "recommendation-reason"));
-    if (rec.action.type === "discard") card.append(node("p", discardMetrics(rec.discard), "recommendation-metrics"));
-    const button = node("button", rec.label, "recommendation-action" + (["ron", "tsumo"].includes(rec.action.type) ? " is-win" : ""));
+    const card = node2("article", void 0, "recommendation-card"), title = node2("h4");
+    title.append(node2("span", rec.policy, "policy-badge"), node2("span", rec.name));
+    card.append(title, node2("p", rec.reason, "recommendation-reason"));
+    if (rec.action.type === "discard") card.append(node2("p", discardMetrics(rec.discard), "recommendation-metrics"));
+    const button = node2("button", rec.label, "recommendation-action" + (["ron", "tsumo"].includes(rec.action.type) ? " is-win" : ""));
     button.setAttribute("aria-label", `${rec.policy} \uC804\uB7B5 \uCD94\uCC9C \uC2E4\uD589: ${rec.label}`);
     button.onclick = () => actRecommendation(rec.policy, "recommended", revision);
     card.append(button);
     if (rec.discard && rec.action.type !== "discard") {
-      const alternative = node("div", void 0, "recommendation-alternative");
-      alternative.append(node("p", rec.action.type === "riichi" ? "\uB9AC\uCE58 \uC5C6\uC774 \uBC84\uB9B0\uB2E4\uBA74" : "\uAE61 \uB300\uC2E0 \uBC84\uB9B0\uB2E4\uBA74", "alternative-title"), node("p", discardMetrics(rec.discard), "recommendation-metrics"));
-      const discardButton = node("button", rec.discard.label, "recommendation-discard");
+      const alternative = node2("div", void 0, "recommendation-alternative");
+      alternative.append(node2("p", rec.action.type === "riichi" ? "\uB9AC\uCE58 \uC5C6\uC774 \uBC84\uB9B0\uB2E4\uBA74" : "\uAE61 \uB300\uC2E0 \uBC84\uB9B0\uB2E4\uBA74", "alternative-title"), node2("p", discardMetrics(rec.discard), "recommendation-metrics"));
+      const discardButton = node2("button", rec.discard.label, "recommendation-discard");
       discardButton.setAttribute("aria-label", `${rec.policy} \uC804\uB7B5 \uBC84\uB9BC\uD328 \uB300\uC548 \uC2E4\uD589: ${rec.discard.label}`);
       discardButton.onclick = () => actRecommendation(rec.policy, "discard", revision);
       alternative.append(discardButton);
@@ -3165,71 +3626,70 @@ function render() {
   $("win-count").textContent = `\uD654\uB8CC ${state.winners.length} / ${variant === "S" ? 1 : 3}\uBA85`;
   $("opponents").replaceChildren();
   $("rivers").replaceChildren();
-  $("melds").replaceChildren();
+  renderMelds();
   for (const [position, i] of Object.entries(positions)) {
     const pl = state.players[i];
-    renderMeldZone(pl, position, i);
     const windElement = $(`wind-${position}`);
     windElement.textContent = wind(i);
     windElement.classList.toggle("active-wind", i === shownTurn);
     if (position === "bottom") continue;
-    const card = node("div", void 0, `opponent opponent-${position}${pl.won ? " won" : ""}${shownTurn === i ? " active" : ""}`), title = node("div", void 0, "player-title"), who = node("span", void 0, "player-seat");
-    who.append(node("span", wind(i), "seat-badge"), node("span", online ? roomMemberName(remote.members.find((m) => m.seat === i)) : "AI", "player-name"));
-    title.append(who, node("span", match ? `${match.totals[i].toLocaleString()}\uC810` : signedPoints(pl.score), "player-score"));
-    card.append(title, node("p", pl.won ? `${pl.win.order}\uBC88\uC9F8 ${pl.win.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 ${pl.win.score.name}` : `${seatName(i)} \xB7 \uC190\uD328 ${pl.handSize ?? pl.hand.length}\uC7A5`, "player-sub"));
+    const card = node2("div", void 0, `opponent opponent-${position}${pl.won ? " won" : ""}${shownTurn === i ? " active" : ""}`), title = node2("div", void 0, "player-title"), who = node2("span", void 0, "player-seat");
+    who.append(node2("span", wind(i), "seat-badge"), node2("span", online ? roomMemberName(remote.members.find((m) => m.seat === i)) : "AI", "player-name"));
+    title.append(who, node2("span", match ? `${match.totals[i].toLocaleString()}\uC810` : signedPoints(pl.score), "player-score"));
+    card.append(title, node2("p", pl.won ? `${pl.win.order}\uBC88\uC9F8 ${pl.win.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 ${pl.win.score.name}` : `${seatName(i)} \xB7 \uC190\uD328 ${pl.handSize ?? pl.hand.length}\uC7A5`, "player-sub"));
     if (pl.riichi) card.append(riichiMarker(i));
     if (state.end || pl.won) {
-      const revealed = node("div", void 0, "revealed-hand");
+      const revealed = node2("div", void 0, "revealed-hand");
       tiles(revealed, pl.hand.filter((id) => state.end || pl.win.method !== "tsumo" || id !== pl.win.tile).map(typeOf));
       card.append(revealed);
     } else {
-      const hidden = node("div", void 0, "hidden-hand");
+      const hidden = node2("div", void 0, "hidden-hand");
       hidden.setAttribute("aria-hidden", "true");
-      for (let j = 0; j < (pl.handSize ?? pl.hand.length); j++) hidden.append(node("span", void 0, "tile-back"));
+      for (let j = 0; j < (pl.handSize ?? pl.hand.length); j++) hidden.append(node2("span", void 0, "tile-back"));
       card.append(hidden);
     }
     $("opponents").append(card);
-    const river = node("div", void 0, `river river-${position}`);
+    const river = node2("div", void 0, `river river-${position}`);
     river.setAttribute("aria-label", `${seatName(i)} \uBC84\uB9BC\uD328`);
     renderRiver(river, pl);
     $("rivers").append(river);
   }
-  $("self-title").replaceChildren(node("span", wind(humanSeat), "seat-badge"), node("span", `${seatName(humanSeat)} \xB7 \uB098`), node("span", match ? `${matchFormatName(summaryFormat(match))} ${match.totals[humanSeat].toLocaleString()}\uC810` : `\uAD6D \uB204\uC801 ${signedPoints(p.score)}\uC810`, "self-score"));
+  $("self-title").replaceChildren(node2("span", wind(humanSeat), "seat-badge"), node2("span", `${seatName(humanSeat)} \xB7 \uB098`), node2("span", match ? `${matchFormatName(summaryFormat(match))} ${match.totals[humanSeat].toLocaleString()}\uC810` : `\uAD6D \uB204\uC801 ${signedPoints(p.score)}\uC810`, "self-score"));
   if (p.riichi) $("self-title").append(riichiMarker(humanSeat));
-  if (p.won) $("self-title").append(node("span", `${p.win.order}\uBC88\uC9F8 \uD654\uB8CC`, "player-sub"));
+  if (p.won) $("self-title").append(node2("span", `${p.win.order}\uBC88\uC9F8 \uD654\uB8CC`, "player-sub"));
   const settledSeat = variant === "S" ? state.winners[0] : humanSeat, settlement = settledSeat === void 0 ? null : winSettlement(state, settledSeat), result = $("win-settlement");
   result.hidden = !settlement;
   result.replaceChildren();
   if (settlement) {
-    result.append(node("strong", `${variant === "S" ? seatName(settledSeat) + " \xB7 " : ""}${settlement.title}`));
+    result.append(node2("strong", `${variant === "S" ? seatName(settledSeat) + " \xB7 " : ""}${settlement.title}`));
     if (settlement.breakdown) result.append(renderHanBreakdown(settlement.breakdown));
-    result.append(node("p", settlement.calculation));
-    if (variant === "H" && settlement.bonusDetails) result.append(node("p", settlement.bonusDetails));
-    if (settlement.previousNet !== 0) result.append(node("p", `\uD654\uB8CC \uC804 \uB204\uC801 ${signedPoints(settlement.previousNet)}\uC810 \u2192 \uAD6D \uB204\uC801 ${signedPoints(settlement.net)}\uC810`));
+    result.append(node2("p", settlement.calculation));
+    if (variant === "H" && settlement.bonusDetails) result.append(node2("p", settlement.bonusDetails));
+    if (settlement.previousNet !== 0) result.append(node2("p", `\uD654\uB8CC \uC804 \uB204\uC801 ${signedPoints(settlement.previousNet)}\uC810 \u2192 \uAD6D \uB204\uC801 ${signedPoints(settlement.net)}\uC810`));
   }
   const legal = a === humanSeat ? legalActions4(state) : [], hand = handDisplay(state, humanSeat), automaticPass = needsPass(state, humanSeat);
   $("hand").replaceChildren();
   for (const id of hand.held) $("hand").append(handTile(id, legal));
   if (hand.drawn !== null) {
-    const group = node("div", void 0, "drawn-group");
-    group.append(node("span", "\uBF51\uC740 \uD328", "drawn-label"), handTile(hand.drawn, legal, true));
+    const group = node2("div", void 0, "drawn-group");
+    group.append(node2("span", "\uBF51\uC740 \uD328", "drawn-label"), handTile(hand.drawn, legal, true));
     $("hand").append(group);
   }
   $("actions").replaceChildren();
   if (state.phase === "reaction" && a === humanSeat) {
-    const label2 = node("span", void 0, "reaction-label");
-    label2.append(tileFace(typeOf(state.reaction.id), { small: true }), node("span", tileName(typeOf(state.reaction.id))));
+    const label2 = node2("span", void 0, "reaction-label");
+    label2.append(tileFace(typeOf(state.reaction.id), { small: true }), node2("span", tileName(typeOf(state.reaction.id))));
     $("actions").append(label2);
   }
-  if (automaticPass) $("actions").append(node("span", "\uAC00\uB2A5\uD55C \uD6C4\uB85C \uC5C6\uC74C \xB7 0.7\uCD08 \uB4A4 \uC790\uB3D9 \uB118\uAE30\uAE30", "auto-pass-note"));
+  if (automaticPass) $("actions").append(node2("span", "\uAC00\uB2A5\uD55C \uD6C4\uB85C \uC5C6\uC74C \xB7 0.7\uCD08 \uB4A4 \uC790\uB3D9 \uB118\uAE30\uAE30", "auto-pass-note"));
   for (const action of legal.filter((a2) => a2.type !== "discard" && !(automaticPass && a2.type === "pass"))) {
-    const b = node("button", actionLabel(action, { melds: p.melds, legalActions: legal }), ["ron", "tsumo"].includes(action.type) ? "win" : "");
+    const b = node2("button", actionLabel(action, { melds: p.melds, legalActions: legal }), ["ron", "tsumo"].includes(action.type) ? "win" : "");
     b.disabled = auto || networkBusy;
     b.onclick = () => act(action);
     $("actions").append(b);
   }
   if (legal.some((a2) => a2.type === "discard")) {
-    const b = node("button", "\uBC84\uB9AC\uAE30", "discard-confirm");
+    const b = node2("button", "\uBC84\uB9AC\uAE30", "discard-confirm");
     b.id = "discard-confirm";
     b.onclick = () => {
       try {
@@ -3249,7 +3709,7 @@ function render() {
   for (const e of state.events.filter((e2) => ["win", "kan", "drawSettlement", "call"].includes(e2.type)).slice(-30)) {
     const settlement2 = e.type === "win" ? winSettlement(state, e.seat) : null;
     const text = settlement2 ? `${seatName(e.seat)}: ${settlement2.title} \xB7 ${settlement2.calculation}` : e.type === "call" ? `${seatName(e.seat)}: ${e.action.type}` : e.type === "kan" ? `${seatName(e.seat)}: \uAE61, \uBCF4\uCDA9\uD328 \uC218\uB839` : "\uC720\uAD6D \uD150\uD30C\uC774 \uC815\uC0B0 \uC644\uB8CC";
-    $("events").append(node("li", text));
+    $("events").append(node2("li", text));
   }
 }
 function updateTableLayout() {
@@ -3417,6 +3877,7 @@ function practiceInfo() {
   $("practice-info").textContent = `\uB0B4 \uC790\uB9AC\uB294 ${seatName(humanSeat)}\uC785\uB2C8\uB2E4. ${match ? matchTitle(match) + (summaryFormat(match) === "hanchan" ? " \xB7 " + match.label : "") + " \xB7 \uC810\uC218\uC640 \uC9C4\uD589 \uC0C1\uD0DC\uB97C \uC790\uB3D9 \uC800\uC7A5\uD569\uB2C8\uB2E4." : "\uC0C1\uB300 3\uBA85\uC740 AI\uC785\uB2C8\uB2E4."} \uD328\uB97C \uC120\uD0DD\uD55C \uB4A4 \uB2E4\uC2DC \uB204\uB974\uAC70\uB098 \uBC84\uB9AC\uAE30\uB85C \uD655\uC815\uD558\uC138\uC694. \uAC00\uB2A5\uD55C \uD6C4\uB85C\uAC00 \uC5C6\uC73C\uBA74 0.7\uCD08 \uB4A4 \uB118\uAE41\uB2C8\uB2E4.`;
 }
 function beginPracticeHand() {
+  kanPeek.clear({ notify: false });
   journal.begin(state, { mode: "practice", seat: humanSeat, policy: $("policy").value, profile: $("profile").value, build: buildId });
   savePractice();
   $("seed").value = String(practiceMatch?.seed ?? state.seed);
@@ -3462,6 +3923,7 @@ function restorePractice(force = false) {
   humanSeat = saved.seat;
   journal.current = saved.log;
   if (saved.policy in POLICIES2) $("policy").value = saved.policy;
+  if (privateTrainingCompatible(state) && privateTrainingVersion(trainingMode)) $("policy").value = privateTrainingVersion(trainingMode).policy;
   if (saved.profile in OPPONENT_PROFILES2) $("profile").value = saved.profile;
   setVariant(state.rules.variant === "S" ? "S" : "H", practiceMatch.format ?? defaultMatchFormat(state.rules.variant));
   savePractice();
@@ -3501,21 +3963,21 @@ function renderMatch() {
   $("match-scores").replaceChildren();
   for (const r of match.rankings) {
     const who = r.seat === humanSeat ? "\uB098" : online ? roomMemberName(remote.members.find((m) => m.seat === r.seat)) : `AI ${r.seat + 1}`;
-    $("match-scores").append(node("div", `${r.rank}\uC704 ${who} \xB7 \uC2DC\uC791 ${SEAT_NAMES[r.seat]} \xB7 ${r.points.toLocaleString()}\uC810`));
+    $("match-scores").append(node2("div", `${r.rank}\uC704 ${who} \xB7 \uC2DC\uC791 ${SEAT_NAMES[r.seat]} \xB7 ${r.points.toLocaleString()}\uC810`));
   }
   $("match-rounds").replaceChildren();
   for (const r of match.rounds) {
-    const tr = node("tr");
-    tr.append(node("td", r.label), node("td", roundResultName(r.result)));
-    for (let i = 0; i < 4; i++) tr.append(node("td", `${signedPoints(r.delta[i])} \u2192 ${r.totals[i].toLocaleString()}`));
-    tr.append(node("td", String(r.pot)));
+    const tr = node2("tr");
+    tr.append(node2("td", r.label), node2("td", roundResultName(r.result)));
+    for (let i = 0; i < 4; i++) tr.append(node2("td", `${signedPoints(r.delta[i])} \u2192 ${r.totals[i].toLocaleString()}`));
+    tr.append(node2("td", String(r.pot)));
     $("match-rounds").append(tr);
   }
   $("match-final-pot").textContent = match.finalTransfers.map((p) => `\uB300\uAD6D \uC885\uB8CC \uACF5\uD0C1 ${p.amount}\uC810 \u2192 \uC2DC\uC791 ${SEAT_NAMES[p.to]} \uC790\uB9AC`).join(" / ");
 }
 function downloadMatch(format2 = "json", summary = currentMatch()) {
   if (!summary) throw new Error("\uB300\uAD6D \uC810\uC218 \uAE30\uB85D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.");
-  const a = node("a"), text = format2 === "csv" ? matchCSV(summary) : JSON.stringify({ ...summary, variant: summaryVariant(summary), format: summaryFormat(summary), schema: "wellness-match-scores/v2" }, null, 2), blob = new Blob([text], { type: format2 === "csv" ? "text/csv;charset=utf-8" : "application/json" });
+  const a = node2("a"), text = format2 === "csv" ? matchCSV(summary) : JSON.stringify({ ...summary, variant: summaryVariant(summary), format: summaryFormat(summary), schema: "wellness-match-scores/v2" }, null, 2), blob = new Blob([text], { type: format2 === "csv" ? "text/csv;charset=utf-8" : "application/json" });
   a.href = URL.createObjectURL(blob);
   a.download = `${summaryVariant(summary)}-${matchFormatName(summaryFormat(summary))}-${summary.id.slice(0, 8)}-\uC810\uC218\uD45C.${format2}`;
   a.click();
@@ -3523,6 +3985,7 @@ function downloadMatch(format2 = "json", summary = currentMatch()) {
   return { filename: a.download, completedRounds: summary.rounds.length };
 }
 function showPractice() {
+  kanPeek.clear({ notify: false });
   online = false;
   remote = null;
   networkBusy = false;
@@ -3534,6 +3997,7 @@ function showPractice() {
   document.querySelector(".play-layout").hidden = false;
 }
 function showOnline() {
+  kanPeek.clear({ notify: false });
   if (state && !online) savePractice();
   if (timer) clearTimeout(timer);
   timer = null;
@@ -3578,7 +4042,7 @@ function receiveRoom(snapshot) {
   if (snapshot.match) matchStore.saveSummary(snapshot.match, { seat: snapshot.seat });
   else renderMatch();
   for (let i = 0; i < 4; i++) {
-    const member = snapshot.members[i], el = node("div", member ? `${roomMemberName(member)}${member.id === snapshot.me ? " (\uB098)" : ""}${member.seat === null ? "" : ` \xB7 ${seatName(member.seat)}`}` : "\uC785\uC7A5 \uB300\uAE30 \uC911", `room-member${member?.id === snapshot.me ? " is-me" : ""}${member?.kind === "ai" ? " is-ai" : ""}`);
+    const member = snapshot.members[i], el = node2("div", member ? `${roomMemberName(member)}${member.id === snapshot.me ? " (\uB098)" : ""}${member.seat === null ? "" : ` \xB7 ${seatName(member.seat)}`}` : "\uC785\uC7A5 \uB300\uAE30 \uC911", `room-member${member?.id === snapshot.me ? " is-me" : ""}${member?.kind === "ai" ? " is-ai" : ""}`);
     $("room-members").append(el);
   }
   const roomFormat = snapshot.format ?? defaultMatchFormat(snapshot.variant), roomTitle = `${snapshot.variant ?? "H"}\uB8F0 ${matchFormatName(roomFormat)}`;
@@ -3666,7 +4130,7 @@ function renderLogs() {
   const selected = $("saved-logs").value, logs = journal.list();
   $("saved-logs").replaceChildren();
   for (const log of logs) {
-    const option = node("option", `${log.id === journal.current?.id ? "\uD604\uC7AC \xB7 " : ""}${new Date(log.startedAt).toLocaleString("ko-KR")} \xB7 ${log.mode === "practice" ? "\uC5F0\uC2B5 " + log.seed : "4\uC778"} \xB7 ${log.seatName ?? SEAT_NAMES[log.seat]} \xB7 ${signedPoints(log.score)}\uC810${log.issues ? " \xB7 \uC815\uC0B0 \uD655\uC778 \uD544\uC694" : ""}`);
+    const option = node2("option", `${log.id === journal.current?.id ? "\uD604\uC7AC \xB7 " : ""}${new Date(log.startedAt).toLocaleString("ko-KR")} \xB7 ${log.mode === "practice" ? "\uC5F0\uC2B5 " + log.seed : "4\uC778"} \xB7 ${log.seatName ?? SEAT_NAMES[log.seat]} \xB7 ${signedPoints(log.score)}\uC810${log.issues ? " \xB7 \uC815\uC0B0 \uD655\uC778 \uD544\uC694" : ""}`);
     option.value = log.id;
     $("saved-logs").append(option);
   }
@@ -3678,7 +4142,7 @@ function renderLogs() {
   const old = $("saved-matches").value, matches = matchStore.list();
   $("saved-matches").replaceChildren();
   for (const { summary, seat } of matches) {
-    const option = node("option", `${new Date(summary.startedAt).toLocaleString("ko-KR")} \xB7 ${matchTitle(summary)} \xB7 ${summary.label} \xB7 ${summary.status === "complete" ? "\uC644\uB8CC" : "\uC9C4\uD589 \uAE30\uB85D"} \xB7 \uB098 ${summary.totals[seat].toLocaleString()}\uC810`);
+    const option = node2("option", `${new Date(summary.startedAt).toLocaleString("ko-KR")} \xB7 ${matchTitle(summary)} \xB7 ${summary.label} \xB7 ${summary.status === "complete" ? "\uC644\uB8CC" : "\uC9C4\uD589 \uAE30\uB85D"} \xB7 \uB098 ${summary.totals[seat].toLocaleString()}\uC810`);
     option.value = summary.id;
     $("saved-matches").append(option);
   }
@@ -3691,7 +4155,7 @@ function savedMatch() {
 function downloadLog(id, format2 = "json") {
   const log = journal.read(id);
   if (!log) throw new Error("\uC800\uC7A5\uB41C \uB300\uAD6D\uC744 \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
-  const text = format2 === "txt" ? logText(log) : JSON.stringify(compactLog(log)), a = node("a"), blob = new Blob([text], { type: format2 === "txt" ? "text/plain;charset=utf-8" : "application/json" });
+  const text = format2 === "txt" ? logText(log) : JSON.stringify(compactLog(log)), a = node2("a"), blob = new Blob([text], { type: format2 === "txt" ? "text/plain;charset=utf-8" : "application/json" });
   a.href = URL.createObjectURL(blob);
   const filename = `${log.game.rules.variant === "S" ? "S" : "H"}-${log.game.seed ?? log.room}-${log.id.slice(0, 8)}-\uB300\uAD6D\uB85C\uADF8.${format2}`;
   a.download = filename;
@@ -3709,20 +4173,26 @@ function download() {
 function randomGame() {
   return start(crypto.getRandomValues(new Uint32Array(1))[0], chosenVariant);
 }
-function renderTrainingMode(variant) {
-  const view = state && (!online || remote?.state) && state.rules.variant !== "S" && variant === "H" ? state : { rules: { variant } }, compatible = trainingCompatible(view, TRAINING), enabled = hasTrainedPolicies(TRAINING);
-  $("training-mode").value = compatible ? trainingMode : "original";
-  $("training-mode").disabled = variant === "S" || !enabled || !compatible;
-  $("training-mode").querySelector('[value="trained"]').disabled = !compatible;
-  $("training-note").textContent = variant === "S" ? "S\uB8F0\uC740 \uAE30\uC874 \uC804\uC6A9 \uC804\uB7B5\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4." : !compatible ? "10/11 \uADDC\uCE59 \xB7 \uC774\uC804 \uD559\uC2B5\uC740 \uAD6C \uADDC\uCE59 \uAC80\uC99D \uACB0\uACFC\uC774\uBBC0\uB85C \uD604\uC7AC \uB300\uAD6D\uC740 \uAE30\uBCF8 A\u2013E\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4." : !enabled ? "\uCD94\uAC00 \uAC80\uC99D\uC5D0\uC11C \uAC1C\uC120\uC774 \uD655\uC778\uB41C \uC815\uCC45\uC774 \uC5C6\uC5B4 \uAE30\uC874 \uC804\uB7B5\uC744 \uC720\uC9C0\uD569\uB2C8\uB2E4." : trainingMode === "trained" ? `${Object.keys(TRAINING.weights).join("\xB7")}\uC5D0 \uAD6C \uADDC\uCE59 \uAC80\uC99D \uAC00\uC911\uCE58 \uC801\uC6A9 \xB7 \uB0B4 \uCD94\uCC9C\uACFC \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9` : "\uAE30\uC874 A\u2013E \uC804\uB7B5 \xB7 \uB0B4 \uCD94\uCC9C\uACFC \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9";
+function effectiveTrainingMode(view) {
+  return trainingCompatible(view, TRAINING) && ["original", "trained"].includes(trainingMode) || privateTrainingCompatible(view) && privateTrainingVersion(trainingMode) ? trainingMode : "original";
+}
+function renderTrainingMode(variant = chosenVariant) {
+  const view = state && (!online || remote?.state) && variant === "H" ? state : { rules: { variant } }, oldCompatible = trainingCompatible(view, TRAINING), privateCompatible = privateTrainingCompatible(view), enabled = hasTrainedPolicies(TRAINING), version = privateTrainingVersion(trainingMode);
+  $("training-mode").value = effectiveTrainingMode(view);
+  $("training-mode").disabled = variant === "S" || !oldCompatible && !privateCompatible;
+  $("training-mode").querySelector('[value="trained"]').disabled = !oldCompatible || !enabled;
+  for (const v of privateTrainingVersions()) $("training-mode").querySelector(`[value="${v.id}"]`).disabled = !privateCompatible;
+  $("training-note").textContent = variant === "S" ? "S\uB8F0\uC740 \uC804\uC6A9 \uAE30\uBCF8 \uC804\uB7B5\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4." : privateCompatible ? version ? `${version.id} \xB7 ${version.description} \xB7 ${version.policy} \uCD94\uCC9C\uACFC \uB0B4 \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9 \xB7 \uB2E4\uB978 \uCD94\uCC9C\uACFC \uC0C1\uB300 AI\uB294 \uAE30\uBCF8\uAC12` : "\uC548\uAE61 \uBE44\uACF5\uAC1C \uADDC\uCE59 \xB7 \uAE30\uBCF8 A\u2013E \uC0AC\uC6A9 \xB7 \uACE0\uB4DD\uC810/\uC800\uD310\uC218 \uC218\uBE44 \uBC84\uC804\uC744 \uC120\uD0DD\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." : oldCompatible ? trainingMode === "trained" ? "\uAD6C \uADDC\uCE59 \uAC80\uC99D \uAC00\uC911\uCE58\uB97C \uB0B4 \uCD94\uCC9C\uACFC \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9" : "\uAE30\uC874 A\u2013E \uC804\uB7B5" : "\uC774 \uB300\uAD6D\uC758 \uADDC\uCE59\uACFC \uC77C\uCE58\uD558\uB294 \uD559\uC2B5 \uACB0\uACFC\uAC00 \uC5C6\uC5B4 \uAE30\uBCF8 A\u2013E\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4.";
 }
 function setTrainingMode(mode) {
-  if (!["original", "trained"].includes(mode) || mode === "trained" && !hasTrainedPolicies(TRAINING)) throw new Error("\uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC804\uB7B5 \uBC84\uC804\uC744 \uC120\uD0DD\uD558\uC138\uC694.");
+  const version = privateTrainingVersion(mode);
+  if (!["original", "trained"].includes(mode) && !version || mode === "trained" && !hasTrainedPolicies(TRAINING)) throw new Error("\uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC804\uB7B5 \uBC84\uC804\uC744 \uC120\uD0DD\uD558\uC138\uC694.");
   trainingMode = mode;
+  if (version) $("policy").value = version.policy;
   saveTrainingMode(logStorage, mode);
   if (state && (!online || remote?.state)) render();
   else renderTrainingMode(remote?.variant ?? chosenVariant);
-  return { mode, policies: Object.keys(TRAINING.weights) };
+  return { mode, policies: version ? [version.policy] : Object.keys(TRAINING.weights) };
 }
 $("training-mode").onchange = () => setTrainingMode($("training-mode").value);
 function persistPreferences() {
@@ -3819,8 +4289,8 @@ fetch(new URL("../results/baseline/analysis.json", import.meta.url)).then((r) =>
   const reverse = data.profilePairs.filter((r) => r.comparison === "C-B" && r.ci95Low > 0);
   if (reverse.length) $("conclusion").textContent += " \uC0C1\uB300\uBCC4 \uC608\uC678: " + reverse.map((r) => `${r.profile} C\u2212B +${r.meanDifference.toFixed(2)}\uC810`).join(", ") + ".";
   for (const r of data.summary) {
-    const tr = node("tr", void 0, r.policy === data.conclusion.bestMeanPolicy ? "best" : "");
-    for (const value2 of [`${r.policy} \xB7 ${POLICIES2[r.policy].name}`, r.meanNet.toFixed(2) + "\uC810", `${r.ci95Low.toFixed(2)} ~ ${r.ci95High.toFixed(2)}`, (r.winRate * 100).toFixed(1) + "%"]) tr.append(node("td", value2));
+    const tr = node2("tr", void 0, r.policy === data.conclusion.bestMeanPolicy ? "best" : "");
+    for (const value2 of [`${r.policy} \xB7 ${POLICIES2[r.policy].name}`, r.meanNet.toFixed(2) + "\uC810", `${r.ci95Low.toFixed(2)} ~ ${r.ci95High.toFixed(2)}`, (r.winRate * 100).toFixed(1) + "%"]) tr.append(node2("td", value2));
     $("summary").append(tr);
   }
 }).catch(() => {
@@ -3829,7 +4299,7 @@ fetch(new URL("../results/baseline/analysis.json", import.meta.url)).then((r) =>
 void renderTrainingResults($, TRAINING);
 function readGame() {
   if (online && !remote?.state) return { mode: "online", phase: "waiting", room: remote ? { code: remote.code, members: remote.members, variant: remote.variant, format: remote.format ?? defaultMatchFormat(remote.variant) } : null, legalActions: [], recommendations: [] };
-  return { match: currentMatch(), variant: state.rules.variant === "S" ? "S" : "H", trainingMode: trainingCompatible(state, TRAINING) ? trainingMode : "original", trainingId: TRAINING.id, recommendationsEnabled, selectedVariant: chosenVariant, selectedFormat: chosenFormat, format: currentMatch() ? summaryFormat(currentMatch()) : remote?.format ?? defaultMatchFormat(state.rules.variant), mode: online ? "online" : "practice", room: online && remote ? { code: remote.code, members: remote.members, gameNumber: remote.gameNumber } : null, seat: humanSeat, phase: online && !remote?.state ? "waiting" : state.phase, turn: actor4(state), ownHand: state.players[humanSeat].hand.map(typeOf), drawnTile: handDisplay(state, humanSeat).drawn === null ? null : typeOf(handDisplay(state, humanSeat).drawn), scores: state.players.map((p) => p.score), winners: [...state.winners], legalActions: actor4(state) === humanSeat ? legalActions4(state) : [], recommendationRevision, recommendations: structuredClone(currentRecommendations) };
+  return { match: currentMatch(), variant: state.rules.variant === "S" ? "S" : "H", trainingMode: effectiveTrainingMode(state), trainingId: privateTrainingVersion(effectiveTrainingMode(state)) ? "H-private-kan-20261011-v1" : effectiveTrainingMode(state) === "trained" ? TRAINING.id : null, recommendationsEnabled, selectedVariant: chosenVariant, selectedFormat: chosenFormat, format: currentMatch() ? summaryFormat(currentMatch()) : remote?.format ?? defaultMatchFormat(state.rules.variant), mode: online ? "online" : "practice", room: online && remote ? { code: remote.code, members: remote.members, gameNumber: remote.gameNumber } : null, seat: humanSeat, phase: online && !remote?.state ? "waiting" : state.phase, turn: actor4(state), ownHand: state.players[humanSeat].hand.map(typeOf), drawnTile: handDisplay(state, humanSeat).drawn === null ? null : typeOf(handDisplay(state, humanSeat).drawn), scores: state.players.map((p) => p.score), winners: [...state.winners], legalActions: actor4(state) === humanSeat ? legalActions4(state) : [], recommendationRevision, recommendations: structuredClone(currentRecommendations) };
 }
 if (document.modelContext?.registerTool) {
   const life = new AbortController();

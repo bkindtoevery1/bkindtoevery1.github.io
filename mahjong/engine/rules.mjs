@@ -8,6 +8,7 @@ export const LEGACY_RULES = Object.freeze({
   peikouClosedOnly: false,
   ryanpeikouDistinctSuits: true,
   concealedKanBreaksMenzen: true,
+  concealedKanPrivate: false,
   menzenRequiresTsumo: false,
   sevenPairsQuadAsTwo: false,
   greenTiles: [18,19,20,21,22,23,24,25,26,32],
@@ -34,8 +35,7 @@ export const LEGACY_RULES = Object.freeze({
 });
 
 // Keep old identified rulesets and raw saved states on their original semantics.
-// A new game with no rules supplied uses the clarification dated 2026-10-11.
-export const DEFAULT_RULES = Object.freeze({
+export const CLARIFIED_RULES = Object.freeze({
   ...LEGACY_RULES,
   id: 'H-2026-clarified-20261011',
   greenRequiresDragon: true,
@@ -43,9 +43,16 @@ export const DEFAULT_RULES = Object.freeze({
   ronContinuation: 'last-winner'
 });
 
+// Full concealment is a user-requested app setting, not a tournament ruling.
+export const DEFAULT_RULES = Object.freeze({
+  ...CLARIFIED_RULES,
+  id: 'H-2026-private-kan-v1',
+  concealedKanPrivate: true
+});
+
 export function ruleset(overrides = {}) {
   for (const k of Object.keys(overrides)) if (!(k in DEFAULT_RULES)) throw new Error(`Unknown H ruleset key: ${k}`);
-  const defaults=overrides.id && overrides.id!==DEFAULT_RULES.id ? LEGACY_RULES : DEFAULT_RULES;
+  const defaults=overrides.id===CLARIFIED_RULES.id ? CLARIFIED_RULES : overrides.id && overrides.id!==DEFAULT_RULES.id ? LEGACY_RULES : DEFAULT_RULES;
   const r = {...defaults, ...overrides, greenTiles: [...(overrides.greenTiles ?? defaults.greenTiles)]};
   for (const k of Object.keys(DEFAULT_RULES)) {
     if (typeof DEFAULT_RULES[k] === 'boolean' && typeof r[k] !== 'boolean') throw new Error(`Invalid boolean ${k}`);

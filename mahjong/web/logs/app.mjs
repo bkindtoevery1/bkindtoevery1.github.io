@@ -20,6 +20,7 @@ var LEGACY_RULES = Object.freeze({
   peikouClosedOnly: false,
   ryanpeikouDistinctSuits: true,
   concealedKanBreaksMenzen: true,
+  concealedKanPrivate: false,
   menzenRequiresTsumo: false,
   sevenPairsQuadAsTwo: false,
   greenTiles: [18, 19, 20, 21, 22, 23, 24, 25, 26, 32],
@@ -44,17 +45,22 @@ var LEGACY_RULES = Object.freeze({
   fourOfAKindBonus: false,
   ronContinuation: "discarder"
 });
-var DEFAULT_RULES = Object.freeze({
+var CLARIFIED_RULES = Object.freeze({
   ...LEGACY_RULES,
   id: "H-2026-clarified-20261011",
   greenRequiresDragon: true,
   fourOfAKindBonus: true,
   ronContinuation: "last-winner"
 });
+var DEFAULT_RULES = Object.freeze({
+  ...CLARIFIED_RULES,
+  id: "H-2026-private-kan-v1",
+  concealedKanPrivate: true
+});
 
 // s-engine/rules.mjs
 var S_DEFAULTS = Object.freeze({
-  id: "S-2026-v2",
+  id: "S-2026-private-kan-v1",
   variant: "S",
   pinfuHan: 2,
   roundWind: 27,
@@ -73,7 +79,8 @@ var S_DEFAULTS = Object.freeze({
   maxKans: 4,
   deadWallTiles: 14,
   revealWinnerHand: true,
-  revealTsumoWinningTile: true
+  revealTsumoWinningTile: true,
+  concealedKanPrivate: true
 });
 
 // web/score-display.mjs
@@ -110,6 +117,7 @@ var clone = (value) => structuredClone(value);
 var scores = (game) => game.players.map((player) => player.score);
 var seats = ["\uB3D9", "\uB0A8", "\uC11C", "\uBD81"];
 var seatLabels = (game) => seats.map((_, i) => seats[(i - (game.dealer ?? 0) + 4) % 4]);
+var concealedForViewer = (game, seat, viewer) => game.rules.concealedKanPrivate === true && seat !== viewer;
 var signed = (value) => `${value > 0 ? "+" : ""}${value}`;
 function actionRecord(game, seat, action, before, error = null) {
   const seats2 = seatLabels(game);
@@ -163,7 +171,7 @@ function logText(log) {
   ];
   if (game.startingScores) lines.push(`\uB204\uC801 \uC810\uC218 (\uC885\uB8CC \uACF5\uD0C1 \uBCC4\uB3C4): ${game.startingScores.map((n, i) => seats2[i] + " " + (n + game.players[i].score)).join(" / ")}`, "");
   for (const entry of log.actions) {
-    const action = entry.action, tile = Number.isInteger(action.tile) ? ` ${tileName(action.tile)}` : "";
+    const action = entry.action, tile = action.type === "ankan" && concealedForViewer(game, entry.seat, log.humanSeat) ? " (\uBE44\uACF5\uAC1C)" : Number.isInteger(action.tile) ? ` ${tileName(action.tile)}` : "";
     if (action.type !== "pass") lines.push(`#${entry.n + 1} ${seats2[entry.seat]} ${{ discard: "\uBC84\uB9BC", riichi: "\uB9AC\uCE58\xB7\uBC84\uB9BC", tsumo: "\uCBD4\uBAA8", ron: "\uB860", chi: "\uCE58", pon: "\uD401", ankan: "\uC548\uAE61", minkan: "\uBA85\uAE61", kakan: "\uAC00\uAE61" }[action.type] ?? action.type}${tile}`);
     for (const win of entry.wins) {
       const detail2 = variant === "S" ? scoreBreakdownText(win.score) : `\uC5ED ${win.score.base}${win.score.bonus ? " + " + (hBonusDetails(win.score, game.rules) || "\uAC00\uC0B0 " + win.score.bonus) : ""}${win.tsumoBonus ? " + \uCBD4\uBAA8 " + win.tsumoBonus : ""}`;
@@ -180,7 +188,7 @@ function logText(log) {
   lines.push("", "\uD604\uC7AC \uC190\uD328\xB7\uD6C4\uB85C (JSON\uC5D0\uB294 \uC6D0\uBCF8 \uD328 \uBC88\uD638\uC640 \uC0C1\uC138 \uAE30\uB85D \uD3EC\uD568)");
   for (let seat = 0; seat < 4; seat++) {
     const p = game.players[seat];
-    lines.push(`${seats2[seat]}: ${p.hand.map((id) => tileName(typeOf(id))).join(" ")} / ${p.melds.map((m) => `${m.type} ${m.ids.map((id) => tileName(typeOf(id))).join(" ")}`).join(" / ")}`);
+    lines.push(`${seats2[seat]}: ${p.hand.map((id) => tileName(typeOf(id))).join(" ")} / ${p.melds.map((m) => m.hidden || m.ids.some((id) => !Number.isInteger(id)) || m.type === "kan" && !m.open && concealedForViewer(game, seat, log.humanSeat) ? "\uC548\uAE61 (\uBE44\uACF5\uAC1C)" : `${m.type} ${m.ids.map((id) => tileName(typeOf(id))).join(" ")}`).join(" / ")}`);
   }
   for (const error of log.errors) lines.push(`[\uC624\uB958 ${error.at}] ${error.message}`);
   return lines.join("\n") + "\n";
@@ -188,7 +196,7 @@ function logText(log) {
 function reviewText(input) {
   const log = expandLog(input), game = log.game, seats2 = seatLabels(game), s = game.rules.variant === "S", lines = [`${s ? "S" : "H"}\uB8F0 \xB7 ${game.seed ?? log.room}`, `${s || game.startingScores || game.matchContext ? "\uC774\uBC88 \uAD6D \uC99D\uAC10" : "\uCD5C\uC885"}: ${game.players.map((p, i) => seats2[i] + " " + signed(p.score)).join(" / ")}`];
   for (const e of log.actions) {
-    if (["ankan", "minkan", "kakan"].includes(e.action.type)) lines.push(`${seats2[e.seat]} ${e.action.type === "ankan" ? "\uC548\uAE61" : e.action.type === "minkan" ? "\uBA85\uAE61" : "\uAC00\uAE61"}${Number.isInteger(e.action.tile) ? " \xB7 " + tileName(e.action.tile) : ""} (\uC774\uB54C\uB294 \uC810\uC218 \uC774\uB3D9 \uC5C6\uC74C)`);
+    if (["ankan", "minkan", "kakan"].includes(e.action.type)) lines.push(`${seats2[e.seat]} ${e.action.type === "ankan" ? "\uC548\uAE61" : e.action.type === "minkan" ? "\uBA85\uAE61" : "\uAC00\uAE61"}${e.action.type === "ankan" && concealedForViewer(game, e.seat, log.humanSeat) ? " \xB7 \uBE44\uACF5\uAC1C" : Number.isInteger(e.action.tile) ? " \xB7 " + tileName(e.action.tile) : ""} (\uC774\uB54C\uB294 \uC810\uC218 \uC774\uB3D9 \uC5C6\uC74C)`);
     for (const win of e.wins) {
       const extra = Object.entries(win.score.bonuses ?? {}).filter(([, value]) => typeof value === "number" && value).map(([name, value]) => `${{ kan: game.rules.fourOfAKindBonus ? "\uC0AC\uADC0\uC77C" : "\uAE61", dragon: "\uC0BC\uC6D0\uD328", roundWind: "\uC7A5\uD48D", seatWind: "\uC790\uD48D" }[name] ?? name} ${value}`);
       lines.push(s ? `${seats2[win.seat]} ${win.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 ${scoreBreakdownText(win.score)}` : `${seats2[win.seat]} ${win.score.name} ${win.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 \uC5ED ${win.score.base}${extra.length ? " + " + extra.join(" + ") : ""}${win.tsumoBonus ? " + \uCBD4\uBAA8 " + win.tsumoBonus + " / \uC9C0\uAE09\uC790" : ""}`);

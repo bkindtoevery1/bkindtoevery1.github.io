@@ -13,7 +13,7 @@ function components(row, view, weights, variant) {
     ukeire: weights.ukeire * row.ukeire,
     value: weights.value * row.value * (variant === 'H' ? 0.6 + view.activeCount / 5 : 1),
     pinfu: weights.pinfu * row.pinfu,
-    risk: -weights.risk * row.risk * (variant === 'H' && row.shanten >= 2 ? 1.35 : 1),
+    risk: -(row.riskWeight ?? weights.risk) * row.risk * (variant === 'H' && row.shanten >= 2 ? 1.35 : 1),
   };
 }
 
@@ -54,7 +54,7 @@ export function explainDiscards(view, policy, weights = {}, selectedAction = nul
   const ranked = ordered.map((row, index) => ({
     rank: index + 1, tile: row.tile, score: row.score, shanten: row.shanten, ukeire: row.ukeire,
     components: components(row, view, config, variant),
-    metrics: {value: row.value, pinfu: row.pinfu, risk: row.risk}, selected: row.tile === selectedTile,
+    metrics: {value: row.value, pinfu: row.pinfu, risk: row.risk, estimatedBase:row.estimatedBase, defensive:row.defensive, riskWeight:row.riskWeight}, selected: row.tile === selectedTile,
   }));
   const selected = ranked.find(row => row.selected), alternative = ranked.find(row => !row.selected);
   const ranking = ranked.filter(row => row.rank <= 3 || row.selected);
@@ -74,7 +74,8 @@ export function explainDiscards(view, policy, weights = {}, selectedAction = nul
       reason += ` ${tileName(alternative.tile)}와 비교한 주요 평가 기여 차이는 ${main.map(row => `${row.label} ${signed(row.difference)}`).join(', ')}이며, 총 평가점수 차이는 ${signed(scoreDifference)}입니다.`;
     }
   } else reason += ' 이 전략의 샨텐 제한을 만족하는 버림패 후보가 하나입니다.';
-  if (policy === 'E' && config.risk === 0) reason += ' 이 가중치에서는 위험도 감점을 적용하지 않습니다.';
+  if(selected.metrics.defensive)reason += ` 가산점 제외 역 점수 추정 ${Math.round(selected.metrics.estimatedBase)}점으로 저판수 수비 가중치를 적용합니다.`;
+  if (policy === 'E' && config.risk === 0 && !config.lowValueRisk) reason += ' 이 가중치에서는 위험도 감점을 적용하지 않습니다.';
   return {
     policy, variant, reason, ranking, selectedRank: selected.rank, comparison,
     excludedCount: rows.length - eligible.length, totalCount: rows.length, eligibleCount: eligible.length,

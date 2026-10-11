@@ -4,6 +4,8 @@ import {scoreHand,winningTiles} from './score.mjs';
 
 const actionKey=a=>JSON.stringify(a);
 const meldView=m=>({type:m.type,tile:m.tile,open:m.open,from:m.from});
+const privateKan=(s,m,owner,viewer)=>s.rules.concealedKanPrivate===true&&owner!==viewer&&m.type==='kan'&&!m.open;
+const visibleMeld=(s,m,owner,viewer)=>privateKan(s,m,owner,viewer)?{...meldView(m),tile:null,hidden:true}:meldView(m);
 export function activeSeats(s){return s.players.map((p,i)=>p.won?null:i).filter(i=>i!==null);}
 export function nextActive(s,seat){for(let i=1;i<=4;i++)if(!s.players[(seat+i)%4].won)return (seat+i)%4;throw new Error('No active player');}
 const event=(s,e)=>s.events.push({n:s.events.length,...e});
@@ -36,7 +38,7 @@ function finishOrDraw(s,previous){if(s.winners.length>=3){s.end='three-winners';
 export function visibleCounts(s,seat){
   const out=Array(34).fill(0);const add=id=>out[typeOf(id)]++;
   for(let i=0;i<4;i++){
-    const p=s.players[i];for(const m of p.melds)for(const id of m.ids)add(id);
+    const p=s.players[i];for(const m of p.melds)if(!privateKan(s,m,i,seat))for(const id of m.ids)add(id);
     for(const d of p.river)if(!d.claimed)add(d.id);
     if(i===seat||p.won&&s.rules.revealWinnerHand)for(const id of p.hand){if(i!==seat&&p.win.method==='tsumo'&&!s.rules.revealTsumoWinningTile&&id===p.win.tile)continue;add(id);}
   }
@@ -135,7 +137,7 @@ export function step(s,seat,a,{validate=true}={}){
 // This is the entire policy boundary. No state, seed, tile IDs, wall order or concealed opponent hands.
 export function observation(s,seat=actor(s)){
   if(seat!==actor(s))throw new Error('Not this player’s decision');const p=s.players[seat];
-  const players=s.players.map((p,i)=>({seat:i,won:p.won,score:p.score,handSize:p.hand.length,melds:p.melds.map(meldView),discards:p.river.map(d=>({tile:typeOf(d.id),claimed:d.claimed})),revealed:p.won&&s.rules.revealWinnerHand?p.hand.filter(id=>s.rules.revealTsumoWinningTile||p.win.method!=='tsumo'||id!==p.win.tile).map(typeOf):[]}));
+  const players=s.players.map((p,i)=>({seat:i,won:p.won,score:p.score,handSize:p.hand.length,melds:p.melds.map(m=>visibleMeld(s,m,i,seat)),discards:p.river.map(d=>({tile:typeOf(d.id),claimed:d.claimed})),revealed:p.won&&s.rules.revealWinnerHand?p.hand.filter(id=>s.rules.revealTsumoWinningTile||p.win.method!=='tsumo'||id!==p.win.tile).map(typeOf):[]}));
   return {seat,dealer:s.dealer,rules:structuredClone(s.rules),hand:handTypes(p),melds:p.melds.map(meldView),players,visible:visibleCounts(s,seat),activeCount:activeSeats(s).length,wallRemaining:s.wall.length,draws:s.draws,phase:s.phase,lastDiscard:s.reaction?{seat:s.reaction.source,tile:typeOf(s.reaction.id),kind:s.reaction.kind}:null,legalActions:legalActions(s,seat)};
 }
 export function assertInvariants(s){

@@ -4,6 +4,8 @@ import {scoreS,shapeWaits} from './score.mjs';
 
 const handTypes=p=>p.hand.map(typeOf),event=(s,e)=>s.events.push({n:s.events.length,...e});
 const meldView=m=>({type:m.type,tile:m.tile,open:m.open,from:m.from});
+const privateKan=(s,m,owner,viewer)=>s.rules.concealedKanPrivate===true&&owner!==viewer&&m.type==='kan'&&!m.open;
+const visibleMeld=(s,m,owner,viewer)=>privateKan(s,m,owner,viewer)?{...meldView(m),tile:null,hidden:true}:meldView(m);
 const key=a=>JSON.stringify(a),same=(a,b)=>key(a)===key(b);
 export const actor=s=>s.phase==='turn'?s.turn:s.phase==='reaction'?s.reaction.pending[0]:null;
 export const indicators=(s,ura=false)=>Array.from({length:s.kans+1},(_,n)=>typeOf(s.dead[4+2*n+(ura?1:0)]));
@@ -58,7 +60,7 @@ function win(s,seat,method,source,tile){
 }
 export function visibleCounts(s,seat){
   const out=Array(34).fill(0),add=id=>out[typeOf(id)]++;
-  for(let i=0;i<4;i++){const p=s.players[i];for(const m of p.melds)for(const id of m.ids)add(id);for(const d of p.river)if(!d.claimed)add(d.id);if(i===seat||p.won&&s.rules.revealWinnerHand)for(const id of p.hand)add(id);}
+  for(let i=0;i<4;i++){const p=s.players[i];for(const m of p.melds)if(!privateKan(s,m,i,seat))for(const id of m.ids)add(id);for(const d of p.river)if(!d.claimed)add(d.id);if(i===seat||p.won&&s.rules.revealWinnerHand)for(const id of p.hand)add(id);}
   for(const t of indicators(s))out[t]++;return out;
 }
 export function settleDraw(s){
@@ -130,7 +132,7 @@ export function step(s,seat,a,{validate=true}={}){
 }
 export function observation(s,seat=actor(s)){
   if(seat!==actor(s))throw new Error('Not this player’s decision');const p=s.players[seat];
-  const players=s.players.map((p,i)=>({seat:i,won:p.won,score:p.score,handSize:p.hand.length,riichi:p.riichi,melds:p.melds.map(meldView),discards:p.river.map(d=>({tile:typeOf(d.id),claimed:d.claimed,riichi:!!d.riichi})),revealed:p.won&&s.rules.revealWinnerHand?handTypes(p):[]}));
+  const players=s.players.map((p,i)=>({seat:i,won:p.won,score:p.score,handSize:p.hand.length,riichi:p.riichi,melds:p.melds.map(m=>visibleMeld(s,m,i,seat)),discards:p.river.map(d=>({tile:typeOf(d.id),claimed:d.claimed,riichi:!!d.riichi})),revealed:p.won&&s.rules.revealWinnerHand?handTypes(p):[]}));
   return {seat,dealer:s.dealer,rules:structuredClone(s.rules),hand:handTypes(p),melds:p.melds.map(meldView),players,visible:visibleCounts(s,seat),riichi:p.riichi,pot:s.pot,doraIndicators:indicators(s),activeCount:4,wallRemaining:s.wall.length,draws:s.draws,phase:s.phase,lastDiscard:s.reaction?{seat:s.reaction.source,tile:typeOf(s.reaction.id),kind:s.reaction.kind}:null,legalActions:legalActions(s,seat)};
 }
 export function assertInvariants(s){
