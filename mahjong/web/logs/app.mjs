@@ -1,9 +1,17 @@
 // engine/tiles.mjs
 var typeOf = (id) => Math.floor(id / 4);
+function counts(types) {
+  const c = Array(34).fill(0);
+  for (const t of types) {
+    if (!Number.isInteger(t) || t < 0 || t > 33) throw new Error("Invalid tile");
+    c[t]++;
+  }
+  return c;
+}
 var tileName = (t) => t < 27 ? `${t % 9 + 1}${["\uB9CC", "\uD1B5", "\uC0AD"][Math.floor(t / 9)]}` : ["\uB3D9", "\uB0A8", "\uC11C", "\uBD81", "\uBC31", "\uBC1C", "\uC911"][t - 27];
 
 // engine/rules.mjs
-var DEFAULT_RULES = Object.freeze({
+var LEGACY_RULES = Object.freeze({
   id: "H-2026-literal-v1",
   ronPassAllowed: true,
   passRonLock: "none",
@@ -31,7 +39,17 @@ var DEFAULT_RULES = Object.freeze({
   allowKuikae: true,
   revealWinnerHand: true,
   revealTsumoWinningTile: false,
-  roundWind: 27
+  roundWind: 27,
+  greenRequiresDragon: false,
+  fourOfAKindBonus: false,
+  ronContinuation: "discarder"
+});
+var DEFAULT_RULES = Object.freeze({
+  ...LEGACY_RULES,
+  id: "H-2026-clarified-20261011",
+  greenRequiresDragon: true,
+  fourOfAKindBonus: true,
+  ronContinuation: "last-winner"
 });
 
 // s-engine/rules.mjs
@@ -59,6 +77,10 @@ var S_DEFAULTS = Object.freeze({
 });
 
 // web/score-display.mjs
+function hBonusDetails(score, rules = {}) {
+  const names = { kan: rules.fourOfAKindBonus ? "\uC0AC\uADC0\uC77C" : "\uAE61", dragon: "\uC0BC\uC6D0\uD328", roundWind: "\uC7A5\uD48D", seatWind: "\uC790\uD48D" };
+  return Object.entries(names).filter(([key2]) => Number.isFinite(score.bonuses?.[key2]) && score.bonuses[key2] > 0).map(([key2, label]) => `${label} ${score.bonuses[key2]}\uC810`).join(" \xB7 ");
+}
 function scoreBreakdown(score) {
   if (score?.variant !== "S") return null;
   const yaku = (score.yakuEntries ?? []).map((e) => ({ ...e })), bonuses = score.yakuman ? [] : (score.bonuses ?? []).map((e) => ({ ...e }));
@@ -118,7 +140,11 @@ function actionRecord(game, seat, action, before, error = null) {
     const perPayer = win.score.total + tsumoBonus, expectedReceipt = perPayer * payers.length, actualReceipt = actual.reduce((sum, p) => sum + p.amount, 0);
     const problems = [];
     if (actual.length !== payers.length || payers.some((i) => actual.filter((p) => p.from === i && p.amount === perPayer).length !== 1)) problems.push("\uC9C0\uAE09\uC790 \uB610\uB294 \uC9C0\uAE09\uC561\uC774 \uC801\uC6A9 \uADDC\uCE59\uACFC \uB2E4\uB985\uB2C8\uB2E4.");
-    if ((win.score.yaku === "pinfu" || win.score.name === "\uD551\uD6C4") && (win.score.base !== 100 || win.score.bonus !== 0 || win.score.total !== 100)) problems.push("\uD551\uD6C4 \uC5ED \uC810\uC218 \uB610\uB294 \uAC00\uC0B0\uC810\uC774 \uC798\uBABB\uB418\uC5C8\uC2B5\uB2C8\uB2E4.");
+    if (win.score.yaku === "pinfu" || win.score.name === "\uD551\uD6C4") {
+      const player = game.players[win.seat], tiles = [...player.hand, ...player.melds.flatMap((m) => m.ids), ...win.method === "ron" ? [win.tile] : []].map(typeOf);
+      const expectedBonus = game.rules.fourOfAKindBonus ? counts(tiles).filter((n) => n === 4).length * game.rules.kanBonus : 0;
+      if (win.score.base !== 100 || win.score.bonus !== expectedBonus || win.score.total !== 100 + expectedBonus) problems.push("\uD551\uD6C4 \uC5ED \uC810\uC218 \uB610\uB294 \uC0AC\uADC0\uC77C \uAC00\uC0B0\uC810\uC774 \uC798\uBABB\uB418\uC5C8\uC2B5\uB2C8\uB2E4.");
+    }
     if (actualReceipt !== expectedReceipt || delta[win.seat] !== actualReceipt) problems.push("\uD654\uB8CC \uC218\uC785\uACFC \uC810\uC218 \uBCC0\uD654\uAC00 \uB2E4\uB985\uB2C8\uB2E4.");
     issues.push(...problems.map((text) => `${seats2[win.seat]}: ${text}`));
     return { seat: win.seat, method: win.method, order: win.order, score: clone(win.score), tsumoBonus, payers, perPayer, expectedReceipt, actualReceipt, scoreBefore: before.scores[win.seat], scoreAfter: after[win.seat], payments: actual, issues: problems };
@@ -140,7 +166,7 @@ function logText(log) {
     const action = entry.action, tile = Number.isInteger(action.tile) ? ` ${tileName(action.tile)}` : "";
     if (action.type !== "pass") lines.push(`#${entry.n + 1} ${seats2[entry.seat]} ${{ discard: "\uBC84\uB9BC", riichi: "\uB9AC\uCE58\xB7\uBC84\uB9BC", tsumo: "\uCBD4\uBAA8", ron: "\uB860", chi: "\uCE58", pon: "\uD401", ankan: "\uC548\uAE61", minkan: "\uBA85\uAE61", kakan: "\uAC00\uAE61" }[action.type] ?? action.type}${tile}`);
     for (const win of entry.wins) {
-      const detail2 = variant === "S" ? scoreBreakdownText(win.score) : `\uC5ED ${win.score.base}${win.score.bonus ? " + \uAC00\uC0B0 " + win.score.bonus : ""}${win.tsumoBonus ? " + \uCBD4\uBAA8 " + win.tsumoBonus : ""}`;
+      const detail2 = variant === "S" ? scoreBreakdownText(win.score) : `\uC5ED ${win.score.base}${win.score.bonus ? " + " + (hBonusDetails(win.score, game.rules) || "\uAC00\uC0B0 " + win.score.bonus) : ""}${win.tsumoBonus ? " + \uCBD4\uBAA8 " + win.tsumoBonus : ""}`;
       lines.push(variant === "S" ? `  ${seats2[win.seat]} ${detail2}` : `  ${seats2[win.seat]} ${win.score.name} (${detail2})`);
       if (win.issues.length) lines.push(`  \uADDC\uCE59\uC0C1 ${win.expectedReceipt}, \uC2E4\uC81C \uC218\uC785 ${win.actualReceipt}`);
     }

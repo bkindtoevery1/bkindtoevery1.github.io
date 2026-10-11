@@ -22,7 +22,7 @@ export function policyConfig(id,weights={}){
 }
 function potential(c,melds,o){
   const tiles=[];for(let t=0;t<34;t++)for(let k=0;k<c[t];k++)tiles.push(t);
-  for(const m of melds)tiles.push(...(m.type==='chi'?[m.tile,m.tile+1,m.tile+2]:Array(3).fill(m.tile)));
+  for(const m of melds)tiles.push(...(m.type==='chi'?[m.tile,m.tile+1,m.tile+2]:Array(o.rules.fourOfAKindBonus&&m.type==='kan'?4:3).fill(m.tile)));
   const len=tiles.length,openTrip=melds.filter(m=>m.type!=='chi').length;
   let connections=0,triplets=0,pairs=0;
   for(let t=0;t<34;t++){if(c[t]>=3)triplets++;if(c[t]>=2)pairs++;if(t<27&&t%9<8)connections+=Math.min(c[t],c[t+1]);if(t<27&&t%9<7)connections+=0.35*Math.min(c[t],c[t+2]);}
@@ -36,14 +36,15 @@ function potential(c,melds,o){
   if(melds.every(m=>!m.open)&&(!o.rules.concealedKanBreaksMenzen||!melds.length))val=Math.max(val,100);
   attract(100,t=>!isYao(t));
   for(let s=0;s<3;s++){attract(400,t=>t<27&&Math.floor(t/9)===s);if(honors)attract(200,t=>t>=27||Math.floor(t/9)===s);}
-  attract(1000,t=>t>=27);attract(1000,t=>o.rules.greenTiles.includes(t));
+  attract(1000,t=>t>=27);
+  if(!o.rules.greenRequiresDragon||frequency[32]>0)attract(1000,t=>o.rules.greenTiles.includes(t));
   if(!melds.some(m=>m.type==='chi'))val=Math.max(val,200*Math.min(1,(2*(triplets+openTrip)+pairs)/9));
   if(!melds.length)val=Math.max(val,400*(pairs/7)**3);
   for(let t=27;t<34;t++){
     const unit=t>=31?o.rules.dragonBonus:(t===o.rules.roundWind?o.rules.roundWindBonus:0)+(t===27+(o.seat-o.dealer+4)%4?o.rules.seatWindBonus:0);
     val+=unit*(frequency[t]>=3?1:frequency[t]===2?0.45:0.05);
   }
-  val+=melds.filter(m=>m.type==='kan').length*o.rules.kanBonus;
+  val+=(o.rules.fourOfAKindBonus?frequency.filter(n=>n===4).length:melds.filter(m=>m.type==='kan').length)*o.rules.kanBonus;
   return {value:val,pinfu};
 }
 export function publicRisk(tile,o){

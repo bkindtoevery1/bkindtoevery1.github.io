@@ -1,6 +1,7 @@
 // Generated from completed independent validation. Regenerate with node training/export.mjs.
 const value={
   "id": "H-20261006-expanded-v1",
+  "rulesetId": "H-2026-literal-v1",
   "weights": {
     "D": {
       "speed": 38,

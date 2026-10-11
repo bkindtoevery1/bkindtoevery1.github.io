@@ -25,7 +25,8 @@ export function decompositions(tiles, melds=[], r=DEFAULT_RULES) {
 // tiles includes the winning tile; context carries no extra yaku from S/Riichi.
 export function scoreHand(tiles,melds=[],context={},r=DEFAULT_RULES) {
   const all=[...tiles,...melds.flatMap(m=>m.type==='chi'?[m.tile,m.tile+1,m.tile+2]:Array(m.type==='kan'?4:3).fill(m.tile))];
-  if(counts(all).some(x=>x>4)) return null;
+  const physicalCounts=counts(all);
+  if(physicalCounts.some(x=>x>4)) return null;
   const ds=decompositions(tiles,melds,r); if(!ds.length) return null;
   const closed=melds.every(m=>!m.open) && (!r.concealedKanBreaksMenzen||melds.length===0);
   const suits=new Set(all.filter(t=>t<27).map(t=>Math.floor(t/9))),honors=all.some(isHonor);
@@ -39,7 +40,7 @@ export function scoreHand(tiles,melds=[],context={},r=DEFAULT_RULES) {
     add('fiveGates',suits.size===3 && all.some(t=>t>=27&&t<31) && all.some(t=>t>=31));
     add('honitsu',suits.size===1&&honors); add('chinitsu',suits.size===1&&!honors);
     add('honroutou',all.every(isYao)); add('allTerminals',all.every(isTerminal));add('allHonors',all.every(isHonor));
-    add('allGreen',all.every(t=>r.greenTiles.includes(t)));
+    add('allGreen',all.every(t=>r.greenTiles.includes(t))&&(!r.greenRequiresDragon||physicalCounts[32]>0));
     if(d.kind==='sevenPairs') {add('sevenPairs',true);add('pureSevenPairs',(suits.size===1&&!honors)||suits.size===0);}
     else {
       add('pinfu',seq.length===4&&(!r.pinfuClosedOnly||closed));
@@ -69,14 +70,17 @@ export function scoreHand(tiles,melds=[],context={},r=DEFAULT_RULES) {
       add('sanankou',concealed>=3);
     }
     const trip=gs.filter(g=>g.type!=='chi'),bonuses={
-      kan:melds.filter(m=>m.type==='kan').length*r.kanBonus,
+      // The legacy field name stays stable in saved logs. Under the clarified
+      // rules this counts four identical physical tiles, declared kan or not.
+      kan:(r.fourOfAKindBonus?physicalCounts.filter(n=>n===4).length:melds.filter(m=>m.type==='kan').length)*r.kanBonus,
       dragon:trip.filter(g=>g.tile>=31).length*r.dragonBonus,
       roundWind:trip.filter(g=>g.tile===r.roundWind).length*r.roundWindBonus,
       seatWind:trip.filter(g=>g.tile===(context.seatWind??27)).length*r.seatWindBonus
     };
     for(const id of ids)allEligible.add(id);
     ids.sort((a,b)=>YAKU[b][1]-YAKU[a][1]);const base=YAKU[ids[0]][1],bonus=Object.values(bonuses).reduce((a,b)=>a+b,0),total=base+bonus;
-    if(!best||total>best.total)best={yaku:ids[0],name:YAKU[ids[0]][0],base,bonus,total,bonuses,eligibleYaku:ids,closed,shape:d};
+    const name=ids[0]==='allGreen'&&r.greenRequiresDragon?'녹일색':YAKU[ids[0]][0];
+    if(!best||total>best.total)best={yaku:ids[0],name,base,bonus,total,bonuses,eligibleYaku:ids,closed,shape:d};
   }
   best.eligibleYaku=[...allEligible].sort((a,b)=>YAKU[b][1]-YAKU[a][1]);return best;
 }

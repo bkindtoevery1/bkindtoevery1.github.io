@@ -4,6 +4,12 @@ import {indicators,revealedUraIndicators} from '../s-engine/game.mjs';
 
 export const signedPoints = value => `${value > 0 ? '+' : ''}${value}`;
 
+export function hBonusDetails(score,rules={}){
+  const names={kan:rules.fourOfAKindBonus?'사귀일':'깡',dragon:'삼원패',roundWind:'장풍',seatWind:'자풍'};
+  return Object.entries(names).filter(([key])=>Number.isFinite(score.bonuses?.[key])&&score.bonuses[key]>0)
+    .map(([key,label])=>`${label} ${score.bonuses[key]}점`).join(' · ');
+}
+
 // Derive presentation from the recorded score, including old room logs that
 // have itemized entries but do not have separate subtotal fields.
 export function scoreBreakdown(score){
@@ -58,6 +64,7 @@ export function winSettlement(state, seat) {
   if (win.method === 'tsumo') parts.push(`쯔모 ${tsumoBonus}`);
   return {
     payerCount, perPayer, receipt, expectedReceipt,
+    bonusDetails:hBonusDetails(score,state.rules),
     net: player.score, previousNet: player.score - receipt,
     title: `${score.name} ${win.method === 'tsumo' ? '쯔모' : '론'} · 이번 화료 +${receipt}점`,
     calculation: `(${parts.join(' + ')}) × ${payerCount}명 = +${expectedReceipt}점${receipt!==expectedReceipt?` · 실제 이체 +${receipt}점 (정산 확인 필요)`:''}`,

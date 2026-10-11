@@ -46,6 +46,12 @@
 .meld-rack .meld{margin:0;gap:1px;flex:none;flex-wrap:nowrap}
 .meld-rack .meld-label{display:none}
 .meld-rack .tile-small{width:25px;height:35px;font-size:16px}
+.meld-rack{--meld-tile-w:25px;--meld-tile-h:35px;direction:ltr}
+.meld-rack .meld{align-items:flex-end}
+.meld-slot{display:flex;flex-direction:column-reverse;gap:1px;flex:none}
+.meld-tile{position:relative;display:block;width:var(--meld-tile-w);height:var(--meld-tile-h);flex:none}
+.meld-tile.sideways{width:var(--meld-tile-h);height:var(--meld-tile-w)}
+.meld-tile.sideways>.tile-face{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-90deg)}
 .meld-zone-bottom{left:var(--meld-edge,14px);bottom:var(--meld-edge,14px)}
 .meld-zone-top{right:var(--meld-edge,14px);top:var(--meld-edge,14px);--meld-angle:180deg}
 .meld-zone-left{left:var(--meld-edge,14px);top:calc(var(--meld-edge,14px) + var(--top-meld-band,0px));--meld-angle:90deg}
@@ -53,8 +59,8 @@
 .board .opponent-top{top:var(--top-card-y,14px)}
 .board .opponent-left{left:var(--left-card-x,14px)}
 .board .opponent-right{right:var(--right-card-x,14px)}
-@media(max-width:760px){.meld-rack .tile-small{width:19px;height:27px;font-size:13px}.meld-rack{gap:6px}}
-@media(max-width:480px){.meld-rack .tile-small{width:17px;height:24px;font-size:12px}}
+@media(max-width:760px){.meld-rack .tile-small{width:19px;height:27px;font-size:13px}.meld-rack{gap:6px;--meld-tile-w:19px;--meld-tile-h:27px}}
+@media(max-width:480px){.meld-rack .tile-small{width:17px;height:24px;font-size:12px}.meld-rack{--meld-tile-w:17px;--meld-tile-h:24px}}
 /* S scoring: show indicator tiles separately from the tiles they award. */
 .dora-panel{padding:10px 18px 12px;background:#133d3e;border-bottom:1px solid #ffffff20;font-size:14px}
 .dora-heading{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px;color:#f4dfb1}
@@ -78,3 +84,4 @@
 .training-controls{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:0 0 16px;font-size:14px}.training-controls select{max-width:100%}#training-note{font-size:13px;color:var(--muted)}#training-conclusion{margin:18px 0;color:#cee0e1}
 
 .discard-ranking{font-size:12px;border-top:1px solid var(--line);padding-top:8px;line-height:1.5}.discard-ranking summary{cursor:pointer;color:var(--gold)}.discard-ranking p{margin:7px 0;color:var(--muted)}.discard-ranking ol{list-style:none;padding:0;margin:7px 0;display:grid;gap:8px}.discard-ranking li{display:grid;gap:3px;background:#102b32;padding:8px;border-radius:5px}.discard-ranking .ranking-components{color:var(--muted);overflow-wrap:anywhere}
+.room-member.is-ai{border-style:dashed;color:#c8d9ee;background:#203a4b}.room-info-actions{display:flex;gap:8px;flex-wrap:wrap}#start-ai-room{margin:0 8px 6px 0}

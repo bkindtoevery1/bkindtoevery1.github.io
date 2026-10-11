@@ -53,7 +53,7 @@ function shuffledWall(seed) {
 }
 
 // engine/rules.mjs
-var DEFAULT_RULES = Object.freeze({
+var LEGACY_RULES = Object.freeze({
   id: "H-2026-literal-v1",
   ronPassAllowed: true,
   passRonLock: "none",
@@ -81,17 +81,29 @@ var DEFAULT_RULES = Object.freeze({
   allowKuikae: true,
   revealWinnerHand: true,
   revealTsumoWinningTile: false,
-  roundWind: 27
+  roundWind: 27,
+  greenRequiresDragon: false,
+  fourOfAKindBonus: false,
+  ronContinuation: "discarder"
+});
+var DEFAULT_RULES = Object.freeze({
+  ...LEGACY_RULES,
+  id: "H-2026-clarified-20261011",
+  greenRequiresDragon: true,
+  fourOfAKindBonus: true,
+  ronContinuation: "last-winner"
 });
 function ruleset(overrides = {}) {
   for (const k of Object.keys(overrides)) if (!(k in DEFAULT_RULES)) throw new Error(`Unknown H ruleset key: ${k}`);
-  const r = { ...DEFAULT_RULES, ...overrides, greenTiles: [...overrides.greenTiles ?? DEFAULT_RULES.greenTiles] };
+  const defaults = overrides.id && overrides.id !== DEFAULT_RULES.id ? LEGACY_RULES : DEFAULT_RULES;
+  const r = { ...defaults, ...overrides, greenTiles: [...overrides.greenTiles ?? defaults.greenTiles] };
   for (const k of Object.keys(DEFAULT_RULES)) {
     if (typeof DEFAULT_RULES[k] === "boolean" && typeof r[k] !== "boolean") throw new Error(`Invalid boolean ${k}`);
     if (typeof DEFAULT_RULES[k] === "number" && (!Number.isSafeInteger(r[k]) || r[k] < 0)) throw new Error(`Invalid number ${k}`);
   }
   if (!["none", "until-draw"].includes(r.passRonLock) || !["all", "nearest"].includes(r.multipleRon) || !["next-active", "next-seat"].includes(r.chiFrom)) throw new Error("Invalid rules enum");
   if (!["structural", "public-possible"].includes(r.drawWaitAvailability)) throw new Error("Invalid draw wait rule");
+  if (!["discarder", "last-winner"].includes(r.ronContinuation)) throw new Error("Invalid ron continuation");
   if (r.kanReplacement !== "live-tail" || r.deadWallTiles > 70 || ![27, 28, 29, 30].includes(r.roundWind)) throw new Error("Unsupported wall or wind configuration");
   if (!r.greenTiles.every((t) => Number.isInteger(t) && t >= 0 && t < 34)) throw new Error("Invalid green tile");
   return r;
@@ -167,7 +179,8 @@ function decompositions(tiles2, melds = [], r = DEFAULT_RULES) {
 }
 function scoreHand(tiles2, melds = [], context2 = {}, r = DEFAULT_RULES) {
   const all = [...tiles2, ...melds.flatMap((m) => m.type === "chi" ? [m.tile, m.tile + 1, m.tile + 2] : Array(m.type === "kan" ? 4 : 3).fill(m.tile))];
-  if (counts(all).some((x) => x > 4)) return null;
+  const physicalCounts = counts(all);
+  if (physicalCounts.some((x) => x > 4)) return null;
   const ds = decompositions(tiles2, melds, r);
   if (!ds.length) return null;
   const closed = melds.every((m) => !m.open) && (!r.concealedKanBreaksMenzen || melds.length === 0);
@@ -189,7 +202,7 @@ function scoreHand(tiles2, melds = [], context2 = {}, r = DEFAULT_RULES) {
     add("honroutou", all.every(isYao));
     add("allTerminals", all.every(isTerminal));
     add("allHonors", all.every(isHonor));
-    add("allGreen", all.every((t) => r.greenTiles.includes(t)));
+    add("allGreen", all.every((t) => r.greenTiles.includes(t)) && (!r.greenRequiresDragon || physicalCounts[32] > 0));
     if (d.kind === "sevenPairs") {
       add("sevenPairs", true);
       add("pureSevenPairs", suits.size === 1 && !honors || suits.size === 0);
@@ -224,7 +237,9 @@ function scoreHand(tiles2, melds = [], context2 = {}, r = DEFAULT_RULES) {
       add("sanankou", concealed >= 3);
     }
     const trip = gs.filter((g) => g.type !== "chi"), bonuses = {
-      kan: melds.filter((m) => m.type === "kan").length * r.kanBonus,
+      // The legacy field name stays stable in saved logs. Under the clarified
+      // rules this counts four identical physical tiles, declared kan or not.
+      kan: (r.fourOfAKindBonus ? physicalCounts.filter((n) => n === 4).length : melds.filter((m) => m.type === "kan").length) * r.kanBonus,
       dragon: trip.filter((g) => g.tile >= 31).length * r.dragonBonus,
       roundWind: trip.filter((g) => g.tile === r.roundWind).length * r.roundWindBonus,
       seatWind: trip.filter((g) => g.tile === (context2.seatWind ?? 27)).length * r.seatWindBonus
@@ -232,7 +247,8 @@ function scoreHand(tiles2, melds = [], context2 = {}, r = DEFAULT_RULES) {
     for (const id of ids) allEligible.add(id);
     ids.sort((a, b) => YAKU[b][1] - YAKU[a][1]);
     const base = YAKU[ids[0]][1], bonus = Object.values(bonuses).reduce((a, b) => a + b, 0), total = base + bonus;
-    if (!best || total > best.total) best = { yaku: ids[0], name: YAKU[ids[0]][0], base, bonus, total, bonuses, eligibleYaku: ids, closed, shape: d };
+    const name = ids[0] === "allGreen" && r.greenRequiresDragon ? "\uB179\uC77C\uC0C9" : YAKU[ids[0]][0];
+    if (!best || total > best.total) best = { yaku: ids[0], name, base, bonus, total, bonuses, eligibleYaku: ids, closed, shape: d };
   }
   best.eligibleYaku = [...allEligible].sort((a, b) => YAKU[b][1] - YAKU[a][1]);
   return best;
@@ -438,7 +454,7 @@ function resolveReaction(s) {
       p2.river.push({ id: r.id, claimed: false, robbedKan: true });
     }
     for (const { seat: seat2 } of rons) win(s, seat2, "ron", r.source, r.id);
-    finishOrDraw(s, r.source);
+    finishOrDraw(s, s.rules.ronContinuation === "last-winner" ? rons.at(-1).seat : r.source);
     return;
   }
   if (r.kind === "kakan") {
@@ -1172,7 +1188,7 @@ function policyConfig(id, weights = {}) {
 function potential(c, melds, o) {
   const tiles2 = [];
   for (let t = 0; t < 34; t++) for (let k = 0; k < c[t]; k++) tiles2.push(t);
-  for (const m of melds) tiles2.push(...m.type === "chi" ? [m.tile, m.tile + 1, m.tile + 2] : Array(3).fill(m.tile));
+  for (const m of melds) tiles2.push(...m.type === "chi" ? [m.tile, m.tile + 1, m.tile + 2] : Array(o.rules.fourOfAKindBonus && m.type === "kan" ? 4 : 3).fill(m.tile));
   const len = tiles2.length, openTrip = melds.filter((m) => m.type !== "chi").length;
   let connections = 0, triplets = 0, pairs = 0;
   for (let t = 0; t < 34; t++) {
@@ -1196,14 +1212,14 @@ function potential(c, melds, o) {
     if (honors) attract(200, (t) => t >= 27 || Math.floor(t / 9) === s);
   }
   attract(1e3, (t) => t >= 27);
-  attract(1e3, (t) => o.rules.greenTiles.includes(t));
+  if (!o.rules.greenRequiresDragon || frequency[32] > 0) attract(1e3, (t) => o.rules.greenTiles.includes(t));
   if (!melds.some((m) => m.type === "chi")) val = Math.max(val, 200 * Math.min(1, (2 * (triplets + openTrip) + pairs) / 9));
   if (!melds.length) val = Math.max(val, 400 * (pairs / 7) ** 3);
   for (let t = 27; t < 34; t++) {
     const unit = t >= 31 ? o.rules.dragonBonus : (t === o.rules.roundWind ? o.rules.roundWindBonus : 0) + (t === 27 + (o.seat - o.dealer + 4) % 4 ? o.rules.seatWindBonus : 0);
     val += unit * (frequency[t] >= 3 ? 1 : frequency[t] === 2 ? 0.45 : 0.05);
   }
-  val += melds.filter((m) => m.type === "kan").length * o.rules.kanBonus;
+  val += (o.rules.fourOfAKindBonus ? frequency.filter((n) => n === 4).length : melds.filter((m) => m.type === "kan").length) * o.rules.kanBonus;
   return { value: val, pinfu };
 }
 function publicRisk(tile, o) {
@@ -1684,8 +1700,10 @@ function seatPositions(humanSeat2) {
 
 // web/multiplayer.mjs
 var STORAGE = "h-mahjong-room-v1";
-var API_ORIGIN = ["127.0.0.1", "localhost"].includes(location.hostname) ? "http://127.0.0.1:8790" : "https://wellness-mahjong-h-lab.chayhyeon.chatgpt.site";
+var API_ORIGIN = ["127.0.0.1", "localhost"].includes(globalThis.location?.hostname) ? "http://127.0.0.1:8790" : "https://wellness-mahjong-h-lab.chayhyeon.chatgpt.site";
 var key2 = () => Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, "0")).join("");
+var canStartWithAI = (snapshot) => !!(snapshot?.host && !snapshot.state && snapshot.members?.length >= 1 && snapshot.members.length < 4);
+var roomMemberName = (member) => member?.kind === "ai" ? `AI \xB7 ${member.policy ?? "E"}` : member?.name ?? "\uD50C\uB808\uC774\uC5B4";
 var RoomClient = class {
   constructor({ onState, onStatus }) {
     this.onState = onState;
@@ -1696,6 +1714,7 @@ var RoomClient = class {
     this.generation = 0;
     this.connected = false;
     this.failures = 0;
+    this.startingAI = null;
   }
   saved() {
     try {
@@ -1815,10 +1834,71 @@ var RoomClient = class {
     const generation = this.generation, data = await this.request(`rooms/${this.session.code}/rematch`, { gameNumber: this.snapshot.gameNumber });
     if (generation === this.generation) this.accept(data);
   }
+  async startAI() {
+    if (this.startingAI?.generation === this.generation) return this.startingAI.promise;
+    if (!this.connected) throw new Error("\uC11C\uBC84 \uC5F0\uACB0\uC744 \uAE30\uB2E4\uB824 \uC8FC\uC138\uC694.");
+    if (!canStartWithAI(this.snapshot)) throw new Error("\uBC29\uC7A5\uB9CC \uB300\uAE30 \uC911\uC778 \uBC29\uC758 \uBE48\uC790\uB9AC\uB97C AI\uB85C \uCC44\uC6B8 \uC218 \uC788\uC2B5\uB2C8\uB2E4.");
+    const generation = this.generation, session = { ...this.session }, gameNumber = this.snapshot.gameNumber;
+    const promise = (async () => {
+      try {
+        const data = await this.request(`rooms/${session.code}/start-ai`, { gameNumber }, session);
+        if (generation === this.generation) this.accept(data);
+        return data;
+      } catch (error) {
+        if (generation === this.generation) {
+          try {
+            const data = await this.request(`rooms/${session.code}/state`, void 0, session);
+            if (generation === this.generation) {
+              this.accept(data);
+              if (data.state && data.gameNumber > gameNumber) return data;
+            }
+          } catch {
+            if (generation === this.generation) this.connected = false;
+          }
+        }
+        throw error;
+      } finally {
+        if (this.startingAI?.generation === generation) this.startingAI = null;
+      }
+    })();
+    this.startingAI = { generation, promise };
+    return promise;
+  }
 };
+
+// web/meld-view.mjs
+var SOURCES = { 1: "right", 2: "across", 3: "left" };
+var MELD_SOURCE_LABELS = { left: "\uC67C\uCABD", across: "\uB9DE\uC740\uD3B8", right: "\uC624\uB978\uCABD" };
+function meldDisplay(meld, seat, players = []) {
+  const ids = [...meld.ids];
+  if (!meld.open) return {
+    source: null,
+    calledId: null,
+    addedId: null,
+    slots: ids.map((id) => ({ id, tile: typeOf(id), called: false, added: null }))
+  };
+  const source = SOURCES[(meld.from - seat + 4) % 4] ?? null;
+  const river = players[meld.from]?.river ?? [];
+  const calledId = river.find((discard) => discard.claimed && ids.includes(discard.id))?.id ?? meld.calledId ?? ids.at(-1);
+  const addedId = meld.type === "kan" && ids.length === 4 && ids.indexOf(calledId) === 2 ? ids[3] : null;
+  const others = ids.filter((id) => id !== calledId && id !== addedId).sort((a, b) => typeOf(a) - typeOf(b) || a - b);
+  const slots = others.map((id) => ({ id, tile: typeOf(id), called: false, added: null }));
+  const calledIndex = source === "left" ? 0 : source === "across" ? 1 : slots.length;
+  slots.splice(calledIndex, 0, {
+    id: calledId,
+    tile: typeOf(calledId),
+    called: true,
+    added: addedId === null ? null : { id: addedId, tile: typeOf(addedId) }
+  });
+  return { source, calledId, addedId, slots };
+}
 
 // web/score-display.mjs
 var signedPoints = (value2) => `${value2 > 0 ? "+" : ""}${value2}`;
+function hBonusDetails(score, rules = {}) {
+  const names = { kan: rules.fourOfAKindBonus ? "\uC0AC\uADC0\uC77C" : "\uAE61", dragon: "\uC0BC\uC6D0\uD328", roundWind: "\uC7A5\uD48D", seatWind: "\uC790\uD48D" };
+  return Object.entries(names).filter(([key3]) => Number.isFinite(score.bonuses?.[key3]) && score.bonuses[key3] > 0).map(([key3, label]) => `${label} ${score.bonuses[key3]}\uC810`).join(" \xB7 ");
+}
 function scoreBreakdown(score) {
   if (score?.variant !== "S") return null;
   const yaku = (score.yakuEntries ?? []).map((e) => ({ ...e })), bonuses = score.yakuman ? [] : (score.bonuses ?? []).map((e) => ({ ...e }));
@@ -1883,6 +1963,7 @@ function winSettlement(state2, seat) {
     perPayer,
     receipt,
     expectedReceipt,
+    bonusDetails: hBonusDetails(score, state2.rules),
     net: player.score,
     previousNet: player.score - receipt,
     title: `${score.name} ${win3.method === "tsumo" ? "\uCBD4\uBAA8" : "\uB860"} \xB7 \uC774\uBC88 \uD654\uB8CC +${receipt}\uC810`,
@@ -1934,7 +2015,11 @@ function actionRecord(game, seat, action, before, error = null) {
     const perPayer = win3.score.total + tsumoBonus, expectedReceipt = perPayer * payers.length, actualReceipt = actual.reduce((sum2, p) => sum2 + p.amount, 0);
     const problems = [];
     if (actual.length !== payers.length || payers.some((i) => actual.filter((p) => p.from === i && p.amount === perPayer).length !== 1)) problems.push("\uC9C0\uAE09\uC790 \uB610\uB294 \uC9C0\uAE09\uC561\uC774 \uC801\uC6A9 \uADDC\uCE59\uACFC \uB2E4\uB985\uB2C8\uB2E4.");
-    if ((win3.score.yaku === "pinfu" || win3.score.name === "\uD551\uD6C4") && (win3.score.base !== 100 || win3.score.bonus !== 0 || win3.score.total !== 100)) problems.push("\uD551\uD6C4 \uC5ED \uC810\uC218 \uB610\uB294 \uAC00\uC0B0\uC810\uC774 \uC798\uBABB\uB418\uC5C8\uC2B5\uB2C8\uB2E4.");
+    if (win3.score.yaku === "pinfu" || win3.score.name === "\uD551\uD6C4") {
+      const player = game.players[win3.seat], tiles2 = [...player.hand, ...player.melds.flatMap((m) => m.ids), ...win3.method === "ron" ? [win3.tile] : []].map(typeOf);
+      const expectedBonus = game.rules.fourOfAKindBonus ? counts(tiles2).filter((n) => n === 4).length * game.rules.kanBonus : 0;
+      if (win3.score.base !== 100 || win3.score.bonus !== expectedBonus || win3.score.total !== 100 + expectedBonus) problems.push("\uD551\uD6C4 \uC5ED \uC810\uC218 \uB610\uB294 \uC0AC\uADC0\uC77C \uAC00\uC0B0\uC810\uC774 \uC798\uBABB\uB418\uC5C8\uC2B5\uB2C8\uB2E4.");
+    }
     if (actualReceipt !== expectedReceipt || delta[win3.seat] !== actualReceipt) problems.push("\uD654\uB8CC \uC218\uC785\uACFC \uC810\uC218 \uBCC0\uD654\uAC00 \uB2E4\uB985\uB2C8\uB2E4.");
     issues.push(...problems.map((text) => `${seats2[win3.seat]}: ${text}`));
     return { seat: win3.seat, method: win3.method, order: win3.order, score: clone(win3.score), tsumoBonus, payers, perPayer, expectedReceipt, actualReceipt, scoreBefore: before.scores[win3.seat], scoreAfter: after[win3.seat], payments: actual, issues: problems };
@@ -2056,7 +2141,7 @@ function logText(log) {
     const action = entry.action, tile = Number.isInteger(action.tile) ? ` ${tileName(action.tile)}` : "";
     if (action.type !== "pass") lines.push(`#${entry.n + 1} ${seats2[entry.seat]} ${{ discard: "\uBC84\uB9BC", riichi: "\uB9AC\uCE58\xB7\uBC84\uB9BC", tsumo: "\uCBD4\uBAA8", ron: "\uB860", chi: "\uCE58", pon: "\uD401", ankan: "\uC548\uAE61", minkan: "\uBA85\uAE61", kakan: "\uAC00\uAE61" }[action.type] ?? action.type}${tile}`);
     for (const win3 of entry.wins) {
-      const detail = variant === "S" ? scoreBreakdownText(win3.score) : `\uC5ED ${win3.score.base}${win3.score.bonus ? " + \uAC00\uC0B0 " + win3.score.bonus : ""}${win3.tsumoBonus ? " + \uCBD4\uBAA8 " + win3.tsumoBonus : ""}`;
+      const detail = variant === "S" ? scoreBreakdownText(win3.score) : `\uC5ED ${win3.score.base}${win3.score.bonus ? " + " + (hBonusDetails(win3.score, game.rules) || "\uAC00\uC0B0 " + win3.score.bonus) : ""}${win3.tsumoBonus ? " + \uCBD4\uBAA8 " + win3.tsumoBonus : ""}`;
       lines.push(variant === "S" ? `  ${seats2[win3.seat]} ${detail}` : `  ${seats2[win3.seat]} ${win3.score.name} (${detail})`);
       if (win3.issues.length) lines.push(`  \uADDC\uCE59\uC0C1 ${win3.expectedReceipt}, \uC2E4\uC81C \uC218\uC785 ${win3.actualReceipt}`);
     }
@@ -2525,6 +2610,7 @@ function archiveTask(action, onError = () => {
 // web/trained-policies.mjs
 var value = {
   "id": "H-20261006-expanded-v1",
+  "rulesetId": "H-2026-literal-v1",
   "weights": {
     "D": {
       "speed": 38,
@@ -2553,12 +2639,12 @@ async function renderTrainingResults(get, training) {
     const response = await fetch(new URL("../results/training-20261006/analysis.json", import.meta.url));
     if (!response.ok) throw new Error("\uACB0\uACFC \uD30C\uC77C\uC744 \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.");
     const data = await response.json(), pair = data.tunedPairs.find((r) => r.comparison === "C-B");
-    get("training-run-status").textContent = `\uC2E4\uD589 \uC644\uB8CC \xB7 \uCD1D ${training.completedGames.toLocaleString()}\uAD6D \xB7 \uD29C\uB2DD ${training.trainingSeeds.toLocaleString()}\uAC1C / \uAC80\uC99D ${training.validationSeeds.toLocaleString()}\uAC1C \uC2DC\uB4DC`;
-    get("training-conclusion").textContent = `\uD559\uC2B5 \uD6C4\uBCF4\uB07C\uB9AC \uBE44\uAD50\uD588\uC744 \uB54C C\u2212B\uB294 \uAD6D\uB2F9 ${pair.meanDifference.toFixed(2)}\uC810 (95% \uC2E0\uB8B0\uAD6C\uAC04 ${pair.ci95Low.toFixed(2)} ~ ${pair.ci95High.toFixed(2)})\uC785\uB2C8\uB2E4. \uAC80\uC99D\uB41C \uAC1C\uC120 \uC815\uCC45: ${Object.keys(training.weights).join(", ") || "\uC5C6\uC74C"}.`;
+    get("training-run-status").textContent = `\uC774\uC804 H\uB8F0\uC5D0\uC11C \uC2E4\uD589 \uC644\uB8CC \xB7 \uCD1D ${training.completedGames.toLocaleString()}\uAD6D \xB7 \uD29C\uB2DD ${training.trainingSeeds.toLocaleString()}\uAC1C / \uAC80\uC99D ${training.validationSeeds.toLocaleString()}\uAC1C \uC2DC\uB4DC`;
+    get("training-conclusion").textContent = `\uC774\uC804 \uADDC\uCE59\uC758 \uD559\uC2B5 \uD6C4\uBCF4\uB07C\uB9AC C\u2212B\uB294 \uAD6D\uB2F9 ${pair.meanDifference.toFixed(2)}\uC810 (95% \uC2E0\uB8B0\uAD6C\uAC04 ${pair.ci95Low.toFixed(2)} ~ ${pair.ci95High.toFixed(2)})\uC785\uB2C8\uB2E4. \uB2F9\uC2DC \uAC80\uC99D\uB41C \uAC1C\uC120 \uC815\uCC45: ${Object.keys(training.weights).join(", ") || "\uC5C6\uC74C"}. 10/11 \uBB38\uC758 \uB2F5\uBCC0\uC744 \uBC18\uC601\uD55C \uC0C8 \uADDC\uCE59\uC5D0\uC11C\uB294 \uC7AC\uAC80\uC99D\uD558\uC9C0 \uC54A\uC558\uC73C\uBA70, \uC774 \uAC00\uC911\uCE58\uB97C \uC790\uB3D9 \uC801\uC6A9\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.`;
     get("training-summary").replaceChildren();
     for (const r of data.improvements) {
       const old = data.baselineSummary.find((x) => x.policy === r.policy), tuned = data.tunedSummary.find((x) => x.policy === r.policy), row = document.createElement("tr");
-      for (const value2 of [r.policy, old.meanNet.toFixed(2), tuned.meanNet.toFixed(2), r.meanDifference.toFixed(2), `${r.ci95Low.toFixed(2)} ~ ${r.ci95High.toFixed(2)}`, Object.hasOwn(training.weights, r.policy) ? "\uD559\uC2B5 \uAC00\uC911\uCE58" : "\uAE30\uC874 \uC720\uC9C0"]) {
+      for (const value2 of [r.policy, old.meanNet.toFixed(2), tuned.meanNet.toFixed(2), r.meanDifference.toFixed(2), `${r.ci95Low.toFixed(2)} ~ ${r.ci95High.toFixed(2)}`, Object.hasOwn(training.weights, r.policy) ? "\uAD6C \uADDC\uCE59\uC5D0\uC11C\uB9CC \uAC80\uC99D" : "\uAE30\uC874 \uC720\uC9C0"]) {
         const cell = document.createElement("td");
         cell.textContent = value2;
         row.append(cell);
@@ -2575,6 +2661,10 @@ var KEY3 = "wellness-mahjong-training-profile-v1";
 function hasTrainedPolicies(training) {
   return Object.keys(training.weights).length > 0;
 }
+function trainingCompatible(view, training) {
+  const rules = view?.rules;
+  return !!rules && rules.variant !== "S" && rules.id === (training.rulesetId ?? "H-2026-literal-v1") && !rules.greenRequiresDragon && !rules.fourOfAKindBonus && (!rules.ronContinuation || rules.ronContinuation === "discarder");
+}
 function readTrainingMode(storage, training) {
   try {
     if (storage?.getItem(KEY3) === "original") return "original";
@@ -2589,7 +2679,7 @@ function saveTrainingMode(storage, mode) {
   }
 }
 function trainingWeights(view, mode, training) {
-  return view.rules.variant !== "S" && mode === "trained" ? training.weights : {};
+  return trainingCompatible(view, training) && mode === "trained" ? training.weights : {};
 }
 function practiceAction(view, { humanSeat: humanSeat2, policy, profile, mode, training }) {
   if (view.seat === humanSeat2) return chooseAction3(view, policy, trainingWeights(view, mode, training)[policy]);
@@ -2610,6 +2700,7 @@ var online = false;
 var remote = null;
 var networkBusy = false;
 var sMatch = null;
+var roomMutationBusy = false;
 var logStorage = null;
 try {
   logStorage = localStorage;
@@ -2655,6 +2746,7 @@ function discardSelection() {
 }
 var roomClient = new RoomClient({ onState: receiveRoom, onStatus: (message) => {
   $("room-connection").textContent = message;
+  renderRoomStart();
   if (online && remote?.state && !roomClient.connected) {
     networkBusy = true;
     render();
@@ -2738,19 +2830,37 @@ function updateSelection() {
   }
   $("selection-hint").textContent = state.end ? currentMatch()?.status === "between-rounds" ? "\uC704\uC758 \uB2E4\uC74C \uAD6D \uC2DC\uC791 \uBC84\uD2BC\uC73C\uB85C \uC810\uC218\uB97C \uC774\uC5B4\uAC11\uB2C8\uB2E4." : "\uC0C8 \uB300\uAD6D\uC73C\uB85C \uB2E4\uC2DC \uC5F0\uC2B5\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." : state.players[humanSeat].won ? "\uD654\uB8CC\uD588\uC2B5\uB2C8\uB2E4. \uB0A8\uC740 \uB300\uAD6D\uC744 \uC9C0\uCF1C\uBCF4\uC138\uC694." : auto ? "\uC120\uD0DD\uD55C \uC804\uB7B5\uC73C\uB85C \uC790\uB3D9 \uB300\uAD6D \uC911\uC785\uB2C8\uB2E4." : actor4(state) !== humanSeat ? "\uC0C1\uB300\uAC00 \uC9C4\uD589 \uC911\uC785\uB2C8\uB2E4." : state.phase === "reaction" ? "\uAC00\uB2A5\uD55C \uD589\uB3D9\uC744 \uC120\uD0DD\uD558\uC138\uC694." : selectedTileId === null ? "\uD328\uB97C \uC120\uD0DD \u2192 \uB2E4\uC2DC \uB204\uB974\uAC70\uB098 \u2018\uBC84\uB9AC\uAE30\u2019\uB85C \uD655\uC815" : `${tileName(typeOf(selectedTileId))} \uC120\uD0DD \xB7 \uB2E4\uC2DC \uB204\uB974\uAC70\uB098 \u2018\uBC84\uB9AC\uAE30\u2019\uB85C \uD655\uC815`;
 }
-function renderMeld(m) {
-  const el = node("div", void 0, "meld");
-  el.setAttribute("aria-label", meldText(m));
-  el.title = meldText(m);
+function renderMeld(m, seat) {
+  const display = meldDisplay(m, seat, state.players), el = node("div", void 0, "meld");
+  const source = display.source ? `${MELD_SOURCE_LABELS[display.source]}\uC5D0\uC11C \uAC00\uC838\uC628 ${tileName(typeOf(display.calledId))}` : "";
+  const label = [meldText(m), source, display.addedId !== null ? "\uAC00\uAE61\uC740 \uAC00\uC838\uC628 \uD328 \uC704\uC5D0 \uACB9\uCCD0 \uD45C\uC2DC" : ""].filter(Boolean).join(" \xB7 ");
+  el.setAttribute("aria-label", label);
+  el.title = label;
   el.append(node("span", m.type === "kan" ? m.open ? "\uAE61" : "\uC548\uAE61" : m.type === "pon" ? "\uD401" : "\uCE58", "meld-label"));
-  tiles(el, m.ids.map(typeOf));
+  for (const slot of display.slots) {
+    const group = node("span", void 0, "meld-slot" + (slot.called ? " is-called" : "") + (slot.added ? " is-added-kan" : ""));
+    const add = (tile, extra = false) => {
+      const wrap = node("span", void 0, "meld-tile" + (slot.called ? " sideways" : ""));
+      wrap.dataset.tileId = String(tile.id);
+      wrap.setAttribute("aria-label", `${tileName(tile.tile)}${extra ? " \xB7 \uAC00\uAE61\uC73C\uB85C \uB354\uD55C \uD328" : slot.called ? " \xB7 " + source : ""}`);
+      wrap.append(tileFace(tile.tile, { small: true }));
+      group.append(wrap);
+    };
+    add(slot);
+    if (slot.added) add(slot.added, true);
+    el.append(group);
+  }
   return el;
 }
 function renderMeldZone(player, position, seat) {
   if (!player.melds.length) return;
   const zone = node("div", void 0, `meld-zone meld-zone-${position}`), rack = node("div", void 0, "meld-rack");
   zone.setAttribute("aria-label", `${seatName(seat)} \uACF5\uAC1C \uBAB8\uD1B5 \xB7 \uC790\uAE30 \uAE30\uC900 \uC67C\uCABD`);
-  for (const m of player.melds) rack.append(renderMeld(m));
+  for (const [index, m] of player.melds.entries()) {
+    const group = renderMeld(m, seat);
+    group.dataset.meldOrder = String(index + 1);
+    rack.append(group);
+  }
   zone.append(rack);
   $("melds").append(zone);
 }
@@ -2936,7 +3046,7 @@ function render() {
     windElement.classList.toggle("active-wind", i === shownTurn);
     if (position === "bottom") continue;
     const card = node("div", void 0, `opponent opponent-${position}${pl.won ? " won" : ""}${shownTurn === i ? " active" : ""}`), title = node("div", void 0, "player-title"), who = node("span", void 0, "player-seat");
-    who.append(node("span", wind(i), "seat-badge"), node("span", online ? remote.members.find((m) => m.seat === i)?.name ?? "\uD50C\uB808\uC774\uC5B4" : "AI", "player-name"));
+    who.append(node("span", wind(i), "seat-badge"), node("span", online ? roomMemberName(remote.members.find((m) => m.seat === i)) : "AI", "player-name"));
     title.append(who, node("span", match ? `${match.totals[i].toLocaleString()}\uC810` : signedPoints(pl.score), "player-score"));
     card.append(title, node("p", pl.won ? `${pl.win.order}\uBC88\uC9F8 ${pl.win.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 ${pl.win.score.name}` : `${seatName(i)} \xB7 \uC190\uD328 ${pl.handSize ?? pl.hand.length}\uC7A5`, "player-sub"));
     if (pl.riichi) card.append(riichiMarker(i));
@@ -2966,6 +3076,7 @@ function render() {
     result.append(node("strong", `${variant === "S" ? seatName(settledSeat) + " \xB7 " : ""}${settlement.title}`));
     if (settlement.breakdown) result.append(renderHanBreakdown(settlement.breakdown));
     result.append(node("p", settlement.calculation));
+    if (variant === "H" && settlement.bonusDetails) result.append(node("p", settlement.bonusDetails));
     if (settlement.previousNet !== 0) result.append(node("p", `\uD654\uB8CC \uC804 \uB204\uC801 ${signedPoints(settlement.previousNet)}\uC810 \u2192 \uAD6D \uB204\uC801 ${signedPoints(settlement.net)}\uC810`));
   }
   const legal = a === humanSeat ? legalActions4(state) : [], hand = handDisplay(state, humanSeat), automaticPass = needsPass(state, humanSeat);
@@ -3255,7 +3366,7 @@ function renderMatch() {
   };
   $("match-scores").replaceChildren();
   for (const r of match.rankings) {
-    const who = r.seat === humanSeat ? "\uB098" : online ? remote.members.find((m) => m.seat === r.seat)?.name ?? "\uC0C1\uB300" : `AI ${r.seat + 1}`;
+    const who = r.seat === humanSeat ? "\uB098" : online ? roomMemberName(remote.members.find((m) => m.seat === r.seat)) : `AI ${r.seat + 1}`;
     $("match-scores").append(node("div", `${r.rank}\uC704 ${who} \xB7 ${seatName(r.seat)} \xB7 ${r.points.toLocaleString()}\uC810`));
   }
   $("match-rounds").replaceChildren();
@@ -3303,10 +3414,18 @@ function showOnline() {
   $("online-mode").setAttribute("aria-pressed", "true");
   document.querySelector(".play-layout").hidden = !remote?.state;
   $("resume-room").hidden = !roomClient.saved()?.code;
-  $("practice-info").textContent = "\uAC19\uC740 \uBC29 \uCF54\uB4DC\uB85C \uB124 \uBA85\uC774 \uBAA8\uC774\uBA74 \uC2DC\uC791\uD569\uB2C8\uB2E4. \uAC01\uC790 \uC190\uD328\uB9CC \uBCFC \uC218 \uC788\uC2B5\uB2C8\uB2E4.";
+  $("practice-info").textContent = "\uB124 \uBA85\uC774 \uC785\uC7A5\uD558\uAC70\uB098, \uBC29\uC7A5\uC774 \uBE48\uC790\uB9AC\uB97C AI\uB85C \uCC44\uC6B0\uBA74 \uC2DC\uC791\uD569\uB2C8\uB2E4. \uAC01\uC790 \uC190\uD328\uB9CC \uBCFC \uC218 \uC788\uC2B5\uB2C8\uB2E4.";
   renderMatch();
   renderLogs();
   renderTrainingMode(remote?.variant ?? chosenVariant);
+  renderRoomStart();
+}
+function renderRoomStart() {
+  const allowed = online && canStartWithAI(remote), button = $("start-ai-room");
+  button.hidden = !allowed;
+  button.disabled = roomMutationBusy || !roomClient.connected;
+  button.textContent = roomMutationBusy ? "AI\uB97C \uCC44\uC6B0\uACE0 \uC2DC\uC791\uD558\uB294 \uC911\u2026" : `\uBE48\uC790\uB9AC ${4 - (remote?.members.length ?? 0)}\uAC1C\uB97C AI\uB85C \uCC44\uC6B0\uACE0 \uC2DC\uC791`;
+  $("rematch-room").disabled = roomMutationBusy || !roomClient.connected;
 }
 function receiveRoom(snapshot) {
   if (!online) return;
@@ -3325,10 +3444,11 @@ function receiveRoom(snapshot) {
   if (snapshot.match) matchStore.saveSummary(snapshot.match, { seat: snapshot.seat });
   else renderMatch();
   for (let i = 0; i < 4; i++) {
-    const member = snapshot.members[i], el = node("div", member ? `${member.name}${member.id === snapshot.me ? " (\uB098)" : ""}${member.seat === null ? "" : ` \xB7 ${seatName(member.seat)}`}` : "\uC785\uC7A5 \uB300\uAE30 \uC911", `room-member${member?.id === snapshot.me ? " is-me" : ""}`);
+    const member = snapshot.members[i], el = node("div", member ? `${roomMemberName(member)}${member.id === snapshot.me ? " (\uB098)" : ""}${member.seat === null ? "" : ` \xB7 ${seatName(member.seat)}`}` : "\uC785\uC7A5 \uB300\uAE30 \uC911", `room-member${member?.id === snapshot.me ? " is-me" : ""}${member?.kind === "ai" ? " is-ai" : ""}`);
     $("room-members").append(el);
   }
-  $("room-message").textContent = snapshot.state ? snapshot.state.end ? snapshot.match?.status === "complete" ? "\uB0A84\uAD6D \uC885\uB8CC \xB7 \uBC18\uC7A5 \uCD5C\uC885 \uC810\uC218\uB97C \uC800\uC7A5\uD588\uC2B5\uB2C8\uB2E4." : "\uAD6D\uC774 \uB05D\uB0AC\uC2B5\uB2C8\uB2E4. \uBC29\uC7A5\uC774 \uB2E4\uC74C \uAD6D\uC744 \uC2DC\uC791\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." : `${snapshot.variant ?? "H"}\uB8F0 \xB7 \uC81C${snapshot.gameNumber}\uAD6D \xB7 \uB0B4 \uC790\uB9AC ${seatName(snapshot.seat)}` : `${snapshot.variant ?? "H"}\uB8F0 \xB7 ${snapshot.members.length}/4\uBA85 \uC785\uC7A5 \xB7 \uBC29 \uCF54\uB4DC\uB97C \uCE5C\uAD6C\uC5D0\uAC8C \uC54C\uB824 \uC8FC\uC138\uC694.`;
+  const aiCount = snapshot.members.filter((member) => member.kind === "ai").length, humanCount = snapshot.members.length - aiCount;
+  $("room-message").textContent = snapshot.state ? snapshot.state.end ? snapshot.match?.status === "complete" ? "\uB0A84\uAD6D \uC885\uB8CC \xB7 \uBC18\uC7A5 \uCD5C\uC885 \uC810\uC218\uB97C \uC800\uC7A5\uD588\uC2B5\uB2C8\uB2E4." : "\uAD6D\uC774 \uB05D\uB0AC\uC2B5\uB2C8\uB2E4. \uBC29\uC7A5\uC774 \uB2E4\uC74C \uAD6D\uC744 \uC2DC\uC791\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." : `${snapshot.variant ?? "H"}\uB8F0 \xB7 \uC81C${snapshot.gameNumber}\uAD6D \xB7 \uC0AC\uB78C ${humanCount}\uBA85${aiCount ? " + AI " + aiCount + "\uBA85" : ""} \xB7 \uB0B4 \uC790\uB9AC ${seatName(snapshot.seat)}` : `${snapshot.variant ?? "H"}\uB8F0 \xB7 ${humanCount}/4\uBA85 \uC785\uC7A5 \xB7 ${snapshot.host ? "\uCE5C\uAD6C\uB97C \uAE30\uB2E4\uB9AC\uAC70\uB098 \uBE48\uC790\uB9AC\uB97C AI\uB85C \uCC44\uC6CC \uBC14\uB85C \uC2DC\uC791\uD558\uC138\uC694." : "\uBC29\uC7A5\uC774 \uBE48\uC790\uB9AC\uB97C AI\uB85C \uCC44\uC6B0\uBA74 \uBC14\uB85C \uC2DC\uC791\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4."}`;
   $("rematch-room").hidden = !(snapshot.host && snapshot.state?.end);
   $("rematch-room").textContent = snapshot.match?.status === "between-rounds" ? snapshot.match.nextLabel + " \uC2DC\uC791" : snapshot.variant === "S" ? "\uAC19\uC740 \uBA64\uBC84\uB85C \uC0C8 \uBC18\uC7A5" : "\uAC19\uC740 \uBA64\uBC84\uB85C \uC0C8 \uAD6D";
   document.querySelector(".play-layout").hidden = !snapshot.state;
@@ -3341,6 +3461,7 @@ function receiveRoom(snapshot) {
     render();
   }
   renderLogs();
+  renderRoomStart();
 }
 async function connectRoom(join) {
   showOnline();
@@ -3354,6 +3475,21 @@ async function connectRoom(join) {
 }
 function roomError(error) {
   $("room-error").textContent = error.message;
+}
+async function mutateRoom(action) {
+  if (roomMutationBusy) return;
+  const generation = roomClient.generation;
+  roomMutationBusy = true;
+  $("room-error").textContent = "";
+  renderRoomStart();
+  try {
+    return await action();
+  } catch (error) {
+    if (online && generation === roomClient.generation) roomError(error);
+  } finally {
+    roomMutationBusy = false;
+    renderRoomStart();
+  }
 }
 $("practice-mode").onclick = () => {
   if (online && !restorePractice(true)) randomGame();
@@ -3375,7 +3511,8 @@ $("resume-room").onclick = () => {
   showOnline();
   roomClient.resume().catch(roomError);
 };
-$("rematch-room").onclick = () => roomClient.rematch().catch(roomError);
+$("start-ai-room").onclick = () => mutateRoom(() => roomClient.startAI());
+$("rematch-room").onclick = () => mutateRoom(() => roomClient.rematch());
 $("copy-room-link").onclick = async () => {
   if (!remote) return;
   const url = new URL(location.href);
@@ -3438,10 +3575,11 @@ function randomGame() {
   return start(crypto.getRandomValues(new Uint32Array(1))[0], chosenVariant);
 }
 function renderTrainingMode(variant) {
-  const enabled = hasTrainedPolicies(TRAINING);
-  $("training-mode").value = trainingMode;
-  $("training-mode").disabled = variant === "S" || !enabled;
-  $("training-note").textContent = variant === "S" ? "S\uB8F0\uC740 \uAE30\uC874 \uC804\uC6A9 \uC804\uB7B5\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4." : !enabled ? "\uCD94\uAC00 \uAC80\uC99D\uC5D0\uC11C \uAC1C\uC120\uC774 \uD655\uC778\uB41C \uC815\uCC45\uC774 \uC5C6\uC5B4 \uAE30\uC874 \uC804\uB7B5\uC744 \uC720\uC9C0\uD569\uB2C8\uB2E4." : trainingMode === "trained" ? `${Object.keys(TRAINING.weights).join("\xB7")}\uC5D0 \uAC80\uC99D\uB41C \uAC00\uC911\uCE58 \uC801\uC6A9 \xB7 \uB098\uBA38\uC9C0\uB294 \uAE30\uC874 \uC804\uB7B5 \xB7 \uB0B4 \uCD94\uCC9C\uACFC \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9` : "\uAE30\uC874 A\u2013E \uC804\uB7B5 \xB7 \uB0B4 \uCD94\uCC9C\uACFC \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9";
+  const view = state && (!online || remote?.state) && state.rules.variant !== "S" && variant === "H" ? state : { rules: { variant } }, compatible = trainingCompatible(view, TRAINING), enabled = hasTrainedPolicies(TRAINING);
+  $("training-mode").value = compatible ? trainingMode : "original";
+  $("training-mode").disabled = variant === "S" || !enabled || !compatible;
+  $("training-mode").querySelector('[value="trained"]').disabled = !compatible;
+  $("training-note").textContent = variant === "S" ? "S\uB8F0\uC740 \uAE30\uC874 \uC804\uC6A9 \uC804\uB7B5\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4." : !compatible ? "10/11 \uADDC\uCE59 \xB7 \uC774\uC804 \uD559\uC2B5\uC740 \uAD6C \uADDC\uCE59 \uAC80\uC99D \uACB0\uACFC\uC774\uBBC0\uB85C \uD604\uC7AC \uB300\uAD6D\uC740 \uAE30\uBCF8 A\u2013E\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4." : !enabled ? "\uCD94\uAC00 \uAC80\uC99D\uC5D0\uC11C \uAC1C\uC120\uC774 \uD655\uC778\uB41C \uC815\uCC45\uC774 \uC5C6\uC5B4 \uAE30\uC874 \uC804\uB7B5\uC744 \uC720\uC9C0\uD569\uB2C8\uB2E4." : trainingMode === "trained" ? `${Object.keys(TRAINING.weights).join("\xB7")}\uC5D0 \uAD6C \uADDC\uCE59 \uAC80\uC99D \uAC00\uC911\uCE58 \uC801\uC6A9 \xB7 \uB0B4 \uCD94\uCC9C\uACFC \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9` : "\uAE30\uC874 A\u2013E \uC804\uB7B5 \xB7 \uB0B4 \uCD94\uCC9C\uACFC \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9";
 }
 function setTrainingMode(mode) {
   if (!["original", "trained"].includes(mode) || mode === "trained" && !hasTrainedPolicies(TRAINING)) throw new Error("\uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC804\uB7B5 \uBC84\uC804\uC744 \uC120\uD0DD\uD558\uC138\uC694.");
@@ -3536,7 +3674,7 @@ fetch(new URL("../results/baseline/analysis.json", import.meta.url)).then((r) =>
   return r.json();
 }).then((data) => {
   const primary = data.pairedDifferences.find((x) => x.comparison === "C-B");
-  $("conclusion").textContent = `\uC774 \uC2DC\uB098\uB9AC\uC624\uC5D0\uC11C C\uB294 B\uBCF4\uB2E4 \uAD6D\uB2F9 ${Math.abs(primary.meanDifference).toFixed(2)}\uC810 ${primary.meanDifference < 0 ? "\uB0AE\uC558\uC2B5\uB2C8\uB2E4" : "\uB192\uC558\uC2B5\uB2C8\uB2E4"}. \uD3C9\uADE0 1\uC704 ${data.conclusion.bestMeanPolicy}; \uC804\uCCB4 \uD6C4\uBCF4\uC5D0 \uB300\uD55C \uD655\uC815 \uC6B0\uC704\uB294 ${data.conclusion.dominatesAllWithBonferroniIntervals ? "\uD655\uC778\uB428" : "\uD655\uC778\uB418\uC9C0 \uC54A\uC74C"}.`;
+  $("conclusion").textContent = `\uAD6C \uADDC\uCE59 \uC2DC\uB098\uB9AC\uC624\uC5D0\uC11C C\uB294 B\uBCF4\uB2E4 \uAD6D\uB2F9 ${Math.abs(primary.meanDifference).toFixed(2)}\uC810 ${primary.meanDifference < 0 ? "\uB0AE\uC558\uC2B5\uB2C8\uB2E4" : "\uB192\uC558\uC2B5\uB2C8\uB2E4"}. \uD3C9\uADE0 1\uC704 ${data.conclusion.bestMeanPolicy}; \uC804\uCCB4 \uD6C4\uBCF4\uC5D0 \uB300\uD55C \uD655\uC815 \uC6B0\uC704\uB294 ${data.conclusion.dominatesAllWithBonferroniIntervals ? "\uD655\uC778\uB428" : "\uD655\uC778\uB418\uC9C0 \uC54A\uC74C"}.`;
   const reverse = data.profilePairs.filter((r) => r.comparison === "C-B" && r.ci95Low > 0);
   if (reverse.length) $("conclusion").textContent += " \uC0C1\uB300\uBCC4 \uC608\uC678: " + reverse.map((r) => `${r.profile} C\u2212B +${r.meanDifference.toFixed(2)}\uC810`).join(", ") + ".";
   for (const r of data.summary) {
@@ -3550,7 +3688,7 @@ fetch(new URL("../results/baseline/analysis.json", import.meta.url)).then((r) =>
 void renderTrainingResults($, TRAINING);
 function readGame() {
   if (online && !remote?.state) return { mode: "online", phase: "waiting", room: remote ? { code: remote.code, members: remote.members } : null, legalActions: [], recommendations: [] };
-  return { match: currentMatch(), variant: state.rules.variant === "S" ? "S" : "H", trainingMode: state.rules.variant === "S" ? "original" : trainingMode, trainingId: TRAINING.id, recommendationsEnabled, selectedVariant: chosenVariant, mode: online ? "online" : "practice", room: online && remote ? { code: remote.code, members: remote.members, gameNumber: remote.gameNumber } : null, seat: humanSeat, phase: online && !remote?.state ? "waiting" : state.phase, turn: actor4(state), ownHand: state.players[humanSeat].hand.map(typeOf), drawnTile: handDisplay(state, humanSeat).drawn === null ? null : typeOf(handDisplay(state, humanSeat).drawn), scores: state.players.map((p) => p.score), winners: [...state.winners], legalActions: actor4(state) === humanSeat ? legalActions4(state) : [], recommendationRevision, recommendations: structuredClone(currentRecommendations) };
+  return { match: currentMatch(), variant: state.rules.variant === "S" ? "S" : "H", trainingMode: trainingCompatible(state, TRAINING) ? trainingMode : "original", trainingId: TRAINING.id, recommendationsEnabled, selectedVariant: chosenVariant, mode: online ? "online" : "practice", room: online && remote ? { code: remote.code, members: remote.members, gameNumber: remote.gameNumber } : null, seat: humanSeat, phase: online && !remote?.state ? "waiting" : state.phase, turn: actor4(state), ownHand: state.players[humanSeat].hand.map(typeOf), drawnTile: handDisplay(state, humanSeat).drawn === null ? null : typeOf(handDisplay(state, humanSeat).drawn), scores: state.players.map((p) => p.score), winners: [...state.winners], legalActions: actor4(state) === humanSeat ? legalActions4(state) : [], recommendationRevision, recommendations: structuredClone(currentRecommendations) };
 }
 if (document.modelContext?.registerTool) {
   const life = new AbortController();

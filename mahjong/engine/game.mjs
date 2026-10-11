@@ -97,7 +97,9 @@ function resolveReaction(s){
   if(rons.length){
     if(r.kind==='kakan'){const p=s.players[r.source];const idx=p.hand.indexOf(r.id);p.hand.splice(idx,1);p.river.push({id:r.id,claimed:false,robbedKan:true});}
     for(const {seat}of rons)win(s,seat,'ron',r.source,r.id);
-    finishOrDraw(s,r.source);return;
+    // Answers are ordered clockwise from the discarder. With multiple ron,
+    // the configured last winner is the final winner in that order.
+    finishOrDraw(s,s.rules.ronContinuation==='last-winner'?rons.at(-1).seat:r.source);return;
   }
   if(r.kind==='kakan'){
     const p=s.players[r.source],m=p.melds[r.meld];m.ids.push(...removeTypes(p,[m.tile]));m.type='kan';completeKan(s,r.source);return;

@@ -1,6 +1,6 @@
 import {step,assertInvariants} from '../game/engine.mjs';
-import {tileName,typeOf} from '../engine/tiles.mjs';
-import {scoreBreakdownText} from './score-display.mjs';
+import {tileName,typeOf,counts} from '../engine/tiles.mjs';
+import {scoreBreakdownText,hBonusDetails} from './score-display.mjs';
 
 export const LOG_FORMAT='h-mahjong-log/v1';
 export const COMPACT_FORMAT='wellness-mahjong-log/v2';
@@ -40,7 +40,11 @@ export function actionRecord(game,seat,action,before,error=null){
     const perPayer=win.score.total+tsumoBonus,expectedReceipt=perPayer*payers.length,actualReceipt=actual.reduce((sum,p)=>sum+p.amount,0);
     const problems=[];
     if(actual.length!==payers.length||payers.some(i=>actual.filter(p=>p.from===i&&p.amount===perPayer).length!==1))problems.push('지급자 또는 지급액이 적용 규칙과 다릅니다.');
-    if((win.score.yaku==='pinfu'||win.score.name==='핑후')&&(win.score.base!==100||win.score.bonus!==0||win.score.total!==100))problems.push('핑후 역 점수 또는 가산점이 잘못되었습니다.');
+    if(win.score.yaku==='pinfu'||win.score.name==='핑후'){
+      const player=game.players[win.seat],tiles=[...player.hand,...player.melds.flatMap(m=>m.ids),...win.method==='ron'?[win.tile]:[]].map(typeOf);
+      const expectedBonus=game.rules.fourOfAKindBonus?counts(tiles).filter(n=>n===4).length*game.rules.kanBonus:0;
+      if(win.score.base!==100||win.score.bonus!==expectedBonus||win.score.total!==100+expectedBonus)problems.push('핑후 역 점수 또는 사귀일 가산점이 잘못되었습니다.');
+    }
     if(actualReceipt!==expectedReceipt||delta[win.seat]!==actualReceipt)problems.push('화료 수입과 점수 변화가 다릅니다.');
     issues.push(...problems.map(text=>`${seats[win.seat]}: ${text}`));
     return {seat:win.seat,method:win.method,order:win.order,score:clone(win.score),tsumoBonus,payers,perPayer,expectedReceipt,actualReceipt,scoreBefore:before.scores[win.seat],scoreAfter:after[win.seat],payments:actual,issues:problems};
@@ -103,7 +107,7 @@ export function logText(log){
   for(const entry of log.actions){
     const action=entry.action,tile=Number.isInteger(action.tile)?` ${tileName(action.tile)}`:'';
     if(action.type!=='pass')lines.push(`#${entry.n+1} ${seats[entry.seat]} ${({discard:'버림',riichi:'리치·버림',tsumo:'쯔모',ron:'론',chi:'치',pon:'퐁',ankan:'안깡',minkan:'명깡',kakan:'가깡'})[action.type]??action.type}${tile}`);
-    for(const win of entry.wins){const detail=variant==='S'?scoreBreakdownText(win.score):`역 ${win.score.base}${win.score.bonus?' + 가산 '+win.score.bonus:''}${win.tsumoBonus?' + 쯔모 '+win.tsumoBonus:''}`;lines.push(variant==='S'?`  ${seats[win.seat]} ${detail}`:`  ${seats[win.seat]} ${win.score.name} (${detail})`);if(win.issues.length)lines.push(`  규칙상 ${win.expectedReceipt}, 실제 수입 ${win.actualReceipt}`);}
+    for(const win of entry.wins){const detail=variant==='S'?scoreBreakdownText(win.score):`역 ${win.score.base}${win.score.bonus?' + '+(hBonusDetails(win.score,game.rules)||'가산 '+win.score.bonus):''}${win.tsumoBonus?' + 쯔모 '+win.tsumoBonus:''}`;lines.push(variant==='S'?`  ${seats[win.seat]} ${detail}`:`  ${seats[win.seat]} ${win.score.name} (${detail})`);if(win.issues.length)lines.push(`  규칙상 ${win.expectedReceipt}, 실제 수입 ${win.actualReceipt}`);}
     for(const payment of entry.payments)lines.push(`  ${seats[payment.from]??'공탁'} → ${seats[payment.to]??'공탁'}: ${payment.amount}점`);
     for(const draw of entry.draws)lines.push(`  ${seats[draw.seat]} ${draw.type==='kanDraw'?'보충패':'뽑은 패'}: ${tileName(typeOf(draw.id))}`);
     for(const issue of entry.issues)lines.push(`  [정산 확인 필요] ${issue}`);

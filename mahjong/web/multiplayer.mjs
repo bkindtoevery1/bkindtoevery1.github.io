@@ -1,8 +1,10 @@
 const STORAGE='h-mahjong-room-v1';
-export const API_ORIGIN=['127.0.0.1','localhost'].includes(location.hostname)?'http://127.0.0.1:8790':'https://wellness-mahjong-h-lab.chayhyeon.chatgpt.site';
+export const API_ORIGIN=['127.0.0.1','localhost'].includes(globalThis.location?.hostname)?'http://127.0.0.1:8790':'https://wellness-mahjong-h-lab.chayhyeon.chatgpt.site';
 const key=()=>Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');
+export const canStartWithAI=snapshot=>!!(snapshot?.host&&!snapshot.state&&snapshot.members?.length>=1&&snapshot.members.length<4);
+export const roomMemberName=member=>member?.kind==='ai'?`AI · ${member.policy??'E'}`:member?.name??'플레이어';
 export class RoomClient{
- constructor({onState,onStatus}){this.onState=onState;this.onStatus=onStatus;this.session=null;this.snapshot=null;this.timer=null;this.generation=0;this.connected=false;this.failures=0;}
+ constructor({onState,onStatus}){this.onState=onState;this.onStatus=onStatus;this.session=null;this.snapshot=null;this.timer=null;this.generation=0;this.connected=false;this.failures=0;this.startingAI=null;}
  saved(){try{return JSON.parse(sessionStorage.getItem(STORAGE));}catch{return null;}}
  remember(){try{sessionStorage.setItem(STORAGE,JSON.stringify(this.session));}catch{}}
  stop(){this.generation++;clearTimeout(this.timer);this.timer=null;this.connected=false;}
@@ -48,4 +50,18 @@ export class RoomClient{
   catch(error){if(generation===this.generation){try{this.accept(await this.request(`rooms/${this.session.code}/state`));}catch{this.connected=false;}}throw error;}
  }
  async rematch(){const generation=this.generation,data=await this.request(`rooms/${this.session.code}/rematch`,{gameNumber:this.snapshot.gameNumber});if(generation===this.generation)this.accept(data);}
+ async startAI(){
+  if(this.startingAI?.generation===this.generation)return this.startingAI.promise;
+  if(!this.connected)throw new Error('서버 연결을 기다려 주세요.');
+  if(!canStartWithAI(this.snapshot))throw new Error('방장만 대기 중인 방의 빈자리를 AI로 채울 수 있습니다.');
+  const generation=this.generation,session={...this.session},gameNumber=this.snapshot.gameNumber;
+  const promise=(async()=>{
+   try{const data=await this.request(`rooms/${session.code}/start-ai`,{gameNumber},session);if(generation===this.generation)this.accept(data);return data;}
+   catch(error){
+    if(generation===this.generation){try{const data=await this.request(`rooms/${session.code}/state`,undefined,session);if(generation===this.generation){this.accept(data);if(data.state&&data.gameNumber>gameNumber)return data;}}catch{if(generation===this.generation)this.connected=false;}}
+    throw error;
+   }finally{if(this.startingAI?.generation===generation)this.startingAI=null;}
+  })();
+  this.startingAI={generation,promise};return promise;
+ }
 }
