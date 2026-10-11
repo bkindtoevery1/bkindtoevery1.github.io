@@ -1061,10 +1061,6 @@ function assertInvariants2(s) {
 // game/engine.mjs
 var variantOf = (state2) => state2?.rules?.variant === "S" ? "S" : "H";
 var engine = (state2) => variantOf(state2) === "S" ? game_exports2 : game_exports;
-function createGame3({ variant = "H", ...options } = {}) {
-  if (!["H", "S"].includes(variant)) throw new Error("Unknown rule variant");
-  return (variant === "S" ? game_exports2 : game_exports).createGame(options);
-}
 var actor3 = (state2) => engine(state2).actor(state2);
 var legalActions3 = (state2, seat) => engine(state2).legalActions(state2, seat);
 var observation3 = (state2, seat) => engine(state2).observation(state2, seat);
@@ -1766,14 +1762,14 @@ var RoomClient = class {
     this.onStatus("\uC5F0\uACB0\uB428");
     if (changed) this.onState(data);
   }
-  async connect(name, code, variant = "H") {
+  async connect(name, code, variant = "H", format2 = variant === "S" ? "hanchan" : "single") {
     this.stop();
     const generation = this.generation;
     const saved = this.saved();
     this.session = { key: saved?.key ?? key2(), name, code: code ?? null };
     this.snapshot = null;
     this.onStatus("\uBC29\uC5D0 \uC5F0\uACB0 \uC911\u2026");
-    const data = await this.request(code ? `rooms/${code}/join` : "rooms", { name, ...code ? {} : { variant } });
+    const data = await this.request(code ? `rooms/${code}/join` : "rooms", { name, ...code ? {} : { variant, format: format2 } });
     if (generation !== this.generation) return;
     this.session.code = data.code;
     this.remember();
@@ -1869,13 +1865,21 @@ var RoomClient = class {
 // web/meld-view.mjs
 var SOURCES = { 1: "right", 2: "across", 3: "left" };
 var MELD_SOURCE_LABELS = { left: "\uC67C\uCABD", across: "\uB9DE\uC740\uD3B8", right: "\uC624\uB978\uCABD" };
-function meldDisplay(meld, seat, players = []) {
+function meldDisplay(meld, seat, players = [], { variant = "H" } = {}) {
   const ids = [...meld.ids];
   if (!meld.open) return {
     source: null,
     calledId: null,
     addedId: null,
-    slots: ids.map((id) => ({ id, tile: typeOf(id), called: false, added: null }))
+    // S uses the conventional two-backed-tile marker; the two middle faces
+    // still disclose the tile type. H's source does not specify this marker.
+    slots: ids.map((id, index) => ({
+      id,
+      tile: typeOf(id),
+      called: false,
+      added: null,
+      faceDown: variant === "S" && meld.type === "kan" && (index === 0 || index === ids.length - 1)
+    }))
   };
   const source = SOURCES[(meld.from - seat + 4) % 4] ?? null;
   const river = players[meld.from]?.river ?? [];
@@ -1897,7 +1901,7 @@ function meldDisplay(meld, seat, players = []) {
 var signedPoints = (value2) => `${value2 > 0 ? "+" : ""}${value2}`;
 function hBonusDetails(score, rules = {}) {
   const names = { kan: rules.fourOfAKindBonus ? "\uC0AC\uADC0\uC77C" : "\uAE61", dragon: "\uC0BC\uC6D0\uD328", roundWind: "\uC7A5\uD48D", seatWind: "\uC790\uD48D" };
-  return Object.entries(names).filter(([key3]) => Number.isFinite(score.bonuses?.[key3]) && score.bonuses[key3] > 0).map(([key3, label]) => `${label} ${score.bonuses[key3]}\uC810`).join(" \xB7 ");
+  return Object.entries(names).filter(([key3]) => Number.isFinite(score.bonuses?.[key3]) && score.bonuses[key3] > 0).map(([key3, label2]) => `${label2} ${score.bonuses[key3]}\uC810`).join(" \xB7 ");
 }
 function scoreBreakdown(score) {
   if (score?.variant !== "S") return null;
@@ -1954,7 +1958,7 @@ function winSettlement(state2, seat) {
   const payerCount = win3.method === "tsumo" ? state2.players.length - win3.order : 1;
   const tsumoBonus = win3.method === "tsumo" ? state2.rules.tsumoBonusPerPayer : 0;
   const perPayer = score.total + tsumoBonus, expectedReceipt = perPayer * payerCount;
-  const receipt = Array.isArray(state2.ledger) ? state2.ledger.filter((payment) => payment.to === seat && payment.kind === win3.method).reduce((sum2, payment) => sum2 + payment.amount, 0) : expectedReceipt;
+  const receipt = Array.isArray(state2.ledger) ? state2.ledger.filter((payment) => payment.to === seat && payment.kind === win3.method).reduce((sum3, payment) => sum3 + payment.amount, 0) : expectedReceipt;
   const parts = [`\uC5ED ${score.base}`];
   if (score.bonus) parts.push(`\uAC00\uC0B0 ${score.bonus}`);
   if (win3.method === "tsumo") parts.push(`\uCBD4\uBAA8 ${tsumoBonus}`);
@@ -1981,7 +1985,7 @@ var MAX_CHARS = 15e5;
 var clone = (value2) => structuredClone(value2);
 var scores = (game) => game.players.map((player) => player.score);
 var seats = ["\uB3D9", "\uB0A8", "\uC11C", "\uBD81"];
-var seatLabels = (game) => game.rules.variant === "S" ? seats.map((_, i) => seats[(i - game.dealer + 4) % 4]) : seats;
+var seatLabels = (game) => seats.map((_, i) => seats[(i - (game.dealer ?? 0) + 4) % 4]);
 var signed2 = (value2) => `${value2 > 0 ? "+" : ""}${value2}`;
 function beforeAction(game) {
   return { scores: scores(game), active: game.players.flatMap((p, i) => p.won ? [] : [i]), events: game.events.length, ledger: game.ledger.length, pot: game.pot ?? 0 };
@@ -2012,7 +2016,7 @@ function actionRecord(game, seat, action, before, error = null) {
     const payers = win3.method === "tsumo" ? before.active.filter((i) => i !== win3.seat) : [win3.source];
     const actual = payments.filter((p) => p.to === win3.seat && p.kind === win3.method);
     const tsumoBonus = win3.method === "tsumo" ? game.rules.tsumoBonusPerPayer : 0;
-    const perPayer = win3.score.total + tsumoBonus, expectedReceipt = perPayer * payers.length, actualReceipt = actual.reduce((sum2, p) => sum2 + p.amount, 0);
+    const perPayer = win3.score.total + tsumoBonus, expectedReceipt = perPayer * payers.length, actualReceipt = actual.reduce((sum3, p) => sum3 + p.amount, 0);
     const problems = [];
     if (actual.length !== payers.length || payers.some((i) => actual.filter((p) => p.from === i && p.amount === perPayer).length !== 1)) problems.push("\uC9C0\uAE09\uC790 \uB610\uB294 \uC9C0\uAE09\uC561\uC774 \uC801\uC6A9 \uADDC\uCE59\uACFC \uB2E4\uB985\uB2C8\uB2E4.");
     if (win3.score.yaku === "pinfu" || win3.score.name === "\uD551\uD6C4") {
@@ -2133,10 +2137,10 @@ function logText(log) {
     `${variant}\uB8F0 \uB9C8\uC791 \uB300\uAD6D \uB85C\uADF8`,
     `${log.startedAt} \xB7 ${log.mode === "practice" ? "\uD63C\uC790 \uC5F0\uC2B5" : "4\uC778 \uB300\uAD6D"} \xB7 \uB0B4 \uC790\uB9AC ${seats2[log.humanSeat]}`,
     `\uBC30\uD328 \uBC88\uD638: ${game.seed ?? "\uC11C\uBC84 \uBE44\uACF5\uAC1C"} \xB7 \uD654\uBA74 \uBC84\uC804: ${log.build ?? "\uBBF8\uAE30\uB85D"}`,
-    `${variant === "S" ? "\uC774\uBC88 \uAD6D \uC99D\uAC10" : "\uCD5C\uC885 \uC810\uC218"}: ${scores(game).map((score, i) => `${seats2[i]} ${signed2(score)}`).join(" / ")}`,
+    `${variant === "S" || game.startingScores || game.startingScores || game.matchContext ? "\uC774\uBC88 \uAD6D \uC99D\uAC10" : "\uCD5C\uC885 \uC810\uC218"}: ${scores(game).map((score, i) => `${seats2[i]} ${signed2(score)}`).join(" / ")}`,
     ""
   ];
-  if (game.startingScores) lines.push(`\uBC18\uC7A5 \uB204\uC801 (\uC885\uB8CC \uACF5\uD0C1 \uBCC4\uB3C4): ${game.startingScores.map((n, i) => seats2[i] + " " + (n + game.players[i].score)).join(" / ")}`, "");
+  if (game.startingScores) lines.push(`\uB204\uC801 \uC810\uC218 (\uC885\uB8CC \uACF5\uD0C1 \uBCC4\uB3C4): ${game.startingScores.map((n, i) => seats2[i] + " " + (n + game.players[i].score)).join(" / ")}`, "");
   for (const entry of log.actions) {
     const action = entry.action, tile = Number.isInteger(action.tile) ? ` ${tileName(action.tile)}` : "";
     if (action.type !== "pass") lines.push(`#${entry.n + 1} ${seats2[entry.seat]} ${{ discard: "\uBC84\uB9BC", riichi: "\uB9AC\uCE58\xB7\uBC84\uB9BC", tsumo: "\uCBD4\uBAA8", ron: "\uB860", chi: "\uCE58", pon: "\uD401", ankan: "\uC548\uAE61", minkan: "\uBA85\uAE61", kakan: "\uAC00\uAE61" }[action.type] ?? action.type}${tile}`);
@@ -2161,11 +2165,11 @@ function logText(log) {
   return lines.join("\n") + "\n";
 }
 function reviewText(input) {
-  const log = expandLog(input), game = log.game, seats2 = seatLabels(game), s = game.rules.variant === "S", lines = [`${s ? "S" : "H"}\uB8F0 \xB7 ${game.seed ?? log.room}`, `${s ? "\uC774\uBC88 \uAD6D \uC99D\uAC10" : "\uCD5C\uC885"}: ${game.players.map((p, i) => seats2[i] + " " + signed2(p.score)).join(" / ")}`];
+  const log = expandLog(input), game = log.game, seats2 = seatLabels(game), s = game.rules.variant === "S", lines = [`${s ? "S" : "H"}\uB8F0 \xB7 ${game.seed ?? log.room}`, `${s || game.startingScores || game.matchContext ? "\uC774\uBC88 \uAD6D \uC99D\uAC10" : "\uCD5C\uC885"}: ${game.players.map((p, i) => seats2[i] + " " + signed2(p.score)).join(" / ")}`];
   for (const e of log.actions) {
     if (["ankan", "minkan", "kakan"].includes(e.action.type)) lines.push(`${seats2[e.seat]} ${e.action.type === "ankan" ? "\uC548\uAE61" : e.action.type === "minkan" ? "\uBA85\uAE61" : "\uAC00\uAE61"}${Number.isInteger(e.action.tile) ? " \xB7 " + tileName(e.action.tile) : ""} (\uC774\uB54C\uB294 \uC810\uC218 \uC774\uB3D9 \uC5C6\uC74C)`);
     for (const win3 of e.wins) {
-      const extra = Object.entries(win3.score.bonuses ?? {}).filter(([, value2]) => typeof value2 === "number" && value2).map(([name, value2]) => `${{ kan: "\uAE61", dragon: "\uC0BC\uC6D0\uD328", roundWind: "\uC7A5\uD48D", seatWind: "\uC790\uD48D" }[name] ?? name} ${value2}`);
+      const extra = Object.entries(win3.score.bonuses ?? {}).filter(([, value2]) => typeof value2 === "number" && value2).map(([name, value2]) => `${{ kan: game.rules.fourOfAKindBonus ? "\uC0AC\uADC0\uC77C" : "\uAE61", dragon: "\uC0BC\uC6D0\uD328", roundWind: "\uC7A5\uD48D", seatWind: "\uC790\uD48D" }[name] ?? name} ${value2}`);
       lines.push(s ? `${seats2[win3.seat]} ${win3.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 ${scoreBreakdownText(win3.score)}` : `${seats2[win3.seat]} ${win3.score.name} ${win3.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 \uC5ED ${win3.score.base}${extra.length ? " + " + extra.join(" + ") : ""}${win3.tsumoBonus ? " + \uCBD4\uBAA8 " + win3.tsumoBonus + " / \uC9C0\uAE09\uC790" : ""}`);
     }
     for (const p of e.payments) lines.push(`  ${seats2[p.from] ?? "\uACF5\uD0C1"} \u2192 ${seats2[p.to] ?? "\uACF5\uD0C1"}: ${p.amount}\uC810`);
@@ -2244,24 +2248,52 @@ function expandLog(input) {
 
 // web/preferences.mjs
 var KEY = "wellness-mahjong-preferences-v1";
+var defaultMatchFormat = (variant) => variant === "S" ? "hanchan" : "single";
+var matchFormatName = (format2) => format2 === "hanchan" ? "\uBC18\uC7A5\uC804" : "\uB2E8\uD310\uC804";
 function readPreferences(storage) {
   try {
-    const saved = JSON.parse(storage?.getItem(KEY) ?? "{}");
-    return { recommendations: saved?.recommendations !== false, variant: saved?.variant === "S" ? "S" : "H" };
+    const saved = JSON.parse(storage?.getItem(KEY) ?? "{}"), variant = saved?.variant === "S" ? "S" : "H";
+    return { recommendations: saved?.recommendations !== false, variant, format: ["single", "hanchan"].includes(saved?.format) ? saved.format : defaultMatchFormat(variant) };
   } catch {
-    return { recommendations: true, variant: "H" };
+    return { recommendations: true, variant: "H", format: "single" };
   }
 }
 function savePreferences(storage, value2) {
   try {
-    storage?.setItem(KEY, JSON.stringify({ recommendations: !!value2.recommendations, variant: value2.variant === "S" ? "S" : "H" }));
+    const variant = value2.variant === "S" ? "S" : "H", format2 = ["single", "hanchan"].includes(value2.format) ? value2.format : defaultMatchFormat(variant);
+    storage?.setItem(KEY, JSON.stringify({ recommendations: !!value2.recommendations, variant, format: format2 }));
     return !!storage;
   } catch {
     return false;
   }
 }
 
+// game/h-match.mjs
+var h_match_exports = {};
+__export(h_match_exports, {
+  advanceMatch: () => advanceMatch2,
+  assertMatch: () => assertMatch2,
+  createMatch: () => createMatch2,
+  createMatchGame: () => createMatchGame2,
+  matchSummary: () => matchSummary2,
+  matchTotals: () => matchTotals2,
+  recordRound: () => recordRound2
+});
+
 // s-engine/match.mjs
+var match_exports = {};
+__export(match_exports, {
+  MATCH_DEFAULTS: () => MATCH_DEFAULTS,
+  advanceMatch: () => advanceMatch,
+  assertMatch: () => assertMatch,
+  createMatch: () => createMatch,
+  createMatchGame: () => createMatchGame,
+  matchSummary: () => matchSummary,
+  matchTotals: () => matchTotals,
+  recordRound: () => recordRound,
+  roundLabel: () => roundLabel,
+  roundSeed: () => roundSeed
+});
 var MATCH_DEFAULTS = Object.freeze({ dealerContinuation: "win-or-tenpai", honbaPoints: 0, finalPot: "top", endOnBankrupt: false });
 var clone2 = (x) => structuredClone(x);
 var sum = (xs) => xs.reduce((a, b) => a + b, 0);
@@ -2275,13 +2307,14 @@ function roundSeed(seed, number) {
   n = Math.imul(n ^ n >>> 15, 1935289751);
   return (n ^ n >>> 15) >>> 0;
 }
-function createMatch({ seed = 1, id = crypto.randomUUID(), rules = {}, settings = {}, now = (/* @__PURE__ */ new Date()).toISOString() } = {}) {
+function createMatch({ seed = 1, id = crypto.randomUUID(), format: format2 = "hanchan", rules = {}, settings = {}, now = (/* @__PURE__ */ new Date()).toISOString() } = {}) {
   if (!Number.isInteger(seed) || seed < 0 || seed > 4294967295 || typeof id !== "string" || !id) throw new Error("Invalid match seed/id");
+  if (!["single", "hanchan"].includes(format2)) throw new Error("\uB2E8\uD310\uC804 \uB610\uB294 \uBC18\uC7A5\uC804\uC744 \uC120\uD0DD\uD558\uC138\uC694.");
   for (const k of Object.keys(settings)) if (!(k in MATCH_DEFAULTS)) throw new Error("Unknown match setting");
   const config = { ...MATCH_DEFAULTS, ...settings };
   if (!["none", "win-or-tenpai"].includes(config.dealerContinuation) || config.honbaPoints !== 0 || config.finalPot !== "top" || config.endOnBankrupt !== false) throw new Error("Unsupported match settings");
   const r = sRules({ ...rules, roundWind: 27 });
-  return { version: 1, id, seed, startedAt: now, rules: r, settings: config, roundIndex: 0, repeat: 0, handNumber: 1, status: "playing", scores: Array(4).fill(r.startingPoints), pot: 0, rounds: [], next: null, finalTransfers: [] };
+  return { version: 1, variant: "S", format: format2, id, seed, startedAt: now, rules: r, settings: config, roundIndex: 0, repeat: 0, handNumber: 1, status: "playing", scores: Array(4).fill(r.startingPoints), pot: 0, rounds: [], next: null, finalTransfers: [] };
 }
 function createMatchGame(match) {
   if (match.status !== "playing") throw new Error("\uBC18\uC7A5\uC774 \uB2E4\uC74C \uAD6D\uC744 \uC2DC\uC791\uD560 \uC0C1\uD0DC\uAC00 \uC544\uB2D9\uB2C8\uB2E4.");
@@ -2298,9 +2331,9 @@ function recordRound(match, game, { logId = null } = {}) {
   match.scores = match.scores.map((n, i) => n + delta[i]);
   match.pot = game.pot;
   const dealerReady = game.events.find((e) => e.type === "drawSettlement")?.ready.some((r) => r.seat === game.dealer) ?? false;
-  const retained = match.settings.dealerContinuation === "win-or-tenpai" && (game.winners.includes(game.dealer) || game.end === "exhaustive-draw" && dealerReady);
-  match.rounds.push({ handNumber: match.handNumber, roundIndex: match.roundIndex, repeat: match.repeat, label: roundLabel(match.roundIndex, match.repeat), dealer: game.dealer, seed: game.seed, result: game.end, winner: game.winners[0] ?? null, delta, totals: [...match.scores], pot: match.pot, retained, logId });
-  if (match.roundIndex === 7 && !retained) {
+  const retained = match.format !== "single" && match.settings.dealerContinuation === "win-or-tenpai" && (game.winners.includes(game.dealer) || game.end === "exhaustive-draw" && dealerReady);
+  match.rounds.push({ handNumber: match.handNumber, roundIndex: match.roundIndex, repeat: match.repeat, label: match.format === "single" ? "\uB2E8\uD310\uC804" : roundLabel(match.roundIndex, match.repeat), dealer: game.dealer, seed: game.seed, result: game.end, winner: game.winners[0] ?? null, delta, totals: [...match.scores], pot: match.pot, retained, logId });
+  if (match.format === "single" || match.roundIndex === 7 && !retained) {
     match.status = "complete";
     match.next = null;
     if (match.pot) {
@@ -2332,11 +2365,13 @@ function matchSummary(match, game) {
   const totals = matchTotals(match, game), rankings = totals.map((points, seat) => ({ seat, points, rank: 1 + totals.filter((n) => n > points).length })).sort((a, b) => b.points - a.points || a.seat - b.seat);
   return {
     id: match.id,
+    variant: "S",
+    format: match.format ?? "hanchan",
     startedAt: match.startedAt,
     roundIndex: match.roundIndex,
     repeat: match.repeat,
     handNumber: match.handNumber,
-    label: roundLabel(match.roundIndex, match.repeat),
+    label: match.format === "single" ? "\uB2E8\uD310\uC804" : roundLabel(match.roundIndex, match.repeat),
     status: match.status,
     totals,
     pot: match.status === "playing" ? game.pot : match.pot,
@@ -2349,12 +2384,13 @@ function matchSummary(match, game) {
   };
 }
 function assertMatch(match, game) {
+  if (match.variant !== void 0 && match.variant !== "S" || !["single", "hanchan"].includes(match.format ?? "hanchan") || match.format === "single" && (match.roundIndex !== 0 || match.repeat !== 0 || match.handNumber !== 1 || match.status === "between-rounds")) throw new Error("Invalid S match format");
   if (match.version !== 1 || !["playing", "between-rounds", "complete"].includes(match.status) || !Number.isInteger(match.roundIndex) || match.roundIndex < 0 || match.roundIndex > 7 || !Number.isInteger(match.handNumber) || match.handNumber < 1 || !Number.isInteger(match.repeat) || match.repeat < 0) throw new Error("Invalid S match progress");
   if (match.scores.length !== 4 || match.scores.some((n) => !Number.isSafeInteger(n)) || sum(match.scores) + match.pot !== 4 * match.rules.startingPoints) throw new Error("Match score conservation violated");
   if (!Number.isSafeInteger(match.pot) || match.pot < 0 || match.pot % 1e3) throw new Error("Invalid match pot");
   if (game.matchContext?.id !== match.id || game.matchContext.handNumber !== match.handNumber || game.matchContext.roundIndex !== match.roundIndex || game.matchContext.repeat !== match.repeat || game.dealer !== match.roundIndex % 4 || game.rules.roundWind !== (match.roundIndex < 4 ? 27 : 28)) throw new Error("Match round mismatch");
   if (!Array.isArray(game.startingScores) || game.startingScores.length !== 4 || game.startingScores.some((n) => !Number.isSafeInteger(n))) throw new Error("Missing match starting balances");
-  const banked = game.startingScores.map((n, i) => n + (match.status === "playing" ? 0 : game.players[i].score) + match.finalTransfers.filter((t) => t.to === i).reduce((sum2, t) => sum2 + t.amount, 0));
+  const banked = game.startingScores.map((n, i) => n + (match.status === "playing" ? 0 : game.players[i].score) + match.finalTransfers.filter((t) => t.to === i).reduce((sum3, t) => sum3 + t.amount, 0));
   if (banked.some((n, i) => n !== match.scores[i]) || match.status === "playing" && game.initialPot !== match.pot) throw new Error("Match carried balances mismatch");
   if (match.status !== "playing" && !game.end) throw new Error("Unfinished round cannot be settled");
   if (match.rounds.length !== match.handNumber - (match.status === "playing" ? 1 : 0)) throw new Error("Duplicate or missing round result");
@@ -2363,9 +2399,95 @@ function assertMatch(match, game) {
   return true;
 }
 
+// game/h-match.mjs
+var SETTINGS = Object.freeze({ dealerContinuation: "none", honbaPoints: 0, finalPot: "none", endOnBankrupt: false });
+var sum2 = (xs) => xs.reduce((n, x) => n + x, 0);
+var clone3 = (x) => structuredClone(x);
+var label = (match) => match.format === "single" ? "\uB2E8\uD310\uC804" : roundLabel(match.roundIndex);
+function createMatch2({ seed = 1, id = crypto.randomUUID(), format: format2 = "single", rules = {}, settings = {}, now = (/* @__PURE__ */ new Date()).toISOString() } = {}) {
+  if (!Number.isInteger(seed) || seed < 0 || seed > 4294967295 || typeof id !== "string" || !id) throw new Error("Invalid match seed/id");
+  if (!["single", "hanchan"].includes(format2)) throw new Error("\uB2E8\uD310\uC804 \uB610\uB294 \uBC18\uC7A5\uC804\uC744 \uC120\uD0DD\uD558\uC138\uC694.");
+  if (Object.entries(settings).some(([key3, value2]) => !Object.hasOwn(SETTINGS, key3) || SETTINGS[key3] !== value2)) throw new Error("Unsupported H match settings");
+  return { version: 1, variant: "H", format: format2, id, seed, startedAt: now, rules: ruleset({ ...rules, roundWind: 27 }), settings: { ...SETTINGS }, roundIndex: 0, repeat: 0, handNumber: 1, status: "playing", scores: [0, 0, 0, 0], pot: 0, rounds: [], next: null, finalTransfers: [] };
+}
+function createMatchGame2(match) {
+  if (match.status !== "playing") throw new Error("\uB300\uAD6D\uC774 \uB2E4\uC74C \uAD6D\uC744 \uC2DC\uC791\uD560 \uC0C1\uD0DC\uAC00 \uC544\uB2D9\uB2C8\uB2E4.");
+  const game = createGame({ seed: roundSeed(match.seed, match.handNumber), dealer: match.roundIndex % 4, rules: { ...match.rules, roundWind: match.roundIndex < 4 ? 27 : 28 } });
+  game.startingScores = [...match.scores];
+  game.matchContext = { id: match.id, handNumber: match.handNumber, roundIndex: match.roundIndex, repeat: 0 };
+  return game;
+}
+function recordRound2(match, game, { logId = null } = {}) {
+  if (game.matchContext?.id !== match.id || game.matchContext.handNumber !== match.handNumber) throw new Error("\uB2E4\uB978 \uB300\uAD6D \uB610\uB294 \uAD6D\uC758 \uC815\uC0B0\uC785\uB2C8\uB2E4.");
+  if (match.status !== "playing") return false;
+  if (!game.end) throw new Error("\uAD6D\uC774 \uB05D\uB09C \uB4A4 \uC815\uC0B0\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.");
+  assertMatch2(match, game);
+  const delta = game.players.map((p) => p.score);
+  match.scores = match.scores.map((n, i) => n + delta[i]);
+  match.rounds.push({ handNumber: match.handNumber, roundIndex: match.roundIndex, repeat: 0, label: label(match), dealer: game.dealer, seed: game.seed, result: game.end, winner: game.winners[0] ?? null, winners: [...game.winners], delta, totals: [...match.scores], pot: 0, retained: false, logId });
+  if (match.format === "single" || match.roundIndex === 7) {
+    match.status = "complete";
+    match.next = null;
+  } else {
+    match.status = "between-rounds";
+    match.next = { roundIndex: match.roundIndex + 1, repeat: 0 };
+  }
+  assertMatch2(match, game);
+  return true;
+}
+function advanceMatch2(match, expectedHandNumber = match.handNumber) {
+  if (match.status !== "between-rounds" || !match.next || expectedHandNumber !== match.handNumber) throw new Error("\uD604\uC7AC \uAD6D\uC774 \uB05D\uB09C \uB4A4 \uB2E4\uC74C \uAD6D\uC73C\uB85C \uC9C4\uD589\uD558\uC138\uC694.");
+  match.roundIndex = match.next.roundIndex;
+  match.handNumber++;
+  match.next = null;
+  match.status = "playing";
+  return createMatchGame2(match);
+}
+function matchTotals2(match, game) {
+  return match.status === "playing" ? match.scores.map((n, i) => n + game.players[i].score) : [...match.scores];
+}
+function matchSummary2(match, game) {
+  const totals = matchTotals2(match, game), rankings = totals.map((points, seat) => ({ seat, points, rank: 1 + totals.filter((n) => n > points).length })).sort((a, b) => b.points - a.points || a.seat - b.seat);
+  return { id: match.id, variant: "H", format: match.format, startedAt: match.startedAt, roundIndex: match.roundIndex, repeat: 0, handNumber: match.handNumber, label: label(match), status: match.status, totals, pot: 0, nextLabel: match.next ? roundLabel(match.next.roundIndex) : null, settings: clone3(match.settings), startingPoints: 0, rankings, rounds: match.rounds.map(({ seed, logId, ...row }) => clone3(row)), finalTransfers: [] };
+}
+function assertMatch2(match, game) {
+  if (match.version !== 1 || match.variant !== "H" || !["single", "hanchan"].includes(match.format) || !["playing", "between-rounds", "complete"].includes(match.status) || !Number.isInteger(match.roundIndex) || match.roundIndex < 0 || match.roundIndex > 7 || match.handNumber !== match.roundIndex + 1 || match.repeat !== 0 || match.format === "single" && (match.roundIndex !== 0 || match.status === "between-rounds")) throw new Error("Invalid H match progress");
+  if (!Array.isArray(match.scores) || match.scores.length !== 4 || match.scores.some((n) => !Number.isSafeInteger(n)) || sum2(match.scores) !== 0 || match.pot !== 0 || match.finalTransfers.length) throw new Error("Match score conservation violated");
+  if (game.rules.variant === "S" || game.matchContext?.id !== match.id || game.matchContext.handNumber !== match.handNumber || game.matchContext.roundIndex !== match.roundIndex || game.matchContext.repeat !== 0 || game.dealer !== match.roundIndex % 4 || game.rules.roundWind !== (match.roundIndex < 4 ? 27 : 28)) throw new Error("Match round mismatch");
+  if (!Array.isArray(game.startingScores) || game.startingScores.length !== 4 || game.startingScores.some((n) => !Number.isSafeInteger(n))) throw new Error("Missing match starting balances");
+  if (game.startingScores.some((n, i) => n + (match.status === "playing" ? 0 : game.players[i].score) !== match.scores[i])) throw new Error("Match carried balances mismatch");
+  if (match.status !== "playing" && !game.end) throw new Error("Unfinished round cannot be settled");
+  if (match.rounds.length !== match.handNumber - (match.status === "playing" ? 1 : 0)) throw new Error("Duplicate or missing round result");
+  assertInvariants(game);
+  if (sum2(matchTotals2(match, game)) !== 0) throw new Error("Live match score conservation violated");
+  return true;
+}
+
+// game/match.mjs
+var matchVariant = (match) => match?.variant === "H" ? "H" : "S";
+var engine2 = (match) => matchVariant(match) === "H" ? h_match_exports : match_exports;
+function createMatch3({ variant = "S", ...options } = {}) {
+  if (!["H", "S"].includes(variant)) throw new Error("Unknown rule variant");
+  return (variant === "H" ? h_match_exports : match_exports).createMatch(options);
+}
+var createMatchGame3 = (match) => engine2(match).createMatchGame(match);
+var recordRound3 = (match, game, options) => engine2(match).recordRound(match, game, options);
+var advanceMatch3 = (match, expectedHandNumber) => engine2(match).advanceMatch(match, expectedHandNumber);
+var matchSummary3 = (match, game) => engine2(match).matchSummary(match, game);
+var assertMatch3 = (match, game) => engine2(match).assertMatch(match, game);
+
 // web/match-store.mjs
 var KEY2 = "wellness-s-match-v1";
-var clone3 = (x) => structuredClone(x);
+var clone4 = (x) => structuredClone(x);
+var summaryVariant = (summary) => summary?.variant === "H" ? "H" : "S";
+var summaryFormat = (summary) => summary?.format ?? defaultMatchFormat(summaryVariant(summary));
+var matchTitle = (summary) => `${summaryVariant(summary)}\uB8F0 ${matchFormatName(summaryFormat(summary))}`;
+var roundResultName = (result) => result === "exhaustive-draw" ? "\uC720\uAD6D" : "\uD654\uB8CC";
+function matchRulesDescription(summary) {
+  const variant = summaryVariant(summary), format2 = summaryFormat(summary), start2 = `${summary.startingPoints.toLocaleString()}\uC810 \uC2DC\uC791`;
+  if (format2 === "single") return `${start2} \xB7 \uD55C \uAD6D \uC815\uC0B0 \uD6C4 \uC885\uB8CC\uD569\uB2C8\uB2E4.${variant === "S" ? " \uB0A8\uC740 \uACF5\uD0C1\uC740 1\uC704\uC5D0\uAC8C \uC9C0\uAE09\uD569\uB2C8\uB2E4." : ""}`;
+  return variant === "H" ? `${start2} \xB7 \uB3D91\uAD6D~\uB0A84\uAD6D \uCD1D 8\uAD6D \xB7 \uC5F0\uC7A5 \uC5C6\uC774 \uC790\uB9AC\uAC00 \uC21C\uD658\uD569\uB2C8\uB2E4. H\uB8F0 \uBC18\uC7A5\uC804\uC740 \uC774 \uC571\uC758 \uC5F0\uC2B5\uC6A9 \uC9C4\uD589 \uBC29\uC2DD\uC785\uB2C8\uB2E4.` : `${start2} \xB7 \uB0A84\uAD6D\uAE4C\uC9C0 \xB7 \uCE5C \uD654\uB8CC/\uD150\uD30C\uC774 \uC2DC \uC5F0\uC7A5 \xB7 \uBCF8\uC7A5 \uAC00\uC0B0 \uC5C6\uC74C. \uB0A84\uAD6D\uC5D0\uC11C \uCE5C\uC774 \uB118\uC5B4\uAC08 \uB54C \uC885\uB8CC\uD558\uBA70, \uB0A8\uC740 \uACF5\uD0C1\uC740 1\uC704\uC5D0\uAC8C \uC9C0\uAE09\uD569\uB2C8\uB2E4.`;
+}
 var MatchStore = class {
   constructor(storage = null) {
     this.storage = storage;
@@ -2381,7 +2503,7 @@ var MatchStore = class {
       this.data = data;
       return data;
     } catch {
-      this.error = "\uC800\uC7A5\uB41C \uBC18\uC7A5\uC744 \uC77D\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. \uAE30\uC874 \uC800\uC7A5 \uB370\uC774\uD130\uB294 \uC720\uC9C0\uD588\uC2B5\uB2C8\uB2E4.";
+      this.error = "\uC800\uC7A5\uB41C \uB300\uAD6D\uC744 \uC77D\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. \uAE30\uC874 \uC800\uC7A5 \uB370\uC774\uD130\uB294 \uC720\uC9C0\uD588\uC2B5\uB2C8\uB2E4.";
       return null;
     }
   }
@@ -2390,10 +2512,10 @@ var MatchStore = class {
     if (!data) return false;
     if (data.active?.match.id !== match.id && data.active) {
       const old = data.active;
-      data.history.unshift({ seat: old.seat, summary: matchSummary(old.match, expandLog(old.log).game) });
+      data.history.unshift({ seat: old.seat, summary: matchSummary3(old.match, expandLog(old.log).game) });
       data.history = data.history.slice(0, 9);
     }
-    data.active = { match: clone3(match), seat, policy, profile, log: compactLog(log) };
+    data.active = { match: clone4(match), seat, policy, profile, log: compactLog(log) };
     data.resume = true;
     return this.write();
   }
@@ -2406,7 +2528,7 @@ var MatchStore = class {
       this.error = null;
       return true;
     } catch {
-      this.error = "\uBC18\uC7A5 \uC790\uB3D9 \uC800\uC7A5 \uACF5\uAC04\uC774 \uBD80\uC871\uD569\uB2C8\uB2E4. \uC810\uC218\uD45C\uC640 \uD604\uC7AC \uB85C\uADF8\uB97C \uD30C\uC77C\uB85C \uC800\uC7A5\uD574 \uC8FC\uC138\uC694.";
+      this.error = "\uB300\uAD6D \uC790\uB3D9 \uC800\uC7A5 \uACF5\uAC04\uC774 \uBD80\uC871\uD569\uB2C8\uB2E4. \uC810\uC218\uD45C\uC640 \uD604\uC7AC \uB85C\uADF8\uB97C \uD30C\uC77C\uB85C \uC800\uC7A5\uD574 \uC8FC\uC138\uC694.";
       return false;
     }
   }
@@ -2419,7 +2541,7 @@ var MatchStore = class {
   saveSummary(summary, { seat }) {
     const data = this.read();
     if (!data) return false;
-    const entry = { seat, summary: clone3(summary) }, previous = data.history.find((x) => x.summary.id === summary.id);
+    const entry = { seat, summary: clone4(summary) }, previous = data.history.find((x) => x.summary.id === summary.id);
     if (JSON.stringify(previous) === JSON.stringify(entry)) return this.persisted;
     data.history = [entry, ...data.history.filter((x) => x.summary.id !== summary.id)].slice(0, data.active ? 9 : 10);
     return this.write();
@@ -2428,13 +2550,13 @@ var MatchStore = class {
     const data = this.read();
     if (!data?.active || !force && !data.resume) return null;
     try {
-      const saved = clone3(data.active), log = expandLog(saved.log);
+      const saved = clone4(data.active), log = expandLog(saved.log);
       if (!Number.isInteger(saved.seat) || saved.seat < 0 || saved.seat > 3 || log.humanSeat !== saved.seat) throw new Error("Invalid saved seat");
-      assertMatch(saved.match, log.game);
+      assertMatch3(saved.match, log.game);
       saved.log = log;
       return saved;
     } catch {
-      this.error = "\uC800\uC7A5\uB41C \uBC18\uC7A5\uC758 \uC810\uC218 \uB610\uB294 \uD328 \uC0C1\uD0DC\uAC00 \uB9DE\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uAE30\uC874 \uAE30\uB85D\uC740 \uC720\uC9C0\uD588\uC2B5\uB2C8\uB2E4.";
+      this.error = "\uC800\uC7A5\uB41C \uB300\uAD6D\uC758 \uC810\uC218 \uB610\uB294 \uD328 \uC0C1\uD0DC\uAC00 \uB9DE\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uAE30\uC874 \uAE30\uB85D\uC740 \uC720\uC9C0\uD588\uC2B5\uB2C8\uB2E4.";
       return null;
     }
   }
@@ -2443,16 +2565,16 @@ var MatchStore = class {
     if (!data) return [];
     try {
       const active = data.active;
-      return [...active ? [{ seat: active.seat, summary: matchSummary(active.match, expandLog(active.log).game) }] : [], ...data.history];
+      return [...active ? [{ seat: active.seat, summary: matchSummary3(active.match, expandLog(active.log).game) }] : [], ...data.history];
     } catch {
-      this.error = "\uC800\uC7A5\uB41C \uBC18\uC7A5 \uC810\uC218\uD45C\uB97C \uC77D\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. \uAE30\uC874 \uAE30\uB85D\uC740 \uC720\uC9C0\uD588\uC2B5\uB2C8\uB2E4.";
+      this.error = "\uC800\uC7A5\uB41C \uC810\uC218\uD45C\uB97C \uC77D\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. \uAE30\uC874 \uAE30\uB85D\uC740 \uC720\uC9C0\uD588\uC2B5\uB2C8\uB2E4.";
       return [];
     }
   }
 };
 function matchCSV(summary, names = ["\uC2DC\uC791 \uB3D9", "\uC2DC\uC791 \uB0A8", "\uC2DC\uC791 \uC11C", "\uC2DC\uC791 \uBD81"]) {
   const cell = (value2) => '"' + String(value2 ?? "").replaceAll('"', '""') + '"', rows = [["\uAD6D", "\uACB0\uACFC", ...names.map((n) => n + " \uC99D\uAC10"), ...names.map((n) => n + " \uB204\uC801"), "\uACF5\uD0C1"]];
-  for (const r of summary.rounds) rows.push([r.label, r.result === "win" ? "\uD654\uB8CC" : "\uC720\uAD6D", ...r.delta, ...r.totals, r.pot]);
+  for (const r of summary.rounds) rows.push([r.label, roundResultName(r.result), ...r.delta, ...r.totals, r.pot]);
   for (const t of summary.finalTransfers) {
     const delta = [0, 0, 0, 0];
     delta[t.to] = t.amount;
@@ -2699,7 +2821,7 @@ var selectedTileId = null;
 var online = false;
 var remote = null;
 var networkBusy = false;
-var sMatch = null;
+var practiceMatch = null;
 var roomMutationBusy = false;
 var logStorage = null;
 try {
@@ -2711,6 +2833,7 @@ var preferences = readPreferences(logStorage);
 var trainingMode = readTrainingMode(logStorage, TRAINING);
 var recommendationsEnabled = preferences.recommendations;
 var chosenVariant = preferences.variant;
+var chosenFormat = preferences.format;
 var journal = new GameJournal({ storage: logStorage });
 var buildId = new URL(import.meta.url).searchParams.get("v") ?? "local-source";
 var archiveStatuses = /* @__PURE__ */ new Map();
@@ -2759,10 +2882,10 @@ for (const [id, p] of Object.entries(POLICIES2)) {
   $("policy").append(opt);
 }
 $("policy").value = "D";
-var seatIndex = (seat) => state?.rules.variant === "S" ? (seat - state.dealer + 4) % 4 : seat;
+var seatIndex = (seat) => (seat - (state?.dealer ?? 0) + 4) % 4;
 var seatName = (seat) => SEAT_NAMES[seatIndex(seat)];
 var wind = (seat) => ["\u6771", "\u5357", "\u897F", "\u5317"][seatIndex(seat)];
-var currentMatch = () => online ? remote?.match ?? null : sMatch ? matchSummary(sMatch, state) : null;
+var currentMatch = () => online ? remote?.match ?? null : practiceMatch ? matchSummary3(practiceMatch, state) : null;
 function node(tag, text, cls) {
   const el = document.createElement(tag);
   if (text !== void 0) el.textContent = text;
@@ -2775,9 +2898,9 @@ function riichiMarker(seat) {
   marker.setAttribute("aria-label", `${seatName(seat)} \uB9AC\uCE58`);
   marker.title = `${seatName(seat)} \uB9AC\uCE58`;
   stick.setAttribute("aria-hidden", "true");
-  const label = node("span", "\uB9AC\uCE58");
-  label.setAttribute("aria-hidden", "true");
-  marker.append(stick, label);
+  const label2 = node("span", "\uB9AC\uCE58");
+  label2.setAttribute("aria-hidden", "true");
+  marker.append(stick, label2);
   return marker;
 }
 function tiles(parent, types) {
@@ -2831,19 +2954,24 @@ function updateSelection() {
   $("selection-hint").textContent = state.end ? currentMatch()?.status === "between-rounds" ? "\uC704\uC758 \uB2E4\uC74C \uAD6D \uC2DC\uC791 \uBC84\uD2BC\uC73C\uB85C \uC810\uC218\uB97C \uC774\uC5B4\uAC11\uB2C8\uB2E4." : "\uC0C8 \uB300\uAD6D\uC73C\uB85C \uB2E4\uC2DC \uC5F0\uC2B5\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." : state.players[humanSeat].won ? "\uD654\uB8CC\uD588\uC2B5\uB2C8\uB2E4. \uB0A8\uC740 \uB300\uAD6D\uC744 \uC9C0\uCF1C\uBCF4\uC138\uC694." : auto ? "\uC120\uD0DD\uD55C \uC804\uB7B5\uC73C\uB85C \uC790\uB3D9 \uB300\uAD6D \uC911\uC785\uB2C8\uB2E4." : actor4(state) !== humanSeat ? "\uC0C1\uB300\uAC00 \uC9C4\uD589 \uC911\uC785\uB2C8\uB2E4." : state.phase === "reaction" ? "\uAC00\uB2A5\uD55C \uD589\uB3D9\uC744 \uC120\uD0DD\uD558\uC138\uC694." : selectedTileId === null ? "\uD328\uB97C \uC120\uD0DD \u2192 \uB2E4\uC2DC \uB204\uB974\uAC70\uB098 \u2018\uBC84\uB9AC\uAE30\u2019\uB85C \uD655\uC815" : `${tileName(typeOf(selectedTileId))} \uC120\uD0DD \xB7 \uB2E4\uC2DC \uB204\uB974\uAC70\uB098 \u2018\uBC84\uB9AC\uAE30\u2019\uB85C \uD655\uC815`;
 }
 function renderMeld(m, seat) {
-  const display = meldDisplay(m, seat, state.players), el = node("div", void 0, "meld");
+  const display = meldDisplay(m, seat, state.players, { variant: state.rules.variant ?? "H" }), el = node("div", void 0, "meld");
   const source = display.source ? `${MELD_SOURCE_LABELS[display.source]}\uC5D0\uC11C \uAC00\uC838\uC628 ${tileName(typeOf(display.calledId))}` : "";
-  const label = [meldText(m), source, display.addedId !== null ? "\uAC00\uAE61\uC740 \uAC00\uC838\uC628 \uD328 \uC704\uC5D0 \uACB9\uCCD0 \uD45C\uC2DC" : ""].filter(Boolean).join(" \xB7 ");
-  el.setAttribute("aria-label", label);
-  el.title = label;
+  const label2 = [meldText(m), m.type === "kan" && !m.open ? "\uD328 \uC885\uB958 \uACF5\uAC1C" : "", source, display.addedId !== null ? "\uAC00\uAE61\uC740 \uAC00\uC838\uC628 \uD328 \uC704\uC5D0 \uACB9\uCCD0 \uD45C\uC2DC" : ""].filter(Boolean).join(" \xB7 ");
+  el.setAttribute("aria-label", label2);
+  el.title = label2;
   el.append(node("span", m.type === "kan" ? m.open ? "\uAE61" : "\uC548\uAE61" : m.type === "pon" ? "\uD401" : "\uCE58", "meld-label"));
   for (const slot of display.slots) {
     const group = node("span", void 0, "meld-slot" + (slot.called ? " is-called" : "") + (slot.added ? " is-added-kan" : ""));
     const add = (tile, extra = false) => {
       const wrap = node("span", void 0, "meld-tile" + (slot.called ? " sideways" : ""));
       wrap.dataset.tileId = String(tile.id);
-      wrap.setAttribute("aria-label", `${tileName(tile.tile)}${extra ? " \xB7 \uAC00\uAE61\uC73C\uB85C \uB354\uD55C \uD328" : slot.called ? " \xB7 " + source : ""}`);
-      wrap.append(tileFace(tile.tile, { small: true }));
+      wrap.setAttribute("aria-label", tile.faceDown ? "\uC548\uAE61 \uB4B7\uBA74" : `${tileName(tile.tile)}${extra ? " \xB7 \uAC00\uAE61\uC73C\uB85C \uB354\uD55C \uD328" : slot.called ? " \xB7 " + source : ""}`);
+      if (tile.faceDown) {
+        const back = node("span", void 0, "tile-back meld-back");
+        back.setAttribute("role", "img");
+        back.setAttribute("aria-label", "\uC548\uAE61 \uB4B7\uBA74");
+        wrap.append(back);
+      } else wrap.append(tileFace(tile.tile, { small: true }));
       group.append(wrap);
     };
     add(slot);
@@ -2876,9 +3004,9 @@ function renderRiver(parent, player) {
     t.classList.toggle("claimed", !!d.claimed);
     t.classList.toggle("riichi-discard", !!d.riichi);
     t.classList.toggle("last-discard", state.phase === "reaction" && state.reaction.id === d.id);
-    const label = [tileName(typeOf(d.id)), d.riichi ? "\uB9AC\uCE58 \uC120\uC5B8 \uD328" : null, d.claimed ? "\uD6C4\uB85C\uC5D0 \uC0AC\uC6A9\uB428" : null].filter(Boolean).join(", ");
-    t.setAttribute("aria-label", label);
-    t.title = label;
+    const label2 = [tileName(typeOf(d.id)), d.riichi ? "\uB9AC\uCE58 \uC120\uC5B8 \uD328" : null, d.claimed ? "\uD6C4\uB85C\uC5D0 \uC0AC\uC6A9\uB428" : null].filter(Boolean).join(", ");
+    t.setAttribute("aria-label", label2);
+    t.title = label2;
     row.append(t);
   }
 }
@@ -2891,10 +3019,10 @@ function renderDora() {
   const count = winner && state.players[seat].win.score.yakuman ? "\uC5ED\uB9CC \xB7 \uB3C4\uB77C \uAC00\uC0B0 \uC5C6\uC74C" : `${winner ? seatName(seat) + " \uD654\uB8CC\uD328" : "\uB0B4 \uD328"} \uB3C4\uB77C ${view.count}\uD310${view.uraCount !== null ? " \xB7 \uC6B0\uB77C\uB3C4\uB77C " + view.uraCount + "\uD310" : ""}`;
   heading.append(node("strong", "\uB3C4\uB77C"), node("span", count));
   panel.append(heading);
-  for (const [label, pairs] of [["\uD45C\uC2DC\uD328 \u2192 \uB3C4\uB77C", view.visible], ["\uC6B0\uB77C \uD45C\uC2DC\uD328 \u2192 \uC6B0\uB77C\uB3C4\uB77C", view.ura]]) {
+  for (const [label2, pairs] of [["\uD45C\uC2DC\uD328 \u2192 \uB3C4\uB77C", view.visible], ["\uC6B0\uB77C \uD45C\uC2DC\uD328 \u2192 \uC6B0\uB77C\uB3C4\uB77C", view.ura]]) {
     if (!pairs.length) continue;
     const group = node("div", void 0, "dora-group");
-    group.append(node("span", label, "dora-label"));
+    group.append(node("span", label2, "dora-label"));
     for (const pair of pairs) {
       const item = node("span", void 0, "dora-pair");
       item.title = `\uD45C\uC2DC\uD328 ${tileName(pair.indicator)} \u2192 \uB3C4\uB77C ${tileName(pair.dora)}`;
@@ -2909,10 +3037,10 @@ function renderHanBreakdown(detail) {
   const section = node("div", void 0, "han-breakdown"), groups = node("div", void 0, "han-groups");
   const bonusEntries = [...detail.bonuses];
   if (!detail.yakuman && !bonusEntries.some((e) => e.id === "dora")) bonusEntries.push({ name: "\uB3C4\uB77C", han: 0 });
-  for (const [label, entries] of [["\uC131\uB9BD \uC5ED", detail.yaku], ["\uAC00\uC0B0", detail.yakuman ? [] : bonusEntries]]) {
+  for (const [label2, entries] of [["\uC131\uB9BD \uC5ED", detail.yaku], ["\uAC00\uC0B0", detail.yakuman ? [] : bonusEntries]]) {
     if (!entries.length) continue;
     const group = node("div", void 0, "han-group"), list = node("ul", void 0, "han-list");
-    group.append(node("h3", label));
+    group.append(node("h3", label2));
     for (const entry of entries) {
       const row = node("li");
       row.append(node("span", entry.name), node("strong", detail.yakuman ? "\uC5ED\uB9CC" : `${entry.han}\uD310`));
@@ -3024,14 +3152,14 @@ function render() {
   const variant = state.rules.variant === "S" ? "S" : "H";
   renderTrainingMode(variant);
   const match = currentMatch();
-  document.querySelector(".room-label").textContent = `${variant} RULE \xB7 ${match ? match.label : online ? "4\uC778 \uB300\uAD6D" : "\uD63C\uC790 \uC5F0\uC2B5"}`;
+  document.querySelector(".room-label").textContent = `${variant} RULE \xB7 ${match ? matchFormatName(summaryFormat(match)) + (summaryFormat(match) === "hanchan" ? " \xB7 " + match.label : "") : online ? "4\uC778 \uB300\uAD6D" : "\uD63C\uC790 \uC5F0\uC2B5"}`;
   document.querySelector(".wind-mark").textContent = variant;
   $("s-rule-status").hidden = variant !== "S";
-  if (variant === "S") $("s-rule-status").textContent = `${state.rules.roundWind === 28 ? "\uB0A8\uC7A5" : "\uB3D9\uC7A5"} \xB7 ${match ? "\uBC18\uC7A5 \uB204\uC801 \uAE30\uB85D \xB7 " : ""}\uCE5C ${seatName(state.dealer)} \xB7 \uACF5\uD0C1 ${match?.pot ?? state.pot ?? 0}\uC810`;
+  if (variant === "S") $("s-rule-status").textContent = `${state.rules.roundWind === 28 ? "\uB0A8\uC7A5" : "\uB3D9\uC7A5"} \xB7 ${match ? matchFormatName(summaryFormat(match)) + " \uAE30\uB85D \xB7 " : ""}\uCE5C ${seatName(state.dealer)} \xB7 \uACF5\uD0C1 ${match?.pot ?? state.pot ?? 0}\uC810`;
   renderDora();
   const a = actor4(state), shownTurn = displayedTurn(state), p = state.players[humanSeat], positions = seatPositions(humanSeat);
   const reacting = state.phase === "reaction", humanChoice = reacting && a === humanSeat && !auto && !needsPass(state, humanSeat);
-  $("game-status").textContent = match?.status === "complete" ? "\uB0A84\uAD6D \uC885\uB8CC \xB7 \uBC18\uC7A5 \uC644\uB8CC" : state.end ? `${state.end === "three-winners" ? "\uC138 \uBC88\uC9F8 \uD654\uB8CC" : state.end === "win" ? "\uD654\uB8CC" : "\uC720\uAD6D"} \xB7 \uAD6D \uC885\uB8CC` : p.won ? "\uD654\uB8CC \uC644\uB8CC \xB7 \uB0A8\uC740 \uB300\uAD6D \uC9C4\uD589 \uC911" : reacting ? humanChoice ? "\uB860 \xB7 \uD6C4\uB85C \uC120\uD0DD" : "\uD6C4\uB85C \uD655\uC778 \uC911" : a === humanSeat ? "\uB0B4 \uCC28\uB840 \xB7 \uBC84\uB9BC\uD328 \uC120\uD0DD" : `${seatName(a)} \uD50C\uB808\uC774\uC5B4 \uCC28\uB840`;
+  $("game-status").textContent = match?.status === "complete" ? matchFormatName(summaryFormat(match)) + " \uC644\uB8CC" : state.end ? `${state.end === "three-winners" ? "\uC138 \uBC88\uC9F8 \uD654\uB8CC" : state.end === "win" ? "\uD654\uB8CC" : "\uC720\uAD6D"} \xB7 \uAD6D \uC885\uB8CC` : p.won ? "\uD654\uB8CC \uC644\uB8CC \xB7 \uB0A8\uC740 \uB300\uAD6D \uC9C4\uD589 \uC911" : reacting ? humanChoice ? "\uB860 \xB7 \uD6C4\uB85C \uC120\uD0DD" : "\uD6C4\uB85C \uD655\uC778 \uC911" : a === humanSeat ? "\uB0B4 \uCC28\uB840 \xB7 \uBC84\uB9BC\uD328 \uC120\uD0DD" : `${seatName(a)} \uD50C\uB808\uC774\uC5B4 \uCC28\uB840`;
   $("turn-indicator").textContent = state.end ? "\uAD6D \uC885\uB8CC" : reacting ? humanChoice ? "\uB860 \xB7 \uD6C4\uB85C \uC120\uD0DD \uAC00\uB2A5" : "\uD6C4\uB85C \uD655\uC778 \uC911" : a === humanSeat ? "\u25CF \uB0B4 \uCC28\uB840" : `${seatName(a)} \uC9C4\uD589 \uC911`;
   $("wall").textContent = `\uB0A8\uC740 \uD328 ${state.wall.length}`;
   $("win-count").textContent = `\uD654\uB8CC ${state.winners.length} / ${variant === "S" ? 1 : 3}\uBA85`;
@@ -3066,7 +3194,7 @@ function render() {
     renderRiver(river, pl);
     $("rivers").append(river);
   }
-  $("self-title").replaceChildren(node("span", wind(humanSeat), "seat-badge"), node("span", `${seatName(humanSeat)} \xB7 \uB098`), node("span", match ? `\uBC18\uC7A5 ${match.totals[humanSeat].toLocaleString()}\uC810` : `\uAD6D \uB204\uC801 ${signedPoints(p.score)}\uC810`, "self-score"));
+  $("self-title").replaceChildren(node("span", wind(humanSeat), "seat-badge"), node("span", `${seatName(humanSeat)} \xB7 \uB098`), node("span", match ? `${matchFormatName(summaryFormat(match))} ${match.totals[humanSeat].toLocaleString()}\uC810` : `\uAD6D \uB204\uC801 ${signedPoints(p.score)}\uC810`, "self-score"));
   if (p.riichi) $("self-title").append(riichiMarker(humanSeat));
   if (p.won) $("self-title").append(node("span", `${p.win.order}\uBC88\uC9F8 \uD654\uB8CC`, "player-sub"));
   const settledSeat = variant === "S" ? state.winners[0] : humanSeat, settlement = settledSeat === void 0 ? null : winSettlement(state, settledSeat), result = $("win-settlement");
@@ -3089,9 +3217,9 @@ function render() {
   }
   $("actions").replaceChildren();
   if (state.phase === "reaction" && a === humanSeat) {
-    const label = node("span", void 0, "reaction-label");
-    label.append(tileFace(typeOf(state.reaction.id), { small: true }), node("span", tileName(typeOf(state.reaction.id))));
-    $("actions").append(label);
+    const label2 = node("span", void 0, "reaction-label");
+    label2.append(tileFace(typeOf(state.reaction.id), { small: true }), node("span", tileName(typeOf(state.reaction.id))));
+    $("actions").append(label2);
   }
   if (automaticPass) $("actions").append(node("span", "\uAC00\uB2A5\uD55C \uD6C4\uB85C \uC5C6\uC74C \xB7 0.7\uCD08 \uB4A4 \uC790\uB3D9 \uB118\uAE30\uAE30", "auto-pass-note"));
   for (const action of legal.filter((a2) => a2.type !== "discard" && !(automaticPass && a2.type === "pass"))) {
@@ -3259,8 +3387,8 @@ function schedule() {
   if (timer) clearTimeout(timer);
   timer = null;
   if (online) return;
-  if (auto && sMatch?.status === "between-rounds") {
-    const expected = sMatch.handNumber;
+  if (auto && practiceMatch?.status === "between-rounds") {
+    const expected = practiceMatch.handNumber;
     timer = setTimeout(() => {
       timer = null;
       nextPracticeHand(expected);
@@ -3276,22 +3404,22 @@ function updateAuto() {
 }
 function savePractice() {
   if (online) return;
-  if (sMatch && state.end) recordRound(sMatch, state, { logId: journal.current?.id });
-  if (sMatch?.status === "complete") {
+  if (practiceMatch && state.end) recordRound3(practiceMatch, state, { logId: journal.current?.id });
+  if (practiceMatch?.status === "complete") {
     auto = false;
     updateAuto();
   }
   journal.save(state);
-  if (sMatch) matchStore.save({ match: sMatch, seat: humanSeat, log: journal.read(), policy: $("policy").value, profile: $("profile").value });
+  if (practiceMatch) matchStore.save({ match: practiceMatch, seat: humanSeat, log: journal.read(), policy: $("policy").value, profile: $("profile").value });
 }
 function practiceInfo() {
   const match = currentMatch();
-  $("practice-info").textContent = `\uB0B4 \uC790\uB9AC\uB294 ${seatName(humanSeat)}\uC785\uB2C8\uB2E4. ${match ? "S\uB8F0 \uBC18\uC7A5 \xB7 " + match.label + " \xB7 \uC810\uC218\uC640 \uC9C4\uD589 \uC0C1\uD0DC\uB97C \uC790\uB3D9 \uC800\uC7A5\uD569\uB2C8\uB2E4." : "\uC0C1\uB300 3\uBA85\uC740 AI\uC785\uB2C8\uB2E4."} \uD328\uB97C \uC120\uD0DD\uD55C \uB4A4 \uB2E4\uC2DC \uB204\uB974\uAC70\uB098 \uBC84\uB9AC\uAE30\uB85C \uD655\uC815\uD558\uC138\uC694. \uAC00\uB2A5\uD55C \uD6C4\uB85C\uAC00 \uC5C6\uC73C\uBA74 0.7\uCD08 \uB4A4 \uB118\uAE41\uB2C8\uB2E4.`;
+  $("practice-info").textContent = `\uB0B4 \uC790\uB9AC\uB294 ${seatName(humanSeat)}\uC785\uB2C8\uB2E4. ${match ? matchTitle(match) + (summaryFormat(match) === "hanchan" ? " \xB7 " + match.label : "") + " \xB7 \uC810\uC218\uC640 \uC9C4\uD589 \uC0C1\uD0DC\uB97C \uC790\uB3D9 \uC800\uC7A5\uD569\uB2C8\uB2E4." : "\uC0C1\uB300 3\uBA85\uC740 AI\uC785\uB2C8\uB2E4."} \uD328\uB97C \uC120\uD0DD\uD55C \uB4A4 \uB2E4\uC2DC \uB204\uB974\uAC70\uB098 \uBC84\uB9AC\uAE30\uB85C \uD655\uC815\uD558\uC138\uC694. \uAC00\uB2A5\uD55C \uD6C4\uB85C\uAC00 \uC5C6\uC73C\uBA74 0.7\uCD08 \uB4A4 \uB118\uAE41\uB2C8\uB2E4.`;
 }
 function beginPracticeHand() {
   journal.begin(state, { mode: "practice", seat: humanSeat, policy: $("policy").value, profile: $("profile").value, build: buildId });
   savePractice();
-  $("seed").value = String(sMatch?.seed ?? state.seed);
+  $("seed").value = String(practiceMatch?.seed ?? state.seed);
   selectedTileId = null;
   practiceInfo();
   $("error").textContent = "";
@@ -3299,24 +3427,24 @@ function beginPracticeHand() {
   render();
   schedule();
 }
-function start(seed, variant = chosenVariant) {
+function start(seed, variant = chosenVariant, format2 = variant === chosenVariant ? chosenFormat : defaultMatchFormat(variant)) {
   if (!Number.isInteger(seed) || seed < 0 || seed > 4294967295) throw new Error("\uC2DC\uB4DC\uB294 0\u20134294967295\uC758 \uC815\uC218\uC5EC\uC57C \uD569\uB2C8\uB2E4.");
+  if (!["single", "hanchan"].includes(format2)) throw new Error("\uB2E8\uD310\uC804 \uB610\uB294 \uBC18\uC7A5\uC804\uC744 \uC120\uD0DD\uD558\uC138\uC694.");
   if (state && !online) savePractice();
-  setVariant(variant);
+  setVariant(variant, format2);
   showPractice();
   if (timer) clearTimeout(timer);
   auto = false;
   updateAuto();
   humanSeat = practiceSeat(seed);
-  sMatch = variant === "S" ? createMatch({ seed }) : null;
-  state = sMatch ? createMatchGame(sMatch) : createGame3({ seed });
-  if (!sMatch) matchStore.setResume(false);
+  practiceMatch = createMatch3({ seed, variant, format: format2 });
+  state = createMatchGame3(practiceMatch);
   beginPracticeHand();
-  return { seed, variant, seat: humanSeat, remaining: state.wall.length, ...sMatch ? { match: currentMatch() } : {} };
+  return { seed, variant, format: format2, seat: humanSeat, remaining: state.wall.length, match: currentMatch() };
 }
-function nextPracticeHand(expected = sMatch?.handNumber) {
-  if (online || !sMatch) throw new Error("\uC9C4\uD589 \uC911\uC778 S\uB8F0 \uBC18\uC7A5\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.");
-  const game = advanceMatch(sMatch, expected);
+function nextPracticeHand(expected = practiceMatch?.handNumber) {
+  if (online || !practiceMatch) throw new Error("\uC9C4\uD589 \uC911\uC778 \uBC18\uC7A5\uC804\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.");
+  const game = advanceMatch3(practiceMatch, expected);
   if (timer) clearTimeout(timer);
   state = game;
   beginPracticeHand();
@@ -3329,16 +3457,16 @@ function restorePractice(force = false) {
   showPractice();
   auto = false;
   updateAuto();
-  sMatch = saved.match;
+  practiceMatch = saved.match;
   state = saved.log.game;
   humanSeat = saved.seat;
   journal.current = saved.log;
   if (saved.policy in POLICIES2) $("policy").value = saved.policy;
   if (saved.profile in OPPONENT_PROFILES2) $("profile").value = saved.profile;
-  setVariant("S");
+  setVariant(state.rules.variant === "S" ? "S" : "H", practiceMatch.format ?? defaultMatchFormat(state.rules.variant));
   savePractice();
   selectedTileId = null;
-  $("seed").value = String(sMatch.seed);
+  $("seed").value = String(practiceMatch.seed);
   practiceInfo();
   renderLogs();
   render();
@@ -3348,10 +3476,16 @@ function restorePractice(force = false) {
 function renderMatch() {
   const match = currentMatch();
   $("match-panel").hidden = !match;
-  $("resume-s-match").hidden = !matchStore.read()?.active || !online && !!sMatch;
+  $("resume-s-match").hidden = !matchStore.read()?.active || !online && !!practiceMatch;
+  const active = matchStore.read()?.active;
+  if (active) {
+    const savedVariant = active.match.rules.variant === "S" ? "S" : "H";
+    $("resume-s-match").textContent = `\uC800\uC7A5\uB41C ${savedVariant}\uB8F0 ${matchFormatName(active.match.format ?? defaultMatchFormat(savedVariant))} \uC774\uC5B4\uD558\uAE30`;
+  }
   if (!match) return;
-  $("match-starting-points").textContent = match.startingPoints.toLocaleString();
-  $("match-title").textContent = match.status === "complete" ? "S\uB8F0 \uBC18\uC7A5 \uCD5C\uC885 \uACB0\uACFC" : `S\uB8F0 \uBC18\uC7A5 \xB7 ${match.label}`;
+  $("match-panel").setAttribute("aria-label", matchTitle(match) + " \uC810\uC218");
+  $("match-title").textContent = match.status === "complete" ? matchTitle(match) + " \uCD5C\uC885 \uACB0\uACFC" : matchTitle(match) + (summaryFormat(match) === "hanchan" ? " \xB7 " + match.label : "");
+  $("match-rules-note").textContent = matchRulesDescription(match);
   $("match-save-status").textContent = online ? matchStore.persisted ? "\uC9C4\uD589 \uC0C1\uD0DC\uB294 \uBC29 \uB9CC\uB8CC\uAE4C\uC9C0 \xB7 \uC810\uC218\uD45C\uB294 \uC774 \uAE30\uAE30\uC5D0 \uC800\uC7A5" : matchStore.error ?? "\uC810\uC218\uD45C\uB97C \uD30C\uC77C\uB85C \uC800\uC7A5\uD574 \uC8FC\uC138\uC694." : matchStore.persisted ? "\uC774 \uAE30\uAE30\uC5D0 \uC790\uB3D9 \uC800\uC7A5\uB428" : matchStore.error ?? "\uC790\uB3D9 \uC800\uC7A5 \uBD88\uAC00 \xB7 \uC810\uC218\uD45C\uB97C \uB0B4\uB824\uBC1B\uC73C\uC138\uC694.";
   $("match-seat-note").textContent = `\uB0B4 \uC2DC\uC791 \uC790\uB9AC\uB294 ${SEAT_NAMES[humanSeat]}\uC785\uB2C8\uB2E4. \uC544\uB798 \uC810\uC218\uD45C\uB294 \uC2DC\uC791 \uC790\uB9AC\uB97C \uAE30\uC900\uC73C\uB85C \uB05D\uAE4C\uC9C0 \uAE30\uB85D\uD569\uB2C8\uB2E4.`;
   $("next-s-hand").hidden = online || match.status !== "between-rounds";
@@ -3367,23 +3501,23 @@ function renderMatch() {
   $("match-scores").replaceChildren();
   for (const r of match.rankings) {
     const who = r.seat === humanSeat ? "\uB098" : online ? roomMemberName(remote.members.find((m) => m.seat === r.seat)) : `AI ${r.seat + 1}`;
-    $("match-scores").append(node("div", `${r.rank}\uC704 ${who} \xB7 ${seatName(r.seat)} \xB7 ${r.points.toLocaleString()}\uC810`));
+    $("match-scores").append(node("div", `${r.rank}\uC704 ${who} \xB7 \uC2DC\uC791 ${SEAT_NAMES[r.seat]} \xB7 ${r.points.toLocaleString()}\uC810`));
   }
   $("match-rounds").replaceChildren();
   for (const r of match.rounds) {
     const tr = node("tr");
-    tr.append(node("td", r.label), node("td", r.result === "win" ? "\uD654\uB8CC" : "\uC720\uAD6D"));
+    tr.append(node("td", r.label), node("td", roundResultName(r.result)));
     for (let i = 0; i < 4; i++) tr.append(node("td", `${signedPoints(r.delta[i])} \u2192 ${r.totals[i].toLocaleString()}`));
     tr.append(node("td", String(r.pot)));
     $("match-rounds").append(tr);
   }
-  $("match-final-pot").textContent = match.finalTransfers.map((p) => `\uB0A84\uAD6D \uC885\uB8CC \uACF5\uD0C1 ${p.amount}\uC810 \u2192 \uC2DC\uC791 ${SEAT_NAMES[p.to]} \uC790\uB9AC`).join(" / ");
+  $("match-final-pot").textContent = match.finalTransfers.map((p) => `\uB300\uAD6D \uC885\uB8CC \uACF5\uD0C1 ${p.amount}\uC810 \u2192 \uC2DC\uC791 ${SEAT_NAMES[p.to]} \uC790\uB9AC`).join(" / ");
 }
 function downloadMatch(format2 = "json", summary = currentMatch()) {
-  if (!summary) throw new Error("S\uB8F0 \uBC18\uC7A5 \uAE30\uB85D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.");
-  const a = node("a"), text = format2 === "csv" ? matchCSV(summary) : JSON.stringify({ format: "wellness-s-match-scores/v1", ...summary }, null, 2), blob = new Blob([text], { type: format2 === "csv" ? "text/csv;charset=utf-8" : "application/json" });
+  if (!summary) throw new Error("\uB300\uAD6D \uC810\uC218 \uAE30\uB85D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.");
+  const a = node("a"), text = format2 === "csv" ? matchCSV(summary) : JSON.stringify({ ...summary, variant: summaryVariant(summary), format: summaryFormat(summary), schema: "wellness-match-scores/v2" }, null, 2), blob = new Blob([text], { type: format2 === "csv" ? "text/csv;charset=utf-8" : "application/json" });
   a.href = URL.createObjectURL(blob);
-  a.download = `S-\uBC18\uC7A5-${summary.id.slice(0, 8)}-\uC810\uC218\uD45C.${format2}`;
+  a.download = `${summaryVariant(summary)}-${matchFormatName(summaryFormat(summary))}-${summary.id.slice(0, 8)}-\uC810\uC218\uD45C.${format2}`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1e3);
   return { filename: a.download, completedRounds: summary.rounds.length };
@@ -3447,17 +3581,18 @@ function receiveRoom(snapshot) {
     const member = snapshot.members[i], el = node("div", member ? `${roomMemberName(member)}${member.id === snapshot.me ? " (\uB098)" : ""}${member.seat === null ? "" : ` \xB7 ${seatName(member.seat)}`}` : "\uC785\uC7A5 \uB300\uAE30 \uC911", `room-member${member?.id === snapshot.me ? " is-me" : ""}${member?.kind === "ai" ? " is-ai" : ""}`);
     $("room-members").append(el);
   }
+  const roomFormat = snapshot.format ?? defaultMatchFormat(snapshot.variant), roomTitle = `${snapshot.variant ?? "H"}\uB8F0 ${matchFormatName(roomFormat)}`;
   const aiCount = snapshot.members.filter((member) => member.kind === "ai").length, humanCount = snapshot.members.length - aiCount;
-  $("room-message").textContent = snapshot.state ? snapshot.state.end ? snapshot.match?.status === "complete" ? "\uB0A84\uAD6D \uC885\uB8CC \xB7 \uBC18\uC7A5 \uCD5C\uC885 \uC810\uC218\uB97C \uC800\uC7A5\uD588\uC2B5\uB2C8\uB2E4." : "\uAD6D\uC774 \uB05D\uB0AC\uC2B5\uB2C8\uB2E4. \uBC29\uC7A5\uC774 \uB2E4\uC74C \uAD6D\uC744 \uC2DC\uC791\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." : `${snapshot.variant ?? "H"}\uB8F0 \xB7 \uC81C${snapshot.gameNumber}\uAD6D \xB7 \uC0AC\uB78C ${humanCount}\uBA85${aiCount ? " + AI " + aiCount + "\uBA85" : ""} \xB7 \uB0B4 \uC790\uB9AC ${seatName(snapshot.seat)}` : `${snapshot.variant ?? "H"}\uB8F0 \xB7 ${humanCount}/4\uBA85 \uC785\uC7A5 \xB7 ${snapshot.host ? "\uCE5C\uAD6C\uB97C \uAE30\uB2E4\uB9AC\uAC70\uB098 \uBE48\uC790\uB9AC\uB97C AI\uB85C \uCC44\uC6CC \uBC14\uB85C \uC2DC\uC791\uD558\uC138\uC694." : "\uBC29\uC7A5\uC774 \uBE48\uC790\uB9AC\uB97C AI\uB85C \uCC44\uC6B0\uBA74 \uBC14\uB85C \uC2DC\uC791\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4."}`;
+  $("room-message").textContent = snapshot.state ? snapshot.state.end ? snapshot.match?.status === "complete" ? roomTitle + " \uC644\uB8CC \xB7 \uCD5C\uC885 \uC810\uC218\uB97C \uC800\uC7A5\uD588\uC2B5\uB2C8\uB2E4." : "\uAD6D\uC774 \uB05D\uB0AC\uC2B5\uB2C8\uB2E4. \uBC29\uC7A5\uC774 \uB2E4\uC74C \uAD6D\uC744 \uC2DC\uC791\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." : `${roomTitle} \xB7 ${snapshot.match?.label ?? "\uC81C" + snapshot.gameNumber + "\uAD6D"} \xB7 \uC0AC\uB78C ${humanCount}\uBA85${aiCount ? " + AI " + aiCount + "\uBA85" : ""} \xB7 \uB0B4 \uC790\uB9AC ${seatName(snapshot.seat)}` : `${roomTitle} \xB7 ${humanCount}/4\uBA85 \uC785\uC7A5 \xB7 ${snapshot.host ? "\uCE5C\uAD6C\uB97C \uAE30\uB2E4\uB9AC\uAC70\uB098 \uBE48\uC790\uB9AC\uB97C AI\uB85C \uCC44\uC6CC \uBC14\uB85C \uC2DC\uC791\uD558\uC138\uC694." : "\uBC29\uC7A5\uC774 \uBE48\uC790\uB9AC\uB97C AI\uB85C \uCC44\uC6B0\uBA74 \uBC14\uB85C \uC2DC\uC791\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4."}`;
   $("rematch-room").hidden = !(snapshot.host && snapshot.state?.end);
-  $("rematch-room").textContent = snapshot.match?.status === "between-rounds" ? snapshot.match.nextLabel + " \uC2DC\uC791" : snapshot.variant === "S" ? "\uAC19\uC740 \uBA64\uBC84\uB85C \uC0C8 \uBC18\uC7A5" : "\uAC19\uC740 \uBA64\uBC84\uB85C \uC0C8 \uAD6D";
+  $("rematch-room").textContent = snapshot.match?.status === "between-rounds" ? snapshot.match.nextLabel + " \uC2DC\uC791" : `\uAC19\uC740 \uBA64\uBC84\uB85C \uC0C8 ${matchFormatName(roomFormat)}`;
   document.querySelector(".play-layout").hidden = !snapshot.state;
   if (snapshot.state) {
     state = snapshot.state;
     humanSeat = snapshot.seat;
     if (journal.current?.mode !== "online" || journal.current.room !== snapshot.code || journal.current.gameNumber !== snapshot.gameNumber) journal.begin(state, { mode: "online", seat: humanSeat, room: snapshot.code, gameNumber: snapshot.gameNumber, build: buildId });
     journal.observe(state, snapshot.revision);
-    $("practice-info").textContent = `4\uC778 \uB300\uAD6D \xB7 \uBC29 ${snapshot.code} \xB7 \uB098\uB294 ${seatName(humanSeat)}. \uD328\uB97C \uC120\uD0DD\uD55C \uB4A4 \uB2E4\uC2DC \uB204\uB974\uAC70\uB098 \uBC84\uB9AC\uAE30\uB85C \uD655\uC815\uD558\uC138\uC694.`;
+    $("practice-info").textContent = `${roomTitle} \xB7 \uBC29 ${snapshot.code} \xB7 \uB098\uB294 ${seatName(humanSeat)}. \uD328\uB97C \uC120\uD0DD\uD55C \uB4A4 \uB2E4\uC2DC \uB204\uB974\uAC70\uB098 \uBC84\uB9AC\uAE30\uB85C \uD655\uC815\uD558\uC138\uC694.`;
     render();
   }
   renderLogs();
@@ -3468,7 +3603,7 @@ async function connectRoom(join) {
   $("room-error").textContent = "";
   for (const id of ["create-room", "join-room"]) $(id).disabled = true;
   try {
-    return await roomClient.connect($("room-name").value, join ? $("room-code-input").value.trim().toUpperCase() : void 0, chosenVariant);
+    return await roomClient.connect($("room-name").value, join ? $("room-code-input").value.trim().toUpperCase() : void 0, chosenVariant, chosenFormat);
   } finally {
     for (const id of ["create-room", "join-room"]) $(id).disabled = false;
   }
@@ -3543,7 +3678,7 @@ function renderLogs() {
   const old = $("saved-matches").value, matches = matchStore.list();
   $("saved-matches").replaceChildren();
   for (const { summary, seat } of matches) {
-    const option = node("option", `${new Date(summary.startedAt).toLocaleString("ko-KR")} \xB7 ${summary.label} \xB7 ${summary.status === "complete" ? "\uC644\uB8CC" : "\uC9C4\uD589 \uAE30\uB85D"} \xB7 \uB098 ${summary.totals[seat].toLocaleString()}\uC810`);
+    const option = node("option", `${new Date(summary.startedAt).toLocaleString("ko-KR")} \xB7 ${matchTitle(summary)} \xB7 ${summary.label} \xB7 ${summary.status === "complete" ? "\uC644\uB8CC" : "\uC9C4\uD589 \uAE30\uB85D"} \xB7 \uB098 ${summary.totals[seat].toLocaleString()}\uC810`);
     option.value = summary.id;
     $("saved-matches").append(option);
   }
@@ -3591,14 +3726,18 @@ function setTrainingMode(mode) {
 }
 $("training-mode").onchange = () => setTrainingMode($("training-mode").value);
 function persistPreferences() {
-  savePreferences(logStorage, { variant: chosenVariant, recommendations: recommendationsEnabled });
+  savePreferences(logStorage, { variant: chosenVariant, format: chosenFormat, recommendations: recommendationsEnabled });
 }
-function setVariant(variant) {
+function setVariant(variant, format2 = variant === chosenVariant ? chosenFormat : defaultMatchFormat(variant)) {
   if (!["H", "S"].includes(variant)) throw new Error("H \uB610\uB294 S\uB97C \uC120\uD0DD\uD558\uC138\uC694.");
+  if (!["single", "hanchan"].includes(format2)) throw new Error("\uB2E8\uD310\uC804 \uB610\uB294 \uBC18\uC7A5\uC804\uC744 \uC120\uD0DD\uD558\uC138\uC694.");
   chosenVariant = variant;
+  chosenFormat = format2;
   for (const rule of ["H", "S"]) $("rule-" + rule.toLowerCase()).setAttribute("aria-pressed", String(variant === rule));
-  $("random-game").textContent = variant === "S" ? "S\uB8F0 \uC0C8 \uBC18\uC7A5 \u21BB" : "H\uB8F0 \uC0C8 \uB300\uAD6D \u21BB";
-  $("create-room").textContent = variant + "\uB8F0 \uBC29 \uB9CC\uB4E4\uAE30";
+  for (const value2 of ["single", "hanchan"]) $("format-" + value2).setAttribute("aria-pressed", String(format2 === value2));
+  $("random-game").textContent = `${variant}\uB8F0 \uC0C8 ${matchFormatName(format2)} \u21BB`;
+  $("create-room").textContent = `${variant}\uB8F0 ${matchFormatName(format2)} \uBC29 \uB9CC\uB4E4\uAE30`;
+  $("format-note").textContent = format2 === "single" ? "\uD55C \uAD6D \uC815\uC0B0 \uD6C4 \uC885\uB8CC\uD569\uB2C8\uB2E4. \uC120\uD0DD\uC740 \uC0C8 \uB300\uAD6D\xB7\uC0C8 \uBC29\uC5D0 \uC801\uC6A9\uB418\uBA70, \uC785\uC7A5\uD55C \uBC29\uC758 \uBC29\uC2DD\uC740 \uC720\uC9C0\uB429\uB2C8\uB2E4." : variant === "H" ? "\uB3D91\uAD6D~\uB0A84\uAD6D \uCD1D 8\uAD6D, \uC5F0\uC7A5 \uC5C6\uC774 \uC9C4\uD589\uD558\uB294 H\uB8F0 \uC5F0\uC2B5\uC6A9 \uBC29\uC2DD\uC785\uB2C8\uB2E4. \uC0C8 \uB300\uAD6D\xB7\uC0C8 \uBC29\uC5D0 \uC801\uC6A9\uB429\uB2C8\uB2E4." : "\uB3D91\uAD6D~\uB0A84\uAD6D\uAE4C\uC9C0 \uB204\uC801 \uC810\uC218\uB97C \uAE30\uB85D\uD558\uBA70 \uCE5C \uD654\uB8CC\xB7\uD150\uD30C\uC774 \uC2DC \uC5F0\uC7A5\uD569\uB2C8\uB2E4. \uC0C8 \uB300\uAD6D\xB7\uC0C8 \uBC29\uC5D0 \uC801\uC6A9\uB429\uB2C8\uB2E4.";
   persistPreferences();
 }
 function toggleRecommendations(enabled) {
@@ -3614,6 +3753,8 @@ function toggleRecommendations(enabled) {
   }
   return { enabled: recommendationsEnabled };
 }
+$("format-single").onclick = () => setVariant(chosenVariant, "single");
+$("format-hanchan").onclick = () => setVariant(chosenVariant, "hanchan");
 $("rule-h").onclick = () => setVariant("H");
 $("rule-s").onclick = () => setVariant("S");
 $("toggle-recommendations").onclick = () => toggleRecommendations(!recommendationsEnabled);
@@ -3650,7 +3791,7 @@ $("review-match").onclick = () => {
   const m = savedMatch();
   if (!m) return;
   $("match-review").hidden = false;
-  $("match-review").textContent = [`S\uB8F0 ${m.status === "complete" ? "\uBC18\uC7A5 \uCD5C\uC885 \uACB0\uACFC" : "\uBC18\uC7A5 \uC9C4\uD589 \uAE30\uB85D"} \xB7 ${m.label}`, m.rankings.map((r) => `${r.rank}\uC704 \uC2DC\uC791 ${SEAT_NAMES[r.seat]} ${r.points.toLocaleString()}\uC810`).join(" / "), ...m.rounds.map((r) => `${r.label} ${r.result === "win" ? "\uD654\uB8CC" : "\uC720\uAD6D"}: ${r.totals.map((n, i) => SEAT_NAMES[i] + " " + n + " (" + signedPoints(r.delta[i]) + ")").join(" / ")} \xB7 \uACF5\uD0C1 ${r.pot}`), ...m.finalTransfers.map((t) => `\uC885\uB8CC \uACF5\uD0C1 ${t.amount}\uC810 \u2192 \uC2DC\uC791 ${SEAT_NAMES[t.to]}`)].join("\n");
+  $("match-review").textContent = [`${matchTitle(m)} ${m.status === "complete" ? "\uCD5C\uC885 \uACB0\uACFC" : "\uC9C4\uD589 \uAE30\uB85D"} \xB7 ${m.label}`, m.rankings.map((r) => `${r.rank}\uC704 \uC2DC\uC791 ${SEAT_NAMES[r.seat]} ${r.points.toLocaleString()}\uC810`).join(" / "), ...m.rounds.map((r) => `${r.label} ${roundResultName(r.result)}: ${r.totals.map((n, i) => SEAT_NAMES[i] + " " + n + " (" + signedPoints(r.delta[i]) + ")").join(" / ")} \xB7 \uACF5\uD0C1 ${r.pot}`), ...m.finalTransfers.map((t) => `\uC885\uB8CC \uACF5\uD0C1 ${t.amount}\uC810 \u2192 \uC2DC\uC791 ${SEAT_NAMES[t.to]}`)].join("\n");
 };
 if (!restorePractice()) {
   if (matchStore.error) {
@@ -3687,14 +3828,14 @@ fetch(new URL("../results/baseline/analysis.json", import.meta.url)).then((r) =>
 });
 void renderTrainingResults($, TRAINING);
 function readGame() {
-  if (online && !remote?.state) return { mode: "online", phase: "waiting", room: remote ? { code: remote.code, members: remote.members } : null, legalActions: [], recommendations: [] };
-  return { match: currentMatch(), variant: state.rules.variant === "S" ? "S" : "H", trainingMode: trainingCompatible(state, TRAINING) ? trainingMode : "original", trainingId: TRAINING.id, recommendationsEnabled, selectedVariant: chosenVariant, mode: online ? "online" : "practice", room: online && remote ? { code: remote.code, members: remote.members, gameNumber: remote.gameNumber } : null, seat: humanSeat, phase: online && !remote?.state ? "waiting" : state.phase, turn: actor4(state), ownHand: state.players[humanSeat].hand.map(typeOf), drawnTile: handDisplay(state, humanSeat).drawn === null ? null : typeOf(handDisplay(state, humanSeat).drawn), scores: state.players.map((p) => p.score), winners: [...state.winners], legalActions: actor4(state) === humanSeat ? legalActions4(state) : [], recommendationRevision, recommendations: structuredClone(currentRecommendations) };
+  if (online && !remote?.state) return { mode: "online", phase: "waiting", room: remote ? { code: remote.code, members: remote.members, variant: remote.variant, format: remote.format ?? defaultMatchFormat(remote.variant) } : null, legalActions: [], recommendations: [] };
+  return { match: currentMatch(), variant: state.rules.variant === "S" ? "S" : "H", trainingMode: trainingCompatible(state, TRAINING) ? trainingMode : "original", trainingId: TRAINING.id, recommendationsEnabled, selectedVariant: chosenVariant, selectedFormat: chosenFormat, format: currentMatch() ? summaryFormat(currentMatch()) : remote?.format ?? defaultMatchFormat(state.rules.variant), mode: online ? "online" : "practice", room: online && remote ? { code: remote.code, members: remote.members, gameNumber: remote.gameNumber } : null, seat: humanSeat, phase: online && !remote?.state ? "waiting" : state.phase, turn: actor4(state), ownHand: state.players[humanSeat].hand.map(typeOf), drawnTile: handDisplay(state, humanSeat).drawn === null ? null : typeOf(handDisplay(state, humanSeat).drawn), scores: state.players.map((p) => p.score), winners: [...state.winners], legalActions: actor4(state) === humanSeat ? legalActions4(state) : [], recommendationRevision, recommendations: structuredClone(currentRecommendations) };
 }
 if (document.modelContext?.registerTool) {
   const life = new AbortController();
   window.addEventListener("pagehide", () => life.abort(), { once: true });
   for (const tool of [
-    { name: "create_h_room", title: "4\uC778 \uB300\uAD6D \uBC29 \uB9CC\uB4E4\uAE30", description: "\uB0B4 \uC774\uB984\uC73C\uB85C \uC0C8 \uC628\uB77C\uC778 \uBC29\uC744 \uB9CC\uB4ED\uB2C8\uB2E4. \uB124 \uBA85\uC774 \uBAA8\uC774\uBA74 \uC2DC\uC791\uD569\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { name: { type: "string", minLength: 1, maxLength: 20 } }, required: ["name"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: async ({ name }) => {
+    { name: "create_h_room", title: "4\uC778 \uB300\uAD6D \uBC29 \uB9CC\uB4E4\uAE30", description: "\uD654\uBA74\uC5D0\uC11C \uC120\uD0DD\uD55C H/S\uB8F0\uACFC \uB2E8\uD310\uC804/\uBC18\uC7A5\uC804\uC73C\uB85C \uBC29\uC744 \uB9CC\uB4ED\uB2C8\uB2E4. \uB124 \uBA85 \uC785\uC7A5 \uB610\uB294 \uBE48\uC790\uB9AC AI \uCC44\uC6B0\uAE30\uB85C \uC2DC\uC791\uD569\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { name: { type: "string", minLength: 1, maxLength: 20 } }, required: ["name"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: async ({ name }) => {
       $("room-name").value = name;
       const room = await connectRoom(false);
       return { code: room.code, members: room.members };
@@ -3705,10 +3846,10 @@ if (document.modelContext?.registerTool) {
       const room = await connectRoom(true);
       return { code: room.code, members: room.members, seat: room.seat };
     } },
-    { name: "start_h_game", title: "H\uB8F0 \uC0C8 \uAD6D", description: "\uC9C0\uC815\uD55C \uBC30\uD328 \uBC88\uD638\uB85C \uC0C8 \uAD6D\uC744 \uC2DC\uC791\uD569\uB2C8\uB2E4. \uAC19\uC740 \uBC88\uD638\uB294 \uB0B4 \uC790\uB9AC\uB3C4 \uB3D9\uC77C\uD558\uAC8C \uC7AC\uD604\uD569\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { seed: { type: "integer", minimum: 0, maximum: 4294967295 } }, required: ["seed"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: ({ seed }) => start(seed, "H") },
-    { name: "start_practice_game", title: "H/S\uB8F0 \uC0C8 \uC5F0\uC2B5 \uB300\uAD6D", description: "H\uB294 \uD55C \uAD6D, S\uB294 \uB3D91\uAD6D\uBD80\uD130 \uB0A84\uAD6D\uAE4C\uC9C0 \uC0C8 \uBC18\uC7A5\uC744 \uC2DC\uC791\uD569\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { seed: { type: "integer", minimum: 0, maximum: 4294967295 }, variant: { type: "string", enum: ["H", "S"] } }, required: ["seed", "variant"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: ({ seed, variant }) => start(seed, variant) },
-    { name: "next_s_hand", title: "S\uB8F0 \uB2E4\uC74C \uAD6D", description: "\uD604\uC7AC \uAD6D\uC774 \uB05D\uB098\uBA74 \uC810\uC218\uB97C \uC774\uC6D4\uD558\uACE0 \uAC19\uC740 \uC790\uB9AC\uC5D0\uC11C \uB2E4\uC74C \uAD6D\uC744 \uC2DC\uC791\uD569\uB2C8\uB2E4. \uB0A84\uAD6D \uC885\uB8CC \uD6C4\uC5D0\uB294 \uAC70\uC808\uD569\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { handNumber: { type: "integer", minimum: 1 } }, required: ["handNumber"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: ({ handNumber }) => nextPracticeHand(handNumber) },
-    { name: "save_s_match_scores", title: "S\uB8F0 \uBC18\uC7A5 \uC810\uC218\uD45C \uC800\uC7A5", description: "\uB3D91\uAD6D\uBD80\uD130 \uD604\uC7AC \uAD6D\uAE4C\uC9C0\uC758 \uC810\uC218 \uBCC0\uD654\uC640 \uB204\uC801 \uC810\uC218, \uCD5C\uC885 \uC21C\uC704\uB97C \uD30C\uC77C\uB85C \uC800\uC7A5\uD569\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { format: { type: "string", enum: ["json", "csv"] } }, required: ["format"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: ({ format: format2 }) => downloadMatch(format2) },
+    { name: "start_h_game", title: "H\uB8F0 \uC0C8 \uAD6D", description: "\uC9C0\uC815\uD55C \uBC30\uD328 \uBC88\uD638\uB85C \uC0C8 \uAD6D\uC744 \uC2DC\uC791\uD569\uB2C8\uB2E4. \uAC19\uC740 \uBC88\uD638\uB294 \uB0B4 \uC790\uB9AC\uB3C4 \uB3D9\uC77C\uD558\uAC8C \uC7AC\uD604\uD569\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { seed: { type: "integer", minimum: 0, maximum: 4294967295 } }, required: ["seed"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: ({ seed }) => start(seed, "H", "single") },
+    { name: "start_practice_game", title: "H/S\uB8F0 \uC0C8 \uC5F0\uC2B5 \uB300\uAD6D", description: "H/S\uB8F0\uACFC \uB2E8\uD310\uC804/\uBC18\uC7A5\uC804\uC744 \uC120\uD0DD\uD574 \uC0C8 \uC5F0\uC2B5 \uB300\uAD6D\uC744 \uC2DC\uC791\uD569\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { seed: { type: "integer", minimum: 0, maximum: 4294967295 }, variant: { type: "string", enum: ["H", "S"] }, format: { type: "string", enum: ["single", "hanchan"] } }, required: ["seed", "variant", "format"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: ({ seed, variant, format: format2 }) => start(seed, variant, format2) },
+    { name: "next_s_hand", title: "\uBC18\uC7A5\uC804 \uB2E4\uC74C \uAD6D", description: "\uD604\uC7AC \uAD6D\uC774 \uB05D\uB098\uBA74 \uC810\uC218\uB97C \uC774\uC6D4\uD558\uACE0 \uAC19\uC740 \uC790\uB9AC\uC5D0\uC11C \uB2E4\uC74C \uAD6D\uC744 \uC2DC\uC791\uD569\uB2C8\uB2E4. \uB0A84\uAD6D \uC885\uB8CC \uD6C4\uC5D0\uB294 \uAC70\uC808\uD569\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { handNumber: { type: "integer", minimum: 1 } }, required: ["handNumber"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: ({ handNumber }) => nextPracticeHand(handNumber) },
+    { name: "save_s_match_scores", title: "\uB300\uAD6D \uC810\uC218\uD45C \uC800\uC7A5", description: "\uB3D91\uAD6D\uBD80\uD130 \uD604\uC7AC \uAD6D\uAE4C\uC9C0\uC758 \uC810\uC218 \uBCC0\uD654\uC640 \uB204\uC801 \uC810\uC218, \uCD5C\uC885 \uC21C\uC704\uB97C \uD30C\uC77C\uB85C \uC800\uC7A5\uD569\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { format: { type: "string", enum: ["json", "csv"] } }, required: ["format"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: ({ format: format2 }) => downloadMatch(format2) },
     { name: "set_recommendations", title: "\uC804\uB7B5 \uCD94\uCC9C \uCF1C\uAE30\xB7\uB044\uAE30", description: "\uD604\uC7AC \uB300\uAD6D\uC744 \uC720\uC9C0\uD558\uBA74\uC11C \uCD94\uCC9C \uD45C\uC2DC\uB97C \uCF1C\uAC70\uB098 \uB055\uB2C8\uB2E4. \uC124\uC815\uC740 \uC774 \uAE30\uAE30\uC5D0 \uC800\uC7A5\uB429\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { enabled: { type: "boolean" } }, required: ["enabled"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: ({ enabled }) => toggleRecommendations(enabled) },
     { name: "read_h_game", title: "\uB300\uAD6D \uACF5\uAC1C \uC0C1\uD0DC", description: "\uB0B4 \uC790\uB9AC\xB7\uC190\uD328, \uACF5\uAC1C \uB300\uAD6D \uC0C1\uD0DC, \uD569\uBC95 \uD589\uB3D9\uACFC \uD654\uBA74\uC758 \uC804\uB7B5\uBCC4 \uCD94\uCC9C\uC744 \uD655\uC778\uD569\uB2C8\uB2E4.", inputSchema: { type: "object", properties: {}, additionalProperties: false }, annotations: { readOnlyHint: true }, execute: readGame },
     { name: "save_h_game_log", title: "\uD604\uC7AC \uB300\uAD6D \uB85C\uADF8 \uC800\uC7A5", description: "\uD604\uC7AC \uB300\uAD6D\uC758 \uD589\uB3D9\xB7\uC810\uC218 \uC774\uB3D9\xB7\uD654\uB8CC \uACC4\uC0B0\uACFC \uD328\uBCF4\uB97C JSON \uB610\uB294 \uC77D\uAE30 \uC26C\uC6B4 TXT \uD30C\uC77C\uB85C \uB0B4\uB824\uBC1B\uC2B5\uB2C8\uB2E4.", inputSchema: { type: "object", properties: { format: { type: "string", enum: ["json", "txt"] } }, required: ["format"], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: ({ format: format2 }) => saveCurrentLog(format2) },

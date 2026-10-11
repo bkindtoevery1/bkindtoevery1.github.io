@@ -5,12 +5,13 @@ export const MATCH_DEFAULTS=Object.freeze({dealerContinuation:'win-or-tenpai',ho
 const clone=x=>structuredClone(x),sum=xs=>xs.reduce((a,b)=>a+b,0);
 export function roundLabel(roundIndex,repeat=0){return `${roundIndex<4?'동':'남'}${roundIndex%4+1}국${repeat?' · 연장 '+repeat+'회':''}`;}
 export function roundSeed(seed,number){if(number===1)return seed;let n=(seed^Math.imul(number,0x9e3779b9))>>>0;n=Math.imul(n^(n>>>16),0x21f0aaad);n=Math.imul(n^(n>>>15),0x735a2d97);return (n^(n>>>15))>>>0;}
-export function createMatch({seed=1,id=crypto.randomUUID(),rules={},settings={},now=new Date().toISOString()}={}){
+export function createMatch({seed=1,id=crypto.randomUUID(),format='hanchan',rules={},settings={},now=new Date().toISOString()}={}){
  if(!Number.isInteger(seed)||seed<0||seed>0xffffffff||typeof id!=='string'||!id)throw new Error('Invalid match seed/id');
+ if(!['single','hanchan'].includes(format))throw new Error('단판전 또는 반장전을 선택하세요.');
  for(const k of Object.keys(settings))if(!(k in MATCH_DEFAULTS))throw new Error('Unknown match setting');
  const config={...MATCH_DEFAULTS,...settings};if(!['none','win-or-tenpai'].includes(config.dealerContinuation)||config.honbaPoints!==0||config.finalPot!=='top'||config.endOnBankrupt!==false)throw new Error('Unsupported match settings');
  const r=sRules({...rules,roundWind:27});
- return {version:1,id,seed,startedAt:now,rules:r,settings:config,roundIndex:0,repeat:0,handNumber:1,status:'playing',scores:Array(4).fill(r.startingPoints),pot:0,rounds:[],next:null,finalTransfers:[]};
+ return {version:1,variant:'S',format,id,seed,startedAt:now,rules:r,settings:config,roundIndex:0,repeat:0,handNumber:1,status:'playing',scores:Array(4).fill(r.startingPoints),pot:0,rounds:[],next:null,finalTransfers:[]};
 }
 export function createMatchGame(match){
  if(match.status!=='playing')throw new Error('반장이 다음 국을 시작할 상태가 아닙니다.');
@@ -23,9 +24,9 @@ export function recordRound(match,game,{logId=null}={}){
  if(!game.end)throw new Error('국이 끝난 뒤 정산할 수 있습니다.');assertMatch(match,game);
  const delta=game.players.map(p=>p.score);match.scores=match.scores.map((n,i)=>n+delta[i]);match.pot=game.pot;
  const dealerReady=game.events.find(e=>e.type==='drawSettlement')?.ready.some(r=>r.seat===game.dealer)??false;
- const retained=match.settings.dealerContinuation==='win-or-tenpai'&&(game.winners.includes(game.dealer)||game.end==='exhaustive-draw'&&dealerReady);
- match.rounds.push({handNumber:match.handNumber,roundIndex:match.roundIndex,repeat:match.repeat,label:roundLabel(match.roundIndex,match.repeat),dealer:game.dealer,seed:game.seed,result:game.end,winner:game.winners[0]??null,delta,totals:[...match.scores],pot:match.pot,retained,logId});
- if(match.roundIndex===7&&!retained){
+ const retained=match.format!=='single'&&match.settings.dealerContinuation==='win-or-tenpai'&&(game.winners.includes(game.dealer)||game.end==='exhaustive-draw'&&dealerReady);
+ match.rounds.push({handNumber:match.handNumber,roundIndex:match.roundIndex,repeat:match.repeat,label:match.format==='single'?'단판전':roundLabel(match.roundIndex,match.repeat),dealer:game.dealer,seed:game.seed,result:game.end,winner:game.winners[0]??null,delta,totals:[...match.scores],pot:match.pot,retained,logId});
+ if(match.format==='single'||match.roundIndex===7&&!retained){
   match.status='complete';match.next=null;
   if(match.pot){const top=match.scores.reduce((best,n,i)=>n>match.scores[best]?i:best,0);match.finalTransfers.push({from:'pot',to:top,amount:match.pot,kind:'final-pot'});match.scores[top]+=match.pot;match.pot=0;}
  }else{match.status='between-rounds';match.next={roundIndex:match.roundIndex+(retained?0:1),repeat:retained?match.repeat+1:0};}
@@ -38,11 +39,12 @@ export function advanceMatch(match,expectedHandNumber=match.handNumber){
 export function matchTotals(match,game){return match.status==='playing'?match.scores.map((n,i)=>n+game.players[i].score):[...match.scores];}
 export function matchSummary(match,game){
  const totals=matchTotals(match,game),rankings=totals.map((points,seat)=>({seat,points,rank:1+totals.filter(n=>n>points).length})).sort((a,b)=>b.points-a.points||a.seat-b.seat);
- return {id:match.id,startedAt:match.startedAt,roundIndex:match.roundIndex,repeat:match.repeat,handNumber:match.handNumber,label:roundLabel(match.roundIndex,match.repeat),status:match.status,totals,pot:match.status==='playing'?game.pot:match.pot,
+ return {id:match.id,variant:'S',format:match.format??'hanchan',startedAt:match.startedAt,roundIndex:match.roundIndex,repeat:match.repeat,handNumber:match.handNumber,label:match.format==='single'?'단판전':roundLabel(match.roundIndex,match.repeat),status:match.status,totals,pot:match.status==='playing'?game.pot:match.pot,
   nextLabel:match.next?roundLabel(match.next.roundIndex,match.next.repeat):null,settings:clone(match.settings),startingPoints:match.rules.startingPoints,rankings,
   rounds:match.rounds.map(({seed,logId,...row})=>clone(row)),finalTransfers:clone(match.finalTransfers)};
 }
 export function assertMatch(match,game){
+ if(match.variant!==undefined&&match.variant!=='S'||!['single','hanchan'].includes(match.format??'hanchan')||match.format==='single'&&(match.roundIndex!==0||match.repeat!==0||match.handNumber!==1||match.status==='between-rounds'))throw new Error('Invalid S match format');
  if(match.version!==1||!['playing','between-rounds','complete'].includes(match.status)||!Number.isInteger(match.roundIndex)||match.roundIndex<0||match.roundIndex>7||!Number.isInteger(match.handNumber)||match.handNumber<1||!Number.isInteger(match.repeat)||match.repeat<0)throw new Error('Invalid S match progress');
  if(match.scores.length!==4||match.scores.some(n=>!Number.isSafeInteger(n))||sum(match.scores)+match.pot!==4*match.rules.startingPoints)throw new Error('Match score conservation violated');
  if(!Number.isSafeInteger(match.pot)||match.pot<0||match.pot%1000)throw new Error('Invalid match pot');

@@ -6,10 +6,13 @@ export const MELD_SOURCE_LABELS = {left: '왼쪽', across: '맞은편', right: '
 // Physical tile IDs retain the original called tile after a pon becomes a kan.
 // Use the source's claimed discard, not the order of active players: an H winner
 // may already have left and a chi can then come from the player across the table.
-export function meldDisplay(meld, seat, players = []) {
+export function meldDisplay(meld, seat, players = [], {variant = 'H'} = {}) {
   const ids = [...meld.ids];
   if (!meld.open) return {source: null, calledId: null, addedId: null,
-    slots: ids.map(id => ({id, tile: typeOf(id), called: false, added: null}))};
+    // S uses the conventional two-backed-tile marker; the two middle faces
+    // still disclose the tile type. H's source does not specify this marker.
+    slots: ids.map((id, index) => ({id, tile: typeOf(id), called: false, added: null,
+      faceDown: variant === 'S' && meld.type === 'kan' && (index === 0 || index === ids.length - 1)}))};
   const source = SOURCES[(meld.from - seat + 4) % 4] ?? null;
   const river = players[meld.from]?.river ?? [];
   const calledId = river.find(discard => discard.claimed && ids.includes(discard.id))?.id ?? meld.calledId ?? ids.at(-1);

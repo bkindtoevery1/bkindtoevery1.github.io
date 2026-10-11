@@ -85,3 +85,7 @@
 
 .discard-ranking{font-size:12px;border-top:1px solid var(--line);padding-top:8px;line-height:1.5}.discard-ranking summary{cursor:pointer;color:var(--gold)}.discard-ranking p{margin:7px 0;color:var(--muted)}.discard-ranking ol{list-style:none;padding:0;margin:7px 0;display:grid;gap:8px}.discard-ranking li{display:grid;gap:3px;background:#102b32;padding:8px;border-radius:5px}.discard-ranking .ranking-components{color:var(--muted);overflow-wrap:anywhere}
 .room-member.is-ai{border-style:dashed;color:#c8d9ee;background:#203a4b}.room-info-actions{display:flex;gap:8px;flex-wrap:wrap}#start-ai-room{margin:0 8px 6px 0}
+
+/* Length selection applies to the next solo game or newly created room. */
+.format-buttons{padding-left:10px;border-left:1px solid var(--line)}.format-note{font-size:13px;line-height:1.5;color:var(--muted);margin:-5px 0 14px}.play-modes{flex-wrap:wrap}.meld-rack .meld-back{width:var(--meld-tile-w);max-width:none;height:var(--meld-tile-h);flex:none;border-radius:3px;border-bottom-width:2px}
+@media(max-width:480px){.rule-controls{gap:8px}.format-buttons{padding-left:8px}.rule-controls>span{flex-basis:100%}.rule-controls button{padding:8px 11px}.rule-controls #toggle-recommendations{margin-left:0}}

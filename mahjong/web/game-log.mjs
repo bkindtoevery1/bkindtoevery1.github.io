@@ -8,7 +8,7 @@ const PREFIX='h-mahjong-log-v1:',INDEX=PREFIX+'index',MAX_LOGS=10,MAX_CHARS=1500
 const clone=value=>structuredClone(value);
 const scores=game=>game.players.map(player=>player.score);
 const seats=['동','남','서','북'];
-const seatLabels=game=>game.rules.variant==='S'?seats.map((_,i)=>seats[(i-game.dealer+4)%4]):seats;
+const seatLabels=game=>seats.map((_,i)=>seats[(i-(game.dealer??0)+4)%4]);
 const signed=value=>`${value>0?'+':''}${value}`;
 const canonical=value=>JSON.stringify(value,(_,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.entries(v).sort(([a],[b])=>a.localeCompare(b))):v);
 
@@ -102,8 +102,8 @@ export class GameJournal{
 
 export function logText(log){
   log=expandLog(log);const game=log.game,seats=seatLabels(game),variant=game.rules.variant==='S'?'S':'H',lines=[`${variant}룰 마작 대국 로그`,`${log.startedAt} · ${log.mode==='practice'?'혼자 연습':'4인 대국'} · 내 자리 ${seats[log.humanSeat]}`,`배패 번호: ${game.seed??'서버 비공개'} · 화면 버전: ${log.build??'미기록'}`,
-    `${variant==='S'?'이번 국 증감':'최종 점수'}: ${scores(game).map((score,i)=>`${seats[i]} ${signed(score)}`).join(' / ')}`,''];
-  if(game.startingScores)lines.push(`반장 누적 (종료 공탁 별도): ${game.startingScores.map((n,i)=>seats[i]+' '+(n+game.players[i].score)).join(' / ')}`,'');
+    `${variant==='S'||game.startingScores||game.startingScores||game.matchContext?'이번 국 증감':'최종 점수'}: ${scores(game).map((score,i)=>`${seats[i]} ${signed(score)}`).join(' / ')}`,''];
+  if(game.startingScores)lines.push(`누적 점수 (종료 공탁 별도): ${game.startingScores.map((n,i)=>seats[i]+' '+(n+game.players[i].score)).join(' / ')}`,'');
   for(const entry of log.actions){
     const action=entry.action,tile=Number.isInteger(action.tile)?` ${tileName(action.tile)}`:'';
     if(action.type!=='pass')lines.push(`#${entry.n+1} ${seats[entry.seat]} ${({discard:'버림',riichi:'리치·버림',tsumo:'쯔모',ron:'론',chi:'치',pon:'퐁',ankan:'안깡',minkan:'명깡',kakan:'가깡'})[action.type]??action.type}${tile}`);
@@ -122,10 +122,10 @@ export function logText(log){
 }
 
 export function reviewText(input){
- const log=expandLog(input),game=log.game,seats=seatLabels(game),s=game.rules.variant==='S',lines=[`${s?'S':'H'}룰 · ${game.seed??log.room}`,`${s?'이번 국 증감':'최종'}: ${game.players.map((p,i)=>seats[i]+' '+signed(p.score)).join(' / ')}`];
+ const log=expandLog(input),game=log.game,seats=seatLabels(game),s=game.rules.variant==='S',lines=[`${s?'S':'H'}룰 · ${game.seed??log.room}`,`${s||game.startingScores||game.matchContext?'이번 국 증감':'최종'}: ${game.players.map((p,i)=>seats[i]+' '+signed(p.score)).join(' / ')}`];
  for(const e of log.actions){
   if(['ankan','minkan','kakan'].includes(e.action.type))lines.push(`${seats[e.seat]} ${e.action.type==='ankan'?'안깡':e.action.type==='minkan'?'명깡':'가깡'}${Number.isInteger(e.action.tile)?' · '+tileName(e.action.tile):''} (이때는 점수 이동 없음)`);
-  for(const win of e.wins){const extra=Object.entries(win.score.bonuses??{}).filter(([,value])=>typeof value==='number'&&value).map(([name,value])=>`${({kan:'깡',dragon:'삼원패',roundWind:'장풍',seatWind:'자풍'})[name]??name} ${value}`);
+  for(const win of e.wins){const extra=Object.entries(win.score.bonuses??{}).filter(([,value])=>typeof value==='number'&&value).map(([name,value])=>`${({kan:game.rules.fourOfAKindBonus?'사귀일':'깡',dragon:'삼원패',roundWind:'장풍',seatWind:'자풍'})[name]??name} ${value}`);
    lines.push(s?`${seats[win.seat]} ${win.method==='ron'?'론':'쯔모'} · ${scoreBreakdownText(win.score)}`:`${seats[win.seat]} ${win.score.name} ${win.method==='ron'?'론':'쯔모'} · 역 ${win.score.base}${extra.length?' + '+extra.join(' + '):''}${win.tsumoBonus?' + 쯔모 '+win.tsumoBonus+' / 지급자':''}`);
   }
   for(const p of e.payments)lines.push(`  ${seats[p.from]??'공탁'} → ${seats[p.to]??'공탁'}: ${p.amount}점`);
