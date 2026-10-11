@@ -1,0 +1,106 @@
+{
+  "id": "H-hybrid-20261011-v1",
+  "planHash": "ccfa6863b27598601697cd66f7062dbc0c734a8e4a341c49d8141797846797e3",
+  "controls": [
+    {
+      "id": "A",
+      "name": "기존 최속 화료",
+      "policy": "A",
+      "weights": {}
+    },
+    {
+      "id": "D",
+      "name": "기존 고득점",
+      "policy": "D",
+      "weights": {}
+    },
+    {
+      "id": "E",
+      "name": "기존 균형",
+      "policy": "E",
+      "weights": {}
+    },
+    {
+      "id": "V1",
+      "name": "비공개 안깡 고득점 V1",
+      "policy": "D",
+      "weights": {
+        "speed": 60,
+        "ukeire": 1,
+        "value": 0.24,
+        "maxShantenLoss": 1
+      }
+    },
+    {
+      "id": "Y1",
+      "name": "V1 + 자패 가치 보정",
+      "policy": "D",
+      "weights": {
+        "speed": 60,
+        "ukeire": 1,
+        "value": 0.24,
+        "maxShantenLoss": 1,
+        "honorModel": 1
+      }
+    }
+  ],
+  "preferredVersion": "M1",
+  "preferredCriterion": "최종 검증 전 각 계열의 선택 후보 중 튜닝 평균 순수익이 가장 높은 M 계열. 동률은 계열 ID 순서.",
+  "versions": [
+    {
+      "id": "M1",
+      "name": "혼합형·속도 우선",
+      "description": "유효패와 속도를 중시하며 손 가치에 맞춰 수비 강도를 조절",
+      "policy": "E",
+      "candidate": "M1-1",
+      "weights": {
+        "speed": 75,
+        "ukeire": 1.2,
+        "value": 0.16,
+        "pinfu": 0,
+        "risk": 0,
+        "maxShantenLoss": 1,
+        "honorModel": 1,
+        "adaptiveDefense": 20
+      },
+      "tuningMean": 79.01785714285714
+    },
+    {
+      "id": "M2",
+      "name": "혼합형·고득점 우선",
+      "description": "고득점 가능성을 중시하며 손 가치에 맞춰 수비 강도를 조절",
+      "policy": "E",
+      "candidate": "M2-1",
+      "weights": {
+        "speed": 60,
+        "ukeire": 1,
+        "value": 0.24,
+        "pinfu": 0,
+        "risk": 0,
+        "maxShantenLoss": 1,
+        "honorModel": 1,
+        "adaptiveDefense": 32
+      },
+      "tuningMean": 57.34126984126984
+    },
+    {
+      "id": "M3",
+      "name": "혼합형·수비 우선",
+      "description": "속도와 점수를 함께 보며 더 높은 수비 가중치를 비교",
+      "policy": "E",
+      "candidate": "M3-2",
+      "weights": {
+        "speed": 65,
+        "ukeire": 1,
+        "value": 0.18,
+        "pinfu": 0,
+        "risk": 0,
+        "maxShantenLoss": 1,
+        "honorModel": 1,
+        "adaptiveDefense": 70
+      },
+      "tuningMean": 58.58134920634921
+    }
+  ],
+  "frozenAt": "2026-10-11T04:22:25.292Z"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "H-hybrid-20261011-v1",
+  "status": "complete",
+  "verifiedAt": "2026-10-11T04:26:58.616Z",
+  "completedGames": 22276,
+  "holdoutGames": 16128,
+  "experiments": 19,
+  "failedReplayFiles": 0,
+  "analysisSha256": "6b55245d3c6b5246440c1a94bdbc1285ed8790e637cdee00ae38e2bef87cba57",
+  "selectionSha256": "408928719fab3297b4bdbd5ae1ced4230cf06f97ddedce666607299e3bf6fdcf",
+  "exporterSha256": "a7aa11e15affef31dca27d657ac604aa90dde77ed1701226898e868ecd385119"
+}

@@ -1,0 +1,170 @@
+[
+  {
+    "id": "M1",
+    "name": "혼합형·속도 우선",
+    "description": "유효패와 속도를 중시하며 손 가치에 맞춰 수비 강도를 조절",
+    "policy": "E",
+    "ranked": [
+      {
+        "id": "M1-1",
+        "policy": "E",
+        "weights": {
+          "speed": 75,
+          "ukeire": 1.2,
+          "value": 0.16,
+          "pinfu": 0,
+          "risk": 0,
+          "maxShantenLoss": 1,
+          "honorModel": 1,
+          "adaptiveDefense": 20
+        },
+        "games": 1008,
+        "meanNet": 79.01785714285714
+      },
+      {
+        "id": "M1-2",
+        "policy": "E",
+        "weights": {
+          "speed": 75,
+          "ukeire": 1.2,
+          "value": 0.16,
+          "pinfu": 0,
+          "risk": 0,
+          "maxShantenLoss": 1,
+          "honorModel": 1,
+          "adaptiveDefense": 32
+        },
+        "games": 1008,
+        "meanNet": 68.10515873015873
+      }
+    ],
+    "selected": {
+      "id": "M1-1",
+      "policy": "E",
+      "weights": {
+        "speed": 75,
+        "ukeire": 1.2,
+        "value": 0.16,
+        "pinfu": 0,
+        "risk": 0,
+        "maxShantenLoss": 1,
+        "honorModel": 1,
+        "adaptiveDefense": 20
+      },
+      "games": 1008,
+      "meanNet": 79.01785714285714
+    }
+  },
+  {
+    "id": "M2",
+    "name": "혼합형·고득점 우선",
+    "description": "고득점 가능성을 중시하며 손 가치에 맞춰 수비 강도를 조절",
+    "policy": "E",
+    "ranked": [
+      {
+        "id": "M2-1",
+        "policy": "E",
+        "weights": {
+          "speed": 60,
+          "ukeire": 1,
+          "value": 0.24,
+          "pinfu": 0,
+          "risk": 0,
+          "maxShantenLoss": 1,
+          "honorModel": 1,
+          "adaptiveDefense": 32
+        },
+        "games": 1008,
+        "meanNet": 57.34126984126984
+      },
+      {
+        "id": "M2-2",
+        "policy": "E",
+        "weights": {
+          "speed": 60,
+          "ukeire": 1,
+          "value": 0.24,
+          "pinfu": 0,
+          "risk": 0,
+          "maxShantenLoss": 1,
+          "honorModel": 1,
+          "adaptiveDefense": 48
+        },
+        "games": 1008,
+        "meanNet": 52.083333333333336
+      }
+    ],
+    "selected": {
+      "id": "M2-1",
+      "policy": "E",
+      "weights": {
+        "speed": 60,
+        "ukeire": 1,
+        "value": 0.24,
+        "pinfu": 0,
+        "risk": 0,
+        "maxShantenLoss": 1,
+        "honorModel": 1,
+        "adaptiveDefense": 32
+      },
+      "games": 1008,
+      "meanNet": 57.34126984126984
+    }
+  },
+  {
+    "id": "M3",
+    "name": "혼합형·수비 우선",
+    "description": "속도와 점수를 함께 보며 더 높은 수비 가중치를 비교",
+    "policy": "E",
+    "ranked": [
+      {
+        "id": "M3-2",
+        "policy": "E",
+        "weights": {
+          "speed": 65,
+          "ukeire": 1,
+          "value": 0.18,
+          "pinfu": 0,
+          "risk": 0,
+          "maxShantenLoss": 1,
+          "honorModel": 1,
+          "adaptiveDefense": 70
+        },
+        "games": 1008,
+        "meanNet": 58.58134920634921
+      },
+      {
+        "id": "M3-1",
+        "policy": "E",
+        "weights": {
+          "speed": 65,
+          "ukeire": 1,
+          "value": 0.18,
+          "pinfu": 0,
+          "risk": 0,
+          "maxShantenLoss": 1,
+          "honorModel": 1,
+          "adaptiveDefense": 50
+        },
+        "games": 1008,
+        "meanNet": 56.69642857142857
+      }
+    ],
+    "selected": {
+      "id": "M3-2",
+      "policy": "E",
+      "weights": {
+        "speed": 65,
+        "ukeire": 1,
+        "value": 0.18,
+        "pinfu": 0,
+        "risk": 0,
+        "maxShantenLoss": 1,
+        "honorModel": 1,
+        "adaptiveDefense": 70
+      },
+      "games": 1008,
+      "meanNet": 58.58134920634921
+    }
+  }
+]

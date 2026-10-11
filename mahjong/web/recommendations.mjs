@@ -27,6 +27,7 @@ export function actionLabel(action, view = {}) {
 }
 
 function reasonFor(action, view, policy, weights) {
+  const adaptive=view.rules.variant!=='S'&&weights?.adaptiveDefense>0;
   if(action.type==='riichi')return '멘젠 텐파이로 1,000점을 공탁합니다. 리치만으로는 S룰의 화료 역 조건을 충족하지 않습니다.';
   if (action.type === 'tsumo') return '지금 쯔모 화료할 수 있습니다.';
   if (action.type === 'ron') return policy === 'C'
@@ -37,7 +38,10 @@ function reasonFor(action, view, policy, weights) {
     return '후로 이후의 형태와 손패 유지를 비교해 넘기기를 선택했습니다.';
   }
   if (action.type === 'chi' || action.type === 'pon') return '후로 이후에 버릴 패까지 비교한 선택입니다.';
-  if (['ankan', 'kakan', 'minkan'].includes(action.type)) return '보충패를 받기 전의 형태를 기준으로 깡을 평가했습니다.';
+  if (['ankan', 'kakan', 'minkan'].includes(action.type)) return adaptive
+    ? '공개 정보상 아직 보이지 않은 보충패 후보를 가중하고, 보충 후 화료 또는 버릴 패까지 비교해 깡을 평가했습니다. 실제 보충패나 패산 순서는 보지 않습니다.'
+    : '보충패를 받기 전의 형태를 기준으로 깡을 평가했습니다.';
+  if(adaptive)return '완성 속도·손 가치·남은 지급자 수와 공개된 위협을 함께 비교하고, 손의 상태에 따라 수비 감점을 조절합니다.';
   if(policy==='E'&&weights?.risk===0)return '속도·역 가치·남은 상대 수를 봅니다. 이 학습 버전은 위험도 감점을 쓰지 않습니다.';
   return focus[policy];
 }

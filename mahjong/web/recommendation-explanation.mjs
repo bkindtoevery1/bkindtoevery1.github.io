@@ -13,8 +13,56 @@ function components(row, view, weights, variant) {
     ukeire: weights.ukeire * row.ukeire,
     value: weights.value * row.value * (variant === 'H' ? 0.6 + view.activeCount / 5 : 1),
     pinfu: weights.pinfu * row.pinfu,
-    risk: -(row.riskWeight ?? weights.risk) * row.risk * (variant === 'H' && row.shanten >= 2 ? 1.35 : 1),
+    risk: -(row.riskWeight ?? weights.risk) * row.risk * (row.riskScale ?? (variant === 'H' && row.shanten >= 2 ? 1.35 : 1)),
   };
+}
+
+const ADAPTIVE_METRICS=['riskScale','attack','defenseMix','pressure','valueSource','ronValue','tsumoReceipt','honorPotential','liveWaitCopies','publicUkeire'];
+function diagnostics(row){
+ const extra=Object.fromEntries(ADAPTIVE_METRICS.filter(key=>Object.hasOwn(row,key)).map(key=>[key,row[key]]));
+ if(Array.isArray(row.honors))extra.honors=row.honors.map(honor=>({...honor}));
+ return extra;
+}
+function honorReason(view,selected){
+ const tile=selected.tile,count=view.hand.filter(value=>value===tile).length;
+ let text='';
+ if(tile>=27){
+  const seatWind=27+(view.seat-view.dealer+4)%4,rules=view.rules;
+  const unit=tile>=31?rules.dragonBonus:(tile===rules.roundWind?rules.roundWindBonus:0)+(tile===seatWind?rules.seatWindBonus:0);
+  const unseen=Math.max(0,4-view.visible[tile]);
+  text+=` 버리기 전 ${tileName(tile)} ${count}장을 들고 있으며, 아직 보이지 않은 같은 패는 최대 ${unseen}장입니다.`;
+  if(unit>0){
+   const committed=view.melds.some(meld=>meld.type!=='chi'&&meld.tile===tile);
+   if(committed)text+=` 같은 번패 몸통이 이미 있어 화료 시 ${unit}점의 가산 조건을 갖췄습니다. 손패 한 장을 더 보유해도 번패 가산을 중복해서 받지는 않습니다.`;
+   else{
+    text+=` ${tileName(tile)} 커쯔·깡쯔의 번패 가산은 ${unit}점입니다.`;
+    if(count===1)text+=' 한 장만으로는 즉시 가산점이 없고, 커쯔를 만들려면 두 장을 더 모아야 합니다.';
+    else if(count===2)text+=' 두 장은 머리로 쓸 수 있지만 번패 가산은 없으며, 커쯔가 되려면 한 장이 더 필요합니다.';
+    else if(count===3)text+=' 세 장의 커쯔를 깨면 이 번패 가산 조건을 잃습니다.';
+    else if(count===4)text+=` 한 장을 버려도 번패 커쯔는 남습니다.${rules.fourOfAKindBonus?' 다만 사귀일 가산 조건은 잃습니다.':''}`;
+    if(count<3&&unseen<3-count)text+=' 공개 정보상 남은 같은 패만으로는 커쯔를 완성할 수 없어, 미완성 번패 가산을 기대하지 않습니다.';
+   }
+  }else text+=' 현재 장풍·자풍·삼원패에 해당하지 않아 번패 가산은 없습니다.';
+  text+=' 위의 완성 속도·손 가치·위험 기여를 비교한 결과가 이 버림패의 순위를 정합니다.';
+ }
+ const incomplete=selected.metrics.honors?.filter(honor=>honor.count>0&&honor.count<3&&honor.estimatedBonus>0)??[];
+ if(incomplete.length){
+  const total=incomplete.reduce((sum,honor)=>sum+honor.estimatedBonus,0);
+  text+=` 남긴 미완성 번패(${incomplete.map(honor=>`${tileName(honor.tile)} ${honor.count}장`).join('·')})의 잠재 가산 평가 ${format(total)}점은 형태 평가용 추정치이며, 확정된 화료 가산점은 아닙니다.`;
+ }
+ return text;
+}
+function adaptiveReason(view,selected){
+ const metrics=selected.metrics,payers=Math.max(0,view.activeCount-1);
+ let text=` 혼합형은 매번 완성 속도·손 가치·미화료 상대 ${payers}명·공개된 위협을 함께 비교합니다.`;
+ if(metrics.pressure<.25)text+=' 상대의 공개된 위협이 아직 낮아 이 후보의 수비 감점을 작게 반영합니다.';
+ else if(metrics.attack>=.65)text+=' 이 후보의 완성 속도와 손 가치가 공격을 지지해, 같은 위협에서도 수비 비중을 줄입니다.';
+ else if(selected.shanten>=2&&metrics.ronValue<=150)text+=' 완성까지 거리가 있고 손 가치도 낮은 편이라, 공개된 위협에 더 수비적으로 대응합니다.';
+ else text+=' 상대의 공개된 위협과 이 후보의 완성 거리를 함께 반영해 수비 비중을 조절합니다.';
+ if(metrics.valueSource==='tenpai-unseen')text+=` 아직 보이지 않은 화료패 수로 가중한 참고값은, 론으로 화료하면 ${format(metrics.ronValue)}점, 쯔모로 화료하면 총 ${format(metrics.tsumoReceipt)}점입니다.`;
+ else if(metrics.valueSource==='tenpai-no-outs')text+=' 현재 텐파이의 화료패가 모두 공개되어 있어 새로 얻을 패 수를 0장으로 평가합니다.';
+ else if(metrics.valueSource==='shape-heuristic')text+=' 아직 텐파이가 아니므로 손 값은 형태와 번패 후보를 바탕으로 한 추정치입니다.';
+ return text;
 }
 
 // H does an ascending-tile scan, replacing its best only for an improvement
@@ -54,7 +102,7 @@ export function explainDiscards(view, policy, weights = {}, selectedAction = nul
   const ranked = ordered.map((row, index) => ({
     rank: index + 1, tile: row.tile, score: row.score, shanten: row.shanten, ukeire: row.ukeire,
     components: components(row, view, config, variant),
-    metrics: {value: row.value, pinfu: row.pinfu, risk: row.risk, estimatedBase:row.estimatedBase, defensive:row.defensive, riskWeight:row.riskWeight}, selected: row.tile === selectedTile,
+    metrics: {value: row.value, pinfu: row.pinfu, risk: row.risk, estimatedBase:row.estimatedBase, defensive:row.defensive, riskWeight:row.riskWeight,...diagnostics(row)}, selected: row.tile === selectedTile,
   }));
   const selected = ranked.find(row => row.selected), alternative = ranked.find(row => !row.selected);
   const ranking = ranked.filter(row => row.rank <= 3 || row.selected);
@@ -75,7 +123,9 @@ export function explainDiscards(view, policy, weights = {}, selectedAction = nul
     }
   } else reason += ' 이 전략의 샨텐 제한을 만족하는 버림패 후보가 하나입니다.';
   if(selected.metrics.defensive)reason += ` 가산점 제외 역 점수 추정 ${Math.round(selected.metrics.estimatedBase)}점으로 저판수 수비 가중치를 적용합니다.`;
-  if (policy === 'E' && config.risk === 0 && !config.lowValueRisk) reason += ' 이 가중치에서는 위험도 감점을 적용하지 않습니다.';
+  if(variant==='H'&&config.adaptiveDefense>0)reason+=adaptiveReason(view,selected);
+  if(variant==='H'&&(config.honorModel===1||config.adaptiveDefense>0))reason+=honorReason(view,selected);
+  if (policy === 'E' && config.risk === 0 && !config.lowValueRisk && !config.adaptiveDefense) reason += ' 이 가중치에서는 위험도 감점을 적용하지 않습니다.';
   return {
     policy, variant, reason, ranking, selectedRank: selected.rank, comparison,
     excludedCount: rows.length - eligible.length, totalCount: rows.length, eligibleCount: eligible.length,

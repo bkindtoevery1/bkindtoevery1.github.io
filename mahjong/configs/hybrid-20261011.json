@@ -1,0 +1,31 @@
+{
+  "id":"H-hybrid-20261011-v1",
+  "output":"results/hybrid-20261011",
+  "workers":4,
+  "rules":{"id":"H-2026-private-kan-v1"},
+  "profiles":["speed","pinfu","value","cautious","mixed","valuePressure"],
+  "pilot":{"seedStart":41300000,"seedCount":5},
+  "pilotVersions":["V1","Y1","M1","M2","M3"],
+  "pilotSelection":"혼합형은 각 계열 첫 번째 가중치 후보를 사용한다. 기존 V1, 자패 보정 Y1과 함께 신규 판단 경로의 오류와 속도를 점검한다.",
+  "tuning":{"seedStart":41400000,"seedCount":252},
+  "holdout":{"seedStart":41500000,"seedCount":504},
+  "bootstrap":{"samples":10000,"seed":20261011},
+  "controls":[
+    {"id":"A","name":"기존 최속 화료","policy":"A","weights":{}},
+    {"id":"D","name":"기존 고득점","policy":"D","weights":{}},
+    {"id":"E","name":"기존 균형","policy":"E","weights":{}},
+    {"id":"V1","name":"비공개 안깡 고득점 V1","policy":"D","weights":{"speed":60,"ukeire":1,"value":0.24,"maxShantenLoss":1}},
+    {"id":"Y1","name":"V1 + 자패 가치 보정","policy":"D","weights":{"speed":60,"ukeire":1,"value":0.24,"maxShantenLoss":1,"honorModel":1}}
+  ],
+  "families":[
+    {"id":"M1","name":"혼합형·속도 우선","policy":"E","description":"유효패와 속도를 중시하며 손 가치에 맞춰 수비 강도를 조절","weights":{"speed":75,"ukeire":1.2,"value":0.16,"pinfu":0,"risk":0,"maxShantenLoss":1,"honorModel":1},"grid":{"adaptiveDefense":[20,32]}},
+    {"id":"M2","name":"혼합형·고득점 우선","policy":"E","description":"고득점 가능성을 중시하며 손 가치에 맞춰 수비 강도를 조절","weights":{"speed":60,"ukeire":1,"value":0.24,"pinfu":0,"risk":0,"maxShantenLoss":1,"honorModel":1},"grid":{"adaptiveDefense":[32,48]}},
+    {"id":"M3","name":"혼합형·수비 우선","policy":"E","description":"속도와 점수를 함께 보며 더 높은 수비 가중치를 비교","weights":{"speed":65,"ukeire":1,"value":0.18,"pinfu":0,"risk":0,"maxShantenLoss":1,"honorModel":1},"grid":{"adaptiveDefense":[50,70]}}
+  ],
+  "comparisons":[["M1","V1"],["M2","V1"],["M3","V1"],["M1","Y1"],["M2","Y1"],["M3","Y1"]],
+  "estimate":{"secondsPerGame":0.0082,"source":"직전 비공개 안깡 실험의 측정 속도를 이용한 실행 전 추정. 이번 실험의 실제 시간이 아님."},
+  "selection":"각 혼합형 계열의 두 후보 중 튜닝 평균 순수익이 높은 하나를 고정한다. 동률이면 후보 ID 순서. 최종 검증 결과로 가중치를 바꾸지 않는다.",
+  "preferredSelection":"선택한 M1/M2/M3 중 튜닝 평균 순수익이 가장 높은 계열을 최종 검증 전에 기본 혼합형으로 고정한다. 동률이면 계열 ID 순서. 검증에서 우세하지 않더라도 기본 버전을 결과에 맞춰 다시 고르지 않는다.",
+  "objective":"H룰 배패부터 세 번째 화료 또는 유국까지 국당 평균 순수익. 국별 점수 순위는 보조 지표이며 반장 순위나 사람 상대 성능이 아니다.",
+  "scope":"로컬 휴리스틱 가중치 탐색. 신경망 미세조정이나 강화학습 Q 학습이 아니다. 안깡 완전 비공개는 사용자 요청 앱 설정. 기존 비공개 실험의 규칙과 결과 파일은 수정하지 않는다."
+}

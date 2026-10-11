@@ -607,8 +607,8 @@ function sRules(overrides = {}) {
   const defaults = overrides.id && overrides.id !== S_DEFAULTS.id ? { ...S_DEFAULTS, concealedKanPrivate: false } : S_DEFAULTS;
   const rules = { ...defaults, ...overrides };
   for (const key3 of Object.keys(S_DEFAULTS)) {
-    const value2 = rules[key3], base = S_DEFAULTS[key3];
-    if (typeof value2 !== typeof base || typeof base === "number" && (!Number.isSafeInteger(value2) || value2 < 0)) throw new Error(`Invalid S rule: ${key3}`);
+    const value3 = rules[key3], base = S_DEFAULTS[key3];
+    if (typeof value3 !== typeof base || typeof base === "number" && (!Number.isSafeInteger(value3) || value3 < 0)) throw new Error(`Invalid S rule: ${key3}`);
   }
   if (rules.variant !== "S" || rules.maxKans !== 4 || rules.deadWallTiles !== 14 || rules.multipleRon !== "nearest" || rules.riichiDeposit !== 1e3 || rules.sevenPairsQuadAsTwo || !rules.selfDiscardFuriten || !rules.ronPassAllowed || rules.passRonLock !== "until-draw" || ![27, 28, 29, 30].includes(rules.roundWind)) throw new Error("Unsupported S rule configuration");
   return rules;
@@ -1173,6 +1173,116 @@ function effectiveTiles(c, openMelds, visible, rules) {
   return { shanten: now, ukeire: total, tiles: tiles2 };
 }
 
+// policies/adaptive.mjs
+var clamp = (value3, low = 0, high = 1) => Math.min(high, Math.max(low, value3));
+var wind = (o, seat) => 27 + (seat - (o.dealer ?? 0) + 4) % 4;
+var honorUnit = (tile, o, seat = o.seat) => tile >= 31 ? o.rules.dragonBonus : (tile === o.rules.roundWind ? o.rules.roundWindBonus : 0) + (tile === wind(o, seat) ? o.rules.seatWindBonus : 0);
+var unseen = (tile, o, fallback = 0) => clamp(4 - (o.visible?.[tile] ?? fallback), 0, 4);
+var opponents = (o) => o.players.filter((player) => player.seat !== o.seat && !player.won);
+function ownFrequency(c, melds) {
+  const frequency = [...c];
+  for (const meld of melds) {
+    if (!Number.isInteger(meld.tile) || meld.tile < 0 || meld.tile >= 34) continue;
+    if (meld.type === "chi") for (let offset = 0; offset < 3; offset++) frequency[meld.tile + offset]++;
+    else frequency[meld.tile] += meld.type === "kan" ? 4 : 3;
+  }
+  return frequency;
+}
+function honorValue(c, melds, o) {
+  const frequency = ownFrequency(c, melds);
+  const population = Math.max(1, Array.from({ length: 34 }, (_, tile) => unseen(tile, o, frequency[tile])).reduce((sum3, n) => sum3 + n, 0));
+  const active = 1 + opponents(o).length;
+  const opportunities = Math.max(0, o.wallRemaining ?? 0) * (1 + 0.4 * (active - 1)) / active;
+  const honors = Array.from({ length: 7 }, (_, i) => {
+    const tile = 27 + i, count = frequency[tile], unit = honorUnit(tile, o), remaining = unseen(tile, o, count);
+    const oneMore = 1 - Math.exp(-opportunities * remaining / population);
+    const completion = count >= 3 ? 1 : count === 2 ? oneMore : count === 1 && remaining >= 2 ? 0.35 * oneMore ** 2 * (remaining - 1) / remaining : 0;
+    return { tile, count, unit, unseen: remaining, estimatedBonus: unit * completion };
+  });
+  return { bonus: honors.reduce((sum3, honor) => sum3 + honor.estimatedBonus, 0), honors };
+}
+function opponentThreat(player, o) {
+  const progress = clamp((player.discards.length - 4) / 12);
+  const meldProgress = clamp(player.melds.length / 3);
+  const knownBonus = player.melds.reduce((sum3, meld) => sum3 + (!meld.hidden && Number.isInteger(meld.tile) && meld.tile >= 27 && meld.type !== "chi" ? honorUnit(meld.tile, o, player.seat) : 0), 0);
+  return clamp(0.03 + 0.6 * progress + 0.32 * meldProgress + 0.08 * clamp(knownBonus / 200));
+}
+function adaptivePressure(o) {
+  const total = opponents(o).reduce((sum3, player) => sum3 + opponentThreat(player, o), 0);
+  return 1 - Math.exp(-total / 1.3);
+}
+function adaptiveRisk(tile, o) {
+  const remaining = unseen(tile, o);
+  const pair = remaining / 4, triplet = Math.max(0, remaining - 1) / 3;
+  let sequence = 0;
+  if (tile < 27) {
+    for (const offsets of [[-2, -1], [-1, 1], [1, 2]]) {
+      const [a, b] = offsets.map((offset) => tile + offset);
+      if (a >= 0 && b < 27 && Math.floor(a / 9) === Math.floor(tile / 9) && Math.floor(b / 9) === Math.floor(tile / 9)) sequence += Math.min(unseen(a, o), unseen(b, o)) / 12;
+    }
+  }
+  const pattern = tile >= 27 ? 0.12 * pair + 0.65 * triplet : 0.9 * sequence + 0.1 * pair + 0.18 * triplet;
+  return opponents(o).reduce((sum3, player) => {
+    const suits = player.melds.filter((meld) => !meld.hidden && Number.isInteger(meld.tile) && meld.tile < 27).map((meld) => Math.floor(meld.tile / 9));
+    const focused = suits.length >= 2 && new Set(suits).size === 1 && tile < 27 && Math.floor(tile / 9) === suits[0];
+    const honorExposure = tile >= 27 ? 1 + clamp(honorUnit(tile, o, player.seat) / 500, 0, 0.6) : 1;
+    return sum3 + pattern * (0.1 + 0.9 * opponentThreat(player, o)) * (focused ? 1.3 : 1) * honorExposure;
+  }, 0);
+}
+function adaptiveMetrics(c, melds, o, e, potential2, w, discard = null) {
+  const honor = honorValue(c, melds, o), payers = opponents(o).length;
+  let value3 = potential2.value, estimatedBase = potential2.baseValue;
+  let ronValue = value3, tsumoReceipt = (value3 + o.rules.tsumoBonusPerPayer) * payers;
+  let valueSource = "shape-heuristic", liveWaitCopies = null;
+  if (e.shanten === 0) {
+    const tiles2 = c.flatMap((count, tile) => Array(count).fill(tile));
+    let copies = 0, ron = 0, tsumo = 0, base = 0;
+    const candidates = e.tiles?.map((item) => item.tile) ?? Array.from({ length: 34 }, (_, tile) => tile);
+    for (const tile of candidates) {
+      const remaining = unseen(tile, o, c[tile]);
+      if (!remaining || c[tile] >= 4) continue;
+      const context2 = { winTile: tile, seatWind: wind(o, o.seat) };
+      const ronHand = scoreHand([...tiles2, tile], melds, { ...context2, method: "ron" }, o.rules);
+      const tsumoHand = scoreHand([...tiles2, tile], melds, { ...context2, method: "tsumo" }, o.rules);
+      if (!ronHand || !tsumoHand) continue;
+      copies += remaining;
+      ron += remaining * ronHand.total;
+      base += remaining * ronHand.base;
+      tsumo += remaining * (tsumoHand.total + o.rules.tsumoBonusPerPayer) * payers;
+    }
+    liveWaitCopies = copies;
+    value3 = ronValue = copies ? ron / copies : 0;
+    estimatedBase = copies ? base / copies : 0;
+    tsumoReceipt = copies ? tsumo / copies : 0;
+    valueSource = copies ? "tenpai-unseen" : "tenpai-no-outs";
+  }
+  const pressure = adaptivePressure(o), risk = discard === null ? 0 : adaptiveRisk(discard, o);
+  const readiness = 1 / (1 + 1.2 * Math.max(0, e.shanten));
+  const publicUkeire = Math.max(0, e.ukeire);
+  const ukeireQuality = publicUkeire / (publicUkeire + 6);
+  const payout = 0.65 * Math.max(0, ronValue) + 0.35 * Math.max(0, tsumoReceipt);
+  const payoutQuality = payout / (payout + 220);
+  const attack = valueSource === "tenpai-no-outs" ? 0 : clamp((0.7 * readiness + 0.3 * ukeireQuality) * (0.65 + 0.35 * payoutQuality));
+  const defenseMix = pressure * (1 - attack);
+  const riskWeight = 2 + Math.max(0, w.adaptiveDefense ?? 0) * defenseMix;
+  return {
+    value: value3,
+    estimatedBase,
+    risk,
+    riskWeight,
+    attack,
+    defenseMix,
+    pressure,
+    valueSource,
+    ronValue,
+    tsumoReceipt,
+    honorPotential: honor.bonus,
+    honors: honor.honors,
+    liveWaitCopies,
+    publicUkeire
+  };
+}
+
 // policies/index.mjs
 var POLICIES = Object.freeze({
   A: { name: "\uCD5C\uC18D \uD654\uB8CC \xB7 \uB860 \uC218\uB77D", speed: 1e3, ukeire: 1, value: 0, pinfu: 0, risk: 0, maxShantenLoss: 0, callCost: 0.2, declineRon: false },
@@ -1191,10 +1301,11 @@ var OPPONENT_PROFILES = Object.freeze({
 });
 function policyConfig(id, weights = {}) {
   if (!POLICIES[id]) throw new Error(`Unknown policy ${id}`);
-  for (const [k, v] of Object.entries(weights)) if (!["speed", "ukeire", "value", "pinfu", "risk", "maxShantenLoss", "callCost", "lowValueRisk", "lowValueThreshold"].includes(k) || !Number.isFinite(v) || v < 0) throw new Error(`Invalid policy weight ${k}`);
-  return { lowValueRisk: 0, lowValueThreshold: 100, ...POLICIES[id], ...weights };
+  for (const [k, v] of Object.entries(weights)) if (!["speed", "ukeire", "value", "pinfu", "risk", "maxShantenLoss", "callCost", "lowValueRisk", "lowValueThreshold", "honorModel", "adaptiveDefense"].includes(k) || !Number.isFinite(v) || v < 0) throw new Error(`Invalid policy weight ${k}`);
+  if (weights.honorModel !== void 0 && ![0, 1].includes(weights.honorModel)) throw new Error("Invalid honor model");
+  return { lowValueRisk: 0, lowValueThreshold: 100, honorModel: 0, adaptiveDefense: 0, ...POLICIES[id], ...weights };
 }
-function potential(c, melds, o) {
+function potential(c, melds, o, honorModel = 0) {
   const tiles2 = [];
   for (let t = 0; t < 34; t++) for (let k = 0; k < c[t]; k++) tiles2.push(t);
   for (const m of melds) tiles2.push(...m.type === "chi" ? [m.tile, m.tile + 1, m.tile + 2] : Array(o.rules.fourOfAKindBonus && m.type === "kan" ? 4 : 3).fill(m.tile));
@@ -1225,12 +1336,14 @@ function potential(c, melds, o) {
   if (!melds.some((m) => m.type === "chi")) val = Math.max(val, 200 * Math.min(1, (2 * (triplets + openTrip) + pairs) / 9));
   if (!melds.length) val = Math.max(val, 400 * (pairs / 7) ** 3);
   const baseValue = val;
-  for (let t = 27; t < 34; t++) {
+  const honorEstimate = honorModel ? honorValue(c, melds, o) : null;
+  if (honorEstimate) val += honorEstimate.bonus;
+  else for (let t = 27; t < 34; t++) {
     const unit = t >= 31 ? o.rules.dragonBonus : (t === o.rules.roundWind ? o.rules.roundWindBonus : 0) + (t === 27 + (o.seat - o.dealer + 4) % 4 ? o.rules.seatWindBonus : 0);
     val += unit * (frequency[t] >= 3 ? 1 : frequency[t] === 2 ? 0.45 : 0.05);
   }
   val += (o.rules.fourOfAKindBonus ? frequency.filter((n) => n === 4).length : melds.filter((m) => m.type === "kan").length) * o.rules.kanBonus;
-  return { value: val, baseValue, pinfu };
+  return { value: val, baseValue, pinfu, ...honorEstimate ? { honors: honorEstimate.honors } : {} };
 }
 function publicRisk(tile, o) {
   const availability = (4 - o.visible[tile]) / 4, shape = tile >= 27 ? 0.45 : [0, 8].includes(tile % 9) ? 0.7 : 1;
@@ -1243,8 +1356,13 @@ function publicRisk(tile, o) {
   return availability * shape * threat;
 }
 function value13(c, melds, o, w, discard = null) {
-  const e = effectiveTiles(c, melds.length, o.visible, o.rules), p = potential(c, melds, o);
+  const e = effectiveTiles(c, melds.length, o.visible, o.rules), p = potential(c, melds, o, w.honorModel || Number(w.adaptiveDefense > 0));
   const activeFactor = 0.6 + o.activeCount / 5;
+  if (w.adaptiveDefense > 0) {
+    const adaptive = adaptiveMetrics(c, melds, o, e, p, w, discard);
+    const score2 = -w.speed * e.shanten + w.ukeire * e.ukeire + w.value * adaptive.value * activeFactor + w.pinfu * p.pinfu - adaptive.riskWeight * adaptive.risk;
+    return { ...adaptive, score: score2, shanten: e.shanten, ukeire: e.ukeire, pinfu: p.pinfu, riskScale: 1, honors: p.honors };
+  }
   const risk = discard === null ? 0 : publicRisk(discard, o);
   let estimatedBase = p.baseValue;
   if (w.lowValueRisk > 0 && e.shanten === 0) {
@@ -1260,7 +1378,7 @@ function value13(c, melds, o, w, discard = null) {
   const defensive = w.lowValueRisk > 0 && estimatedBase <= w.lowValueThreshold;
   const riskWeight = defensive ? w.lowValueRisk : w.risk;
   const score = -w.speed * e.shanten + w.ukeire * e.ukeire + w.value * p.value * activeFactor + w.pinfu * p.pinfu - riskWeight * risk * (e.shanten >= 2 ? 1.35 : 1);
-  return { score, shanten: e.shanten, ukeire: e.ukeire, value: p.value, pinfu: p.pinfu, risk, estimatedBase, defensive, riskWeight };
+  return { score, shanten: e.shanten, ukeire: e.ukeire, value: p.value, pinfu: p.pinfu, risk, estimatedBase, defensive, riskWeight, ...p.honors ? { honors: p.honors } : {} };
 }
 function bestDiscard(c, melds, o, w, allowed = null) {
   const raw = [];
@@ -1281,6 +1399,27 @@ function bestDiscard(c, melds, o, w, allowed = null) {
     if (!best || r.score > best.score + 1e-9) best = r;
   }
   return best;
+}
+function replacementValue(c, melds, o, w) {
+  let weight = 0, score = 0, shantenSum = 0;
+  for (let tile = 0; tile < 34; tile++) {
+    const remaining = Math.max(0, 4 - o.visible[tile]);
+    if (!remaining || c[tile] >= 4) continue;
+    const cc = [...c];
+    cc[tile]++;
+    const visible = [...o.visible];
+    visible[tile]++;
+    const next = { ...o, visible, wallRemaining: Math.max(0, o.wallRemaining - 1) };
+    const tiles2 = [];
+    for (let t = 0; t < 34; t++) for (let n = 0; n < cc[t]; n++) tiles2.push(t);
+    const win3 = scoreHand(tiles2, melds, { method: "tsumo", winTile: tile, seatWind: 27 + (o.seat - o.dealer + 4) % 4 }, o.rules);
+    const value3 = win3 ? { score: w.speed + w.value * win3.total * (0.6 + o.activeCount / 5), shanten: -1 } : bestDiscard(cc, melds, next, w);
+    if (!value3) continue;
+    weight += remaining;
+    score += value3.score * remaining;
+    shantenSum += value3.shanten * remaining;
+  }
+  return weight ? { score: score / weight, shanten: shantenSum / weight } : null;
 }
 function chooseAction(o, id = "E", weights = {}) {
   const w = policyConfig(id, weights), as = o.legalActions;
@@ -1303,10 +1442,21 @@ function chooseAction(o, id = "E", weights = {}) {
         cc[mm[a.meld].tile]--;
         mm[a.meld].type = "kan";
       }
-      const v = value13(cc, mm, o, w);
-      if (v.shanten <= d.shanten && v.score + 3 > best2) {
-        best2 = v.score + 3;
-        chosen2 = a;
+      if (w.adaptiveDefense > 0) {
+        const v = replacementValue(cc, mm, o, w);
+        if (!v) continue;
+        const offer = a.type === "kakan" ? value13(c, melds, o, w, melds[a.meld].tile) : null;
+        const score = v.score - (offer ? offer.riskWeight * offer.risk : 0);
+        if (v.shanten <= d.shanten && score > best2 + 1e-9) {
+          best2 = score;
+          chosen2 = a;
+        }
+      } else {
+        const v = value13(cc, mm, o, w);
+        if (v.shanten <= d.shanten && v.score + 3 > best2) {
+          best2 = v.score + 3;
+          chosen2 = a;
+        }
       }
     }
     return chosen2;
@@ -1317,9 +1467,9 @@ function chooseAction(o, id = "E", weights = {}) {
     const need = a.type === "chi" ? [a.tile, a.tile + 1, a.tile + 2].filter((x) => x !== t) : Array(a.type === "minkan" ? 3 : 2).fill(t);
     for (const n of need) cc[n]--;
     mm.push({ type: a.type === "chi" ? "chi" : a.type === "pon" ? "pon" : "kan", tile: a.tile, open: true });
-    const v = a.type === "minkan" ? value13(cc, mm, o, w) : bestDiscard(cc, mm, o, w, o.rules.allowKuikae ? null : Array.from({ length: 34 }, (_, i) => i).filter((i) => i !== t));
+    const v = a.type === "minkan" ? w.adaptiveDefense > 0 ? replacementValue(cc, mm, o, w) : value13(cc, mm, o, w) : bestDiscard(cc, mm, o, w, o.rules.allowKuikae ? null : Array.from({ length: 34 }, (_, i) => i).filter((i) => i !== t));
     if (!v || v.shanten > base.shanten + w.maxShantenLoss) continue;
-    const score = v.score - w.callCost + (a.type === "minkan" ? 3 : 0);
+    const score = v.score - w.callCost + (a.type === "minkan" && !w.adaptiveDefense ? 3 : 0);
     if (score > best + 1e-9) {
       best = score;
       chosen = a;
@@ -1354,22 +1504,22 @@ function metrics(c, melds, o, w, discard = null) {
   }
   const closed = melds.every((m) => !m.open), all = [...c];
   for (const m of melds) for (const t of m.type === "chi" ? [m.tile, m.tile + 1, m.tile + 2] : Array(m.type === "kan" ? 4 : 3).fill(m.tile)) all[t]++;
-  let value2 = closed ? 100 : 0, connections = 0;
+  let value3 = closed ? 100 : 0, connections = 0;
   for (let t = 0; t < 27; t++) {
     if (t % 9 < 8) connections += Math.min(c[t], c[t + 1]);
     if (t % 9 < 7) connections += 0.35 * Math.min(c[t], c[t + 2]);
   }
-  for (let t = 27; t < 34; t++) if (t >= 31 || t === o.rules.roundWind || t === 27 + (o.seat - o.dealer + 4) % 4) value2 += all[t] >= 3 ? 200 : all[t] === 2 ? 75 : 0;
-  value2 += (o.doraIndicators ?? []).reduce((n, t) => n + all[doraAfter(t)] * 100, 0);
+  for (let t = 27; t < 34; t++) if (t >= 31 || t === o.rules.roundWind || t === 27 + (o.seat - o.dealer + 4) % 4) value3 += all[t] >= 3 ? 200 : all[t] === 2 ? 75 : 0;
+  value3 += (o.doraIndicators ?? []).reduce((n, t) => n + all[doraAfter(t)] * 100, 0);
   const size = all.reduce((a, b) => a + b, 0), simple = all.reduce((n, count, t) => n + (!isYao(t) ? count : 0), 0);
-  value2 += 100 * (simple / size) ** 5;
-  for (let suit = 0; suit < 3; suit++) value2 = Math.max(value2, 600 * (all.slice(suit * 9, suit * 9 + 9).reduce((a, b) => a + b, 0) / size) ** 5);
+  value3 += 100 * (simple / size) ** 5;
+  for (let suit = 0; suit < 3; suit++) value3 = Math.max(value3, 600 * (all.slice(suit * 9, suit * 9 + 9).reduce((a, b) => a + b, 0) / size) ** 5);
   const pinfu = closed ? connections / 4 - c.filter((n) => n >= 3).length * 0.3 : 0;
   let risk = 0;
   if (discard !== null) {
     for (const p of o.players) if (p.seat !== o.seat && !p.discards.some((d) => d.tile === discard)) risk += (p.riichi ? 3 : 0.2 + Math.min(1, p.discards.length / 16)) * (4 - o.visible[discard]) / 4 * (discard >= 27 ? 0.45 : 1);
   }
-  return { shanten: s, ukeire, value: value2, pinfu, risk, score: -w.speed * s + w.ukeire * ukeire + w.value * value2 + w.pinfu * pinfu - w.risk * risk };
+  return { shanten: s, ukeire, value: value3, pinfu, risk, score: -w.speed * s + w.ukeire * ukeire + w.value * value3 + w.pinfu * pinfu - w.risk * risk };
 }
 function bestDiscard2(c, melds, o, w, allowed) {
   const rows = [];
@@ -1479,17 +1629,64 @@ function nextDelay(state2, autoplay, seat = 0) {
 
 // web/recommendation-explanation.mjs
 var LABELS = { speed: "\uC644\uC131 \uC18D\uB3C4", ukeire: "\uC720\uD6A8\uD328", value: "\uC5ED \uAC00\uCE58", pinfu: "\uD551\uD6C4 \uD615\uD0DC", risk: "\uACF5\uAC1C \uC815\uBCF4 \uC704\uD5D8" };
-var format = (value2) => value2 !== 0 && Math.abs(value2) < 5e-3 ? value2.toPrecision(2) : Number(value2.toFixed(2)).toLocaleString("ko-KR");
-var signed = (value2) => `${value2 >= 0 ? "+" : "\u2212"}${format(Math.abs(value2))}`;
-var distance2 = (value2) => value2 === 0 ? "\uD150\uD30C\uC774(0\uC0E8\uD150)" : `${value2}\uC0E8\uD150`;
+var format = (value3) => value3 !== 0 && Math.abs(value3) < 5e-3 ? value3.toPrecision(2) : Number(value3.toFixed(2)).toLocaleString("ko-KR");
+var signed = (value3) => `${value3 >= 0 ? "+" : "\u2212"}${format(Math.abs(value3))}`;
+var distance2 = (value3) => value3 === 0 ? "\uD150\uD30C\uC774(0\uC0E8\uD150)" : `${value3}\uC0E8\uD150`;
 function components(row, view, weights, variant) {
   return {
     speed: -weights.speed * row.shanten,
     ukeire: weights.ukeire * row.ukeire,
     value: weights.value * row.value * (variant === "H" ? 0.6 + view.activeCount / 5 : 1),
     pinfu: weights.pinfu * row.pinfu,
-    risk: -(row.riskWeight ?? weights.risk) * row.risk * (variant === "H" && row.shanten >= 2 ? 1.35 : 1)
+    risk: -(row.riskWeight ?? weights.risk) * row.risk * (row.riskScale ?? (variant === "H" && row.shanten >= 2 ? 1.35 : 1))
   };
+}
+var ADAPTIVE_METRICS = ["riskScale", "attack", "defenseMix", "pressure", "valueSource", "ronValue", "tsumoReceipt", "honorPotential", "liveWaitCopies", "publicUkeire"];
+function diagnostics(row) {
+  const extra = Object.fromEntries(ADAPTIVE_METRICS.filter((key3) => Object.hasOwn(row, key3)).map((key3) => [key3, row[key3]]));
+  if (Array.isArray(row.honors)) extra.honors = row.honors.map((honor) => ({ ...honor }));
+  return extra;
+}
+function honorReason(view, selected) {
+  const tile = selected.tile, count = view.hand.filter((value3) => value3 === tile).length;
+  let text = "";
+  if (tile >= 27) {
+    const seatWind = 27 + (view.seat - view.dealer + 4) % 4, rules = view.rules;
+    const unit = tile >= 31 ? rules.dragonBonus : (tile === rules.roundWind ? rules.roundWindBonus : 0) + (tile === seatWind ? rules.seatWindBonus : 0);
+    const unseen2 = Math.max(0, 4 - view.visible[tile]);
+    text += ` \uBC84\uB9AC\uAE30 \uC804 ${tileName(tile)} ${count}\uC7A5\uC744 \uB4E4\uACE0 \uC788\uC73C\uBA70, \uC544\uC9C1 \uBCF4\uC774\uC9C0 \uC54A\uC740 \uAC19\uC740 \uD328\uB294 \uCD5C\uB300 ${unseen2}\uC7A5\uC785\uB2C8\uB2E4.`;
+    if (unit > 0) {
+      const committed = view.melds.some((meld) => meld.type !== "chi" && meld.tile === tile);
+      if (committed) text += ` \uAC19\uC740 \uBC88\uD328 \uBAB8\uD1B5\uC774 \uC774\uBBF8 \uC788\uC5B4 \uD654\uB8CC \uC2DC ${unit}\uC810\uC758 \uAC00\uC0B0 \uC870\uAC74\uC744 \uAC16\uCDC4\uC2B5\uB2C8\uB2E4. \uC190\uD328 \uD55C \uC7A5\uC744 \uB354 \uBCF4\uC720\uD574\uB3C4 \uBC88\uD328 \uAC00\uC0B0\uC744 \uC911\uBCF5\uD574\uC11C \uBC1B\uC9C0\uB294 \uC54A\uC2B5\uB2C8\uB2E4.`;
+      else {
+        text += ` ${tileName(tile)} \uCEE4\uCBD4\xB7\uAE61\uCBD4\uC758 \uBC88\uD328 \uAC00\uC0B0\uC740 ${unit}\uC810\uC785\uB2C8\uB2E4.`;
+        if (count === 1) text += " \uD55C \uC7A5\uB9CC\uC73C\uB85C\uB294 \uC989\uC2DC \uAC00\uC0B0\uC810\uC774 \uC5C6\uACE0, \uCEE4\uCBD4\uB97C \uB9CC\uB4E4\uB824\uBA74 \uB450 \uC7A5\uC744 \uB354 \uBAA8\uC544\uC57C \uD569\uB2C8\uB2E4.";
+        else if (count === 2) text += " \uB450 \uC7A5\uC740 \uBA38\uB9AC\uB85C \uC4F8 \uC218 \uC788\uC9C0\uB9CC \uBC88\uD328 \uAC00\uC0B0\uC740 \uC5C6\uC73C\uBA70, \uCEE4\uCBD4\uAC00 \uB418\uB824\uBA74 \uD55C \uC7A5\uC774 \uB354 \uD544\uC694\uD569\uB2C8\uB2E4.";
+        else if (count === 3) text += " \uC138 \uC7A5\uC758 \uCEE4\uCBD4\uB97C \uAE68\uBA74 \uC774 \uBC88\uD328 \uAC00\uC0B0 \uC870\uAC74\uC744 \uC783\uC2B5\uB2C8\uB2E4.";
+        else if (count === 4) text += ` \uD55C \uC7A5\uC744 \uBC84\uB824\uB3C4 \uBC88\uD328 \uCEE4\uCBD4\uB294 \uB0A8\uC2B5\uB2C8\uB2E4.${rules.fourOfAKindBonus ? " \uB2E4\uB9CC \uC0AC\uADC0\uC77C \uAC00\uC0B0 \uC870\uAC74\uC740 \uC783\uC2B5\uB2C8\uB2E4." : ""}`;
+        if (count < 3 && unseen2 < 3 - count) text += " \uACF5\uAC1C \uC815\uBCF4\uC0C1 \uB0A8\uC740 \uAC19\uC740 \uD328\uB9CC\uC73C\uB85C\uB294 \uCEE4\uCBD4\uB97C \uC644\uC131\uD560 \uC218 \uC5C6\uC5B4, \uBBF8\uC644\uC131 \uBC88\uD328 \uAC00\uC0B0\uC744 \uAE30\uB300\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
+      }
+    } else text += " \uD604\uC7AC \uC7A5\uD48D\xB7\uC790\uD48D\xB7\uC0BC\uC6D0\uD328\uC5D0 \uD574\uB2F9\uD558\uC9C0 \uC54A\uC544 \uBC88\uD328 \uAC00\uC0B0\uC740 \uC5C6\uC2B5\uB2C8\uB2E4.";
+    text += " \uC704\uC758 \uC644\uC131 \uC18D\uB3C4\xB7\uC190 \uAC00\uCE58\xB7\uC704\uD5D8 \uAE30\uC5EC\uB97C \uBE44\uAD50\uD55C \uACB0\uACFC\uAC00 \uC774 \uBC84\uB9BC\uD328\uC758 \uC21C\uC704\uB97C \uC815\uD569\uB2C8\uB2E4.";
+  }
+  const incomplete = selected.metrics.honors?.filter((honor) => honor.count > 0 && honor.count < 3 && honor.estimatedBonus > 0) ?? [];
+  if (incomplete.length) {
+    const total = incomplete.reduce((sum3, honor) => sum3 + honor.estimatedBonus, 0);
+    text += ` \uB0A8\uAE34 \uBBF8\uC644\uC131 \uBC88\uD328(${incomplete.map((honor) => `${tileName(honor.tile)} ${honor.count}\uC7A5`).join("\xB7")})\uC758 \uC7A0\uC7AC \uAC00\uC0B0 \uD3C9\uAC00 ${format(total)}\uC810\uC740 \uD615\uD0DC \uD3C9\uAC00\uC6A9 \uCD94\uC815\uCE58\uC774\uBA70, \uD655\uC815\uB41C \uD654\uB8CC \uAC00\uC0B0\uC810\uC740 \uC544\uB2D9\uB2C8\uB2E4.`;
+  }
+  return text;
+}
+function adaptiveReason(view, selected) {
+  const metrics2 = selected.metrics, payers = Math.max(0, view.activeCount - 1);
+  let text = ` \uD63C\uD569\uD615\uC740 \uB9E4\uBC88 \uC644\uC131 \uC18D\uB3C4\xB7\uC190 \uAC00\uCE58\xB7\uBBF8\uD654\uB8CC \uC0C1\uB300 ${payers}\uBA85\xB7\uACF5\uAC1C\uB41C \uC704\uD611\uC744 \uD568\uAED8 \uBE44\uAD50\uD569\uB2C8\uB2E4.`;
+  if (metrics2.pressure < 0.25) text += " \uC0C1\uB300\uC758 \uACF5\uAC1C\uB41C \uC704\uD611\uC774 \uC544\uC9C1 \uB0AE\uC544 \uC774 \uD6C4\uBCF4\uC758 \uC218\uBE44 \uAC10\uC810\uC744 \uC791\uAC8C \uBC18\uC601\uD569\uB2C8\uB2E4.";
+  else if (metrics2.attack >= 0.65) text += " \uC774 \uD6C4\uBCF4\uC758 \uC644\uC131 \uC18D\uB3C4\uC640 \uC190 \uAC00\uCE58\uAC00 \uACF5\uACA9\uC744 \uC9C0\uC9C0\uD574, \uAC19\uC740 \uC704\uD611\uC5D0\uC11C\uB3C4 \uC218\uBE44 \uBE44\uC911\uC744 \uC904\uC785\uB2C8\uB2E4.";
+  else if (selected.shanten >= 2 && metrics2.ronValue <= 150) text += " \uC644\uC131\uAE4C\uC9C0 \uAC70\uB9AC\uAC00 \uC788\uACE0 \uC190 \uAC00\uCE58\uB3C4 \uB0AE\uC740 \uD3B8\uC774\uB77C, \uACF5\uAC1C\uB41C \uC704\uD611\uC5D0 \uB354 \uC218\uBE44\uC801\uC73C\uB85C \uB300\uC751\uD569\uB2C8\uB2E4.";
+  else text += " \uC0C1\uB300\uC758 \uACF5\uAC1C\uB41C \uC704\uD611\uACFC \uC774 \uD6C4\uBCF4\uC758 \uC644\uC131 \uAC70\uB9AC\uB97C \uD568\uAED8 \uBC18\uC601\uD574 \uC218\uBE44 \uBE44\uC911\uC744 \uC870\uC808\uD569\uB2C8\uB2E4.";
+  if (metrics2.valueSource === "tenpai-unseen") text += ` \uC544\uC9C1 \uBCF4\uC774\uC9C0 \uC54A\uC740 \uD654\uB8CC\uD328 \uC218\uB85C \uAC00\uC911\uD55C \uCC38\uACE0\uAC12\uC740, \uB860\uC73C\uB85C \uD654\uB8CC\uD558\uBA74 ${format(metrics2.ronValue)}\uC810, \uCBD4\uBAA8\uB85C \uD654\uB8CC\uD558\uBA74 \uCD1D ${format(metrics2.tsumoReceipt)}\uC810\uC785\uB2C8\uB2E4.`;
+  else if (metrics2.valueSource === "tenpai-no-outs") text += " \uD604\uC7AC \uD150\uD30C\uC774\uC758 \uD654\uB8CC\uD328\uAC00 \uBAA8\uB450 \uACF5\uAC1C\uB418\uC5B4 \uC788\uC5B4 \uC0C8\uB85C \uC5BB\uC744 \uD328 \uC218\uB97C 0\uC7A5\uC73C\uB85C \uD3C9\uAC00\uD569\uB2C8\uB2E4.";
+  else if (metrics2.valueSource === "shape-heuristic") text += " \uC544\uC9C1 \uD150\uD30C\uC774\uAC00 \uC544\uB2C8\uBBC0\uB85C \uC190 \uAC12\uC740 \uD615\uD0DC\uC640 \uBC88\uD328 \uD6C4\uBCF4\uB97C \uBC14\uD0D5\uC73C\uB85C \uD55C \uCD94\uC815\uCE58\uC785\uB2C8\uB2E4.";
+  return text;
 }
 function rankRows(rows, variant) {
   const remaining = [...rows].sort((a, b) => a.tile - b.tile), ranked = [];
@@ -1520,7 +1717,7 @@ function explainDiscards(view, policy, weights = {}, selectedAction = null) {
     shanten: row.shanten,
     ukeire: row.ukeire,
     components: components(row, view, config, variant),
-    metrics: { value: row.value, pinfu: row.pinfu, risk: row.risk, estimatedBase: row.estimatedBase, defensive: row.defensive, riskWeight: row.riskWeight },
+    metrics: { value: row.value, pinfu: row.pinfu, risk: row.risk, estimatedBase: row.estimatedBase, defensive: row.defensive, riskWeight: row.riskWeight, ...diagnostics(row) },
     selected: row.tile === selectedTile
   }));
   const selected = ranked.find((row) => row.selected), alternative = ranked.find((row) => !row.selected);
@@ -1528,10 +1725,10 @@ function explainDiscards(view, policy, weights = {}, selectedAction = null) {
   let reason = `${tileName(selected.tile)}\uB97C \uBC84\uB9AC\uBA74 ${distance2(selected.shanten)}, \uC720\uD6A8\uD328 \uCD94\uC815 ${selected.ukeire}\uC7A5\uC785\uB2C8\uB2E4.`;
   let comparison = null;
   if (alternative) {
-    const differences = Object.entries(selected.components).map(([component, value2]) => ({
+    const differences = Object.entries(selected.components).map(([component, value3]) => ({
       component,
       label: LABELS[component],
-      difference: value2 - alternative.components[component]
+      difference: value3 - alternative.components[component]
     })).sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference));
     const scoreDifference = selected.score - alternative.score;
     comparison = { tile: alternative.tile, scoreDifference, components: Object.fromEntries(differences.map((row) => [row.component, row.difference])) };
@@ -1544,7 +1741,9 @@ function explainDiscards(view, policy, weights = {}, selectedAction = null) {
     }
   } else reason += " \uC774 \uC804\uB7B5\uC758 \uC0E8\uD150 \uC81C\uD55C\uC744 \uB9CC\uC871\uD558\uB294 \uBC84\uB9BC\uD328 \uD6C4\uBCF4\uAC00 \uD558\uB098\uC785\uB2C8\uB2E4.";
   if (selected.metrics.defensive) reason += ` \uAC00\uC0B0\uC810 \uC81C\uC678 \uC5ED \uC810\uC218 \uCD94\uC815 ${Math.round(selected.metrics.estimatedBase)}\uC810\uC73C\uB85C \uC800\uD310\uC218 \uC218\uBE44 \uAC00\uC911\uCE58\uB97C \uC801\uC6A9\uD569\uB2C8\uB2E4.`;
-  if (policy === "E" && config.risk === 0 && !config.lowValueRisk) reason += " \uC774 \uAC00\uC911\uCE58\uC5D0\uC11C\uB294 \uC704\uD5D8\uB3C4 \uAC10\uC810\uC744 \uC801\uC6A9\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
+  if (variant === "H" && config.adaptiveDefense > 0) reason += adaptiveReason(view, selected);
+  if (variant === "H" && (config.honorModel === 1 || config.adaptiveDefense > 0)) reason += honorReason(view, selected);
+  if (policy === "E" && config.risk === 0 && !config.lowValueRisk && !config.adaptiveDefense) reason += " \uC774 \uAC00\uC911\uCE58\uC5D0\uC11C\uB294 \uC704\uD5D8\uB3C4 \uAC10\uC810\uC744 \uC801\uC6A9\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
   return {
     policy,
     variant,
@@ -1597,6 +1796,7 @@ function actionLabel(action, view = {}) {
   }
 }
 function reasonFor(action, view, policy, weights) {
+  const adaptive = view.rules.variant !== "S" && weights?.adaptiveDefense > 0;
   if (action.type === "riichi") return "\uBA58\uC820 \uD150\uD30C\uC774\uB85C 1,000\uC810\uC744 \uACF5\uD0C1\uD569\uB2C8\uB2E4. \uB9AC\uCE58\uB9CC\uC73C\uB85C\uB294 S\uB8F0\uC758 \uD654\uB8CC \uC5ED \uC870\uAC74\uC744 \uCDA9\uC871\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
   if (action.type === "tsumo") return "\uC9C0\uAE08 \uCBD4\uBAA8 \uD654\uB8CC\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.";
   if (action.type === "ron") return policy === "C" ? "\uC774 \uADDC\uCE59\uC5D0\uC11C\uB294 \uB860\uC744 \uB118\uAE38 \uC218 \uC5C6\uC5B4 \uD654\uB8CC\uD569\uB2C8\uB2E4." : "\uC644\uC131\uB41C \uD328\uB85C \uC9C0\uAE08 \uB860 \uD654\uB8CC\uD569\uB2C8\uB2E4.";
@@ -1606,7 +1806,8 @@ function reasonFor(action, view, policy, weights) {
     return "\uD6C4\uB85C \uC774\uD6C4\uC758 \uD615\uD0DC\uC640 \uC190\uD328 \uC720\uC9C0\uB97C \uBE44\uAD50\uD574 \uB118\uAE30\uAE30\uB97C \uC120\uD0DD\uD588\uC2B5\uB2C8\uB2E4.";
   }
   if (action.type === "chi" || action.type === "pon") return "\uD6C4\uB85C \uC774\uD6C4\uC5D0 \uBC84\uB9B4 \uD328\uAE4C\uC9C0 \uBE44\uAD50\uD55C \uC120\uD0DD\uC785\uB2C8\uB2E4.";
-  if (["ankan", "kakan", "minkan"].includes(action.type)) return "\uBCF4\uCDA9\uD328\uB97C \uBC1B\uAE30 \uC804\uC758 \uD615\uD0DC\uB97C \uAE30\uC900\uC73C\uB85C \uAE61\uC744 \uD3C9\uAC00\uD588\uC2B5\uB2C8\uB2E4.";
+  if (["ankan", "kakan", "minkan"].includes(action.type)) return adaptive ? "\uACF5\uAC1C \uC815\uBCF4\uC0C1 \uC544\uC9C1 \uBCF4\uC774\uC9C0 \uC54A\uC740 \uBCF4\uCDA9\uD328 \uD6C4\uBCF4\uB97C \uAC00\uC911\uD558\uACE0, \uBCF4\uCDA9 \uD6C4 \uD654\uB8CC \uB610\uB294 \uBC84\uB9B4 \uD328\uAE4C\uC9C0 \uBE44\uAD50\uD574 \uAE61\uC744 \uD3C9\uAC00\uD588\uC2B5\uB2C8\uB2E4. \uC2E4\uC81C \uBCF4\uCDA9\uD328\uB098 \uD328\uC0B0 \uC21C\uC11C\uB294 \uBCF4\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4." : "\uBCF4\uCDA9\uD328\uB97C \uBC1B\uAE30 \uC804\uC758 \uD615\uD0DC\uB97C \uAE30\uC900\uC73C\uB85C \uAE61\uC744 \uD3C9\uAC00\uD588\uC2B5\uB2C8\uB2E4.";
+  if (adaptive) return "\uC644\uC131 \uC18D\uB3C4\xB7\uC190 \uAC00\uCE58\xB7\uB0A8\uC740 \uC9C0\uAE09\uC790 \uC218\uC640 \uACF5\uAC1C\uB41C \uC704\uD611\uC744 \uD568\uAED8 \uBE44\uAD50\uD558\uACE0, \uC190\uC758 \uC0C1\uD0DC\uC5D0 \uB530\uB77C \uC218\uBE44 \uAC10\uC810\uC744 \uC870\uC808\uD569\uB2C8\uB2E4.";
   if (policy === "E" && weights?.risk === 0) return "\uC18D\uB3C4\xB7\uC5ED \uAC00\uCE58\xB7\uB0A8\uC740 \uC0C1\uB300 \uC218\uB97C \uBD05\uB2C8\uB2E4. \uC774 \uD559\uC2B5 \uBC84\uC804\uC740 \uC704\uD5D8\uB3C4 \uAC10\uC810\uC744 \uC4F0\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
   return focus[policy];
 }
@@ -1646,7 +1847,7 @@ var SVG = "http://www.w3.org/2000/svg";
 var dots = { 1: [[50, 50]], 2: [[50, 24], [50, 76]], 3: [[24, 22], [50, 50], [76, 78]], 4: [[24, 24], [76, 24], [24, 76], [76, 76]], 5: [[24, 24], [76, 24], [50, 50], [24, 76], [76, 76]], 6: [[24, 18], [76, 18], [24, 50], [76, 50], [24, 82], [76, 82]], 7: [[24, 16], [50, 31], [76, 16], [24, 57], [76, 57], [24, 84], [76, 84]], 8: [[24, 13], [76, 13], [24, 38], [76, 38], [24, 63], [76, 63], [24, 88], [76, 88]], 9: [[22, 16], [50, 16], [78, 16], [22, 50], [50, 50], [78, 50], [22, 84], [50, 84], [78, 84]] };
 function element(tag, attributes) {
   const el = document.createElementNS(SVG, tag);
-  for (const [key3, value2] of Object.entries(attributes)) el.setAttribute(key3, String(value2));
+  for (const [key3, value3] of Object.entries(attributes)) el.setAttribute(key3, String(value3));
   return el;
 }
 function span(text, cls) {
@@ -2030,9 +2231,9 @@ function createKanPeek({
     timer2 = schedule2(expire, durationMs);
     onChange();
   };
-  const setContext = (value2) => {
-    if (value2 === context2) return false;
-    context2 = value2;
+  const setContext = (value3) => {
+    if (value3 === context2) return false;
+    context2 = value3;
     clear({ notify: false });
     return true;
   };
@@ -2040,7 +2241,7 @@ function createKanPeek({
 }
 
 // web/score-display.mjs
-var signedPoints = (value2) => `${value2 > 0 ? "+" : ""}${value2}`;
+var signedPoints = (value3) => `${value3 > 0 ? "+" : ""}${value3}`;
 function hBonusDetails(score, rules = {}) {
   const names = { kan: rules.fourOfAKindBonus ? "\uC0AC\uADC0\uC77C" : "\uAE61", dragon: "\uC0BC\uC6D0\uD328", roundWind: "\uC7A5\uD48D", seatWind: "\uC790\uD48D" };
   return Object.entries(names).filter(([key3]) => Number.isFinite(score.bonuses?.[key3]) && score.bonuses[key3] > 0).map(([key3, label2]) => `${label2} ${score.bonuses[key3]}\uC810`).join(" \xB7 ");
@@ -2124,24 +2325,24 @@ var PREFIX = "h-mahjong-log-v1:";
 var INDEX = PREFIX + "index";
 var MAX_LOGS = 10;
 var MAX_CHARS = 15e5;
-var clone = (value2) => structuredClone(value2);
+var clone = (value3) => structuredClone(value3);
 var scores = (game) => game.players.map((player) => player.score);
 var seats = ["\uB3D9", "\uB0A8", "\uC11C", "\uBD81"];
 var seatLabels = (game) => seats.map((_, i) => seats[(i - (game.dealer ?? 0) + 4) % 4]);
 var concealedForViewer = (game, seat, viewer) => game.rules.concealedKanPrivate === true && seat !== viewer;
-var signed2 = (value2) => `${value2 > 0 ? "+" : ""}${value2}`;
+var signed2 = (value3) => `${value3 > 0 ? "+" : ""}${value3}`;
 function beforeAction(game) {
   return { scores: scores(game), active: game.players.flatMap((p, i) => p.won ? [] : [i]), events: game.events.length, ledger: game.ledger.length, pot: game.pot ?? 0 };
 }
 function actionRecord(game, seat, action, before, error = null) {
   const seats2 = seatLabels(game);
   const after = scores(game), payments = clone(game.ledger.slice(before.ledger)), issues = [];
-  const delta = after.map((value2, i) => value2 - before.scores[i]), ledgerDelta = [0, 0, 0, 0];
+  const delta = after.map((value3, i) => value3 - before.scores[i]), ledgerDelta = [0, 0, 0, 0];
   for (const payment of payments) {
     if (Number.isInteger(payment.from)) ledgerDelta[payment.from] -= payment.amount;
     if (Number.isInteger(payment.to)) ledgerDelta[payment.to] += payment.amount;
   }
-  if (delta.some((value2, i) => value2 !== ledgerDelta[i])) issues.push("\uC810\uC218 \uBCC0\uD654\uC640 \uC2E4\uC81C \uC774\uCCB4 \uB0B4\uC5ED\uC774 \uC77C\uCE58\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
+  if (delta.some((value3, i) => value3 !== ledgerDelta[i])) issues.push("\uC810\uC218 \uBCC0\uD654\uC640 \uC2E4\uC81C \uC774\uCCB4 \uB0B4\uC5ED\uC774 \uC77C\uCE58\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
   const wins = game.events.slice(before.events).filter((e) => e.type === "win").map((win3) => {
     if (game.rules.variant === "S") {
       const actual2 = payments.filter((p) => p.to === win3.seat), actualReceipt2 = actual2.reduce((n, p) => n + p.amount, 0), expected = [], pao = win3.score.yakuman ? game.players[win3.seat].pao : null;
@@ -2222,8 +2423,8 @@ var GameJournal = class {
   }
   index() {
     try {
-      const value2 = JSON.parse(this.storage?.getItem(INDEX) ?? "[]");
-      return Array.isArray(value2) ? value2.filter((x) => x && typeof x.id === "string" && typeof x.updatedAt === "string" && Number.isSafeInteger(x.chars) && x.chars >= 0) : [];
+      const value3 = JSON.parse(this.storage?.getItem(INDEX) ?? "[]");
+      return Array.isArray(value3) ? value3.filter((x) => x && typeof x.id === "string" && typeof x.updatedAt === "string" && Number.isSafeInteger(x.chars) && x.chars >= 0) : [];
     } catch {
       return [];
     }
@@ -2312,7 +2513,7 @@ function reviewText(input) {
   for (const e of log.actions) {
     if (["ankan", "minkan", "kakan"].includes(e.action.type)) lines.push(`${seats2[e.seat]} ${e.action.type === "ankan" ? "\uC548\uAE61" : e.action.type === "minkan" ? "\uBA85\uAE61" : "\uAC00\uAE61"}${e.action.type === "ankan" && concealedForViewer(game, e.seat, log.humanSeat) ? " \xB7 \uBE44\uACF5\uAC1C" : Number.isInteger(e.action.tile) ? " \xB7 " + tileName(e.action.tile) : ""} (\uC774\uB54C\uB294 \uC810\uC218 \uC774\uB3D9 \uC5C6\uC74C)`);
     for (const win3 of e.wins) {
-      const extra = Object.entries(win3.score.bonuses ?? {}).filter(([, value2]) => typeof value2 === "number" && value2).map(([name, value2]) => `${{ kan: game.rules.fourOfAKindBonus ? "\uC0AC\uADC0\uC77C" : "\uAE61", dragon: "\uC0BC\uC6D0\uD328", roundWind: "\uC7A5\uD48D", seatWind: "\uC790\uD48D" }[name] ?? name} ${value2}`);
+      const extra = Object.entries(win3.score.bonuses ?? {}).filter(([, value3]) => typeof value3 === "number" && value3).map(([name, value3]) => `${{ kan: game.rules.fourOfAKindBonus ? "\uC0AC\uADC0\uC77C" : "\uAE61", dragon: "\uC0BC\uC6D0\uD328", roundWind: "\uC7A5\uD48D", seatWind: "\uC790\uD48D" }[name] ?? name} ${value3}`);
       lines.push(s ? `${seats2[win3.seat]} ${win3.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 ${scoreBreakdownText(win3.score)}` : `${seats2[win3.seat]} ${win3.score.name} ${win3.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 \uC5ED ${win3.score.base}${extra.length ? " + " + extra.join(" + ") : ""}${win3.tsumoBonus ? " + \uCBD4\uBAA8 " + win3.tsumoBonus + " / \uC9C0\uAE09\uC790" : ""}`);
     }
     for (const p of e.payments) lines.push(`  ${seats2[p.from] ?? "\uACF5\uD0C1"} \u2192 ${seats2[p.to] ?? "\uACF5\uD0C1"}: ${p.amount}\uC810`);
@@ -2401,10 +2602,10 @@ function readPreferences(storage) {
     return { recommendations: true, variant: "H", format: "single" };
   }
 }
-function savePreferences(storage, value2) {
+function savePreferences(storage, value3) {
   try {
-    const variant = value2.variant === "S" ? "S" : "H", format2 = ["single", "hanchan"].includes(value2.format) ? value2.format : defaultMatchFormat(variant);
-    storage?.setItem(KEY, JSON.stringify({ recommendations: !!value2.recommendations, variant, format: format2 }));
+    const variant = value3.variant === "S" ? "S" : "H", format2 = ["single", "hanchan"].includes(value3.format) ? value3.format : defaultMatchFormat(variant);
+    storage?.setItem(KEY, JSON.stringify({ recommendations: !!value3.recommendations, variant, format: format2 }));
     return !!storage;
   } catch {
     return false;
@@ -2550,7 +2751,7 @@ var label = (match) => match.format === "single" ? "\uB2E8\uD310\uC804" : roundL
 function createMatch2({ seed = 1, id = crypto.randomUUID(), format: format2 = "single", rules = {}, settings = {}, now = (/* @__PURE__ */ new Date()).toISOString() } = {}) {
   if (!Number.isInteger(seed) || seed < 0 || seed > 4294967295 || typeof id !== "string" || !id) throw new Error("Invalid match seed/id");
   if (!["single", "hanchan"].includes(format2)) throw new Error("\uB2E8\uD310\uC804 \uB610\uB294 \uBC18\uC7A5\uC804\uC744 \uC120\uD0DD\uD558\uC138\uC694.");
-  if (Object.entries(settings).some(([key3, value2]) => !Object.hasOwn(SETTINGS, key3) || SETTINGS[key3] !== value2)) throw new Error("Unsupported H match settings");
+  if (Object.entries(settings).some(([key3, value3]) => !Object.hasOwn(SETTINGS, key3) || SETTINGS[key3] !== value3)) throw new Error("Unsupported H match settings");
   return { version: 1, variant: "H", format: format2, id, seed, startedAt: now, rules: ruleset({ ...rules, roundWind: 27 }), settings: { ...SETTINGS }, roundIndex: 0, repeat: 0, handNumber: 1, status: "playing", scores: [0, 0, 0, 0], pot: 0, rounds: [], next: null, finalTransfers: [] };
 }
 function createMatchGame2(match) {
@@ -2716,7 +2917,7 @@ var MatchStore = class {
   }
 };
 function matchCSV(summary, names = ["\uC2DC\uC791 \uB3D9", "\uC2DC\uC791 \uB0A8", "\uC2DC\uC791 \uC11C", "\uC2DC\uC791 \uBD81"]) {
-  const cell = (value2) => '"' + String(value2 ?? "").replaceAll('"', '""') + '"', rows = [["\uAD6D", "\uACB0\uACFC", ...names.map((n) => n + " \uC99D\uAC10"), ...names.map((n) => n + " \uB204\uC801"), "\uACF5\uD0C1"]];
+  const cell = (value3) => '"' + String(value3 ?? "").replaceAll('"', '""') + '"', rows = [["\uAD6D", "\uACB0\uACFC", ...names.map((n) => n + " \uC99D\uAC10"), ...names.map((n) => n + " \uB204\uC801"), "\uACF5\uD0C1"]];
   for (const r of summary.rounds) rows.push([r.label, roundResultName(r.result), ...r.delta, ...r.totals, r.pot]);
   for (const t of summary.finalTransfers) {
     const delta = [0, 0, 0, 0];
@@ -2898,14 +3099,125 @@ for (const weights of Object.values(value.weights)) Object.freeze(weights);
 Object.freeze(value.weights);
 var TRAINING = Object.freeze(value);
 
-// web/training-results.mjs
-var BASE_NAMES = { A: "\uCD5C\uC18D \uD654\uB8CC", B: "\uD551\uD6C4\xB7\uB860 \uC218\uB77D", C: "\uD551\uD6C4\xB7\uCBD4\uBAA8 \uC9C0\uD5A5", D: "\uACE0\uB4DD\uC810", E: "\uADE0\uD615" };
+// web/hybrid-results.mjs
+var IDS = ["A", "D", "E", "V1", "Y1", "M1", "M2", "M3"];
+var MIXED = ["M1", "M2", "M3"];
+var REFERENCES = ["V1", "Y1"];
+var PROFILES = ["speed", "pinfu", "value", "cautious", "mixed", "valuePressure"];
 var PROFILE_NAMES = { speed: "\uC18D\uB3C4\uD615", pinfu: "\uD551\uD6C4\uD615", value: "\uACE0\uB4DD\uC810\uD615", cautious: "\uC2E0\uC911\uD615", mixed: "\uD63C\uD569\uD615", valuePressure: "\uACE0\uB4DD\uC810 \uC555\uBC15\uD615" };
-var fixed = (value2) => Number.isFinite(value2) ? value2.toFixed(2) : "\u2014";
-var percent = (value2) => Number.isFinite(value2) ? `${(value2 * 100).toFixed(1)}%` : "\u2014";
+var BASE_NAMES = { A: "\uAE30\uC874 \uCD5C\uC18D", D: "\uAE30\uC874 \uACE0\uB4DD\uC810", E: "\uAE30\uC874 \uADE0\uD615", V1: "\uBE44\uACF5\uAC1C \uC548\uAE61 \uACE0\uB4DD\uC810", Y1: "V1 + \uC790\uD328 \uAC00\uCE58 \uBCF4\uC815" };
+var SEEDS = 504;
+var GAMES = SEEDS * 4;
+var fixed = (value3) => Number.isFinite(value3) ? value3.toFixed(2) : "\u2014";
+var percent = (value3) => Number.isFinite(value3) ? `${(value3 * 100).toFixed(1)}%` : "\u2014";
 var range = (low, high) => `${fixed(low)} ~ ${fixed(high)}`;
 var improved = (row) => row.simultaneousLow > 0;
 var verdict = (row) => improved(row) ? "\uAE30\uC900 \uB300\uBE44 \uAC1C\uC120 \uD655\uC778" : row.simultaneousHigh < 0 ? "\uAE30\uC900 \uB300\uBE44 \uB0AE\uC74C" : "\uCC28\uC774 \uBBF8\uD655\uC815";
+var sameSet = (values, expected) => Array.isArray(values) && values.length === expected.length && new Set(values).size === expected.length && values.every((value3) => expected.includes(value3));
+var validSummary = (row, games, clusters) => row.games === games && row.seedClusters === clusters && [row.meanNet, row.ci95Low, row.ci95High, row.meanRank, row.topScoreRate, row.winRate].every(Number.isFinite) && row.ci95Low <= row.ci95High && row.meanRank >= 1 && row.meanRank <= 4 && row.topScoreRate >= 0 && row.topScoreRate <= 1 && row.winRate >= 0 && row.winRate <= 1;
+function hybridTrainingResultModel(manifest, selection, data) {
+  const counts2 = manifest?.counts, plan = manifest?.plan;
+  if (manifest?.status !== "complete" || !Number.isSafeInteger(manifest.completedGames) || !counts2 || [counts2.pilot, counts2.tuning, counts2.holdout, counts2.total].some((count) => !Number.isSafeInteger(count) || count <= 0) || manifest.completedGames !== counts2.total || counts2.total !== counts2.pilot + counts2.tuning + counts2.holdout)
+    throw new Error("\uD63C\uD569\uD615 \uC790\uB3D9 \uB300\uAD6D\uC774 \uBAA8\uB450 \uC644\uB8CC\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.");
+  if (!Array.isArray(manifest.experiments) || !manifest.experiments.length || new Set(manifest.experiments.map((row) => row.key)).size !== manifest.experiments.length || manifest.experiments.some((row) => row.status !== "complete" || !Number.isSafeInteger(row.games) || row.games <= 0 || row.games !== row.expected) || manifest.experiments.reduce((sum3, row) => sum3 + row.games, 0) !== counts2.total)
+    throw new Error("\uD63C\uD569\uD615 \uC2E4\uD589 \uAE30\uB85D\uC758 \uC644\uB8CC \uAD6D \uC218\uAC00 \uB9DE\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
+  const versions = selection?.versions;
+  if (selection?.id !== manifest.id || !Number.isFinite(Date.parse(selection.frozenAt)) || !Array.isArray(versions) || !sameSet(versions.map((row) => row.id), MIXED) || versions.some((row) => row.policy !== "E" || !Number.isFinite(row.tuningMean)) || !MIXED.includes(selection.preferredVersion) || !Array.isArray(selection.controls) || !sameSet(selection.controls.map((row) => row.id), IDS.slice(0, 5)) || !manifest.rules?.concealedKanPrivate || manifest.rules.variant === "S" || !sameSet(plan?.profiles, PROFILES))
+    throw new Error("\uD63C\uD569\uD615 \uAC80\uC99D \uC870\uAC74\uACFC \uACE0\uC815\uD55C \uBC84\uC804\uC744 \uD655\uC778\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.");
+  const preferred = [...versions].sort((a, b) => b.tuningMean - a.tuningMean || a.id.localeCompare(b.id))[0];
+  if (preferred.id !== selection.preferredVersion) throw new Error("\uAE30\uBCF8 \uD63C\uD569\uD615\uC774 \uCD5C\uC885 \uAC80\uC99D \uC804 \uD29C\uB2DD \uC120\uD0DD\uACFC \uB2E4\uB985\uB2C8\uB2E4.");
+  if (plan?.holdout?.seedCount !== SEEDS || counts2.holdout !== GAMES * IDS.length || !data?.bootstrap || data.bootstrap.seedClusters !== SEEDS || !Array.isArray(data.summary) || !sameSet(data.summary.map((row) => row.policy), IDS) || data.summary.some((row) => !validSummary(row, GAMES, SEEDS)))
+    throw new Error("\uD63C\uD569\uD615 \uCD5C\uC885 \uAC80\uC99D\uC758 504\uAC1C \uC2DC\uB4DC\xB7\uC815\uCC45\uB2F9 2,016\uAD6D\uC774 \uB9DE\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
+  const comparisons = MIXED.flatMap((policy) => REFERENCES.map((reference) => `${policy}-${reference}`));
+  if (!Array.isArray(data.improvements) || !sameSet(data.improvements.map((row) => `${row.policy}-${row.reference}`), comparisons) || data.improvements.some((row) => row.seedClusters !== SEEDS || row.familySize !== 6 || !Number.isFinite(row.simultaneousConfidence) || Math.abs(row.simultaneousConfidence - (1 - 0.05 / 6)) > 1e-12 || ![row.meanDifference, row.ci95Low, row.ci95High, row.simultaneousLow, row.simultaneousHigh].every(Number.isFinite) || row.ci95Low > row.ci95High || row.simultaneousLow > row.simultaneousHigh))
+    throw new Error("\uD63C\uD569\uD615\uC758 \uC0AC\uC804 \uC9C0\uC815 \uC5EC\uC12F \uBE44\uAD50\uC640 \uBCF4\uC815 \uAD6C\uAC04\uC774 \uB9DE\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
+  const profileKeys = PROFILES.flatMap((profile) => IDS.map((policy) => `${profile}:${policy}`));
+  if (!Array.isArray(data.profileSummary) || !sameSet(data.profileSummary.map((row) => `${row.profile}:${row.policy}`), profileKeys) || data.profileSummary.some((row) => !validSummary(row, GAMES / 6, SEEDS / 6)))
+    throw new Error("\uC0C1\uB300 \uC131\uD5A5\uBCC4 \uD63C\uD569\uD615 \uAC80\uC99D \uACB0\uACFC\uAC00 \uB9DE\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
+  const names = { ...BASE_NAMES, ...Object.fromEntries([...selection.controls, ...versions].map((row) => [row.id, row.name ?? BASE_NAMES[row.id] ?? row.id])) };
+  const label2 = (id) => `${id} \xB7 ${names[id] ?? id}`, summary = [...data.summary].sort((a, b) => b.meanNet - a.meanNet || a.policy.localeCompare(b.policy));
+  const improvements = [...data.improvements], approved = improvements.filter(improved).map((row) => `${row.policy} (${row.reference} \uB300\uBE44)`);
+  const best = summary[0];
+  return {
+    summary,
+    versions: [...versions].sort((a, b) => a.id.localeCompare(b.id)),
+    improvements,
+    profiles: [...data.profileSummary],
+    names,
+    label: label2,
+    best,
+    seeds: SEEDS,
+    preferredVersion: selection.preferredVersion,
+    conclusion: `\uAE30\uBCF8 \uD63C\uD569\uD615 ${label2(selection.preferredVersion)}\uB294 \uCD5C\uC885 \uAC80\uC99D \uC804\uC5D0 \uD29C\uB2DD \uC131\uC801\uC73C\uB85C \uACE0\uC815\uD588\uC2B5\uB2C8\uB2E4. \uC774\uBC88 \uAC80\uC99D\uC758 \uD3C9\uADE0 \uC21C\uC218\uC775\uC740 ${label2(best.policy)}\uAC00 \uAD6D\uB2F9 ${fixed(best.meanNet)}\uC810\uC73C\uB85C \uAC00\uC7A5 \uB192\uC558\uC2B5\uB2C8\uB2E4. \uC5EC\uC12F \uC0AC\uC804 \uC9C0\uC815 \uBE44\uAD50\uB97C \uBCF4\uC815\uD55C \uB4A4 \uAC1C\uC120\uC774 \uD655\uC778\uB41C \uBE44\uAD50: ${approved.join(", ") || "\uC5C6\uC74C"}. \uD3C9\uADE0 1\uC704\uC640 \uAE30\uBCF8 \uC120\uD0DD\uC740 \uBCC4\uAC1C\uC774\uBA70, \uC0AC\uB78C \uC0C1\uB300 \uC131\uB2A5\uC774\uB098 \uC804\uC5ED \uCD5C\uC801 \uC804\uB7B5\uC744 \uB73B\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.`
+  };
+}
+function fillRows(element2, rows, format2) {
+  element2.replaceChildren();
+  for (const row of rows) {
+    const tr = document.createElement("tr");
+    for (const value3 of format2(row)) {
+      const td = document.createElement("td");
+      td.textContent = value3;
+      tr.append(td);
+    }
+    element2.append(tr);
+  }
+}
+async function readResult(name) {
+  const response = await fetch(new URL(`../results/hybrid-20261011/${name}.json`, import.meta.url));
+  if (!response.ok) throw new Error("\uD63C\uD569\uD615 \uAC80\uC99D \uAE30\uB85D\uC744 \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.");
+  return response.json();
+}
+async function renderHybridTrainingResults(get) {
+  const content = get("hybrid-training-data"), status = get("hybrid-training-run-status"), conclusion = get("hybrid-training-conclusion");
+  if (!content || !status || !conclusion) return;
+  content.hidden = true;
+  try {
+    const manifest = await readResult("manifest");
+    if (manifest.status !== "complete") {
+      status.textContent = `\uACF5\uACA9\xB7\uC218\uBE44 \uD63C\uD569\uD615 \xB7 ${Number.isSafeInteger(manifest.completedGames) ? manifest.completedGames.toLocaleString() + "\uAD6D \uC644\uB8CC" : "\uC2E4\uD589 \uAE30\uB85D \uD655\uC778 \uC911"}`;
+      conclusion.textContent = "\uC804\uCCB4 \uAC80\uC99D\uC774 \uC644\uB8CC\uB418\uC9C0 \uC54A\uC544 \uD63C\uD569\uD615\uC758 \uC6B0\uC5F4\uC744 \uD45C\uC2DC\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uC2E4\uC81C \uC2E4\uD589 \uAE30\uB85D\uC744 \uD655\uC778\uD574 \uC8FC\uC138\uC694.";
+      return;
+    }
+    const [selection, data] = await Promise.all([readResult("selection"), readResult("analysis")]), model = hybridTrainingResultModel(manifest, selection, data);
+    const time = Number.isFinite(manifest.elapsedSeconds) ? ` \xB7 \uC2E4\uD589 ${fixed(manifest.elapsedSeconds / 60)}\uBD84` : "";
+    status.textContent = `\uC2E4\uD589 \uC644\uB8CC \xB7 \uCD1D ${manifest.completedGames.toLocaleString()}\uAD6D${time}`;
+    conclusion.textContent = model.conclusion;
+    const plan = manifest.plan;
+    get("hybrid-training-design").textContent = `\uC810\uAC80 ${manifest.counts.pilot.toLocaleString()}\uAD6D \u2192 \uD29C\uB2DD ${manifest.counts.tuning.toLocaleString()}\uAD6D (${plan.tuning.seedCount}\uAC1C \uC2DC\uB4DC, \uACC4\uC5F4\uB2F9 \uD6C4\uBCF4 2\uAC1C) \u2192 \uCD5C\uC885 \uAC80\uC99D ${manifest.counts.holdout.toLocaleString()}\uAD6D (504\uAC1C \uC0C8 \uC2DC\uB4DC \xD7 4\uC790\uB9AC \xD7 8\uC804\uB7B5). \uC0C1\uB300 \uC131\uD5A5 6\uC885. \uB3D9\uC77C \uC2DC\uB4DC\uC758 \uBAA8\uB4E0 \uC790\uB9AC\xB7\uC815\uCC45\uC744 \uD568\uAED8 \uC7AC\uD45C\uBCF8\uD558\uACE0 \uC131\uD5A5 \uBE44\uC911\uC744 \uC720\uC9C0\uD569\uB2C8\uB2E4. \uD45C\uC758 95% \uAD6C\uAC04\uC740 \uD0D0\uC0C9\uC6A9\uC774\uBA70, M1~M3\uC758 V1\xB7Y1 \uB300\uBE44 \uC5EC\uC12F \uBE44\uAD50\uC5D0\uB294 \uBCC4\uB3C4\uC758 \uBCF4\uC815 \uAD6C\uAC04\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4. \uC21C\uC704\uB294 \uD55C \uAD6D\uC758 \uC810\uC218 \uC21C\uC704\uC774\uBA70 \uACF5\uB3D9 1\uC704\uB3C4 1\uC704\uC728\uC5D0 \uD3EC\uD568\uD569\uB2C8\uB2E4.`;
+    const cards = get("hybrid-training-versions");
+    cards.replaceChildren();
+    for (const version of model.versions) {
+      const card = document.createElement("article");
+      card.className = "training-version-card";
+      const title = document.createElement("h3"), description = document.createElement("p"), comparison = document.createElement("p");
+      title.textContent = model.label(version.id) + (version.id === model.preferredVersion ? " \xB7 \uAE30\uBCF8 \uD63C\uD569\uD615" : "");
+      description.textContent = version.description;
+      comparison.textContent = REFERENCES.map((reference) => `${reference} \uB300\uBE44: ${verdict(model.improvements.find((row) => row.policy === version.id && row.reference === reference))}`).join(" \xB7 ");
+      comparison.className = "training-version-verdict";
+      card.append(title, description, comparison);
+      cards.append(card);
+    }
+    fillRows(get("hybrid-training-summary"), model.summary, (row) => [model.label(row.policy), fixed(row.meanNet), range(row.ci95Low, row.ci95High), fixed(row.meanRank), percent(row.topScoreRate), percent(row.winRate)]);
+    fillRows(get("hybrid-training-improvements"), model.improvements, (row) => [`${row.policy} \u2212 ${row.reference}`, fixed(row.meanDifference), range(row.ci95Low, row.ci95High), range(row.simultaneousLow, row.simultaneousHigh), verdict(row)]);
+    fillRows(get("hybrid-training-details"), model.summary, (row) => [row.policy, percent(row.ronShareAmongWins), percent(row.tsumoShareAmongWins), percent(row.firstWinRate), fixed(row.averageWinOrder), fixed(row.averageWinDrawNumber), fixed(row.netAmongWins), fixed(row.dealInLossPerGame), fixed(row.tsumoPaidPerGame), fixed(row.drawLossPerGame)]);
+    fillRows(get("hybrid-training-profiles"), model.profiles, (row) => [PROFILE_NAMES[row.profile] ?? row.profile, row.policy, fixed(row.meanNet), range(row.ci95Low, row.ci95High), fixed(row.meanRank)]);
+    content.hidden = false;
+    return model;
+  } catch {
+    status.textContent = "\uACF5\uACA9\xB7\uC218\uBE44 \uD63C\uD569\uD615 \xB7 \uC644\uB8CC \uAE30\uB85D \uD655\uC778 \uD544\uC694";
+    conclusion.textContent = "\uC644\uB8CC\uB41C \uD63C\uD569\uD615 \uACB0\uACFC\uB97C \uD655\uC778\uD558\uC9C0 \uBABB\uD574 \uC218\uCE58\uB97C \uD45C\uC2DC\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uD55C\uAD6D\uC5B4 \uBCF4\uACE0\uC11C\uC640 \uC2E4\uC81C \uC2E4\uD589 \uAE30\uB85D\uC744 \uD655\uC778\uD574 \uC8FC\uC138\uC694.";
+  }
+}
+
+// web/training-results.mjs
+var BASE_NAMES2 = { A: "\uCD5C\uC18D \uD654\uB8CC", B: "\uD551\uD6C4\xB7\uB860 \uC218\uB77D", C: "\uD551\uD6C4\xB7\uCBD4\uBAA8 \uC9C0\uD5A5", D: "\uACE0\uB4DD\uC810", E: "\uADE0\uD615" };
+var PROFILE_NAMES2 = { speed: "\uC18D\uB3C4\uD615", pinfu: "\uD551\uD6C4\uD615", value: "\uACE0\uB4DD\uC810\uD615", cautious: "\uC2E0\uC911\uD615", mixed: "\uD63C\uD569\uD615", valuePressure: "\uACE0\uB4DD\uC810 \uC555\uBC15\uD615" };
+var fixed2 = (value3) => Number.isFinite(value3) ? value3.toFixed(2) : "\u2014";
+var percent2 = (value3) => Number.isFinite(value3) ? `${(value3 * 100).toFixed(1)}%` : "\u2014";
+var range2 = (low, high) => `${fixed2(low)} ~ ${fixed2(high)}`;
+var improved2 = (row) => row.simultaneousLow > 0;
+var verdict2 = (row) => improved2(row) ? "\uAE30\uC900 \uB300\uBE44 \uAC1C\uC120 \uD655\uC778" : row.simultaneousHigh < 0 ? "\uAE30\uC900 \uB300\uBE44 \uB0AE\uC74C" : "\uCC28\uC774 \uBBF8\uD655\uC815";
 function privateTrainingResultModel(manifest, selection, data) {
   const counts2 = manifest?.counts, versions = selection?.versions, seeds = manifest?.plan?.holdout?.seedCount;
   if (manifest?.status !== "complete" || !Number.isSafeInteger(manifest.completedGames) || !counts2 || manifest.completedGames !== counts2.total || counts2.total !== counts2.pilot + counts2.tuning + counts2.holdout)
@@ -2917,10 +3229,10 @@ function privateTrainingResultModel(manifest, selection, data) {
     throw new Error("\uCD5C\uC885 \uAC80\uC99D\uC758 \uC644\uB8CC \uAD6D \uC218\uAC00 \uB9DE\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
   if (!Array.isArray(data.improvements) || data.improvements.length !== 6 || versions.some((v) => data.improvements.filter((row) => row.policy === v.id && row.reference === v.policy && [row.meanDifference, row.ci95Low, row.ci95High, row.simultaneousLow, row.simultaneousHigh].every(Number.isFinite)).length !== 1))
     throw new Error("\uAE30\uC900 \uC815\uCC45\uACFC\uC758 \uBE44\uAD50 \uACB0\uACFC\uAC00 \uB9DE\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
-  const names = { ...BASE_NAMES, ...Object.fromEntries(versions.map((v) => [v.id, v.name])) };
+  const names = { ...BASE_NAMES2, ...Object.fromEntries(versions.map((v) => [v.id, v.name])) };
   const label2 = (id) => `${id} \xB7 ${names[id] ?? id}`;
   const summary = [...data.summary].sort((a, b) => b.meanNet - a.meanNet || a.policy.localeCompare(b.policy));
-  const approved = data.improvements.filter(improved).map((row) => `${row.policy} (${row.reference} \uB300\uBE44)`);
+  const approved = data.improvements.filter(improved2).map((row) => `${row.policy} (${row.reference} \uB300\uBE44)`);
   const best = summary[0];
   return {
     summary,
@@ -2929,25 +3241,25 @@ function privateTrainingResultModel(manifest, selection, data) {
     label: label2,
     best,
     seeds,
-    conclusion: `\uC774\uBC88 \uC790\uB3D9 \uB300\uAD6D\uC758 \uD3C9\uADE0 \uC21C\uC218\uC775\uC740 ${label2(best.policy)}\uAC00 \uAD6D\uB2F9 ${fixed(best.meanNet)}\uC810\uC73C\uB85C \uAC00\uC7A5 \uB192\uC558\uC2B5\uB2C8\uB2E4. \uC5EC\uC12F \uC0AC\uC804 \uC9C0\uC815 \uBE44\uAD50\uB97C \uBCF4\uC815\uD55C \uB4A4 \uAE30\uC900\uBCF4\uB2E4 \uAC1C\uC120\uC774 \uD655\uC778\uB41C \uBC84\uC804: ${approved.join(", ") || "\uC5C6\uC74C"}.`,
+    conclusion: `\uC774\uBC88 \uC790\uB3D9 \uB300\uAD6D\uC758 \uD3C9\uADE0 \uC21C\uC218\uC775\uC740 ${label2(best.policy)}\uAC00 \uAD6D\uB2F9 ${fixed2(best.meanNet)}\uC810\uC73C\uB85C \uAC00\uC7A5 \uB192\uC558\uC2B5\uB2C8\uB2E4. \uC5EC\uC12F \uC0AC\uC804 \uC9C0\uC815 \uBE44\uAD50\uB97C \uBCF4\uC815\uD55C \uB4A4 \uAE30\uC900\uBCF4\uB2E4 \uAC1C\uC120\uC774 \uD655\uC778\uB41C \uBC84\uC804: ${approved.join(", ") || "\uC5C6\uC74C"}.`,
     improvements: data.improvements,
     profiles: data.profileSummary ?? [],
     pairCB: data.pairs?.find((row) => row.policy === "C" && row.reference === "B")
   };
 }
-function fillRows(element2, rows, format2) {
+function fillRows2(element2, rows, format2) {
   element2.replaceChildren();
   for (const row of rows) {
     const tr = document.createElement("tr");
-    for (const value2 of format2(row)) {
+    for (const value3 of format2(row)) {
       const td = document.createElement("td");
-      td.textContent = value2;
+      td.textContent = value3;
       tr.append(td);
     }
     element2.append(tr);
   }
 }
-async function readResult(name) {
+async function readResult2(name) {
   const response = await fetch(new URL(`../results/private-kan-20261011/${name}.json`, import.meta.url));
   if (!response.ok) throw new Error("\uAC80\uC99D \uAE30\uB85D\uC744 \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.");
   return response.json();
@@ -2957,14 +3269,14 @@ async function renderPrivateTrainingResults(get) {
   if (!content || !status || !conclusion) return;
   content.hidden = true;
   try {
-    const manifest = await readResult("manifest");
+    const manifest = await readResult2("manifest");
     if (manifest.status !== "complete") {
       status.textContent = `\uC548\uAE61 \uBE44\uACF5\uAC1C H\uB8F0 \xB7 ${Number.isSafeInteger(manifest.completedGames) ? manifest.completedGames.toLocaleString() + "\uAD6D \uC644\uB8CC" : "\uC2E4\uD589 \uAE30\uB85D \uD655\uC778 \uC911"}`;
       conclusion.textContent = "\uC804\uCCB4 \uAC80\uC99D\uC774 \uC644\uB8CC\uB418\uC9C0 \uC54A\uC544 \uC804\uB7B5\uC758 \uC6B0\uC5F4\uC744 \uD45C\uC2DC\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uD55C\uAD6D\uC5B4 \uBCF4\uACE0\uC11C\uC640 \uC2E4\uD589 \uAE30\uB85D\uC5D0\uC11C \uC9C4\uD589 \uC0C1\uD0DC\uB97C \uD655\uC778\uD558\uC138\uC694.";
       return;
     }
-    const [selection, data] = await Promise.all([readResult("selection"), readResult("analysis")]), model = privateTrainingResultModel(manifest, selection, data);
-    const time = Number.isFinite(manifest.elapsedSeconds) ? ` \xB7 \uC2E4\uD589 ${fixed(manifest.elapsedSeconds / 60)}\uBD84` : "";
+    const [selection, data] = await Promise.all([readResult2("selection"), readResult2("analysis")]), model = privateTrainingResultModel(manifest, selection, data);
+    const time = Number.isFinite(manifest.elapsedSeconds) ? ` \xB7 \uC2E4\uD589 ${fixed2(manifest.elapsedSeconds / 60)}\uBD84` : "";
     status.textContent = `\uC2E4\uD589 \uC644\uB8CC \xB7 \uCD1D ${manifest.completedGames.toLocaleString()}\uAD6D${time}`;
     conclusion.textContent = model.conclusion;
     const plan = manifest.plan;
@@ -2978,17 +3290,17 @@ async function renderPrivateTrainingResults(get) {
       title.textContent = model.label(version.id);
       description.textContent = version.description;
       const row = model.improvements.find((r) => r.policy === version.id);
-      comparison.textContent = `\uAE30\uC900 ${version.policy} \xB7 ${verdict(row)}`;
+      comparison.textContent = `\uAE30\uC900 ${version.policy} \xB7 ${verdict2(row)}`;
       comparison.className = "training-version-verdict";
       card.append(title, description, comparison);
       cards.append(card);
     }
-    fillRows(get("private-training-summary"), model.summary, (row) => [model.label(row.policy), fixed(row.meanNet), range(row.ci95Low, row.ci95High), fixed(row.meanRank), percent(row.topScoreRate), percent(row.winRate)]);
-    fillRows(get("private-training-improvements"), model.improvements, (row) => [`${row.policy} \u2212 ${row.reference}`, fixed(row.meanDifference), range(row.ci95Low, row.ci95High), range(row.simultaneousLow, row.simultaneousHigh), verdict(row)]);
-    fillRows(get("private-training-details"), model.summary, (row) => [row.policy, percent(row.ronShareAmongWins), percent(row.tsumoShareAmongWins), percent(row.firstWinRate), fixed(row.averageWinOrder), fixed(row.averageWinDrawNumber), fixed(row.netAmongWins), fixed(row.dealInLossPerGame), fixed(row.tsumoPaidPerGame), fixed(row.drawLossPerGame)]);
-    fillRows(get("private-training-profiles"), model.profiles, (row) => [PROFILE_NAMES[row.profile] ?? row.profile, row.policy, fixed(row.meanNet), range(row.ci95Low, row.ci95High), fixed(row.meanRank)]);
+    fillRows2(get("private-training-summary"), model.summary, (row) => [model.label(row.policy), fixed2(row.meanNet), range2(row.ci95Low, row.ci95High), fixed2(row.meanRank), percent2(row.topScoreRate), percent2(row.winRate)]);
+    fillRows2(get("private-training-improvements"), model.improvements, (row) => [`${row.policy} \u2212 ${row.reference}`, fixed2(row.meanDifference), range2(row.ci95Low, row.ci95High), range2(row.simultaneousLow, row.simultaneousHigh), verdict2(row)]);
+    fillRows2(get("private-training-details"), model.summary, (row) => [row.policy, percent2(row.ronShareAmongWins), percent2(row.tsumoShareAmongWins), percent2(row.firstWinRate), fixed2(row.averageWinOrder), fixed2(row.averageWinDrawNumber), fixed2(row.netAmongWins), fixed2(row.dealInLossPerGame), fixed2(row.tsumoPaidPerGame), fixed2(row.drawLossPerGame)]);
+    fillRows2(get("private-training-profiles"), model.profiles, (row) => [PROFILE_NAMES2[row.profile] ?? row.profile, row.policy, fixed2(row.meanNet), range2(row.ci95Low, row.ci95High), fixed2(row.meanRank)]);
     const pair = model.pairCB;
-    get("private-training-cb").textContent = pair ? `\uCC98\uC74C\uC758 \uC9C8\uBB38\uC778 C \u2212 B (\uD551\uD6C4 \uCBD4\uBAA8 \uC9C0\uD5A5 \u2212 \uB860 \uC218\uB77D)\uB294 \uAD6D\uB2F9 ${fixed(pair.meanDifference)}\uC810, \uCC28\uC774\uC758 95% \uC2E0\uB8B0\uAD6C\uAC04 ${range(pair.ci95Low, pair.ci95High)}\uC810\uC785\uB2C8\uB2E4. \uC774 \uBE44\uAD50\uB294 \uD0D0\uC0C9\uC6A9\uC774\uBA70 \uC5EC\uB7EC \uC815\uCC45 \uC30D\uC5D0 \uB300\uD55C \uBCF4\uC815\uC740 \uD558\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.` : "";
+    get("private-training-cb").textContent = pair ? `\uCC98\uC74C\uC758 \uC9C8\uBB38\uC778 C \u2212 B (\uD551\uD6C4 \uCBD4\uBAA8 \uC9C0\uD5A5 \u2212 \uB860 \uC218\uB77D)\uB294 \uAD6D\uB2F9 ${fixed2(pair.meanDifference)}\uC810, \uCC28\uC774\uC758 95% \uC2E0\uB8B0\uAD6C\uAC04 ${range2(pair.ci95Low, pair.ci95High)}\uC810\uC785\uB2C8\uB2E4. \uC774 \uBE44\uAD50\uB294 \uD0D0\uC0C9\uC6A9\uC774\uBA70 \uC5EC\uB7EC \uC815\uCC45 \uC30D\uC5D0 \uB300\uD55C \uBCF4\uC815\uC740 \uD558\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.` : "";
     content.hidden = false;
   } catch {
     status.textContent = "\uC548\uAE61 \uBE44\uACF5\uAC1C H\uB8F0 \xB7 \uC644\uB8CC \uAE30\uB85D \uD655\uC778 \uD544\uC694";
@@ -3005,9 +3317,9 @@ async function renderLegacyTrainingResults(get, training) {
     get("training-summary").replaceChildren();
     for (const r of data.improvements) {
       const old = data.baselineSummary.find((x) => x.policy === r.policy), tuned = data.tunedSummary.find((x) => x.policy === r.policy), row = document.createElement("tr");
-      for (const value2 of [r.policy, old.meanNet.toFixed(2), tuned.meanNet.toFixed(2), r.meanDifference.toFixed(2), `${r.ci95Low.toFixed(2)} ~ ${r.ci95High.toFixed(2)}`, Object.hasOwn(training.weights, r.policy) ? "\uAD6C \uADDC\uCE59\uC5D0\uC11C\uB9CC \uAC80\uC99D" : "\uAE30\uC874 \uC720\uC9C0"]) {
+      for (const value3 of [r.policy, old.meanNet.toFixed(2), tuned.meanNet.toFixed(2), r.meanDifference.toFixed(2), `${r.ci95Low.toFixed(2)} ~ ${r.ci95High.toFixed(2)}`, Object.hasOwn(training.weights, r.policy) ? "\uAD6C \uADDC\uCE59\uC5D0\uC11C\uB9CC \uAC80\uC99D" : "\uAE30\uC874 \uC720\uC9C0"]) {
         const cell = document.createElement("td");
-        cell.textContent = value2;
+        cell.textContent = value3;
         row.append(cell);
       }
       get("training-summary").append(row);
@@ -3017,7 +3329,7 @@ async function renderLegacyTrainingResults(get, training) {
   }
 }
 async function renderTrainingResults(get, training) {
-  await Promise.allSettled([renderPrivateTrainingResults(get), renderLegacyTrainingResults(get, training)]);
+  await Promise.allSettled([renderHybridTrainingResults(get), renderPrivateTrainingResults(get), renderLegacyTrainingResults(get, training)]);
 }
 
 // web/private-kan-training.mjs
@@ -3224,13 +3536,4292 @@ var PRIVATE_KAN_TRAINING = {
   ]
 };
 
+// web/hybrid-training.mjs
+var value2 = {
+  "id": "H-hybrid-20261011-v1",
+  "rulesetId": "H-2026-private-kan-v1",
+  "rules": {
+    "id": "H-2026-private-kan-v1",
+    "ronPassAllowed": true,
+    "passRonLock": "none",
+    "selfDiscardFuriten": false,
+    "pinfuClosedOnly": false,
+    "peikouClosedOnly": false,
+    "ryanpeikouDistinctSuits": true,
+    "concealedKanBreaksMenzen": true,
+    "concealedKanPrivate": true,
+    "menzenRequiresTsumo": false,
+    "sevenPairsQuadAsTwo": false,
+    "greenTiles": [
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      32
+    ],
+    "kanBonus": 100,
+    "dragonBonus": 100,
+    "roundWindBonus": 100,
+    "seatWindBonus": 100,
+    "tsumoBonusPerPayer": 100,
+    "drawIncludesBonuses": false,
+    "drawWaitAvailability": "structural",
+    "deadWallTiles": 0,
+    "maxKans": 32,
+    "kanReplacement": "live-tail",
+    "addedKanRobAllowed": true,
+    "multipleRon": "all",
+    "chiFrom": "next-active",
+    "allowKuikae": true,
+    "revealWinnerHand": true,
+    "revealTsumoWinningTile": false,
+    "roundWind": 27,
+    "greenRequiresDragon": true,
+    "fourOfAKindBonus": true,
+    "ronContinuation": "last-winner"
+  },
+  "status": "complete",
+  "completedGames": 22276,
+  "counts": {
+    "pilot": 100,
+    "tuning": 6048,
+    "holdout": 16128,
+    "total": 22276
+  },
+  "elapsedSeconds": 180.354,
+  "simulationSeconds": 180.766330957,
+  "tuningSeeds": 252,
+  "validationSeeds": 504,
+  "preferredVersion": "M1",
+  "preferredCriterion": "\uCD5C\uC885 \uAC80\uC99D \uC804 \uAC01 \uACC4\uC5F4\uC758 \uC120\uD0DD \uD6C4\uBCF4 \uC911 \uD29C\uB2DD \uD3C9\uADE0 \uC21C\uC218\uC775\uC774 \uAC00\uC7A5 \uB192\uC740 M \uACC4\uC5F4. \uB3D9\uB960\uC740 \uACC4\uC5F4 ID \uC21C\uC11C.",
+  "frozenAt": "2026-10-11T04:22:25.292Z",
+  "controls": [
+    {
+      "id": "A",
+      "name": "\uAE30\uC874 \uCD5C\uC18D \uD654\uB8CC",
+      "policy": "A",
+      "weights": {},
+      "validation": {
+        "policy": "A",
+        "seedClusters": 504,
+        "meanNet": 43.37797619047619,
+        "ci95Low": 31.671006944444446,
+        "ci95High": 55.43154761904762,
+        "games": 2016,
+        "winRate": 0.7762896825396826,
+        "ronShareAmongWins": 0.6044728434504792,
+        "tsumoShareAmongWins": 0.39552715654952075,
+        "firstWinRate": 0.2881944444444444,
+        "averageWinOrder": 1.911182108626198,
+        "averageWinDrawNumber": 45.14568690095847,
+        "netAmongWins": 148.30670926517573,
+        "winReceiptPerGame": 186.65674603174602,
+        "winReceiptAmongWins": 240.44728434504793,
+        "dealInLossPerGame": 51.28968253968254,
+        "tsumoPaidPerGame": 97.6438492063492,
+        "drawLossPerGame": 0.3968253968253968,
+        "drawGainPerGame": 6.051587301587301,
+        "ronDeclinedPerGame": 0,
+        "pinfuWinsPerGame": 0.2088293650793651,
+        "closedKansPerGame": 0.019345238095238096,
+        "meanRank": 2.2544642857142856,
+        "topScoreRate": 0.33581349206349204
+      }
+    },
+    {
+      "id": "D",
+      "name": "\uAE30\uC874 \uACE0\uB4DD\uC810",
+      "policy": "D",
+      "weights": {},
+      "validation": {
+        "policy": "D",
+        "seedClusters": 504,
+        "meanNet": 39.18650793650794,
+        "ci95Low": 26.04104662698413,
+        "ci95High": 52.65376984126984,
+        "games": 2016,
+        "winRate": 0.7361111111111112,
+        "ronShareAmongWins": 0.6057951482479784,
+        "tsumoShareAmongWins": 0.3942048517520216,
+        "firstWinRate": 0.27331349206349204,
+        "averageWinOrder": 1.9171159029649596,
+        "averageWinDrawNumber": 45.68059299191375,
+        "netAmongWins": 164.8921832884097,
+        "winReceiptPerGame": 189.23611111111111,
+        "winReceiptAmongWins": 257.07547169811323,
+        "dealInLossPerGame": 55.55555555555556,
+        "tsumoPaidPerGame": 100.7936507936508,
+        "drawLossPerGame": 0.8680555555555556,
+        "drawGainPerGame": 7.16765873015873,
+        "ronDeclinedPerGame": 0,
+        "pinfuWinsPerGame": 0.1909722222222222,
+        "closedKansPerGame": 0.023809523809523808,
+        "meanRank": 2.298611111111111,
+        "topScoreRate": 0.3288690476190476
+      }
+    },
+    {
+      "id": "E",
+      "name": "\uAE30\uC874 \uADE0\uD615",
+      "policy": "E",
+      "weights": {},
+      "validation": {
+        "policy": "E",
+        "seedClusters": 504,
+        "meanNet": 18.799603174603174,
+        "ci95Low": 4.613095238095238,
+        "ci95High": 33.036334325396815,
+        "games": 2016,
+        "winRate": 0.7281746031746031,
+        "ronShareAmongWins": 0.6096730245231607,
+        "tsumoShareAmongWins": 0.39032697547683926,
+        "firstWinRate": 0.27033730158730157,
+        "averageWinOrder": 1.94141689373297,
+        "averageWinDrawNumber": 47.14713896457766,
+        "netAmongWins": 146.90054495912807,
+        "winReceiptPerGame": 171.6765873015873,
+        "winReceiptAmongWins": 235.76294277929156,
+        "dealInLossPerGame": 52.157738095238095,
+        "tsumoPaidPerGame": 105.18353174603175,
+        "drawLossPerGame": 1.9593253968253967,
+        "drawGainPerGame": 6.423611111111111,
+        "ronDeclinedPerGame": 0,
+        "pinfuWinsPerGame": 0.29811507936507936,
+        "closedKansPerGame": 0.023809523809523808,
+        "meanRank": 2.306547619047619,
+        "topScoreRate": 0.32688492063492064
+      }
+    },
+    {
+      "id": "V1",
+      "name": "\uBE44\uACF5\uAC1C \uC548\uAE61 \uACE0\uB4DD\uC810 V1",
+      "policy": "D",
+      "weights": {
+        "speed": 60,
+        "ukeire": 1,
+        "value": 0.24,
+        "maxShantenLoss": 1
+      },
+      "validation": {
+        "policy": "V1",
+        "seedClusters": 504,
+        "meanNet": 44.46924603174603,
+        "ci95Low": 30.50595238095238,
+        "ci95High": 58.333953373015866,
+        "games": 2016,
+        "winRate": 0.7356150793650794,
+        "ronShareAmongWins": 0.6041807147673635,
+        "tsumoShareAmongWins": 0.39581928523263654,
+        "firstWinRate": 0.27033730158730157,
+        "averageWinOrder": 1.916385704652731,
+        "averageWinDrawNumber": 44.95482130815914,
+        "netAmongWins": 171.2744436952124,
+        "winReceiptPerGame": 192.03869047619048,
+        "winReceiptAmongWins": 261.05866486850977,
+        "dealInLossPerGame": 54.78670634920635,
+        "tsumoPaidPerGame": 100.5704365079365,
+        "drawLossPerGame": 0.37202380952380953,
+        "drawGainPerGame": 8.159722222222221,
+        "ronDeclinedPerGame": 0,
+        "pinfuWinsPerGame": 0.19642857142857142,
+        "closedKansPerGame": 0.021825396825396824,
+        "meanRank": 2.2817460317460316,
+        "topScoreRate": 0.33581349206349204
+      }
+    },
+    {
+      "id": "Y1",
+      "name": "V1 + \uC790\uD328 \uAC00\uCE58 \uBCF4\uC815",
+      "policy": "D",
+      "weights": {
+        "speed": 60,
+        "ukeire": 1,
+        "value": 0.24,
+        "maxShantenLoss": 1,
+        "honorModel": 1
+      },
+      "description": "V1\uC758 \uC18D\uB3C4\xB7\uC810\uC218 \uAC00\uC911\uCE58\uB97C \uC720\uC9C0\uD558\uACE0 \uC790\uD328\uC758 \uBCF4\uC720\xB7\uACF5\uAC1C \uC7A5\uC218\uC640 \uAC00\uC0B0 \uAC00\uB2A5\uC131\uB9CC \uBCF4\uC815\uD55C \uB300\uC870\uAD70",
+      "exploratory": true,
+      "improved": false,
+      "validation": {
+        "policy": "Y1",
+        "seedClusters": 504,
+        "meanNet": 46.75099206349206,
+        "ci95Low": 32.192460317460316,
+        "ci95High": 61.06150793650794,
+        "games": 2016,
+        "winRate": 0.7371031746031746,
+        "ronShareAmongWins": 0.6137281292059219,
+        "tsumoShareAmongWins": 0.38627187079407804,
+        "firstWinRate": 0.2718253968253968,
+        "averageWinOrder": 1.9158815612382234,
+        "averageWinDrawNumber": 45.117765814266484,
+        "netAmongWins": 176.61507402422612,
+        "winReceiptPerGame": 196.3045634920635,
+        "winReceiptAmongWins": 266.3189771197847,
+        "dealInLossPerGame": 56.94444444444444,
+        "tsumoPaidPerGame": 97.91666666666667,
+        "drawLossPerGame": 0.9424603174603174,
+        "drawGainPerGame": 6.25,
+        "ronDeclinedPerGame": 0,
+        "pinfuWinsPerGame": 0.20287698412698413,
+        "closedKansPerGame": 0.02132936507936508,
+        "meanRank": 2.2777777777777777,
+        "topScoreRate": 0.345734126984127
+      }
+    }
+  ],
+  "versions": [
+    {
+      "id": "M1",
+      "name": "\uD63C\uD569\uD615\xB7\uC18D\uB3C4 \uC6B0\uC120",
+      "description": "\uC720\uD6A8\uD328\uC640 \uC18D\uB3C4\uB97C \uC911\uC2DC\uD558\uBA70 \uC190 \uAC00\uCE58\uC5D0 \uB9DE\uCDB0 \uC218\uBE44 \uAC15\uB3C4\uB97C \uC870\uC808",
+      "policy": "E",
+      "candidate": "M1-1",
+      "weights": {
+        "speed": 75,
+        "ukeire": 1.2,
+        "value": 0.16,
+        "pinfu": 0,
+        "risk": 0,
+        "maxShantenLoss": 1,
+        "honorModel": 1,
+        "adaptiveDefense": 20
+      },
+      "tuningMean": 79.01785714285714,
+      "improved": false,
+      "improvedVsV1": false,
+      "improvedVsY1": false,
+      "validation": {
+        "policy": "M1",
+        "seedClusters": 504,
+        "meanNet": 58.333333333333336,
+        "ci95Low": 43.30357142857143,
+        "ci95High": 73.26388888888889,
+        "games": 2016,
+        "winRate": 0.7425595238095238,
+        "ronShareAmongWins": 0.6072144288577155,
+        "tsumoShareAmongWins": 0.3927855711422846,
+        "firstWinRate": 0.28869047619047616,
+        "averageWinOrder": 1.877755511022044,
+        "averageWinDrawNumber": 45.60253841015364,
+        "netAmongWins": 192.31796927187708,
+        "winReceiptPerGame": 204.7123015873016,
+        "winReceiptAmongWins": 275.684702738811,
+        "dealInLossPerGame": 52.57936507936508,
+        "tsumoPaidPerGame": 99.18154761904762,
+        "drawLossPerGame": 0.8432539682539683,
+        "drawGainPerGame": 6.225198412698413,
+        "ronDeclinedPerGame": 0,
+        "pinfuWinsPerGame": 0.20982142857142858,
+        "closedKansPerGame": 0.023809523809523808,
+        "meanRank": 2.226686507936508,
+        "topScoreRate": 0.3695436507936508,
+        "comparisons": [
+          {
+            "comparison": "M1-V1",
+            "policy": "M1",
+            "reference": "V1",
+            "seedClusters": 504,
+            "meanDifference": 13.864087301587304,
+            "ci95Low": -4.340277777777779,
+            "ci95High": 32.266865079365076,
+            "simultaneousLow": -10.144159226190476,
+            "simultaneousHigh": 38.566468253968246,
+            "simultaneousConfidence": 0.9916666666666667,
+            "familySize": 6
+          },
+          {
+            "comparison": "M1-Y1",
+            "policy": "M1",
+            "reference": "Y1",
+            "seedClusters": 504,
+            "meanDifference": 11.582341269841272,
+            "ci95Low": -8.209325396825399,
+            "ci95High": 31.225818452380942,
+            "simultaneousLow": -14.542410714285714,
+            "simultaneousHigh": 37.839161706349195,
+            "simultaneousConfidence": 0.9916666666666667,
+            "familySize": 6
+          }
+        ]
+      }
+    },
+    {
+      "id": "M2",
+      "name": "\uD63C\uD569\uD615\xB7\uACE0\uB4DD\uC810 \uC6B0\uC120",
+      "description": "\uACE0\uB4DD\uC810 \uAC00\uB2A5\uC131\uC744 \uC911\uC2DC\uD558\uBA70 \uC190 \uAC00\uCE58\uC5D0 \uB9DE\uCDB0 \uC218\uBE44 \uAC15\uB3C4\uB97C \uC870\uC808",
+      "policy": "E",
+      "candidate": "M2-1",
+      "weights": {
+        "speed": 60,
+        "ukeire": 1,
+        "value": 0.24,
+        "pinfu": 0,
+        "risk": 0,
+        "maxShantenLoss": 1,
+        "honorModel": 1,
+        "adaptiveDefense": 32
+      },
+      "tuningMean": 57.34126984126984,
+      "improved": false,
+      "improvedVsV1": false,
+      "improvedVsY1": false,
+      "validation": {
+        "policy": "M2",
+        "seedClusters": 504,
+        "meanNet": 54.464285714285715,
+        "ci95Low": 39.33531746031746,
+        "ci95High": 70.33792162698411,
+        "games": 2016,
+        "winRate": 0.7321428571428571,
+        "ronShareAmongWins": 0.6368563685636857,
+        "tsumoShareAmongWins": 0.36314363143631434,
+        "firstWinRate": 0.28174603174603174,
+        "averageWinOrder": 1.9024390243902438,
+        "averageWinDrawNumber": 46.22628726287263,
+        "netAmongWins": 189.60027100271003,
+        "winReceiptPerGame": 203.5218253968254,
+        "winReceiptAmongWins": 277.9810298102981,
+        "dealInLossPerGame": 53.84424603174603,
+        "tsumoPaidPerGame": 103.37301587301587,
+        "drawLossPerGame": 1.0168650793650793,
+        "drawGainPerGame": 9.176587301587302,
+        "ronDeclinedPerGame": 0,
+        "pinfuWinsPerGame": 0.21378968253968253,
+        "closedKansPerGame": 0.02628968253968254,
+        "meanRank": 2.263888888888889,
+        "topScoreRate": 0.3472222222222222,
+        "comparisons": [
+          {
+            "comparison": "M2-V1",
+            "policy": "M2",
+            "reference": "V1",
+            "seedClusters": 504,
+            "meanDifference": 9.995039682539684,
+            "ci95Low": -8.159722222222221,
+            "ci95High": 27.629588293650784,
+            "simultaneousLow": -14.459945436507937,
+            "simultaneousHigh": 34.36755952380945,
+            "simultaneousConfidence": 0.9916666666666667,
+            "familySize": 6
+          },
+          {
+            "comparison": "M2-Y1",
+            "policy": "M2",
+            "reference": "Y1",
+            "seedClusters": 504,
+            "meanDifference": 7.713293650793652,
+            "ci95Low": -10.98710317460317,
+            "ci95High": 26.041666666666664,
+            "simultaneousLow": -17.146577380952383,
+            "simultaneousHigh": 32.92007688492062,
+            "simultaneousConfidence": 0.9916666666666667,
+            "familySize": 6
+          }
+        ]
+      }
+    },
+    {
+      "id": "M3",
+      "name": "\uD63C\uD569\uD615\xB7\uC218\uBE44 \uC6B0\uC120",
+      "description": "\uC18D\uB3C4\uC640 \uC810\uC218\uB97C \uD568\uAED8 \uBCF4\uBA70 \uB354 \uB192\uC740 \uC218\uBE44 \uAC00\uC911\uCE58\uB97C \uBE44\uAD50",
+      "policy": "E",
+      "candidate": "M3-2",
+      "weights": {
+        "speed": 65,
+        "ukeire": 1,
+        "value": 0.18,
+        "pinfu": 0,
+        "risk": 0,
+        "maxShantenLoss": 1,
+        "honorModel": 1,
+        "adaptiveDefense": 70
+      },
+      "tuningMean": 58.58134920634921,
+      "improved": false,
+      "improvedVsV1": false,
+      "improvedVsY1": false,
+      "validation": {
+        "policy": "M3",
+        "seedClusters": 504,
+        "meanNet": 59.44940476190476,
+        "ci95Low": 44.04761904761905,
+        "ci95High": 75.42162698412699,
+        "games": 2016,
+        "winRate": 0.7420634920634921,
+        "ronShareAmongWins": 0.6270053475935828,
+        "tsumoShareAmongWins": 0.3729946524064171,
+        "firstWinRate": 0.2802579365079365,
+        "averageWinOrder": 1.8957219251336899,
+        "averageWinDrawNumber": 46.31149732620321,
+        "netAmongWins": 188.77005347593584,
+        "winReceiptPerGame": 201.86011904761904,
+        "winReceiptAmongWins": 272.0254010695187,
+        "dealInLossPerGame": 48.214285714285715,
+        "tsumoPaidPerGame": 100.86805555555556,
+        "drawLossPerGame": 0.49603174603174605,
+        "drawGainPerGame": 7.16765873015873,
+        "ronDeclinedPerGame": 0,
+        "pinfuWinsPerGame": 0.21924603174603174,
+        "closedKansPerGame": 0.025297619047619048,
+        "meanRank": 2.230654761904762,
+        "topScoreRate": 0.35466269841269843,
+        "comparisons": [
+          {
+            "comparison": "M3-V1",
+            "policy": "M3",
+            "reference": "V1",
+            "seedClusters": 504,
+            "meanDifference": 14.980158730158728,
+            "ci95Low": -4.316096230158729,
+            "ci95High": 34.59821428571428,
+            "simultaneousLow": -10.706225198412696,
+            "simultaneousHigh": 40.81535218253967,
+            "simultaneousConfidence": 0.9916666666666667,
+            "familySize": 6
+          },
+          {
+            "comparison": "M3-Y1",
+            "policy": "M3",
+            "reference": "Y1",
+            "seedClusters": 504,
+            "meanDifference": 12.698412698412696,
+            "ci95Low": -6.6474454365079385,
+            "ci95High": 32.46527777777778,
+            "simultaneousLow": -13.848896329365076,
+            "simultaneousHigh": 39.56721230158727,
+            "simultaneousConfidence": 0.9916666666666667,
+            "familySize": 6
+          }
+        ]
+      }
+    }
+  ],
+  "summary": [
+    {
+      "policy": "A",
+      "seedClusters": 504,
+      "meanNet": 43.37797619047619,
+      "ci95Low": 31.671006944444446,
+      "ci95High": 55.43154761904762,
+      "games": 2016,
+      "winRate": 0.7762896825396826,
+      "ronShareAmongWins": 0.6044728434504792,
+      "tsumoShareAmongWins": 0.39552715654952075,
+      "firstWinRate": 0.2881944444444444,
+      "averageWinOrder": 1.911182108626198,
+      "averageWinDrawNumber": 45.14568690095847,
+      "netAmongWins": 148.30670926517573,
+      "winReceiptPerGame": 186.65674603174602,
+      "winReceiptAmongWins": 240.44728434504793,
+      "dealInLossPerGame": 51.28968253968254,
+      "tsumoPaidPerGame": 97.6438492063492,
+      "drawLossPerGame": 0.3968253968253968,
+      "drawGainPerGame": 6.051587301587301,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.2088293650793651,
+      "closedKansPerGame": 0.019345238095238096,
+      "meanRank": 2.2544642857142856,
+      "topScoreRate": 0.33581349206349204
+    },
+    {
+      "policy": "D",
+      "seedClusters": 504,
+      "meanNet": 39.18650793650794,
+      "ci95Low": 26.04104662698413,
+      "ci95High": 52.65376984126984,
+      "games": 2016,
+      "winRate": 0.7361111111111112,
+      "ronShareAmongWins": 0.6057951482479784,
+      "tsumoShareAmongWins": 0.3942048517520216,
+      "firstWinRate": 0.27331349206349204,
+      "averageWinOrder": 1.9171159029649596,
+      "averageWinDrawNumber": 45.68059299191375,
+      "netAmongWins": 164.8921832884097,
+      "winReceiptPerGame": 189.23611111111111,
+      "winReceiptAmongWins": 257.07547169811323,
+      "dealInLossPerGame": 55.55555555555556,
+      "tsumoPaidPerGame": 100.7936507936508,
+      "drawLossPerGame": 0.8680555555555556,
+      "drawGainPerGame": 7.16765873015873,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.1909722222222222,
+      "closedKansPerGame": 0.023809523809523808,
+      "meanRank": 2.298611111111111,
+      "topScoreRate": 0.3288690476190476
+    },
+    {
+      "policy": "E",
+      "seedClusters": 504,
+      "meanNet": 18.799603174603174,
+      "ci95Low": 4.613095238095238,
+      "ci95High": 33.036334325396815,
+      "games": 2016,
+      "winRate": 0.7281746031746031,
+      "ronShareAmongWins": 0.6096730245231607,
+      "tsumoShareAmongWins": 0.39032697547683926,
+      "firstWinRate": 0.27033730158730157,
+      "averageWinOrder": 1.94141689373297,
+      "averageWinDrawNumber": 47.14713896457766,
+      "netAmongWins": 146.90054495912807,
+      "winReceiptPerGame": 171.6765873015873,
+      "winReceiptAmongWins": 235.76294277929156,
+      "dealInLossPerGame": 52.157738095238095,
+      "tsumoPaidPerGame": 105.18353174603175,
+      "drawLossPerGame": 1.9593253968253967,
+      "drawGainPerGame": 6.423611111111111,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.29811507936507936,
+      "closedKansPerGame": 0.023809523809523808,
+      "meanRank": 2.306547619047619,
+      "topScoreRate": 0.32688492063492064
+    },
+    {
+      "policy": "V1",
+      "seedClusters": 504,
+      "meanNet": 44.46924603174603,
+      "ci95Low": 30.50595238095238,
+      "ci95High": 58.333953373015866,
+      "games": 2016,
+      "winRate": 0.7356150793650794,
+      "ronShareAmongWins": 0.6041807147673635,
+      "tsumoShareAmongWins": 0.39581928523263654,
+      "firstWinRate": 0.27033730158730157,
+      "averageWinOrder": 1.916385704652731,
+      "averageWinDrawNumber": 44.95482130815914,
+      "netAmongWins": 171.2744436952124,
+      "winReceiptPerGame": 192.03869047619048,
+      "winReceiptAmongWins": 261.05866486850977,
+      "dealInLossPerGame": 54.78670634920635,
+      "tsumoPaidPerGame": 100.5704365079365,
+      "drawLossPerGame": 0.37202380952380953,
+      "drawGainPerGame": 8.159722222222221,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.19642857142857142,
+      "closedKansPerGame": 0.021825396825396824,
+      "meanRank": 2.2817460317460316,
+      "topScoreRate": 0.33581349206349204
+    },
+    {
+      "policy": "Y1",
+      "seedClusters": 504,
+      "meanNet": 46.75099206349206,
+      "ci95Low": 32.192460317460316,
+      "ci95High": 61.06150793650794,
+      "games": 2016,
+      "winRate": 0.7371031746031746,
+      "ronShareAmongWins": 0.6137281292059219,
+      "tsumoShareAmongWins": 0.38627187079407804,
+      "firstWinRate": 0.2718253968253968,
+      "averageWinOrder": 1.9158815612382234,
+      "averageWinDrawNumber": 45.117765814266484,
+      "netAmongWins": 176.61507402422612,
+      "winReceiptPerGame": 196.3045634920635,
+      "winReceiptAmongWins": 266.3189771197847,
+      "dealInLossPerGame": 56.94444444444444,
+      "tsumoPaidPerGame": 97.91666666666667,
+      "drawLossPerGame": 0.9424603174603174,
+      "drawGainPerGame": 6.25,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.20287698412698413,
+      "closedKansPerGame": 0.02132936507936508,
+      "meanRank": 2.2777777777777777,
+      "topScoreRate": 0.345734126984127
+    },
+    {
+      "policy": "M1",
+      "seedClusters": 504,
+      "meanNet": 58.333333333333336,
+      "ci95Low": 43.30357142857143,
+      "ci95High": 73.26388888888889,
+      "games": 2016,
+      "winRate": 0.7425595238095238,
+      "ronShareAmongWins": 0.6072144288577155,
+      "tsumoShareAmongWins": 0.3927855711422846,
+      "firstWinRate": 0.28869047619047616,
+      "averageWinOrder": 1.877755511022044,
+      "averageWinDrawNumber": 45.60253841015364,
+      "netAmongWins": 192.31796927187708,
+      "winReceiptPerGame": 204.7123015873016,
+      "winReceiptAmongWins": 275.684702738811,
+      "dealInLossPerGame": 52.57936507936508,
+      "tsumoPaidPerGame": 99.18154761904762,
+      "drawLossPerGame": 0.8432539682539683,
+      "drawGainPerGame": 6.225198412698413,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.20982142857142858,
+      "closedKansPerGame": 0.023809523809523808,
+      "meanRank": 2.226686507936508,
+      "topScoreRate": 0.3695436507936508
+    },
+    {
+      "policy": "M2",
+      "seedClusters": 504,
+      "meanNet": 54.464285714285715,
+      "ci95Low": 39.33531746031746,
+      "ci95High": 70.33792162698411,
+      "games": 2016,
+      "winRate": 0.7321428571428571,
+      "ronShareAmongWins": 0.6368563685636857,
+      "tsumoShareAmongWins": 0.36314363143631434,
+      "firstWinRate": 0.28174603174603174,
+      "averageWinOrder": 1.9024390243902438,
+      "averageWinDrawNumber": 46.22628726287263,
+      "netAmongWins": 189.60027100271003,
+      "winReceiptPerGame": 203.5218253968254,
+      "winReceiptAmongWins": 277.9810298102981,
+      "dealInLossPerGame": 53.84424603174603,
+      "tsumoPaidPerGame": 103.37301587301587,
+      "drawLossPerGame": 1.0168650793650793,
+      "drawGainPerGame": 9.176587301587302,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.21378968253968253,
+      "closedKansPerGame": 0.02628968253968254,
+      "meanRank": 2.263888888888889,
+      "topScoreRate": 0.3472222222222222
+    },
+    {
+      "policy": "M3",
+      "seedClusters": 504,
+      "meanNet": 59.44940476190476,
+      "ci95Low": 44.04761904761905,
+      "ci95High": 75.42162698412699,
+      "games": 2016,
+      "winRate": 0.7420634920634921,
+      "ronShareAmongWins": 0.6270053475935828,
+      "tsumoShareAmongWins": 0.3729946524064171,
+      "firstWinRate": 0.2802579365079365,
+      "averageWinOrder": 1.8957219251336899,
+      "averageWinDrawNumber": 46.31149732620321,
+      "netAmongWins": 188.77005347593584,
+      "winReceiptPerGame": 201.86011904761904,
+      "winReceiptAmongWins": 272.0254010695187,
+      "dealInLossPerGame": 48.214285714285715,
+      "tsumoPaidPerGame": 100.86805555555556,
+      "drawLossPerGame": 0.49603174603174605,
+      "drawGainPerGame": 7.16765873015873,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.21924603174603174,
+      "closedKansPerGame": 0.025297619047619048,
+      "meanRank": 2.230654761904762,
+      "topScoreRate": 0.35466269841269843
+    }
+  ],
+  "pairs": [
+    {
+      "comparison": "D-A",
+      "policy": "D",
+      "reference": "A",
+      "seedClusters": 504,
+      "meanDifference": -4.191468253968253,
+      "ci95Low": -17.90674603174603,
+      "ci95High": 9.995039682539684,
+      "exploratory": true
+    },
+    {
+      "comparison": "E-A",
+      "policy": "E",
+      "reference": "A",
+      "seedClusters": 504,
+      "meanDifference": -24.578373015873016,
+      "ci95Low": -42.46093749999999,
+      "ci95High": -7.390873015873019,
+      "exploratory": true
+    },
+    {
+      "comparison": "V1-A",
+      "policy": "V1",
+      "reference": "A",
+      "seedClusters": 504,
+      "meanDifference": 1.0912698412698418,
+      "ci95Low": -12.947048611111109,
+      "ci95High": 15.749007936507937,
+      "exploratory": true
+    },
+    {
+      "comparison": "Y1-A",
+      "policy": "Y1",
+      "reference": "A",
+      "seedClusters": 504,
+      "meanDifference": 3.3730158730158735,
+      "ci95Low": -12.87264384920635,
+      "ci95High": 19.569692460317448,
+      "exploratory": true
+    },
+    {
+      "comparison": "M1-A",
+      "policy": "M1",
+      "reference": "A",
+      "seedClusters": 504,
+      "meanDifference": 14.955357142857146,
+      "ci95Low": -2.5799851190476217,
+      "ci95High": 32.11805555555556,
+      "exploratory": true
+    },
+    {
+      "comparison": "M2-A",
+      "policy": "M2",
+      "reference": "A",
+      "seedClusters": 504,
+      "meanDifference": 11.086309523809526,
+      "ci95Low": -6.672867063492059,
+      "ci95High": 29.34027777777778,
+      "exploratory": true
+    },
+    {
+      "comparison": "M3-A",
+      "policy": "M3",
+      "reference": "A",
+      "seedClusters": 504,
+      "meanDifference": 16.07142857142857,
+      "ci95Low": -2.0343501984127044,
+      "ci95High": 34.673239087301575,
+      "exploratory": true
+    },
+    {
+      "comparison": "E-D",
+      "policy": "E",
+      "reference": "D",
+      "seedClusters": 504,
+      "meanDifference": -20.386904761904763,
+      "ci95Low": -39.01351686507937,
+      "ci95High": -1.711309523809522,
+      "exploratory": true
+    },
+    {
+      "comparison": "V1-D",
+      "policy": "V1",
+      "reference": "D",
+      "seedClusters": 504,
+      "meanDifference": 5.282738095238095,
+      "ci95Low": -5.381944444444443,
+      "ci95High": 15.922619047619044,
+      "exploratory": true
+    },
+    {
+      "comparison": "Y1-D",
+      "policy": "Y1",
+      "reference": "D",
+      "seedClusters": 504,
+      "meanDifference": 7.5644841269841265,
+      "ci95Low": -6.721230158730158,
+      "ci95High": 21.80121527777777,
+      "exploratory": true
+    },
+    {
+      "comparison": "M1-D",
+      "policy": "M1",
+      "reference": "D",
+      "seedClusters": 504,
+      "meanDifference": 19.1468253968254,
+      "ci95Low": 1.5873015873015885,
+      "ci95High": 36.80617559523808,
+      "exploratory": true
+    },
+    {
+      "comparison": "M2-D",
+      "policy": "M2",
+      "reference": "D",
+      "seedClusters": 504,
+      "meanDifference": 15.277777777777779,
+      "ci95Low": -2.132936507936506,
+      "ci95High": 32.59052579365078,
+      "exploratory": true
+    },
+    {
+      "comparison": "M3-D",
+      "policy": "M3",
+      "reference": "D",
+      "seedClusters": 504,
+      "meanDifference": 20.262896825396822,
+      "ci95Low": 2.1081349206349245,
+      "ci95High": 39.014136904761884,
+      "exploratory": true
+    },
+    {
+      "comparison": "V1-E",
+      "policy": "V1",
+      "reference": "E",
+      "seedClusters": 504,
+      "meanDifference": 25.669642857142858,
+      "ci95Low": 6.993427579365078,
+      "ci95High": 44.1468253968254,
+      "exploratory": true
+    },
+    {
+      "comparison": "Y1-E",
+      "policy": "Y1",
+      "reference": "E",
+      "seedClusters": 504,
+      "meanDifference": 27.95138888888889,
+      "ci95Low": 8.803943452380954,
+      "ci95High": 47.37103174603175,
+      "exploratory": true
+    },
+    {
+      "comparison": "M1-E",
+      "policy": "M1",
+      "reference": "E",
+      "seedClusters": 504,
+      "meanDifference": 39.533730158730165,
+      "ci95Low": 21.67596726190476,
+      "ci95High": 57.465897817460316,
+      "exploratory": true
+    },
+    {
+      "comparison": "M2-E",
+      "policy": "M2",
+      "reference": "E",
+      "seedClusters": 504,
+      "meanDifference": 35.664682539682545,
+      "ci95Low": 17.013268849206348,
+      "ci95High": 55.00992063492063,
+      "exploratory": true
+    },
+    {
+      "comparison": "M3-E",
+      "policy": "M3",
+      "reference": "E",
+      "seedClusters": 504,
+      "meanDifference": 40.64980158730158,
+      "ci95Low": 21.42857142857143,
+      "ci95High": 59.97147817460316,
+      "exploratory": true
+    },
+    {
+      "comparison": "Y1-V1",
+      "policy": "Y1",
+      "reference": "V1",
+      "seedClusters": 504,
+      "meanDifference": 2.2817460317460316,
+      "ci95Low": -9.05257936507936,
+      "ci95High": 13.442460317460316,
+      "exploratory": true
+    },
+    {
+      "comparison": "M1-V1",
+      "policy": "M1",
+      "reference": "V1",
+      "seedClusters": 504,
+      "meanDifference": 13.864087301587304,
+      "ci95Low": -4.340277777777779,
+      "ci95High": 32.266865079365076,
+      "exploratory": true
+    },
+    {
+      "comparison": "M2-V1",
+      "policy": "M2",
+      "reference": "V1",
+      "seedClusters": 504,
+      "meanDifference": 9.995039682539684,
+      "ci95Low": -8.159722222222221,
+      "ci95High": 27.629588293650784,
+      "exploratory": true
+    },
+    {
+      "comparison": "M3-V1",
+      "policy": "M3",
+      "reference": "V1",
+      "seedClusters": 504,
+      "meanDifference": 14.980158730158728,
+      "ci95Low": -4.316096230158729,
+      "ci95High": 34.59821428571428,
+      "exploratory": true
+    },
+    {
+      "comparison": "M1-Y1",
+      "policy": "M1",
+      "reference": "Y1",
+      "seedClusters": 504,
+      "meanDifference": 11.582341269841272,
+      "ci95Low": -8.209325396825399,
+      "ci95High": 31.225818452380942,
+      "exploratory": true
+    },
+    {
+      "comparison": "M2-Y1",
+      "policy": "M2",
+      "reference": "Y1",
+      "seedClusters": 504,
+      "meanDifference": 7.713293650793652,
+      "ci95Low": -10.98710317460317,
+      "ci95High": 26.041666666666664,
+      "exploratory": true
+    },
+    {
+      "comparison": "M3-Y1",
+      "policy": "M3",
+      "reference": "Y1",
+      "seedClusters": 504,
+      "meanDifference": 12.698412698412696,
+      "ci95Low": -6.6474454365079385,
+      "ci95High": 32.46527777777778,
+      "exploratory": true
+    },
+    {
+      "comparison": "M2-M1",
+      "policy": "M2",
+      "reference": "M1",
+      "seedClusters": 504,
+      "meanDifference": -3.8690476190476204,
+      "ci95Low": -18.625992063492063,
+      "ci95High": 11.186135912698404,
+      "exploratory": true
+    },
+    {
+      "comparison": "M3-M1",
+      "policy": "M3",
+      "reference": "M1",
+      "seedClusters": 504,
+      "meanDifference": 1.1160714285714235,
+      "ci95Low": -12.674231150793654,
+      "ci95High": 15.128968253968253,
+      "exploratory": true
+    },
+    {
+      "comparison": "M3-M2",
+      "policy": "M3",
+      "reference": "M2",
+      "seedClusters": 504,
+      "meanDifference": 4.985119047619044,
+      "ci95Low": -9.399801587301589,
+      "ci95High": 19.469866071428562,
+      "exploratory": true
+    }
+  ],
+  "improvements": [
+    {
+      "comparison": "M1-V1",
+      "policy": "M1",
+      "reference": "V1",
+      "seedClusters": 504,
+      "meanDifference": 13.864087301587304,
+      "ci95Low": -4.340277777777779,
+      "ci95High": 32.266865079365076,
+      "simultaneousLow": -10.144159226190476,
+      "simultaneousHigh": 38.566468253968246,
+      "simultaneousConfidence": 0.9916666666666667,
+      "familySize": 6
+    },
+    {
+      "comparison": "M2-V1",
+      "policy": "M2",
+      "reference": "V1",
+      "seedClusters": 504,
+      "meanDifference": 9.995039682539684,
+      "ci95Low": -8.159722222222221,
+      "ci95High": 27.629588293650784,
+      "simultaneousLow": -14.459945436507937,
+      "simultaneousHigh": 34.36755952380945,
+      "simultaneousConfidence": 0.9916666666666667,
+      "familySize": 6
+    },
+    {
+      "comparison": "M3-V1",
+      "policy": "M3",
+      "reference": "V1",
+      "seedClusters": 504,
+      "meanDifference": 14.980158730158728,
+      "ci95Low": -4.316096230158729,
+      "ci95High": 34.59821428571428,
+      "simultaneousLow": -10.706225198412696,
+      "simultaneousHigh": 40.81535218253967,
+      "simultaneousConfidence": 0.9916666666666667,
+      "familySize": 6
+    },
+    {
+      "comparison": "M1-Y1",
+      "policy": "M1",
+      "reference": "Y1",
+      "seedClusters": 504,
+      "meanDifference": 11.582341269841272,
+      "ci95Low": -8.209325396825399,
+      "ci95High": 31.225818452380942,
+      "simultaneousLow": -14.542410714285714,
+      "simultaneousHigh": 37.839161706349195,
+      "simultaneousConfidence": 0.9916666666666667,
+      "familySize": 6
+    },
+    {
+      "comparison": "M2-Y1",
+      "policy": "M2",
+      "reference": "Y1",
+      "seedClusters": 504,
+      "meanDifference": 7.713293650793652,
+      "ci95Low": -10.98710317460317,
+      "ci95High": 26.041666666666664,
+      "simultaneousLow": -17.146577380952383,
+      "simultaneousHigh": 32.92007688492062,
+      "simultaneousConfidence": 0.9916666666666667,
+      "familySize": 6
+    },
+    {
+      "comparison": "M3-Y1",
+      "policy": "M3",
+      "reference": "Y1",
+      "seedClusters": 504,
+      "meanDifference": 12.698412698412696,
+      "ci95Low": -6.6474454365079385,
+      "ci95High": 32.46527777777778,
+      "simultaneousLow": -13.848896329365076,
+      "simultaneousHigh": 39.56721230158727,
+      "simultaneousConfidence": 0.9916666666666667,
+      "familySize": 6
+    }
+  ],
+  "profileSummary": [
+    {
+      "profile": "cautious",
+      "policy": "A",
+      "seedClusters": 84,
+      "meanNet": 145.08928571428572,
+      "ci95Low": 114.43452380952381,
+      "ci95High": 175.44642857142858,
+      "games": 336,
+      "winRate": 0.7886904761904762,
+      "ronShareAmongWins": 0.6188679245283019,
+      "tsumoShareAmongWins": 0.38113207547169814,
+      "firstWinRate": 0.4166666666666667,
+      "averageWinOrder": 1.6415094339622642,
+      "averageWinDrawNumber": 51.577358490566034,
+      "netAmongWins": 184.71698113207546,
+      "winReceiptPerGame": 206.25,
+      "winReceiptAmongWins": 261.50943396226415,
+      "dealInLossPerGame": 25.446428571428573,
+      "tsumoPaidPerGame": 64.88095238095238,
+      "drawLossPerGame": 0.5952380952380952,
+      "drawGainPerGame": 29.761904761904763,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.28273809523809523,
+      "closedKansPerGame": 0.023809523809523808,
+      "meanRank": 1.8422619047619047,
+      "topScoreRate": 0.4732142857142857
+    },
+    {
+      "profile": "cautious",
+      "policy": "D",
+      "seedClusters": 84,
+      "meanNet": 162.35119047619048,
+      "ci95Low": 123.65699404761905,
+      "ci95High": 204.16666666666666,
+      "games": 336,
+      "winRate": 0.7410714285714286,
+      "ronShareAmongWins": 0.5983935742971888,
+      "tsumoShareAmongWins": 0.40160642570281124,
+      "firstWinRate": 0.39285714285714285,
+      "averageWinOrder": 1.6586345381526104,
+      "averageWinDrawNumber": 52.44979919678715,
+      "netAmongWins": 228.5140562248996,
+      "winReceiptPerGame": 222.17261904761904,
+      "winReceiptAmongWins": 299.7991967871486,
+      "dealInLossPerGame": 28.273809523809526,
+      "tsumoPaidPerGame": 64.58333333333333,
+      "drawLossPerGame": 1.7857142857142858,
+      "drawGainPerGame": 34.82142857142857,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.25892857142857145,
+      "closedKansPerGame": 0.03571428571428571,
+      "meanRank": 1.8333333333333333,
+      "topScoreRate": 0.4880952380952381
+    },
+    {
+      "profile": "cautious",
+      "policy": "E",
+      "seedClusters": 84,
+      "meanNet": 171.875,
+      "ci95Low": 142.85714285714286,
+      "ci95High": 201.33928571428572,
+      "games": 336,
+      "winRate": 0.7738095238095238,
+      "ronShareAmongWins": 0.573076923076923,
+      "tsumoShareAmongWins": 0.4269230769230769,
+      "firstWinRate": 0.41369047619047616,
+      "averageWinOrder": 1.646153846153846,
+      "averageWinDrawNumber": 53.973076923076924,
+      "netAmongWins": 228.46153846153845,
+      "winReceiptPerGame": 222.02380952380952,
+      "winReceiptAmongWins": 286.9230769230769,
+      "dealInLossPerGame": 26.19047619047619,
+      "tsumoPaidPerGame": 53.125,
+      "drawLossPerGame": 1.7857142857142858,
+      "drawGainPerGame": 30.952380952380953,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.36607142857142855,
+      "closedKansPerGame": 0.023809523809523808,
+      "meanRank": 1.7291666666666667,
+      "topScoreRate": 0.5238095238095238
+    },
+    {
+      "profile": "cautious",
+      "policy": "V1",
+      "seedClusters": 84,
+      "meanNet": 163.83928571428572,
+      "ci95Low": 122.61904761904762,
+      "ci95High": 206.39880952380952,
+      "games": 336,
+      "winRate": 0.7202380952380952,
+      "ronShareAmongWins": 0.5991735537190083,
+      "tsumoShareAmongWins": 0.40082644628099173,
+      "firstWinRate": 0.38392857142857145,
+      "averageWinOrder": 1.6322314049586777,
+      "averageWinDrawNumber": 50.49586776859504,
+      "netAmongWins": 234.91735537190084,
+      "winReceiptPerGame": 222.32142857142858,
+      "winReceiptAmongWins": 308.6776859504132,
+      "dealInLossPerGame": 31.101190476190474,
+      "tsumoPaidPerGame": 68.00595238095238,
+      "drawLossPerGame": 0.44642857142857145,
+      "drawGainPerGame": 41.07142857142857,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.28273809523809523,
+      "closedKansPerGame": 0.026785714285714284,
+      "meanRank": 1.8571428571428572,
+      "topScoreRate": 0.47619047619047616
+    },
+    {
+      "profile": "cautious",
+      "policy": "Y1",
+      "seedClusters": 84,
+      "meanNet": 176.9345238095238,
+      "ci95Low": 137.5,
+      "ci95High": 216.66666666666666,
+      "games": 336,
+      "winRate": 0.7380952380952381,
+      "ronShareAmongWins": 0.5725806451612904,
+      "tsumoShareAmongWins": 0.4274193548387097,
+      "firstWinRate": 0.42857142857142855,
+      "averageWinOrder": 1.5846774193548387,
+      "averageWinDrawNumber": 50.028225806451616,
+      "netAmongWins": 261.89516129032256,
+      "winReceiptPerGame": 242.5595238095238,
+      "winReceiptAmongWins": 328.6290322580645,
+      "dealInLossPerGame": 28.86904761904762,
+      "tsumoPaidPerGame": 65.77380952380952,
+      "drawLossPerGame": 0.2976190476190476,
+      "drawGainPerGame": 29.31547619047619,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.27976190476190477,
+      "closedKansPerGame": 0.023809523809523808,
+      "meanRank": 1.8035714285714286,
+      "topScoreRate": 0.5178571428571429
+    },
+    {
+      "profile": "cautious",
+      "policy": "M1",
+      "seedClusters": 84,
+      "meanNet": 195.08928571428572,
+      "ci95Low": 154.76190476190476,
+      "ci95High": 237.20238095238096,
+      "games": 336,
+      "winRate": 0.7529761904761905,
+      "ronShareAmongWins": 0.549407114624506,
+      "tsumoShareAmongWins": 0.4505928853754941,
+      "firstWinRate": 0.3958333333333333,
+      "averageWinOrder": 1.6521739130434783,
+      "averageWinDrawNumber": 52.355731225296445,
+      "netAmongWins": 272.1343873517786,
+      "winReceiptPerGame": 265.0297619047619,
+      "winReceiptAmongWins": 351.97628458498025,
+      "dealInLossPerGame": 28.273809523809526,
+      "tsumoPaidPerGame": 71.42857142857143,
+      "drawLossPerGame": 2.6785714285714284,
+      "drawGainPerGame": 32.44047619047619,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.25,
+      "closedKansPerGame": 0.023809523809523808,
+      "meanRank": 1.8035714285714286,
+      "topScoreRate": 0.5148809523809523
+    },
+    {
+      "profile": "cautious",
+      "policy": "M2",
+      "seedClusters": 84,
+      "meanNet": 183.7797619047619,
+      "ci95Low": 139.4345238095238,
+      "ci95High": 230.21205357142853,
+      "games": 336,
+      "winRate": 0.7261904761904762,
+      "ronShareAmongWins": 0.5942622950819673,
+      "tsumoShareAmongWins": 0.4057377049180328,
+      "firstWinRate": 0.3958333333333333,
+      "averageWinOrder": 1.6352459016393444,
+      "averageWinDrawNumber": 52.221311475409834,
+      "netAmongWins": 254.91803278688525,
+      "winReceiptPerGame": 241.66666666666666,
+      "winReceiptAmongWins": 332.78688524590166,
+      "dealInLossPerGame": 27.232142857142858,
+      "tsumoPaidPerGame": 76.48809523809524,
+      "drawLossPerGame": 1.7857142857142858,
+      "drawGainPerGame": 47.61904761904762,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.25595238095238093,
+      "closedKansPerGame": 0.03273809523809524,
+      "meanRank": 1.869047619047619,
+      "topScoreRate": 0.49404761904761907
+    },
+    {
+      "profile": "cautious",
+      "policy": "M3",
+      "seedClusters": 84,
+      "meanNet": 202.08333333333334,
+      "ci95Low": 155.6547619047619,
+      "ci95High": 250.29761904761904,
+      "games": 336,
+      "winRate": 0.7619047619047619,
+      "ronShareAmongWins": 0.6015625,
+      "tsumoShareAmongWins": 0.3984375,
+      "firstWinRate": 0.39880952380952384,
+      "averageWinOrder": 1.63671875,
+      "averageWinDrawNumber": 53.734375,
+      "netAmongWins": 266.2109375,
+      "winReceiptPerGame": 257.73809523809524,
+      "winReceiptAmongWins": 338.28125,
+      "dealInLossPerGame": 20.68452380952381,
+      "tsumoPaidPerGame": 72.02380952380952,
+      "drawLossPerGame": 1.7857142857142858,
+      "drawGainPerGame": 38.839285714285715,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.27976190476190477,
+      "closedKansPerGame": 0.023809523809523808,
+      "meanRank": 1.7827380952380953,
+      "topScoreRate": 0.5089285714285714
+    },
+    {
+      "profile": "mixed",
+      "policy": "A",
+      "seedClusters": 84,
+      "meanNet": -12.797619047619047,
+      "ci95Low": -52.82738095238095,
+      "ci95High": 26.636904761904763,
+      "games": 336,
+      "winRate": 0.7142857142857143,
+      "ronShareAmongWins": 0.5875,
+      "tsumoShareAmongWins": 0.4125,
+      "firstWinRate": 0.22321428571428573,
+      "averageWinOrder": 2.025,
+      "averageWinDrawNumber": 44.68333333333333,
+      "netAmongWins": 137.70833333333334,
+      "winReceiptPerGame": 165.625,
+      "winReceiptAmongWins": 231.875,
+      "dealInLossPerGame": 55.50595238095238,
+      "tsumoPaidPerGame": 122.91666666666667,
+      "drawLossPerGame": 0,
+      "drawGainPerGame": 0,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.17559523809523808,
+      "closedKansPerGame": 0.017857142857142856,
+      "meanRank": 2.5148809523809526,
+      "topScoreRate": 0.2857142857142857
+    },
+    {
+      "profile": "mixed",
+      "policy": "D",
+      "seedClusters": 84,
+      "meanNet": -0.8928571428571429,
+      "ci95Low": -38.98809523809524,
+      "ci95High": 34.970238095238095,
+      "games": 336,
+      "winRate": 0.7261904761904762,
+      "ronShareAmongWins": 0.5737704918032787,
+      "tsumoShareAmongWins": 0.4262295081967213,
+      "firstWinRate": 0.21428571428571427,
+      "averageWinOrder": 2.0368852459016393,
+      "averageWinDrawNumber": 44.65163934426229,
+      "netAmongWins": 140.1639344262295,
+      "winReceiptPerGame": 178.7202380952381,
+      "winReceiptAmongWins": 246.10655737704917,
+      "dealInLossPerGame": 56.54761904761905,
+      "tsumoPaidPerGame": 123.06547619047619,
+      "drawLossPerGame": 0,
+      "drawGainPerGame": 0,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.17857142857142858,
+      "closedKansPerGame": 0.017857142857142856,
+      "meanRank": 2.4017857142857144,
+      "topScoreRate": 0.31547619047619047
+    },
+    {
+      "profile": "mixed",
+      "policy": "E",
+      "seedClusters": 84,
+      "meanNet": -30.803571428571427,
+      "ci95Low": -68.00595238095238,
+      "ci95High": 4.315476190476191,
+      "games": 336,
+      "winRate": 0.7083333333333334,
+      "ronShareAmongWins": 0.6050420168067226,
+      "tsumoShareAmongWins": 0.3949579831932773,
+      "firstWinRate": 0.24404761904761904,
+      "averageWinOrder": 2.0252100840336134,
+      "averageWinDrawNumber": 46.096638655462186,
+      "netAmongWins": 117.6470588235294,
+      "winReceiptPerGame": 151.48809523809524,
+      "winReceiptAmongWins": 213.8655462184874,
+      "dealInLossPerGame": 62.94642857142857,
+      "tsumoPaidPerGame": 119.3452380952381,
+      "drawLossPerGame": 0,
+      "drawGainPerGame": 0,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.27976190476190477,
+      "closedKansPerGame": 0.01488095238095238,
+      "meanRank": 2.4910714285714284,
+      "topScoreRate": 0.2916666666666667
+    },
+    {
+      "profile": "mixed",
+      "policy": "V1",
+      "seedClusters": 84,
+      "meanNet": 6.696428571428571,
+      "ci95Low": -32.44047619047619,
+      "ci95High": 45.089285714285715,
+      "games": 336,
+      "winRate": 0.7202380952380952,
+      "ronShareAmongWins": 0.5867768595041323,
+      "tsumoShareAmongWins": 0.4132231404958678,
+      "firstWinRate": 0.22321428571428573,
+      "averageWinOrder": 2.0082644628099175,
+      "averageWinDrawNumber": 44.247933884297524,
+      "netAmongWins": 160.53719008264463,
+      "winReceiptPerGame": 182.29166666666666,
+      "winReceiptAmongWins": 253.099173553719,
+      "dealInLossPerGame": 56.398809523809526,
+      "tsumoPaidPerGame": 119.19642857142857,
+      "drawLossPerGame": 0,
+      "drawGainPerGame": 0,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.17857142857142858,
+      "closedKansPerGame": 0.01488095238095238,
+      "meanRank": 2.386904761904762,
+      "topScoreRate": 0.3392857142857143
+    },
+    {
+      "profile": "mixed",
+      "policy": "Y1",
+      "seedClusters": 84,
+      "meanNet": 19.94047619047619,
+      "ci95Low": -20.386904761904763,
+      "ci95High": 60.42038690476185,
+      "games": 336,
+      "winRate": 0.7291666666666666,
+      "ronShareAmongWins": 0.6081632653061224,
+      "tsumoShareAmongWins": 0.39183673469387753,
+      "firstWinRate": 0.23809523809523808,
+      "averageWinOrder": 1.9836734693877551,
+      "averageWinDrawNumber": 44.95510204081633,
+      "netAmongWins": 164.69387755102042,
+      "winReceiptPerGame": 186.16071428571428,
+      "winReceiptAmongWins": 255.30612244897958,
+      "dealInLossPerGame": 61.30952380952381,
+      "tsumoPaidPerGame": 108.18452380952381,
+      "drawLossPerGame": 0,
+      "drawGainPerGame": 3.2738095238095237,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.19047619047619047,
+      "closedKansPerGame": 0.020833333333333332,
+      "meanRank": 2.3482142857142856,
+      "topScoreRate": 0.35119047619047616
+    },
+    {
+      "profile": "mixed",
+      "policy": "M1",
+      "seedClusters": 84,
+      "meanNet": 48.36309523809524,
+      "ci95Low": 11.458333333333334,
+      "ci95High": 86.01190476190476,
+      "games": 336,
+      "winRate": 0.7619047619047619,
+      "ronShareAmongWins": 0.62109375,
+      "tsumoShareAmongWins": 0.37890625,
+      "firstWinRate": 0.28273809523809523,
+      "averageWinOrder": 1.91015625,
+      "averageWinDrawNumber": 43.58984375,
+      "netAmongWins": 175.390625,
+      "winReceiptPerGame": 197.76785714285714,
+      "winReceiptAmongWins": 259.5703125,
+      "dealInLossPerGame": 54.76190476190476,
+      "tsumoPaidPerGame": 94.19642857142857,
+      "drawLossPerGame": 0.44642857142857145,
+      "drawGainPerGame": 0,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.23214285714285715,
+      "closedKansPerGame": 0.01488095238095238,
+      "meanRank": 2.2886904761904763,
+      "topScoreRate": 0.3482142857142857
+    },
+    {
+      "profile": "mixed",
+      "policy": "M2",
+      "seedClusters": 84,
+      "meanNet": 25.148809523809526,
+      "ci95Low": -13.694196428571425,
+      "ci95High": 63.98809523809524,
+      "games": 336,
+      "winRate": 0.7380952380952381,
+      "ronShareAmongWins": 0.6451612903225806,
+      "tsumoShareAmongWins": 0.3548387096774194,
+      "firstWinRate": 0.2619047619047619,
+      "averageWinOrder": 1.971774193548387,
+      "averageWinDrawNumber": 44.79435483870968,
+      "netAmongWins": 168.75,
+      "winReceiptPerGame": 196.42857142857142,
+      "winReceiptAmongWins": 266.1290322580645,
+      "dealInLossPerGame": 59.970238095238095,
+      "tsumoPaidPerGame": 110.41666666666667,
+      "drawLossPerGame": 0.8928571428571429,
+      "drawGainPerGame": 0,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.2261904761904762,
+      "closedKansPerGame": 0.023809523809523808,
+      "meanRank": 2.4136904761904763,
+      "topScoreRate": 0.2916666666666667
+    },
+    {
+      "profile": "mixed",
+      "policy": "M3",
+      "seedClusters": 84,
+      "meanNet": 16.964285714285715,
+      "ci95Low": -20.833333333333332,
+      "ci95High": 55.95238095238095,
+      "games": 336,
+      "winRate": 0.7410714285714286,
+      "ronShareAmongWins": 0.6465863453815262,
+      "tsumoShareAmongWins": 0.3534136546184739,
+      "firstWinRate": 0.25595238095238093,
+      "averageWinOrder": 1.9879518072289157,
+      "averageWinDrawNumber": 45.088353413654616,
+      "netAmongWins": 152.40963855421685,
+      "winReceiptPerGame": 184.82142857142858,
+      "winReceiptAmongWins": 249.3975903614458,
+      "dealInLossPerGame": 55.357142857142854,
+      "tsumoPaidPerGame": 112.20238095238095,
+      "drawLossPerGame": 0.2976190476190476,
+      "drawGainPerGame": 0,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.20833333333333334,
+      "closedKansPerGame": 0.020833333333333332,
+      "meanRank": 2.3779761904761907,
+      "topScoreRate": 0.29464285714285715
+    },
+    {
+      "profile": "pinfu",
+      "policy": "A",
+      "seedClusters": 84,
+      "meanNet": 61.30952380952381,
+      "ci95Low": 34.970238095238095,
+      "ci95High": 87.64880952380952,
+      "games": 336,
+      "winRate": 0.8363095238095238,
+      "ronShareAmongWins": 0.6405693950177936,
+      "tsumoShareAmongWins": 0.3594306049822064,
+      "firstWinRate": 0.2767857142857143,
+      "averageWinOrder": 1.9537366548042705,
+      "averageWinDrawNumber": 41.145907473309606,
+      "netAmongWins": 136.29893238434164,
+      "winReceiptPerGame": 180.95238095238096,
+      "winReceiptAmongWins": 216.37010676156584,
+      "dealInLossPerGame": 47.470238095238095,
+      "tsumoPaidPerGame": 72.17261904761905,
+      "drawLossPerGame": 0,
+      "drawGainPerGame": 0,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.24702380952380953,
+      "closedKansPerGame": 0.017857142857142856,
+      "meanRank": 2.1488095238095237,
+      "topScoreRate": 0.37202380952380953
+    },
+    {
+      "profile": "pinfu",
+      "policy": "D",
+      "seedClusters": 84,
+      "meanNet": 44.345238095238095,
+      "ci95Low": 10.56547619047619,
+      "ci95High": 80.20833333333333,
+      "games": 336,
+      "winRate": 0.7380952380952381,
+      "ronShareAmongWins": 0.6169354838709677,
+      "tsumoShareAmongWins": 0.38306451612903225,
+      "firstWinRate": 0.2113095238095238,
+      "averageWinOrder": 2.032258064516129,
+      "averageWinDrawNumber": 42.40725806451613,
+      "netAmongWins": 165.7258064516129,
+      "winReceiptPerGame": 182.73809523809524,
+      "winReceiptAmongWins": 247.58064516129033,
+      "dealInLossPerGame": 53.57142857142857,
+      "tsumoPaidPerGame": 86.01190476190476,
+      "drawLossPerGame": 0,
+      "drawGainPerGame": 1.1904761904761905,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.19642857142857142,
+      "closedKansPerGame": 0.023809523809523808,
+      "meanRank": 2.324404761904762,
+      "topScoreRate": 0.34523809523809523
+    },
+    {
+      "profile": "pinfu",
+      "policy": "E",
+      "seedClusters": 84,
+      "meanNet": -2.9761904761904763,
+      "ci95Low": -36.30952380952381,
+      "ci95High": 29.613095238095237,
+      "games": 336,
+      "winRate": 0.7232142857142857,
+      "ronShareAmongWins": 0.6255144032921811,
+      "tsumoShareAmongWins": 0.37448559670781895,
+      "firstWinRate": 0.24107142857142858,
+      "averageWinOrder": 2.0329218106995883,
+      "averageWinDrawNumber": 44.74074074074074,
+      "netAmongWins": 123.04526748971193,
+      "winReceiptPerGame": 159.07738095238096,
+      "winReceiptAmongWins": 219.9588477366255,
+      "dealInLossPerGame": 56.398809523809526,
+      "tsumoPaidPerGame": 105.80357142857143,
+      "drawLossPerGame": 0,
+      "drawGainPerGame": 0.1488095238095238,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.30952380952380953,
+      "closedKansPerGame": 0.026785714285714284,
+      "meanRank": 2.4285714285714284,
+      "topScoreRate": 0.2916666666666667
+    },
+    {
+      "profile": "pinfu",
+      "policy": "V1",
+      "seedClusters": 84,
+      "meanNet": 56.99404761904762,
+      "ci95Low": 22.767857142857142,
+      "ci95High": 93.00595238095238,
+      "games": 336,
+      "winRate": 0.7529761904761905,
+      "ronShareAmongWins": 0.6126482213438735,
+      "tsumoShareAmongWins": 0.38735177865612647,
+      "firstWinRate": 0.22916666666666666,
+      "averageWinOrder": 2.0118577075098814,
+      "averageWinDrawNumber": 41.17391304347826,
+      "netAmongWins": 170.1581027667984,
+      "winReceiptPerGame": 191.51785714285714,
+      "winReceiptAmongWins": 254.34782608695653,
+      "dealInLossPerGame": 49.404761904761905,
+      "tsumoPaidPerGame": 86.45833333333333,
+      "drawLossPerGame": 0,
+      "drawGainPerGame": 1.3392857142857142,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.20535714285714285,
+      "closedKansPerGame": 0.026785714285714284,
+      "meanRank": 2.2708333333333335,
+      "topScoreRate": 0.3482142857142857
+    },
+    {
+      "profile": "pinfu",
+      "policy": "Y1",
+      "seedClusters": 84,
+      "meanNet": 55.654761904761905,
+      "ci95Low": 21.726190476190474,
+      "ci95High": 90.92261904761905,
+      "games": 336,
+      "winRate": 0.7321428571428571,
+      "ronShareAmongWins": 0.6056910569105691,
+      "tsumoShareAmongWins": 0.3943089430894309,
+      "firstWinRate": 0.20535714285714285,
+      "averageWinOrder": 2.0284552845528454,
+      "averageWinDrawNumber": 41.47560975609756,
+      "netAmongWins": 184.34959349593495,
+      "winReceiptPerGame": 196.13095238095238,
+      "winReceiptAmongWins": 267.8861788617886,
+      "dealInLossPerGame": 57.291666666666664,
+      "tsumoPaidPerGame": 83.7797619047619,
+      "drawLossPerGame": 0,
+      "drawGainPerGame": 0.5952380952380952,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.19345238095238096,
+      "closedKansPerGame": 0.017857142857142856,
+      "meanRank": 2.3125,
+      "topScoreRate": 0.3541666666666667
+    },
+    {
+      "profile": "pinfu",
+      "policy": "M1",
+      "seedClusters": 84,
+      "meanNet": 48.51190476190476,
+      "ci95Low": 12.797619047619047,
+      "ci95High": 85.12648809523799,
+      "games": 336,
+      "winRate": 0.7470238095238095,
+      "ronShareAmongWins": 0.6254980079681275,
+      "tsumoShareAmongWins": 0.3745019920318725,
+      "firstWinRate": 0.23809523809523808,
+      "averageWinOrder": 2.00796812749004,
+      "averageWinDrawNumber": 43.79282868525896,
+      "netAmongWins": 175.4980079681275,
+      "winReceiptPerGame": 193.30357142857142,
+      "winReceiptAmongWins": 258.7649402390438,
+      "dealInLossPerGame": 48.36309523809524,
+      "tsumoPaidPerGame": 96.42857142857143,
+      "drawLossPerGame": 0,
+      "drawGainPerGame": 0,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.20833333333333334,
+      "closedKansPerGame": 0.026785714285714284,
+      "meanRank": 2.261904761904762,
+      "topScoreRate": 0.375
+    },
+    {
+      "profile": "pinfu",
+      "policy": "M2",
+      "seedClusters": 84,
+      "meanNet": 61.30952380952381,
+      "ci95Low": 26.785714285714285,
+      "ci95High": 97.17633928571423,
+      "games": 336,
+      "winRate": 0.7529761904761905,
+      "ronShareAmongWins": 0.6284584980237155,
+      "tsumoShareAmongWins": 0.3715415019762846,
+      "firstWinRate": 0.24702380952380953,
+      "averageWinOrder": 2.015810276679842,
+      "averageWinDrawNumber": 44.316205533596836,
+      "netAmongWins": 187.74703557312253,
+      "winReceiptPerGame": 203.57142857142858,
+      "winReceiptAmongWins": 270.35573122529644,
+      "dealInLossPerGame": 51.19047619047619,
+      "tsumoPaidPerGame": 90.92261904761905,
+      "drawLossPerGame": 0.1488095238095238,
+      "drawGainPerGame": 0,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.21428571428571427,
+      "closedKansPerGame": 0.026785714285714284,
+      "meanRank": 2.255952380952381,
+      "topScoreRate": 0.35714285714285715
+    },
+    {
+      "profile": "pinfu",
+      "policy": "M3",
+      "seedClusters": 84,
+      "meanNet": 60.56547619047619,
+      "ci95Low": 24.702380952380953,
+      "ci95High": 97.61904761904762,
+      "games": 336,
+      "winRate": 0.7410714285714286,
+      "ronShareAmongWins": 0.642570281124498,
+      "tsumoShareAmongWins": 0.357429718875502,
+      "firstWinRate": 0.24404761904761904,
+      "averageWinOrder": 1.963855421686747,
+      "averageWinDrawNumber": 43.12048192771084,
+      "netAmongWins": 185.140562248996,
+      "winReceiptPerGame": 197.02380952380952,
+      "winReceiptAmongWins": 265.86345381526104,
+      "dealInLossPerGame": 44.19642857142857,
+      "tsumoPaidPerGame": 92.41071428571429,
+      "drawLossPerGame": 0.1488095238095238,
+      "drawGainPerGame": 0.2976190476190476,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.21428571428571427,
+      "closedKansPerGame": 0.017857142857142856,
+      "meanRank": 2.255952380952381,
+      "topScoreRate": 0.36904761904761907
+    },
+    {
+      "profile": "speed",
+      "policy": "A",
+      "seedClusters": 84,
+      "meanNet": 0,
+      "ci95Low": 0,
+      "ci95High": 0,
+      "games": 336,
+      "winRate": 0.75,
+      "ronShareAmongWins": 0.5952380952380952,
+      "tsumoShareAmongWins": 0.40476190476190477,
+      "firstWinRate": 0.25,
+      "averageWinOrder": 2,
+      "averageWinDrawNumber": 39.65873015873016,
+      "netAmongWins": 146.62698412698413,
+      "winReceiptPerGame": 184.82142857142858,
+      "winReceiptAmongWins": 246.42857142857142,
+      "dealInLossPerGame": 57.589285714285715,
+      "tsumoPaidPerGame": 127.23214285714286,
+      "drawLossPerGame": 0,
+      "drawGainPerGame": 0,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.17857142857142858,
+      "closedKansPerGame": 0.020833333333333332,
+      "meanRank": 2.4226190476190474,
+      "topScoreRate": 0.2767857142857143
+    },
+    {
+      "profile": "speed",
+      "policy": "D",
+      "seedClusters": 84,
+      "meanNet": -22.023809523809526,
+      "ci95Low": -52.232142857142854,
+      "ci95High": 7.886904761904762,
+      "games": 336,
+      "winRate": 0.6904761904761905,
+      "ronShareAmongWins": 0.6336206896551724,
+      "tsumoShareAmongWins": 0.36637931034482757,
+      "firstWinRate": 0.24404761904761904,
+      "averageWinOrder": 1.9482758620689655,
+      "averageWinDrawNumber": 40.935344827586206,
+      "netAmongWins": 146.76724137931035,
+      "winReceiptPerGame": 164.58333333333334,
+      "winReceiptAmongWins": 238.36206896551724,
+      "dealInLossPerGame": 63.095238095238095,
+      "tsumoPaidPerGame": 123.51190476190476,
+      "drawLossPerGame": 0,
+      "drawGainPerGame": 0,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.18154761904761904,
+      "closedKansPerGame": 0.020833333333333332,
+      "meanRank": 2.5,
+      "topScoreRate": 0.26785714285714285
+    },
+    {
+      "profile": "speed",
+      "policy": "E",
+      "seedClusters": 84,
+      "meanNet": -12.202380952380953,
+      "ci95Low": -45.982142857142854,
+      "ci95High": 20.982142857142858,
+      "games": 336,
+      "winRate": 0.7261904761904762,
+      "ronShareAmongWins": 0.6475409836065574,
+      "tsumoShareAmongWins": 0.3524590163934426,
+      "firstWinRate": 0.24107142857142858,
+      "averageWinOrder": 2.0245901639344264,
+      "averageWinDrawNumber": 43.278688524590166,
+      "netAmongWins": 127.25409836065573,
+      "winReceiptPerGame": 156.99404761904762,
+      "winReceiptAmongWins": 216.18852459016392,
+      "dealInLossPerGame": 54.464285714285715,
+      "tsumoPaidPerGame": 115.92261904761905,
+      "drawLossPerGame": 0,
+      "drawGainPerGame": 1.1904761904761905,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.29464285714285715,
+      "closedKansPerGame": 0.02976190476190476,
+      "meanRank": 2.3779761904761907,
+      "topScoreRate": 0.31547619047619047
+    },
+    {
+      "profile": "speed",
+      "policy": "V1",
+      "seedClusters": 84,
+      "meanNet": -14.732142857142858,
+      "ci95Low": -43.601190476190474,
+      "ci95High": 14.880952380952381,
+      "games": 336,
+      "winRate": 0.6875,
+      "ronShareAmongWins": 0.6060606060606061,
+      "tsumoShareAmongWins": 0.3939393939393939,
+      "firstWinRate": 0.23511904761904762,
+      "averageWinOrder": 1.9610389610389611,
+      "averageWinDrawNumber": 40.75757575757576,
+      "netAmongWins": 164.5021645021645,
+      "winReceiptPerGame": 172.32142857142858,
+      "winReceiptAmongWins": 250.64935064935065,
+      "dealInLossPerGame": 69.79166666666667,
+      "tsumoPaidPerGame": 117.26190476190476,
+      "drawLossPerGame": 0,
+      "drawGainPerGame": 0,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.16964285714285715,
+      "closedKansPerGame": 0.01488095238095238,
+      "meanRank": 2.494047619047619,
+      "topScoreRate": 0.2708333333333333
+    },
+    {
+      "profile": "speed",
+      "policy": "Y1",
+      "seedClusters": 84,
+      "meanNet": -21.428571428571427,
+      "ci95Low": -52.529761904761905,
+      "ci95High": 9.676339285714231,
+      "games": 336,
+      "winRate": 0.6785714285714286,
+      "ronShareAmongWins": 0.6447368421052632,
+      "tsumoShareAmongWins": 0.35526315789473684,
+      "firstWinRate": 0.20535714285714285,
+      "averageWinOrder": 2.013157894736842,
+      "averageWinDrawNumber": 40.421052631578945,
+      "netAmongWins": 151.75438596491227,
+      "winReceiptPerGame": 166.51785714285714,
+      "winReceiptAmongWins": 245.39473684210526,
+      "dealInLossPerGame": 67.41071428571429,
+      "tsumoPaidPerGame": 120.53571428571429,
+      "drawLossPerGame": 0,
+      "drawGainPerGame": 0,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.19047619047619047,
+      "closedKansPerGame": 0.011904761904761904,
+      "meanRank": 2.5238095238095237,
+      "topScoreRate": 0.2619047619047619
+    },
+    {
+      "profile": "speed",
+      "policy": "M1",
+      "seedClusters": 84,
+      "meanNet": 11.904761904761905,
+      "ci95Low": -23.06547619047619,
+      "ci95High": 47.916666666666664,
+      "games": 336,
+      "winRate": 0.7172619047619048,
+      "ronShareAmongWins": 0.6058091286307054,
+      "tsumoShareAmongWins": 0.3941908713692946,
+      "firstWinRate": 0.24702380952380953,
+      "averageWinOrder": 1.95850622406639,
+      "averageWinDrawNumber": 41.02074688796681,
+      "netAmongWins": 179.46058091286307,
+      "winReceiptPerGame": 187.79761904761904,
+      "winReceiptAmongWins": 261.82572614107886,
+      "dealInLossPerGame": 57.291666666666664,
+      "tsumoPaidPerGame": 118.60119047619048,
+      "drawLossPerGame": 0,
+      "drawGainPerGame": 0,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.18154761904761904,
+      "closedKansPerGame": 0.020833333333333332,
+      "meanRank": 2.3511904761904763,
+      "topScoreRate": 0.33035714285714285
+    },
+    {
+      "profile": "speed",
+      "policy": "M2",
+      "seedClusters": 84,
+      "meanNet": -40.17857142857143,
+      "ci95Low": -73.06919642857143,
+      "ci95High": -7.883184523809578,
+      "games": 336,
+      "winRate": 0.6458333333333334,
+      "ronShareAmongWins": 0.6820276497695853,
+      "tsumoShareAmongWins": 0.31797235023041476,
+      "firstWinRate": 0.21726190476190477,
+      "averageWinOrder": 1.9585253456221199,
+      "averageWinDrawNumber": 41.30414746543779,
+      "netAmongWins": 158.06451612903226,
+      "winReceiptPerGame": 161.16071428571428,
+      "winReceiptAmongWins": 249.53917050691246,
+      "dealInLossPerGame": 69.94047619047619,
+      "tsumoPaidPerGame": 131.54761904761904,
+      "drawLossPerGame": 0.1488095238095238,
+      "drawGainPerGame": 0.2976190476190476,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.18154761904761904,
+      "closedKansPerGame": 0.01488095238095238,
+      "meanRank": 2.5089285714285716,
+      "topScoreRate": 0.27976190476190477
+    },
+    {
+      "profile": "speed",
+      "policy": "M3",
+      "seedClusters": 84,
+      "meanNet": -20.386904761904763,
+      "ci95Low": -55.357142857142854,
+      "ci95High": 14.732142857142858,
+      "games": 336,
+      "winRate": 0.6696428571428571,
+      "ronShareAmongWins": 0.6533333333333333,
+      "tsumoShareAmongWins": 0.3466666666666667,
+      "firstWinRate": 0.21428571428571427,
+      "averageWinOrder": 1.9955555555555555,
+      "averageWinDrawNumber": 41.30222222222222,
+      "netAmongWins": 167.77777777777777,
+      "winReceiptPerGame": 170.6845238095238,
+      "winReceiptAmongWins": 254.88888888888889,
+      "dealInLossPerGame": 62.79761904761905,
+      "tsumoPaidPerGame": 127.97619047619048,
+      "drawLossPerGame": 0.5952380952380952,
+      "drawGainPerGame": 0.2976190476190476,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.18154761904761904,
+      "closedKansPerGame": 0.020833333333333332,
+      "meanRank": 2.4761904761904763,
+      "topScoreRate": 0.2916666666666667
+    },
+    {
+      "profile": "value",
+      "policy": "A",
+      "seedClusters": 84,
+      "meanNet": 4.910714285714286,
+      "ci95Low": -20.238095238095237,
+      "ci95High": 29.166666666666668,
+      "games": 336,
+      "winRate": 0.7559523809523809,
+      "ronShareAmongWins": 0.594488188976378,
+      "tsumoShareAmongWins": 0.40551181102362205,
+      "firstWinRate": 0.23214285714285715,
+      "averageWinOrder": 2.0511811023622046,
+      "averageWinDrawNumber": 44.35826771653543,
+      "netAmongWins": 127.95275590551181,
+      "winReceiptPerGame": 181.10119047619048,
+      "winReceiptAmongWins": 239.56692913385828,
+      "dealInLossPerGame": 65.32738095238095,
+      "tsumoPaidPerGame": 110.86309523809524,
+      "drawLossPerGame": 0,
+      "drawGainPerGame": 0,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.1636904761904762,
+      "closedKansPerGame": 0.017857142857142856,
+      "meanRank": 2.425595238095238,
+      "topScoreRate": 0.28273809523809523
+    },
+    {
+      "profile": "value",
+      "policy": "D",
+      "seedClusters": 84,
+      "meanNet": 0,
+      "ci95Low": 0,
+      "ci95High": 0,
+      "games": 336,
+      "winRate": 0.7410714285714286,
+      "ronShareAmongWins": 0.6465863453815262,
+      "tsumoShareAmongWins": 0.3534136546184739,
+      "firstWinRate": 0.25,
+      "averageWinOrder": 1.9879518072289157,
+      "averageWinDrawNumber": 43.23694779116466,
+      "netAmongWins": 142.570281124498,
+      "winReceiptPerGame": 178.86904761904762,
+      "winReceiptAmongWins": 241.36546184738955,
+      "dealInLossPerGame": 63.24404761904762,
+      "tsumoPaidPerGame": 115.625,
+      "drawLossPerGame": 0,
+      "drawGainPerGame": 0,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.15178571428571427,
+      "closedKansPerGame": 0.023809523809523808,
+      "meanRank": 2.4464285714285716,
+      "topScoreRate": 0.2648809523809524
+    },
+    {
+      "profile": "value",
+      "policy": "E",
+      "seedClusters": 84,
+      "meanNet": -15.773809523809524,
+      "ci95Low": -52.529761904761905,
+      "ci95High": 22.321428571428573,
+      "games": 336,
+      "winRate": 0.7053571428571429,
+      "ronShareAmongWins": 0.5991561181434599,
+      "tsumoShareAmongWins": 0.4008438818565401,
+      "firstWinRate": 0.2113095238095238,
+      "averageWinOrder": 2.0464135021097047,
+      "averageWinDrawNumber": 45.20675105485232,
+      "netAmongWins": 136.0759493670886,
+      "winReceiptPerGame": 161.3095238095238,
+      "winReceiptAmongWins": 228.69198312236287,
+      "dealInLossPerGame": 58.92857142857143,
+      "tsumoPaidPerGame": 118.00595238095238,
+      "drawLossPerGame": 0.1488095238095238,
+      "drawGainPerGame": 0,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.25892857142857145,
+      "closedKansPerGame": 0.023809523809523808,
+      "meanRank": 2.488095238095238,
+      "topScoreRate": 0.27976190476190477
+    },
+    {
+      "profile": "value",
+      "policy": "V1",
+      "seedClusters": 84,
+      "meanNet": 9.077380952380953,
+      "ci95Low": -14.880952380952381,
+      "ci95High": 35.56547619047619,
+      "games": 336,
+      "winRate": 0.7589285714285714,
+      "ronShareAmongWins": 0.6352941176470588,
+      "tsumoShareAmongWins": 0.36470588235294116,
+      "firstWinRate": 0.24702380952380953,
+      "averageWinOrder": 2.007843137254902,
+      "averageWinDrawNumber": 43.19607843137255,
+      "netAmongWins": 142.35294117647058,
+      "winReceiptPerGame": 186.16071428571428,
+      "winReceiptAmongWins": 245.2941176470588,
+      "dealInLossPerGame": 59.523809523809526,
+      "tsumoPaidPerGame": 117.55952380952381,
+      "drawLossPerGame": 0,
+      "drawGainPerGame": 0,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.15476190476190477,
+      "closedKansPerGame": 0.026785714285714284,
+      "meanRank": 2.3958333333333335,
+      "topScoreRate": 0.27976190476190477
+    },
+    {
+      "profile": "value",
+      "policy": "Y1",
+      "seedClusters": 84,
+      "meanNet": 3.869047619047619,
+      "ci95Low": -23.958333333333332,
+      "ci95High": 33.035714285714285,
+      "games": 336,
+      "winRate": 0.7559523809523809,
+      "ronShareAmongWins": 0.6338582677165354,
+      "tsumoShareAmongWins": 0.3661417322834646,
+      "firstWinRate": 0.23511904761904762,
+      "averageWinOrder": 2.0236220472440944,
+      "averageWinDrawNumber": 43.07874015748032,
+      "netAmongWins": 137.5984251968504,
+      "winReceiptPerGame": 182.88690476190476,
+      "winReceiptAmongWins": 241.9291338582677,
+      "dealInLossPerGame": 68.45238095238095,
+      "tsumoPaidPerGame": 110.56547619047619,
+      "drawLossPerGame": 0,
+      "drawGainPerGame": 0,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.17857142857142858,
+      "closedKansPerGame": 0.023809523809523808,
+      "meanRank": 2.4107142857142856,
+      "topScoreRate": 0.27976190476190477
+    },
+    {
+      "profile": "value",
+      "policy": "M1",
+      "seedClusters": 84,
+      "meanNet": -4.017857142857143,
+      "ci95Low": -34.07738095238095,
+      "ci95High": 27.083333333333332,
+      "games": 336,
+      "winRate": 0.7172619047619048,
+      "ronShareAmongWins": 0.6473029045643154,
+      "tsumoShareAmongWins": 0.35269709543568467,
+      "firstWinRate": 0.2619047619047619,
+      "averageWinOrder": 1.937759336099585,
+      "averageWinDrawNumber": 42.25726141078838,
+      "netAmongWins": 165.76763485477179,
+      "winReceiptPerGame": 176.04166666666666,
+      "winReceiptAmongWins": 245.4356846473029,
+      "dealInLossPerGame": 64.58333333333333,
+      "tsumoPaidPerGame": 115.32738095238095,
+      "drawLossPerGame": 0.1488095238095238,
+      "drawGainPerGame": 0,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.17261904761904762,
+      "closedKansPerGame": 0.023809523809523808,
+      "meanRank": 2.431547619047619,
+      "topScoreRate": 0.2916666666666667
+    },
+    {
+      "profile": "value",
+      "policy": "M2",
+      "seedClusters": 84,
+      "meanNet": 14.43452380952381,
+      "ci95Low": -17.113095238095237,
+      "ci95High": 50,
+      "games": 336,
+      "winRate": 0.7410714285714286,
+      "ronShareAmongWins": 0.6666666666666666,
+      "tsumoShareAmongWins": 0.3333333333333333,
+      "firstWinRate": 0.25297619047619047,
+      "averageWinOrder": 1.9919678714859437,
+      "averageWinDrawNumber": 42.52208835341366,
+      "netAmongWins": 166.26506024096386,
+      "winReceiptPerGame": 182.29166666666666,
+      "winReceiptAmongWins": 245.98393574297188,
+      "dealInLossPerGame": 56.845238095238095,
+      "tsumoPaidPerGame": 110.41666666666667,
+      "drawLossPerGame": 0.5952380952380952,
+      "drawGainPerGame": 0,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.1875,
+      "closedKansPerGame": 0.020833333333333332,
+      "meanRank": 2.369047619047619,
+      "topScoreRate": 0.30654761904761907
+    },
+    {
+      "profile": "value",
+      "policy": "M3",
+      "seedClusters": 84,
+      "meanNet": 12.648809523809524,
+      "ci95Low": -16.517857142857142,
+      "ci95High": 43.601190476190474,
+      "games": 336,
+      "winRate": 0.7321428571428571,
+      "ronShareAmongWins": 0.6219512195121951,
+      "tsumoShareAmongWins": 0.3780487804878049,
+      "firstWinRate": 0.23511904761904762,
+      "averageWinOrder": 1.9878048780487805,
+      "averageWinDrawNumber": 42.735772357723576,
+      "netAmongWins": 170.73170731707316,
+      "winReceiptPerGame": 179.91071428571428,
+      "winReceiptAmongWins": 245.73170731707316,
+      "dealInLossPerGame": 51.19047619047619,
+      "tsumoPaidPerGame": 116.07142857142857,
+      "drawLossPerGame": 0,
+      "drawGainPerGame": 0,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.20238095238095238,
+      "closedKansPerGame": 0.020833333333333332,
+      "meanRank": 2.3660714285714284,
+      "topScoreRate": 0.2976190476190476
+    },
+    {
+      "profile": "valuePressure",
+      "policy": "A",
+      "seedClusters": 84,
+      "meanNet": 61.75595238095238,
+      "ci95Low": 27.083333333333332,
+      "ci95High": 96.2797619047619,
+      "games": 336,
+      "winRate": 0.8125,
+      "ronShareAmongWins": 0.5860805860805861,
+      "tsumoShareAmongWins": 0.4139194139194139,
+      "firstWinRate": 0.33035714285714285,
+      "averageWinOrder": 1.8168498168498168,
+      "averageWinDrawNumber": 49.223443223443226,
+      "netAmongWins": 155.12820512820514,
+      "winReceiptPerGame": 201.1904761904762,
+      "winReceiptAmongWins": 247.61904761904762,
+      "dealInLossPerGame": 56.398809523809526,
+      "tsumoPaidPerGame": 87.79761904761905,
+      "drawLossPerGame": 1.7857142857142858,
+      "drawGainPerGame": 6.5476190476190474,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.20535714285714285,
+      "closedKansPerGame": 0.017857142857142856,
+      "meanRank": 2.1726190476190474,
+      "topScoreRate": 0.3244047619047619
+    },
+    {
+      "profile": "valuePressure",
+      "policy": "D",
+      "seedClusters": 84,
+      "meanNet": 51.339285714285715,
+      "ci95Low": 17.55952380952381,
+      "ci95High": 86.16071428571429,
+      "games": 336,
+      "winRate": 0.7797619047619048,
+      "ronShareAmongWins": 0.5687022900763359,
+      "tsumoShareAmongWins": 0.4312977099236641,
+      "firstWinRate": 0.3273809523809524,
+      "averageWinOrder": 1.8473282442748091,
+      "averageWinDrawNumber": 49.82824427480916,
+      "netAmongWins": 163.93129770992365,
+      "winReceiptPerGame": 208.33333333333334,
+      "winReceiptAmongWins": 267.17557251908397,
+      "dealInLossPerGame": 68.60119047619048,
+      "tsumoPaidPerGame": 91.96428571428571,
+      "drawLossPerGame": 3.4226190476190474,
+      "drawGainPerGame": 6.994047619047619,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.17857142857142858,
+      "closedKansPerGame": 0.020833333333333332,
+      "meanRank": 2.2857142857142856,
+      "topScoreRate": 0.2916666666666667
+    },
+    {
+      "profile": "valuePressure",
+      "policy": "E",
+      "seedClusters": 84,
+      "meanNet": 2.6785714285714284,
+      "ci95Low": -35.86309523809524,
+      "ci95High": 39.88095238095238,
+      "games": 336,
+      "winRate": 0.7321428571428571,
+      "ronShareAmongWins": 0.6097560975609756,
+      "tsumoShareAmongWins": 0.3902439024390244,
+      "firstWinRate": 0.2708333333333333,
+      "averageWinOrder": 1.8983739837398375,
+      "averageWinDrawNumber": 49.03252032520325,
+      "netAmongWins": 142.47967479674796,
+      "winReceiptPerGame": 179.16666666666666,
+      "winReceiptAmongWins": 244.71544715447155,
+      "dealInLossPerGame": 54.017857142857146,
+      "tsumoPaidPerGame": 118.89880952380952,
+      "drawLossPerGame": 9.821428571428571,
+      "drawGainPerGame": 6.25,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.27976190476190477,
+      "closedKansPerGame": 0.023809523809523808,
+      "meanRank": 2.324404761904762,
+      "topScoreRate": 0.25892857142857145
+    },
+    {
+      "profile": "valuePressure",
+      "policy": "V1",
+      "seedClusters": 84,
+      "meanNet": 44.94047619047619,
+      "ci95Low": 13.244047619047619,
+      "ci95High": 76.04166666666667,
+      "games": 336,
+      "winRate": 0.7738095238095238,
+      "ronShareAmongWins": 0.5846153846153846,
+      "tsumoShareAmongWins": 0.4153846153846154,
+      "firstWinRate": 0.30357142857142855,
+      "averageWinOrder": 1.873076923076923,
+      "averageWinDrawNumber": 49.58846153846154,
+      "netAmongWins": 157.5,
+      "winReceiptPerGame": 197.61904761904762,
+      "winReceiptAmongWins": 255.3846153846154,
+      "dealInLossPerGame": 62.5,
+      "tsumoPaidPerGame": 94.94047619047619,
+      "drawLossPerGame": 1.7857142857142858,
+      "drawGainPerGame": 6.5476190476190474,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.1875,
+      "closedKansPerGame": 0.020833333333333332,
+      "meanRank": 2.2857142857142856,
+      "topScoreRate": 0.3005952380952381
+    },
+    {
+      "profile": "valuePressure",
+      "policy": "Y1",
+      "seedClusters": 84,
+      "meanNet": 45.535714285714285,
+      "ci95Low": 6.543898809523813,
+      "ci95High": 82.59300595238089,
+      "games": 336,
+      "winRate": 0.7886904761904762,
+      "ronShareAmongWins": 0.6188679245283019,
+      "tsumoShareAmongWins": 0.38113207547169814,
+      "firstWinRate": 0.31845238095238093,
+      "averageWinOrder": 1.8716981132075472,
+      "averageWinDrawNumber": 50.049056603773586,
+      "netAmongWins": 159.43396226415095,
+      "winReceiptPerGame": 203.57142857142858,
+      "winReceiptAmongWins": 258.1132075471698,
+      "dealInLossPerGame": 58.333333333333336,
+      "tsumoPaidPerGame": 98.66071428571429,
+      "drawLossPerGame": 5.357142857142857,
+      "drawGainPerGame": 4.315476190476191,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.18452380952380953,
+      "closedKansPerGame": 0.02976190476190476,
+      "meanRank": 2.267857142857143,
+      "topScoreRate": 0.30952380952380953
+    },
+    {
+      "profile": "valuePressure",
+      "policy": "M1",
+      "seedClusters": 84,
+      "meanNet": 50.148809523809526,
+      "ci95Low": 12.202380952380953,
+      "ci95High": 87.6525297619047,
+      "games": 336,
+      "winRate": 0.7589285714285714,
+      "ronShareAmongWins": 0.596078431372549,
+      "tsumoShareAmongWins": 0.403921568627451,
+      "firstWinRate": 0.30654761904761907,
+      "averageWinOrder": 1.807843137254902,
+      "averageWinDrawNumber": 50.19607843137255,
+      "netAmongWins": 183.92156862745097,
+      "winReceiptPerGame": 208.33333333333334,
+      "winReceiptAmongWins": 274.5098039215686,
+      "dealInLossPerGame": 62.20238095238095,
+      "tsumoPaidPerGame": 99.10714285714286,
+      "drawLossPerGame": 1.7857142857142858,
+      "drawGainPerGame": 4.910714285714286,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.21428571428571427,
+      "closedKansPerGame": 0.03273809523809524,
+      "meanRank": 2.2232142857142856,
+      "topScoreRate": 0.35714285714285715
+    },
+    {
+      "profile": "valuePressure",
+      "policy": "M2",
+      "seedClusters": 84,
+      "meanNet": 82.29166666666667,
+      "ci95Low": 42.26190476190476,
+      "ci95High": 122.4702380952381,
+      "games": 336,
+      "winRate": 0.7886904761904762,
+      "ronShareAmongWins": 0.6113207547169811,
+      "tsumoShareAmongWins": 0.3886792452830189,
+      "firstWinRate": 0.31547619047619047,
+      "averageWinOrder": 1.8452830188679246,
+      "averageWinDrawNumber": 51.3811320754717,
+      "netAmongWins": 198.49056603773585,
+      "winReceiptPerGame": 236.01190476190476,
+      "winReceiptAmongWins": 299.24528301886795,
+      "dealInLossPerGame": 57.88690476190476,
+      "tsumoPaidPerGame": 100.44642857142857,
+      "drawLossPerGame": 2.5297619047619047,
+      "drawGainPerGame": 7.142857142857143,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.21726190476190477,
+      "closedKansPerGame": 0.03869047619047619,
+      "meanRank": 2.1666666666666665,
+      "topScoreRate": 0.3541666666666667
+    },
+    {
+      "profile": "valuePressure",
+      "policy": "M3",
+      "seedClusters": 84,
+      "meanNet": 84.82142857142857,
+      "ci95Low": 44.791666666666664,
+      "ci95High": 125.45014880952375,
+      "games": 336,
+      "winRate": 0.8065476190476191,
+      "ronShareAmongWins": 0.6014760147601476,
+      "tsumoShareAmongWins": 0.3985239852398524,
+      "firstWinRate": 0.3333333333333333,
+      "averageWinOrder": 1.8265682656826567,
+      "averageWinDrawNumber": 50.760147601476014,
+      "netAmongWins": 186.16236162361625,
+      "winReceiptPerGame": 220.98214285714286,
+      "winReceiptAmongWins": 273.98523985239854,
+      "dealInLossPerGame": 55.05952380952381,
+      "tsumoPaidPerGame": 84.52380952380952,
+      "drawLossPerGame": 0.1488095238095238,
+      "drawGainPerGame": 3.5714285714285716,
+      "ronDeclinedPerGame": 0,
+      "pinfuWinsPerGame": 0.22916666666666666,
+      "closedKansPerGame": 0.047619047619047616,
+      "meanRank": 2.125,
+      "topScoreRate": 0.36607142857142855
+    }
+  ],
+  "profilePairs": [
+    {
+      "profile": "cautious",
+      "comparison": "D-A",
+      "policy": "D",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": 17.26190476190476,
+      "ci95Low": -18.60119047619048,
+      "ci95High": 57.14657738095232,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "E-A",
+      "policy": "E",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": 26.785714285714278,
+      "ci95Low": -13.24404761904762,
+      "ci95High": 66.07142857142856,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "V1-A",
+      "policy": "V1",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": 18.75,
+      "ci95Low": -19.64285714285714,
+      "ci95High": 61.31324404761901,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "Y1-A",
+      "policy": "Y1",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": 31.845238095238074,
+      "ci95Low": -11.01190476190476,
+      "ci95High": 76.33928571428571,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "M1-A",
+      "policy": "M1",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": 50,
+      "ci95Low": 8.333333333333343,
+      "ci95High": 90.77380952380952,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "M2-A",
+      "policy": "M2",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": 38.690476190476176,
+      "ci95Low": -9.375,
+      "ci95High": 87.64880952380952,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "M3-A",
+      "policy": "M3",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": 56.99404761904762,
+      "ci95Low": 8.924851190476211,
+      "ci95High": 109.07738095238093,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "E-D",
+      "policy": "E",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 9.523809523809518,
+      "ci95Low": -37.80133928571427,
+      "ci95High": 54.16666666666666,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "V1-D",
+      "policy": "V1",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 1.4880952380952408,
+      "ci95Low": -29.166666666666657,
+      "ci95High": 33.48214285714286,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "Y1-D",
+      "policy": "Y1",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 14.583333333333314,
+      "ci95Low": -26.339285714285694,
+      "ci95High": 54.91071428571428,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "M1-D",
+      "policy": "M1",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 32.73809523809524,
+      "ci95Low": -13.98809523809524,
+      "ci95High": 79.16666666666666,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "M2-D",
+      "policy": "M2",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 21.428571428571416,
+      "ci95Low": -18.60119047619048,
+      "ci95High": 62.64880952380952,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "M3-D",
+      "policy": "M3",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 39.73214285714286,
+      "ci95Low": -6.398809523809518,
+      "ci95High": 87.35119047619045,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "V1-E",
+      "policy": "V1",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": -8.035714285714278,
+      "ci95Low": -55.208333333333314,
+      "ci95High": 41.071428571428555,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "Y1-E",
+      "policy": "Y1",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": 5.059523809523796,
+      "ci95Low": -39.583333333333314,
+      "ci95High": 50.45014880952377,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "M1-E",
+      "policy": "M1",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": 23.214285714285722,
+      "ci95Low": -21.28348214285716,
+      "ci95High": 67.85714285714286,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "M2-E",
+      "policy": "M2",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": 11.904761904761898,
+      "ci95Low": -36.309523809523824,
+      "ci95High": 61.904761904761926,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "M3-E",
+      "policy": "M3",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": 30.208333333333343,
+      "ci95Low": -21.729910714285715,
+      "ci95High": 83.33705357142853,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "Y1-V1",
+      "policy": "Y1",
+      "reference": "V1",
+      "seedClusters": 84,
+      "meanDifference": 13.095238095238074,
+      "ci95Low": -16.819196428571438,
+      "ci95High": 41.223958333333286,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "M1-V1",
+      "policy": "M1",
+      "reference": "V1",
+      "seedClusters": 84,
+      "meanDifference": 31.25,
+      "ci95Low": -22.02380952380952,
+      "ci95High": 84.08110119047615,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "M2-V1",
+      "policy": "M2",
+      "reference": "V1",
+      "seedClusters": 84,
+      "meanDifference": 19.940476190476176,
+      "ci95Low": -31.848958333333336,
+      "ci95High": 72.17261904761904,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "M3-V1",
+      "policy": "M3",
+      "reference": "V1",
+      "seedClusters": 84,
+      "meanDifference": 38.24404761904762,
+      "ci95Low": -15.327380952380963,
+      "ci95High": 92.5595238095238,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "M1-Y1",
+      "policy": "M1",
+      "reference": "Y1",
+      "seedClusters": 84,
+      "meanDifference": 18.154761904761926,
+      "ci95Low": -37.64880952380952,
+      "ci95High": 73.2180059523809,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "M2-Y1",
+      "policy": "M2",
+      "reference": "Y1",
+      "seedClusters": 84,
+      "meanDifference": 6.845238095238102,
+      "ci95Low": -44.64285714285714,
+      "ci95High": 58.184523809523796,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "M3-Y1",
+      "policy": "M3",
+      "reference": "Y1",
+      "seedClusters": 84,
+      "meanDifference": 25.148809523809547,
+      "ci95Low": -28.125,
+      "ci95High": 78.12872023809518,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "M2-M1",
+      "policy": "M2",
+      "reference": "M1",
+      "seedClusters": 84,
+      "meanDifference": -11.309523809523824,
+      "ci95Low": -44.940476190476176,
+      "ci95High": 22.473958333333286,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "M3-M1",
+      "policy": "M3",
+      "reference": "M1",
+      "seedClusters": 84,
+      "meanDifference": 6.99404761904762,
+      "ci95Low": -28.27380952380952,
+      "ci95High": 43.1547619047619,
+      "exploratory": true
+    },
+    {
+      "profile": "cautious",
+      "comparison": "M3-M2",
+      "policy": "M3",
+      "reference": "M2",
+      "seedClusters": 84,
+      "meanDifference": 18.303571428571445,
+      "ci95Low": -19.6465773809524,
+      "ci95High": 58.333333333333314,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "D-A",
+      "policy": "D",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": 11.904761904761905,
+      "ci95Low": -26.63690476190476,
+      "ci95High": 50.148809523809526,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "E-A",
+      "policy": "E",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": -18.00595238095238,
+      "ci95Low": -67.11681547619048,
+      "ci95High": 30.803571428571427,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "V1-A",
+      "policy": "V1",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": 19.49404761904762,
+      "ci95Low": -19.791666666666668,
+      "ci95High": 59.378720238095184,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "Y1-A",
+      "policy": "Y1",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": 32.73809523809524,
+      "ci95Low": -14.434523809523808,
+      "ci95High": 80.6547619047619,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "M1-A",
+      "policy": "M1",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": 61.16071428571429,
+      "ci95Low": 12.202380952380953,
+      "ci95High": 111.313244047619,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "M2-A",
+      "policy": "M2",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": 37.94642857142857,
+      "ci95Low": -5.509672619047616,
+      "ci95High": 82.44419642857137,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "M3-A",
+      "policy": "M3",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": 29.761904761904763,
+      "ci95Low": -20.238095238095237,
+      "ci95High": 80.6547619047619,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "E-D",
+      "policy": "E",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": -29.910714285714285,
+      "ci95Low": -85.41666666666667,
+      "ci95High": 24.404761904761905,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "V1-D",
+      "policy": "V1",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 7.589285714285714,
+      "ci95Low": -15.029761904761905,
+      "ci95High": 30.357142857142858,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "Y1-D",
+      "policy": "Y1",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 20.833333333333332,
+      "ci95Low": -15.922619047619047,
+      "ci95High": 58.18452380952381,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "M1-D",
+      "policy": "M1",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 49.25595238095239,
+      "ci95Low": 2.6785714285714306,
+      "ci95High": 95.68452380952381,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "M2-D",
+      "policy": "M2",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 26.041666666666668,
+      "ci95Low": -16.36904761904762,
+      "ci95High": 69.04761904761904,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "M3-D",
+      "policy": "M3",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 17.857142857142858,
+      "ci95Low": -31.40252976190476,
+      "ci95High": 66.9680059523809,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "V1-E",
+      "policy": "V1",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": 37.5,
+      "ci95Low": -16.6703869047619,
+      "ci95High": 94.64657738095232,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "Y1-E",
+      "policy": "Y1",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": 50.74404761904762,
+      "ci95Low": -6.997767857142854,
+      "ci95High": 109.82142857142857,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "M1-E",
+      "policy": "M1",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": 79.16666666666667,
+      "ci95Low": 34.67261904761905,
+      "ci95High": 126.04166666666667,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "M2-E",
+      "policy": "M2",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": 55.95238095238095,
+      "ci95Low": 8.333333333333334,
+      "ci95High": 106.10119047619048,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "M3-E",
+      "policy": "M3",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": 47.76785714285714,
+      "ci95Low": -0.8965773809523779,
+      "ci95High": 99.70238095238096,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "Y1-V1",
+      "policy": "Y1",
+      "reference": "V1",
+      "seedClusters": 84,
+      "meanDifference": 13.244047619047619,
+      "ci95Low": -17.11309523809524,
+      "ci95High": 44.94047619047619,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "M1-V1",
+      "policy": "M1",
+      "reference": "V1",
+      "seedClusters": 84,
+      "meanDifference": 41.66666666666667,
+      "ci95Low": -4.021577380952378,
+      "ci95High": 87.94642857142857,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "M2-V1",
+      "policy": "M2",
+      "reference": "V1",
+      "seedClusters": 84,
+      "meanDifference": 18.452380952380956,
+      "ci95Low": -22.61904761904762,
+      "ci95High": 59.229910714285666,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "M3-V1",
+      "policy": "M3",
+      "reference": "V1",
+      "seedClusters": 84,
+      "meanDifference": 10.267857142857144,
+      "ci95Low": -38.095238095238095,
+      "ci95High": 59.375,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "M1-Y1",
+      "policy": "M1",
+      "reference": "Y1",
+      "seedClusters": 84,
+      "meanDifference": 28.42261904761905,
+      "ci95Low": -21.726190476190474,
+      "ci95High": 78.42261904761905,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "M2-Y1",
+      "policy": "M2",
+      "reference": "Y1",
+      "seedClusters": 84,
+      "meanDifference": 5.208333333333336,
+      "ci95Low": -36.458333333333336,
+      "ci95High": 48.06547619047619,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "M3-Y1",
+      "policy": "M3",
+      "reference": "Y1",
+      "seedClusters": 84,
+      "meanDifference": -2.9761904761904745,
+      "ci95Low": -50.148809523809526,
+      "ci95High": 45.238095238095234,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "M2-M1",
+      "policy": "M2",
+      "reference": "M1",
+      "seedClusters": 84,
+      "meanDifference": -23.214285714285715,
+      "ci95Low": -68.30357142857143,
+      "ci95High": 21.58110119047614,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "M3-M1",
+      "policy": "M3",
+      "reference": "M1",
+      "seedClusters": 84,
+      "meanDifference": -31.398809523809526,
+      "ci95Low": -66.81547619047619,
+      "ci95High": 3.5714285714285694,
+      "exploratory": true
+    },
+    {
+      "profile": "mixed",
+      "comparison": "M3-M2",
+      "policy": "M3",
+      "reference": "M2",
+      "seedClusters": 84,
+      "meanDifference": -8.18452380952381,
+      "ci95Low": -52.682291666666664,
+      "ci95High": 34.375,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "D-A",
+      "policy": "D",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": -16.964285714285715,
+      "ci95Low": -49.25967261904761,
+      "ci95High": 16.220238095238095,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "E-A",
+      "policy": "E",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": -64.28571428571429,
+      "ci95Low": -101.48809523809524,
+      "ci95High": -26.636904761904763,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "V1-A",
+      "policy": "V1",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": -4.31547619047619,
+      "ci95Low": -31.25,
+      "ci95High": 25.14880952380952,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "Y1-A",
+      "policy": "Y1",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": -5.654761904761905,
+      "ci95Low": -33.18452380952381,
+      "ci95High": 23.214285714285708,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "M1-A",
+      "policy": "M1",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": -12.797619047619051,
+      "ci95Low": -51.491815476190474,
+      "ci95High": 25.892857142857146,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "M2-A",
+      "policy": "M2",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": 0,
+      "ci95Low": -41.07514880952381,
+      "ci95High": 42.857142857142854,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "M3-A",
+      "policy": "M3",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": -0.7440476190476204,
+      "ci95Low": -39.43452380952381,
+      "ci95High": 37.057291666666615,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "E-D",
+      "policy": "E",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": -47.32142857142857,
+      "ci95Low": -88.54166666666667,
+      "ci95High": -7.5855654761905305,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "V1-D",
+      "policy": "V1",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 12.648809523809526,
+      "ci95Low": -9.82142857142857,
+      "ci95High": 35.41666666666667,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "Y1-D",
+      "policy": "Y1",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 11.30952380952381,
+      "ci95Low": -15.625000000000007,
+      "ci95High": 38.98809523809524,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "M1-D",
+      "policy": "M1",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 4.166666666666664,
+      "ci95Low": -37.351190476190474,
+      "ci95High": 45.089285714285715,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "M2-D",
+      "policy": "M2",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 16.964285714285715,
+      "ci95Low": -23.958333333333332,
+      "ci95High": 60.26785714285714,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "M3-D",
+      "policy": "M3",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 16.220238095238095,
+      "ci95Low": -30.059523809523807,
+      "ci95High": 59.82142857142857,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "V1-E",
+      "policy": "V1",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": 59.970238095238095,
+      "ci95Low": 18.30357142857143,
+      "ci95High": 102.97991071428567,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "Y1-E",
+      "policy": "Y1",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": 58.63095238095238,
+      "ci95Low": 16.811755952380956,
+      "ci95High": 101.78571428571428,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "M1-E",
+      "policy": "M1",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": 51.488095238095234,
+      "ci95Low": 9.077380952380953,
+      "ci95High": 94.04761904761904,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "M2-E",
+      "policy": "M2",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": 64.28571428571429,
+      "ci95Low": 20.53199404761905,
+      "ci95High": 111.01190476190476,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "M3-E",
+      "policy": "M3",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": 63.541666666666664,
+      "ci95Low": 18.89508928571429,
+      "ci95High": 109.22619047619048,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "Y1-V1",
+      "policy": "Y1",
+      "reference": "V1",
+      "seedClusters": 84,
+      "meanDifference": -1.3392857142857153,
+      "ci95Low": -20.833333333333336,
+      "ci95High": 18.30357142857143,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "M1-V1",
+      "policy": "M1",
+      "reference": "V1",
+      "seedClusters": 84,
+      "meanDifference": -8.482142857142861,
+      "ci95Low": -54.616815476190474,
+      "ci95High": 37.05357142857143,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "M2-V1",
+      "policy": "M2",
+      "reference": "V1",
+      "seedClusters": 84,
+      "meanDifference": 4.31547619047619,
+      "ci95Low": -39.88095238095238,
+      "ci95High": 49.25595238095238,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "M3-V1",
+      "policy": "M3",
+      "reference": "V1",
+      "seedClusters": 84,
+      "meanDifference": 3.5714285714285694,
+      "ci95Low": -43.60119047619048,
+      "ci95High": 49.408482142857096,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "M1-Y1",
+      "policy": "M1",
+      "reference": "Y1",
+      "seedClusters": 84,
+      "meanDifference": -7.142857142857146,
+      "ci95Low": -51.041666666666664,
+      "ci95High": 35.56919642857138,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "M2-Y1",
+      "policy": "M2",
+      "reference": "Y1",
+      "seedClusters": 84,
+      "meanDifference": 5.654761904761905,
+      "ci95Low": -37.64880952380952,
+      "ci95High": 49.259672619047564,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "M3-Y1",
+      "policy": "M3",
+      "reference": "Y1",
+      "seedClusters": 84,
+      "meanDifference": 4.910714285714285,
+      "ci95Low": -38.839285714285715,
+      "ci95High": 47.916666666666664,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "M2-M1",
+      "policy": "M2",
+      "reference": "M1",
+      "seedClusters": 84,
+      "meanDifference": 12.797619047619051,
+      "ci95Low": -21.875000000000004,
+      "ci95High": 49.854910714285666,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "M3-M1",
+      "policy": "M3",
+      "reference": "M1",
+      "seedClusters": 84,
+      "meanDifference": 12.05357142857143,
+      "ci95Low": -18.303571428571416,
+      "ci95High": 41.964285714285715,
+      "exploratory": true
+    },
+    {
+      "profile": "pinfu",
+      "comparison": "M3-M2",
+      "policy": "M3",
+      "reference": "M2",
+      "seedClusters": 84,
+      "meanDifference": -0.7440476190476204,
+      "ci95Low": -36.75595238095238,
+      "ci95High": 32.58928571428572,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "D-A",
+      "policy": "D",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": -22.023809523809526,
+      "ci95Low": -52.232142857142854,
+      "ci95High": 7.886904761904762,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "E-A",
+      "policy": "E",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": -12.202380952380953,
+      "ci95Low": -45.982142857142854,
+      "ci95High": 20.982142857142858,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "V1-A",
+      "policy": "V1",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": -14.732142857142858,
+      "ci95Low": -43.601190476190474,
+      "ci95High": 14.880952380952381,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "Y1-A",
+      "policy": "Y1",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": -21.428571428571427,
+      "ci95Low": -52.529761904761905,
+      "ci95High": 9.676339285714231,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "M1-A",
+      "policy": "M1",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": 11.904761904761905,
+      "ci95Low": -23.06547619047619,
+      "ci95High": 47.916666666666664,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "M2-A",
+      "policy": "M2",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": -40.17857142857143,
+      "ci95Low": -73.06919642857143,
+      "ci95High": -7.883184523809578,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "M3-A",
+      "policy": "M3",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": -20.386904761904763,
+      "ci95Low": -55.357142857142854,
+      "ci95High": 14.732142857142858,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "E-D",
+      "policy": "E",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 9.821428571428573,
+      "ci95Low": -28.27380952380952,
+      "ci95High": 48.660714285714285,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "V1-D",
+      "policy": "V1",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 7.291666666666668,
+      "ci95Low": -13.988095238095239,
+      "ci95High": 28.42261904761905,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "Y1-D",
+      "policy": "Y1",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 0.5952380952380985,
+      "ci95Low": -30.65848214285714,
+      "ci95High": 32.14657738095233,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "M1-D",
+      "policy": "M1",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 33.92857142857143,
+      "ci95Low": -8.333333333333332,
+      "ci95High": 76.93452380952381,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "M2-D",
+      "policy": "M2",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": -18.154761904761905,
+      "ci95Low": -59.37499999999999,
+      "ci95High": 22.916666666666668,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "M3-D",
+      "policy": "M3",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 1.6369047619047628,
+      "ci95Low": -42.414434523809526,
+      "ci95High": 44.497767857142804,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "V1-E",
+      "policy": "V1",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": -2.529761904761905,
+      "ci95Low": -41.07142857142857,
+      "ci95High": 36.60714285714286,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "Y1-E",
+      "policy": "Y1",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": -9.226190476190474,
+      "ci95Low": -49.4047619047619,
+      "ci95High": 31.99404761904762,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "M1-E",
+      "policy": "M1",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": 24.107142857142858,
+      "ci95Low": -21.875,
+      "ci95High": 72.17633928571423,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "M2-E",
+      "policy": "M2",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": -27.976190476190478,
+      "ci95Low": -73.95833333333333,
+      "ci95High": 17.708333333333332,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "M3-E",
+      "policy": "M3",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": -8.18452380952381,
+      "ci95Low": -56.99404761904762,
+      "ci95High": 40.92261904761905,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "Y1-V1",
+      "policy": "Y1",
+      "reference": "V1",
+      "seedClusters": 84,
+      "meanDifference": -6.696428571428569,
+      "ci95Low": -31.696428571428573,
+      "ci95High": 18.30357142857143,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "M1-V1",
+      "policy": "M1",
+      "reference": "V1",
+      "seedClusters": 84,
+      "meanDifference": 26.636904761904763,
+      "ci95Low": -14.735863095238093,
+      "ci95High": 67.70833333333333,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "M2-V1",
+      "policy": "M2",
+      "reference": "V1",
+      "seedClusters": 84,
+      "meanDifference": -25.446428571428573,
+      "ci95Low": -65.77752976190476,
+      "ci95High": 14.583333333333332,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "M3-V1",
+      "policy": "M3",
+      "reference": "V1",
+      "seedClusters": 84,
+      "meanDifference": -5.654761904761905,
+      "ci95Low": -50,
+      "ci95High": 37.65252976190471,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "M1-Y1",
+      "policy": "M1",
+      "reference": "Y1",
+      "seedClusters": 84,
+      "meanDifference": 33.33333333333333,
+      "ci95Low": -12.053571428571427,
+      "ci95High": 78.7202380952381,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "M2-Y1",
+      "policy": "M2",
+      "reference": "Y1",
+      "seedClusters": 84,
+      "meanDifference": -18.750000000000004,
+      "ci95Low": -63.39285714285714,
+      "ci95High": 25.74404761904762,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "M3-Y1",
+      "policy": "M3",
+      "reference": "Y1",
+      "seedClusters": 84,
+      "meanDifference": 1.0416666666666643,
+      "ci95Low": -47.470238095238095,
+      "ci95High": 49.25595238095238,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "M2-M1",
+      "policy": "M2",
+      "reference": "M1",
+      "seedClusters": 84,
+      "meanDifference": -52.083333333333336,
+      "ci95Low": -87.20238095238095,
+      "ci95High": -18.448660714285765,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "M3-M1",
+      "policy": "M3",
+      "reference": "M1",
+      "seedClusters": 84,
+      "meanDifference": -32.29166666666667,
+      "ci95Low": -68.45238095238095,
+      "ci95High": 2.529761904761905,
+      "exploratory": true
+    },
+    {
+      "profile": "speed",
+      "comparison": "M3-M2",
+      "policy": "M3",
+      "reference": "M2",
+      "seedClusters": 84,
+      "meanDifference": 19.791666666666668,
+      "ci95Low": -6.700148809523811,
+      "ci95High": 47.470238095238095,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "D-A",
+      "policy": "D",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": -4.910714285714286,
+      "ci95Low": -29.166666666666668,
+      "ci95High": 20.238095238095237,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "E-A",
+      "policy": "E",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": -20.68452380952381,
+      "ci95Low": -64.73214285714286,
+      "ci95High": 25.148809523809526,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "V1-A",
+      "policy": "V1",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": 4.166666666666667,
+      "ci95Low": -31.547619047619047,
+      "ci95High": 42.55952380952381,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "Y1-A",
+      "policy": "Y1",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": -1.0416666666666665,
+      "ci95Low": -37.94642857142857,
+      "ci95High": 38.095238095238095,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "M1-A",
+      "policy": "M1",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": -8.928571428571429,
+      "ci95Low": -45.089285714285715,
+      "ci95High": 29.4680059523809,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "M2-A",
+      "policy": "M2",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": 9.523809523809526,
+      "ci95Low": -28.872767857142854,
+      "ci95High": 50.148809523809526,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "M3-A",
+      "policy": "M3",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": 7.738095238095238,
+      "ci95Low": -32.291666666666664,
+      "ci95High": 49.107142857142854,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "E-D",
+      "policy": "E",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": -15.773809523809524,
+      "ci95Low": -52.529761904761905,
+      "ci95High": 22.321428571428573,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "V1-D",
+      "policy": "V1",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 9.077380952380953,
+      "ci95Low": -14.880952380952381,
+      "ci95High": 35.56547619047619,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "Y1-D",
+      "policy": "Y1",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 3.869047619047619,
+      "ci95Low": -23.958333333333332,
+      "ci95High": 33.035714285714285,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "M1-D",
+      "policy": "M1",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": -4.017857142857143,
+      "ci95Low": -34.07738095238095,
+      "ci95High": 27.083333333333332,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "M2-D",
+      "policy": "M2",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 14.43452380952381,
+      "ci95Low": -17.113095238095237,
+      "ci95High": 50,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "M3-D",
+      "policy": "M3",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 12.648809523809524,
+      "ci95Low": -16.517857142857142,
+      "ci95High": 43.601190476190474,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "V1-E",
+      "policy": "V1",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": 24.851190476190474,
+      "ci95Low": -17.857142857142858,
+      "ci95High": 66.3727678571428,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "Y1-E",
+      "policy": "Y1",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": 19.642857142857142,
+      "ci95Low": -27.23586309523809,
+      "ci95High": 65.77380952380952,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "M1-E",
+      "policy": "M1",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": 11.75595238095238,
+      "ci95Low": -26.93452380952381,
+      "ci95High": 52.08705357142852,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "M2-E",
+      "policy": "M2",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": 30.208333333333336,
+      "ci95Low": -8.485863095238093,
+      "ci95High": 69.64657738095232,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "M3-E",
+      "policy": "M3",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": 28.422619047619047,
+      "ci95Low": -8.932291666666666,
+      "ci95High": 65.92261904761904,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "Y1-V1",
+      "policy": "Y1",
+      "reference": "V1",
+      "seedClusters": 84,
+      "meanDifference": -5.208333333333334,
+      "ci95Low": -35.863095238095234,
+      "ci95High": 22.61904761904762,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "M1-V1",
+      "policy": "M1",
+      "reference": "V1",
+      "seedClusters": 84,
+      "meanDifference": -13.095238095238095,
+      "ci95Low": -48.80952380952381,
+      "ci95High": 22.321428571428573,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "M2-V1",
+      "policy": "M2",
+      "reference": "V1",
+      "seedClusters": 84,
+      "meanDifference": 5.357142857142858,
+      "ci95Low": -31.101190476190474,
+      "ci95High": 43.898809523809526,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "M3-V1",
+      "policy": "M3",
+      "reference": "V1",
+      "seedClusters": 84,
+      "meanDifference": 3.571428571428571,
+      "ci95Low": -32.44047619047619,
+      "ci95High": 40.922619047619044,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "M1-Y1",
+      "policy": "M1",
+      "reference": "Y1",
+      "seedClusters": 84,
+      "meanDifference": -7.886904761904763,
+      "ci95Low": -52.08705357142857,
+      "ci95High": 38.09895833333328,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "M2-Y1",
+      "policy": "M2",
+      "reference": "Y1",
+      "seedClusters": 84,
+      "meanDifference": 10.565476190476192,
+      "ci95Low": -33.63095238095238,
+      "ci95High": 56.40252976190471,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "M3-Y1",
+      "policy": "M3",
+      "reference": "Y1",
+      "seedClusters": 84,
+      "meanDifference": 8.779761904761905,
+      "ci95Low": -33.18452380952381,
+      "ci95High": 51.63690476190476,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "M2-M1",
+      "policy": "M2",
+      "reference": "M1",
+      "seedClusters": 84,
+      "meanDifference": 18.452380952380953,
+      "ci95Low": -8.779761904761905,
+      "ci95High": 46.432291666666615,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "M3-M1",
+      "policy": "M3",
+      "reference": "M1",
+      "seedClusters": 84,
+      "meanDifference": 16.666666666666668,
+      "ci95Low": -11.46205357142857,
+      "ci95High": 45.089285714285715,
+      "exploratory": true
+    },
+    {
+      "profile": "value",
+      "comparison": "M3-M2",
+      "policy": "M3",
+      "reference": "M2",
+      "seedClusters": 84,
+      "meanDifference": -1.7857142857142865,
+      "ci95Low": -29.91443452380952,
+      "ci95High": 26.488095238095234,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "D-A",
+      "policy": "D",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": -10.416666666666664,
+      "ci95Low": -48.511904761904766,
+      "ci95High": 28.87276785714281,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "E-A",
+      "policy": "E",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": -59.07738095238095,
+      "ci95Low": -107.1465773809524,
+      "ci95High": -11.75595238095238,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "V1-A",
+      "policy": "V1",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": -16.81547619047619,
+      "ci95Low": -53.86904761904762,
+      "ci95High": 20.241815476190425,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "Y1-A",
+      "policy": "Y1",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": -16.220238095238095,
+      "ci95Low": -62.35119047619047,
+      "ci95High": 29.910714285714292,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "M1-A",
+      "policy": "M1",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": -11.607142857142854,
+      "ci95Low": -59.8251488095238,
+      "ci95High": 36.45833333333333,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "M2-A",
+      "policy": "M2",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": 20.535714285714292,
+      "ci95Low": -32.14285714285714,
+      "ci95High": 74.25967261904756,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "M3-A",
+      "policy": "M3",
+      "reference": "A",
+      "seedClusters": 84,
+      "meanDifference": 23.06547619047619,
+      "ci95Low": -27.533482142857146,
+      "ci95High": 74.70610119047615,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "E-D",
+      "policy": "E",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": -48.660714285714285,
+      "ci95Low": -99.85119047619048,
+      "ci95High": 3.125,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "V1-D",
+      "policy": "V1",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": -6.3988095238095255,
+      "ci95Low": -38.541666666666664,
+      "ci95High": 24.4047619047619,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "Y1-D",
+      "policy": "Y1",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": -5.803571428571431,
+      "ci95Low": -47.02380952380952,
+      "ci95High": 35.11904761904762,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "M1-D",
+      "policy": "M1",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": -1.1904761904761898,
+      "ci95Low": -49.107142857142854,
+      "ci95High": 48.51190476190476,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "M2-D",
+      "policy": "M2",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 30.952380952380956,
+      "ci95Low": -19.94047619047619,
+      "ci95High": 82.88690476190476,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "M3-D",
+      "policy": "M3",
+      "reference": "D",
+      "seedClusters": 84,
+      "meanDifference": 33.482142857142854,
+      "ci95Low": -14.732142857142847,
+      "ci95High": 83.93229166666661,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "V1-E",
+      "policy": "V1",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": 42.26190476190476,
+      "ci95Low": -3.125,
+      "ci95High": 87.79761904761905,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "Y1-E",
+      "policy": "Y1",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": 42.857142857142854,
+      "ci95Low": -4.166666666666664,
+      "ci95High": 89.58333333333334,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "M1-E",
+      "policy": "M1",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": 47.470238095238095,
+      "ci95Low": 5.9523809523809526,
+      "ci95High": 89.73586309523805,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "M2-E",
+      "policy": "M2",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": 79.61309523809524,
+      "ci95Low": 30.35342261904762,
+      "ci95High": 128.27380952380952,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "M3-E",
+      "policy": "M3",
+      "reference": "E",
+      "seedClusters": 84,
+      "meanDifference": 82.14285714285714,
+      "ci95Low": 36.30952380952381,
+      "ci95High": 128.7239583333333,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "Y1-V1",
+      "policy": "Y1",
+      "reference": "V1",
+      "seedClusters": 84,
+      "meanDifference": 0.5952380952380949,
+      "ci95Low": -27.97619047619048,
+      "ci95High": 29.16666666666667,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "M1-V1",
+      "policy": "M1",
+      "reference": "V1",
+      "seedClusters": 84,
+      "meanDifference": 5.208333333333336,
+      "ci95Low": -39.58333333333333,
+      "ci95High": 50.89285714285714,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "M2-V1",
+      "policy": "M2",
+      "reference": "V1",
+      "seedClusters": 84,
+      "meanDifference": 37.35119047619048,
+      "ci95Low": -10.866815476190473,
+      "ci95High": 86.75595238095237,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "M3-V1",
+      "policy": "M3",
+      "reference": "V1",
+      "seedClusters": 84,
+      "meanDifference": 39.88095238095238,
+      "ci95Low": -10.267857142857139,
+      "ci95High": 90.62872023809518,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "M1-Y1",
+      "policy": "M1",
+      "reference": "Y1",
+      "seedClusters": 84,
+      "meanDifference": 4.613095238095241,
+      "ci95Low": -44.64285714285714,
+      "ci95High": 52.82738095238095,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "M2-Y1",
+      "policy": "M2",
+      "reference": "Y1",
+      "seedClusters": 84,
+      "meanDifference": 36.75595238095239,
+      "ci95Low": -11.01190476190476,
+      "ci95High": 85.86309523809524,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "M3-Y1",
+      "policy": "M3",
+      "reference": "Y1",
+      "seedClusters": 84,
+      "meanDifference": 39.285714285714285,
+      "ci95Low": -11.01190476190476,
+      "ci95High": 91.51785714285714,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "M2-M1",
+      "policy": "M2",
+      "reference": "M1",
+      "seedClusters": 84,
+      "meanDifference": 32.142857142857146,
+      "ci95Low": -6.994047619047613,
+      "ci95High": 71.72619047619048,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "M3-M1",
+      "policy": "M3",
+      "reference": "M1",
+      "seedClusters": 84,
+      "meanDifference": 34.672619047619044,
+      "ci95Low": -6.547619047619051,
+      "ci95High": 76.19419642857137,
+      "exploratory": true
+    },
+    {
+      "profile": "valuePressure",
+      "comparison": "M3-M2",
+      "policy": "M3",
+      "reference": "M2",
+      "seedClusters": 84,
+      "meanDifference": 2.529761904761898,
+      "ci95Low": -35.26785714285714,
+      "ci95High": 40.47619047619047,
+      "exploratory": true
+    }
+  ],
+  "bootstrap": {
+    "samples": 1e4,
+    "seed": 20261011,
+    "seedClusters": 504,
+    "method": "stratified seed-cluster percentile bootstrap; all four seats and all eight policies resampled together",
+    "rng": "Mulberry32 with uint32 state wrapping on every draw; hybrid analysis only",
+    "canonicalOrder": "seed, seat, requested policy order; strata ordered by their first seed",
+    "strata": [
+      {
+        "profile": "speed",
+        "seedClusters": 84,
+        "weight": 0.16666666666666666
+      },
+      {
+        "profile": "pinfu",
+        "seedClusters": 84,
+        "weight": 0.16666666666666666
+      },
+      {
+        "profile": "value",
+        "seedClusters": 84,
+        "weight": 0.16666666666666666
+      },
+      {
+        "profile": "cautious",
+        "seedClusters": 84,
+        "weight": 0.16666666666666666
+      },
+      {
+        "profile": "mixed",
+        "seedClusters": 84,
+        "weight": 0.16666666666666666
+      },
+      {
+        "profile": "valuePressure",
+        "seedClusters": 84,
+        "weight": 0.16666666666666666
+      }
+    ],
+    "comparisons": [
+      [
+        "M1",
+        "V1"
+      ],
+      [
+        "M2",
+        "V1"
+      ],
+      [
+        "M3",
+        "V1"
+      ],
+      [
+        "M1",
+        "Y1"
+      ],
+      [
+        "M2",
+        "Y1"
+      ],
+      [
+        "M3",
+        "Y1"
+      ]
+    ],
+    "multiplicity": {
+      "pairs": "95% exploratory intervals; no simultaneous adjustment across all policy pairs",
+      "improvements": "99.1666667% marginal percentile intervals: Bonferroni for six predeclared M-minus-V1 and M-minus-Y1 comparisons, targeting 95% family coverage",
+      "profiles": "95% exploratory intervals; no simultaneous subgroup adjustment"
+    },
+    "rankDefinition": "competition rank within each game; topScore includes tied first places"
+  },
+  "analysisSha256": "6b55245d3c6b5246440c1a94bdbc1285ed8790e637cdee00ae38e2bef87cba57",
+  "selectionSha256": "408928719fab3297b4bdbd5ae1ced4230cf06f97ddedce666607299e3bf6fdcf",
+  "codeSha256": "0377739f09abbab5d59b6a082c9e1212a9fa796736d7b70166abc8345e1a76cb",
+  "runnerSha256": "4307b58246e5c1f1b194459637268a64a5ee593f9b61db76342029d695b06360",
+  "analysisSourceSha256": "64dfb031578ce40c791c62fc1967efdc3430646dc25dc09a64f1bd5276a15eb5",
+  "exporterSha256": "a7aa11e15affef31dca27d657ac604aa90dde77ed1701226898e868ecd385119"
+};
+var freeze = (value3) => {
+  if (value3 && typeof value3 === "object") {
+    for (const child of Object.values(value3)) freeze(child);
+    Object.freeze(value3);
+  }
+  return value3;
+};
+var HYBRID_TRAINING = freeze(value2);
+
 // web/training-profile.mjs
-var privateTrainingVersions = () => PRIVATE_KAN_TRAINING.status === "complete" ? PRIVATE_KAN_TRAINING.versions : [];
+var completedVersions = (training) => training.status === "complete" ? training.versions : [];
+var hybridVersions = () => [...completedVersions(HYBRID_TRAINING), ...HYBRID_TRAINING.status === "complete" ? HYBRID_TRAINING.controls.filter((v) => v.id === "Y1").map((v) => ({ ...v, description: "\uC5ED\uD328 \uC7A5\uC218\xB7\uAC00\uC0B0 \uB2E8\uAC00\xB7\uACF5\uAC1C\uB41C \uC794\uC5EC \uD328\uB97C \uBC18\uC601\uD55C \uACE0\uB4DD\uC810\uD615", improved: false })) : []];
+var privateTrainingVersions = () => [...hybridVersions(), ...completedVersions(PRIVATE_KAN_TRAINING)];
 var privateTrainingVersion = (mode) => privateTrainingVersions().find((v) => v.id === mode);
+var trainingIdForMode = (mode) => hybridVersions().some((v) => v.id === mode) ? HYBRID_TRAINING.id : privateTrainingVersion(mode) ? PRIVATE_KAN_TRAINING.id : null;
+var defaultHybridMode = () => completedVersions(HYBRID_TRAINING).some((v) => v.id === HYBRID_TRAINING.preferredVersion) ? HYBRID_TRAINING.preferredVersion : null;
 function privateTrainingCompatible(view) {
-  return PRIVATE_KAN_TRAINING.status === "complete" && view?.rules?.variant !== "S" && view?.rules?.concealedKanPrivate === true && Object.entries(PRIVATE_KAN_TRAINING.rules).every(([key3, value2]) => JSON.stringify(view.rules[key3]) === JSON.stringify(value2));
+  return PRIVATE_KAN_TRAINING.status === "complete" && view?.rules?.variant !== "S" && view?.rules?.concealedKanPrivate === true && Object.entries(PRIVATE_KAN_TRAINING.rules).every(([key3, value3]) => JSON.stringify(view.rules[key3]) === JSON.stringify(value3));
 }
-var KEY3 = "wellness-mahjong-training-profile-v1";
+var KEY3 = "wellness-mahjong-training-profile-v2";
 function hasTrainedPolicies(training) {
   return Object.keys(training.weights).length > 0;
 }
@@ -3242,9 +7833,10 @@ function readTrainingMode(storage, training) {
   try {
     const saved = storage?.getItem(KEY3);
     if (saved === "original" || privateTrainingVersion(saved)) return saved;
+    if (saved === "trained") return hasTrainedPolicies(training) ? "trained" : "original";
   } catch {
   }
-  return hasTrainedPolicies(training) ? "trained" : "original";
+  return defaultHybridMode() ?? (hasTrainedPolicies(training) ? "trained" : "original");
 }
 function saveTrainingMode(storage, mode) {
   try {
@@ -3348,13 +7940,13 @@ $("policy").value = "D";
 for (const v of privateTrainingVersions()) {
   const option = document.createElement("option");
   option.value = v.id;
-  option.textContent = `${v.id} \xB7 ${v.name}${v.improved ? " \xB7 \uAE30\uC874 \uB300\uBE44 \uAC1C\uC120 \uD655\uC778" : " \xB7 \uC2E4\uD5D8 \uD6C4\uBCF4"}`;
+  option.textContent = `${v.id} \xB7 ${v.name}${v.id === defaultHybridMode() ? " \xB7 \uAE30\uBCF8 \uD63C\uD569\uD615" : ""}${v.improved ? " \xB7 \uBE44\uAD50 \uAE30\uC900 \uB300\uBE44 \uAC1C\uC120 \uD655\uC778" : " \xB7 \uC2E4\uD5D8 \uD6C4\uBCF4"}`;
   $("training-mode").append(option);
 }
 if (privateTrainingVersion(trainingMode)) $("policy").value = privateTrainingVersion(trainingMode).policy;
 var seatIndex = (seat) => (seat - (state?.dealer ?? 0) + 4) % 4;
 var seatName = (seat) => SEAT_NAMES[seatIndex(seat)];
-var wind = (seat) => ["\u6771", "\u5357", "\u897F", "\u5317"][seatIndex(seat)];
+var wind2 = (seat) => ["\u6771", "\u5357", "\u897F", "\u5317"][seatIndex(seat)];
 var currentMatch = () => online ? remote?.match ?? null : practiceMatch ? matchSummary3(practiceMatch, state) : null;
 function node2(tag, text, cls) {
   const el = document.createElement(tag);
@@ -3520,7 +8112,7 @@ function renderDiscardRanking(discard) {
   for (const row of discard.ranking) {
     const li = node2("li"), title = node2("strong", `${row.rank}\uC704 \xB7 ${tileName(row.tile)}${row.selected ? " \xB7 \uCD94\uCC9C" : ""}`);
     li.append(title, node2("span", `\uD3C9\uAC00 ${row.score.toFixed(2)} \xB7 ${row.shanten}\uC0E8\uD150 \xB7 \uC720\uD6A8\uD328 ${row.ukeire}\uC7A5`));
-    li.append(node2("span", Object.entries(row.components).map(([key3, value2]) => `${{ speed: "\uC0E8\uD150", ukeire: "\uC720\uD6A8\uD328", value: "\uC5ED \uAC00\uCE58", pinfu: "\uD551\uD6C4 \uD615\uD0DC", risk: "\uC704\uD5D8" }[key3]} ${value2 >= 0 ? "+" : ""}${value2.toFixed(2)}`).join(" / "), "ranking-components"));
+    li.append(node2("span", Object.entries(row.components).map(([key3, value3]) => `${{ speed: "\uC0E8\uD150", ukeire: "\uC720\uD6A8\uD328", value: "\uC5ED \uAC00\uCE58", pinfu: "\uD551\uD6C4 \uD615\uD0DC", risk: "\uC704\uD5D8" }[key3]} ${value3 >= 0 ? "+" : ""}${value3.toFixed(2)}`).join(" / "), "ranking-components"));
     list.append(li);
   }
   details.append(list, node2("p", "\uAC19\uC740 \uC804\uB7B5 \uC548\uC758 \uD6C4\uBCF4 \uBE44\uAD50\uC6A9 \uD3C9\uAC00\uC810\uC218\uC785\uB2C8\uB2E4. \uC608\uC0C1 \uC218\uC775\xB7\uD655\uB960\xB7\uAC15\uD654\uD559\uC2B5 Q\uAC12\uC774 \uC544\uB2D9\uB2C8\uB2E4."));
@@ -3596,7 +8188,7 @@ function executeRecommendation(policy, mode, revision) {
   const rec = currentRecommendations.find((r) => r.policy === policy), action = mode === "discard" ? rec?.discard?.action : rec?.action;
   if (!action) throw new Error("\uC9C0\uAE08 \uC2E4\uD589\uD560 \uC218 \uC788\uB294 \uCD94\uCC9C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.");
   const result = playHumanAction(action);
-  return result?.then ? result.then((value2) => ({ policy, action: { ...action }, ...value2 })) : { policy, action: { ...action }, ...result };
+  return result?.then ? result.then((value3) => ({ policy, action: { ...action }, ...value3 })) : { policy, action: { ...action }, ...result };
 }
 function actRecommendation(policy, mode, revision) {
   try {
@@ -3630,11 +8222,11 @@ function render() {
   for (const [position, i] of Object.entries(positions)) {
     const pl = state.players[i];
     const windElement = $(`wind-${position}`);
-    windElement.textContent = wind(i);
+    windElement.textContent = wind2(i);
     windElement.classList.toggle("active-wind", i === shownTurn);
     if (position === "bottom") continue;
     const card = node2("div", void 0, `opponent opponent-${position}${pl.won ? " won" : ""}${shownTurn === i ? " active" : ""}`), title = node2("div", void 0, "player-title"), who = node2("span", void 0, "player-seat");
-    who.append(node2("span", wind(i), "seat-badge"), node2("span", online ? roomMemberName(remote.members.find((m) => m.seat === i)) : "AI", "player-name"));
+    who.append(node2("span", wind2(i), "seat-badge"), node2("span", online ? roomMemberName(remote.members.find((m) => m.seat === i)) : "AI", "player-name"));
     title.append(who, node2("span", match ? `${match.totals[i].toLocaleString()}\uC810` : signedPoints(pl.score), "player-score"));
     card.append(title, node2("p", pl.won ? `${pl.win.order}\uBC88\uC9F8 ${pl.win.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 ${pl.win.score.name}` : `${seatName(i)} \xB7 \uC190\uD328 ${pl.handSize ?? pl.hand.length}\uC7A5`, "player-sub"));
     if (pl.riichi) card.append(riichiMarker(i));
@@ -3654,7 +8246,7 @@ function render() {
     renderRiver(river, pl);
     $("rivers").append(river);
   }
-  $("self-title").replaceChildren(node2("span", wind(humanSeat), "seat-badge"), node2("span", `${seatName(humanSeat)} \xB7 \uB098`), node2("span", match ? `${matchFormatName(summaryFormat(match))} ${match.totals[humanSeat].toLocaleString()}\uC810` : `\uAD6D \uB204\uC801 ${signedPoints(p.score)}\uC810`, "self-score"));
+  $("self-title").replaceChildren(node2("span", wind2(humanSeat), "seat-badge"), node2("span", `${seatName(humanSeat)} \xB7 \uB098`), node2("span", match ? `${matchFormatName(summaryFormat(match))} ${match.totals[humanSeat].toLocaleString()}\uC810` : `\uAD6D \uB204\uC801 ${signedPoints(p.score)}\uC810`, "self-score"));
   if (p.riichi) $("self-title").append(riichiMarker(humanSeat));
   if (p.won) $("self-title").append(node2("span", `${p.win.order}\uBC88\uC9F8 \uD654\uB8CC`, "player-sub"));
   const settledSeat = variant === "S" ? state.winners[0] : humanSeat, settlement = settledSeat === void 0 ? null : winSettlement(state, settledSeat), result = $("win-settlement");
@@ -3722,7 +8314,7 @@ function updateTableLayout() {
     return Math.max(3, el?.children.length ?? 0) * (rowHeight + gap) - gap;
   };
   const compact = matchMedia("(max-width:760px)").matches, topCard = surface.querySelector(".opponent-top"), leftCard = surface.querySelector(".opponent-left"), rightCard = surface.querySelector(".opponent-right");
-  const set = (name, value2) => surface.style.setProperty(name, `${value2}px`), edge = compact ? 8 : 14, meldSizes = {};
+  const set = (name, value3) => surface.style.setProperty(name, `${value3}px`), edge = compact ? 8 : 14, meldSizes = {};
   for (const position of ["bottom", "right", "top", "left"]) {
     const zone = surface.querySelector(".meld-zone-" + position), rack = zone?.querySelector(".meld-rack");
     if (!rack) {
@@ -4182,7 +8774,7 @@ function renderTrainingMode(variant = chosenVariant) {
   $("training-mode").disabled = variant === "S" || !oldCompatible && !privateCompatible;
   $("training-mode").querySelector('[value="trained"]').disabled = !oldCompatible || !enabled;
   for (const v of privateTrainingVersions()) $("training-mode").querySelector(`[value="${v.id}"]`).disabled = !privateCompatible;
-  $("training-note").textContent = variant === "S" ? "S\uB8F0\uC740 \uC804\uC6A9 \uAE30\uBCF8 \uC804\uB7B5\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4." : privateCompatible ? version ? `${version.id} \xB7 ${version.description} \xB7 ${version.policy} \uCD94\uCC9C\uACFC \uB0B4 \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9 \xB7 \uB2E4\uB978 \uCD94\uCC9C\uACFC \uC0C1\uB300 AI\uB294 \uAE30\uBCF8\uAC12` : "\uC548\uAE61 \uBE44\uACF5\uAC1C \uADDC\uCE59 \xB7 \uAE30\uBCF8 A\u2013E \uC0AC\uC6A9 \xB7 \uACE0\uB4DD\uC810/\uC800\uD310\uC218 \uC218\uBE44 \uBC84\uC804\uC744 \uC120\uD0DD\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." : oldCompatible ? trainingMode === "trained" ? "\uAD6C \uADDC\uCE59 \uAC80\uC99D \uAC00\uC911\uCE58\uB97C \uB0B4 \uCD94\uCC9C\uACFC \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9" : "\uAE30\uC874 A\u2013E \uC804\uB7B5" : "\uC774 \uB300\uAD6D\uC758 \uADDC\uCE59\uACFC \uC77C\uCE58\uD558\uB294 \uD559\uC2B5 \uACB0\uACFC\uAC00 \uC5C6\uC5B4 \uAE30\uBCF8 A\u2013E\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4.";
+  $("training-note").textContent = variant === "S" ? "S\uB8F0\uC740 \uC804\uC6A9 \uAE30\uBCF8 \uC804\uB7B5\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4." : privateCompatible ? version ? `${version.id} \xB7 ${version.description} \xB7 ${version.policy} \uCD94\uCC9C\uACFC \uB0B4 \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9 \xB7 \uB2E4\uB978 \uCD94\uCC9C\uACFC \uC0C1\uB300 AI\uB294 \uAE30\uBCF8\uAC12` : "\uC548\uAE61 \uBE44\uACF5\uAC1C \uADDC\uCE59 \xB7 \uAE30\uC874 A\u2013E \uC0AC\uC6A9 \xB7 \uACF5\uACA9\xB7\uC218\uBE44 \uD63C\uD569\uD615 M1\u2013M3\uACFC \uC5ED\uD328 \uBCF4\uC815 Y1\uC744 \uC120\uD0DD\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." : oldCompatible ? trainingMode === "trained" ? "\uAD6C \uADDC\uCE59 \uAC80\uC99D \uAC00\uC911\uCE58\uB97C \uB0B4 \uCD94\uCC9C\uACFC \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9" : "\uAE30\uC874 A\u2013E \uC804\uB7B5" : "\uC774 \uB300\uAD6D\uC758 \uADDC\uCE59\uACFC \uC77C\uCE58\uD558\uB294 \uD559\uC2B5 \uACB0\uACFC\uAC00 \uC5C6\uC5B4 \uAE30\uBCF8 A\u2013E\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4.";
 }
 function setTrainingMode(mode) {
   const version = privateTrainingVersion(mode);
@@ -4204,7 +8796,7 @@ function setVariant(variant, format2 = variant === chosenVariant ? chosenFormat 
   chosenVariant = variant;
   chosenFormat = format2;
   for (const rule of ["H", "S"]) $("rule-" + rule.toLowerCase()).setAttribute("aria-pressed", String(variant === rule));
-  for (const value2 of ["single", "hanchan"]) $("format-" + value2).setAttribute("aria-pressed", String(format2 === value2));
+  for (const value3 of ["single", "hanchan"]) $("format-" + value3).setAttribute("aria-pressed", String(format2 === value3));
   $("random-game").textContent = `${variant}\uB8F0 \uC0C8 ${matchFormatName(format2)} \u21BB`;
   $("create-room").textContent = `${variant}\uB8F0 ${matchFormatName(format2)} \uBC29 \uB9CC\uB4E4\uAE30`;
   $("format-note").textContent = format2 === "single" ? "\uD55C \uAD6D \uC815\uC0B0 \uD6C4 \uC885\uB8CC\uD569\uB2C8\uB2E4. \uC120\uD0DD\uC740 \uC0C8 \uB300\uAD6D\xB7\uC0C8 \uBC29\uC5D0 \uC801\uC6A9\uB418\uBA70, \uC785\uC7A5\uD55C \uBC29\uC758 \uBC29\uC2DD\uC740 \uC720\uC9C0\uB429\uB2C8\uB2E4." : variant === "H" ? "\uB3D91\uAD6D~\uB0A84\uAD6D \uCD1D 8\uAD6D, \uC5F0\uC7A5 \uC5C6\uC774 \uC9C4\uD589\uD558\uB294 H\uB8F0 \uC5F0\uC2B5\uC6A9 \uBC29\uC2DD\uC785\uB2C8\uB2E4. \uC0C8 \uB300\uAD6D\xB7\uC0C8 \uBC29\uC5D0 \uC801\uC6A9\uB429\uB2C8\uB2E4." : "\uB3D91\uAD6D~\uB0A84\uAD6D\uAE4C\uC9C0 \uB204\uC801 \uC810\uC218\uB97C \uAE30\uB85D\uD558\uBA70 \uCE5C \uD654\uB8CC\xB7\uD150\uD30C\uC774 \uC2DC \uC5F0\uC7A5\uD569\uB2C8\uB2E4. \uC0C8 \uB300\uAD6D\xB7\uC0C8 \uBC29\uC5D0 \uC801\uC6A9\uB429\uB2C8\uB2E4.";
@@ -4290,7 +8882,7 @@ fetch(new URL("../results/baseline/analysis.json", import.meta.url)).then((r) =>
   if (reverse.length) $("conclusion").textContent += " \uC0C1\uB300\uBCC4 \uC608\uC678: " + reverse.map((r) => `${r.profile} C\u2212B +${r.meanDifference.toFixed(2)}\uC810`).join(", ") + ".";
   for (const r of data.summary) {
     const tr = node2("tr", void 0, r.policy === data.conclusion.bestMeanPolicy ? "best" : "");
-    for (const value2 of [`${r.policy} \xB7 ${POLICIES2[r.policy].name}`, r.meanNet.toFixed(2) + "\uC810", `${r.ci95Low.toFixed(2)} ~ ${r.ci95High.toFixed(2)}`, (r.winRate * 100).toFixed(1) + "%"]) tr.append(node2("td", value2));
+    for (const value3 of [`${r.policy} \xB7 ${POLICIES2[r.policy].name}`, r.meanNet.toFixed(2) + "\uC810", `${r.ci95Low.toFixed(2)} ~ ${r.ci95High.toFixed(2)}`, (r.winRate * 100).toFixed(1) + "%"]) tr.append(node2("td", value3));
     $("summary").append(tr);
   }
 }).catch(() => {
@@ -4299,7 +8891,7 @@ fetch(new URL("../results/baseline/analysis.json", import.meta.url)).then((r) =>
 void renderTrainingResults($, TRAINING);
 function readGame() {
   if (online && !remote?.state) return { mode: "online", phase: "waiting", room: remote ? { code: remote.code, members: remote.members, variant: remote.variant, format: remote.format ?? defaultMatchFormat(remote.variant) } : null, legalActions: [], recommendations: [] };
-  return { match: currentMatch(), variant: state.rules.variant === "S" ? "S" : "H", trainingMode: effectiveTrainingMode(state), trainingId: privateTrainingVersion(effectiveTrainingMode(state)) ? "H-private-kan-20261011-v1" : effectiveTrainingMode(state) === "trained" ? TRAINING.id : null, recommendationsEnabled, selectedVariant: chosenVariant, selectedFormat: chosenFormat, format: currentMatch() ? summaryFormat(currentMatch()) : remote?.format ?? defaultMatchFormat(state.rules.variant), mode: online ? "online" : "practice", room: online && remote ? { code: remote.code, members: remote.members, gameNumber: remote.gameNumber } : null, seat: humanSeat, phase: online && !remote?.state ? "waiting" : state.phase, turn: actor4(state), ownHand: state.players[humanSeat].hand.map(typeOf), drawnTile: handDisplay(state, humanSeat).drawn === null ? null : typeOf(handDisplay(state, humanSeat).drawn), scores: state.players.map((p) => p.score), winners: [...state.winners], legalActions: actor4(state) === humanSeat ? legalActions4(state) : [], recommendationRevision, recommendations: structuredClone(currentRecommendations) };
+  return { match: currentMatch(), variant: state.rules.variant === "S" ? "S" : "H", trainingMode: effectiveTrainingMode(state), trainingId: trainingIdForMode(effectiveTrainingMode(state)) ?? (effectiveTrainingMode(state) === "trained" ? TRAINING.id : null), recommendationsEnabled, selectedVariant: chosenVariant, selectedFormat: chosenFormat, format: currentMatch() ? summaryFormat(currentMatch()) : remote?.format ?? defaultMatchFormat(state.rules.variant), mode: online ? "online" : "practice", room: online && remote ? { code: remote.code, members: remote.members, gameNumber: remote.gameNumber } : null, seat: humanSeat, phase: online && !remote?.state ? "waiting" : state.phase, turn: actor4(state), ownHand: state.players[humanSeat].hand.map(typeOf), drawnTile: handDisplay(state, humanSeat).drawn === null ? null : typeOf(handDisplay(state, humanSeat).drawn), scores: state.players.map((p) => p.score), winners: [...state.winners], legalActions: actor4(state) === humanSeat ? legalActions4(state) : [], recommendationRevision, recommendations: structuredClone(currentRecommendations) };
 }
 if (document.modelContext?.registerTool) {
   const life = new AbortController();

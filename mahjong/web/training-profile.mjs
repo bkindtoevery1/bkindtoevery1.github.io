@@ -1,10 +1,16 @@
 import {PRIVATE_KAN_TRAINING} from './private-kan-training.mjs';
+import {HYBRID_TRAINING} from './hybrid-training.mjs';
 import {chooseAction,OPPONENT_PROFILES} from '../game/policies.mjs';
 
-export const privateTrainingVersions=()=>PRIVATE_KAN_TRAINING.status==='complete'?PRIVATE_KAN_TRAINING.versions:[];
+const completedVersions=training=>training.status==='complete'?training.versions:[];
+const hybridVersions=()=>[...completedVersions(HYBRID_TRAINING),...(HYBRID_TRAINING.status==='complete'?HYBRID_TRAINING.controls.filter(v=>v.id==='Y1').map(v=>({...v,description:'역패 장수·가산 단가·공개된 잔여 패를 반영한 고득점형',improved:false})):[])];
+export const privateTrainingVersions=()=>[...hybridVersions(),...completedVersions(PRIVATE_KAN_TRAINING)];
 export const privateTrainingVersion=mode=>privateTrainingVersions().find(v=>v.id===mode);
+export const trainingIdForMode=mode=>hybridVersions().some(v=>v.id===mode)?HYBRID_TRAINING.id:privateTrainingVersion(mode)?PRIVATE_KAN_TRAINING.id:null;
+export const defaultHybridMode=()=>completedVersions(HYBRID_TRAINING).some(v=>v.id===HYBRID_TRAINING.preferredVersion)?HYBRID_TRAINING.preferredVersion:null;
 export function privateTrainingCompatible(view){return PRIVATE_KAN_TRAINING.status==='complete'&&view?.rules?.variant!=='S'&&view?.rules?.concealedKanPrivate===true&&Object.entries(PRIVATE_KAN_TRAINING.rules).every(([key,value])=>JSON.stringify(view.rules[key])===JSON.stringify(value));}
-const KEY='wellness-mahjong-training-profile-v1';
+// New defaults follow the requested mixed strategy. Later explicit selections persist.
+const KEY='wellness-mahjong-training-profile-v2';
 export function hasTrainedPolicies(training){return Object.keys(training.weights).length>0;}
 // A validation result belongs to the rules used for those actual games.
 export function trainingCompatible(view,training){
@@ -13,8 +19,8 @@ export function trainingCompatible(view,training){
     !rules.concealedKanPrivate&&!rules.greenRequiresDragon&&!rules.fourOfAKindBonus&&(!rules.ronContinuation||rules.ronContinuation==='discarder');
 }
 export function readTrainingMode(storage,training){
-  try{const saved=storage?.getItem(KEY);if(saved==='original'||privateTrainingVersion(saved))return saved;}catch{}
-  return hasTrainedPolicies(training)?'trained':'original';
+  try{const saved=storage?.getItem(KEY);if(saved==='original'||privateTrainingVersion(saved))return saved;if(saved==='trained')return hasTrainedPolicies(training)?'trained':'original';}catch{}
+  return defaultHybridMode()??(hasTrainedPolicies(training)?'trained':'original');
 }
 export function saveTrainingMode(storage,mode){try{storage?.setItem(KEY,mode==='trained'||privateTrainingVersion(mode)?mode:'original');}catch{}}
 export function trainingWeights(view,mode,training){

@@ -1,3 +1,4 @@
+import {renderHybridTrainingResults} from './hybrid-results.mjs';
 const BASE_NAMES={A:'최속 화료',B:'핑후·론 수락',C:'핑후·쯔모 지향',D:'고득점',E:'균형'};
 const PROFILE_NAMES={speed:'속도형',pinfu:'핑후형',value:'고득점형',cautious:'신중형',mixed:'혼합형',valuePressure:'고득점 압박형'};
 const fixed=value=>Number.isFinite(value)?value.toFixed(2):'—';
@@ -97,5 +98,5 @@ async function renderLegacyTrainingResults(get,training){
 }
 
 export async function renderTrainingResults(get,training){
-  await Promise.allSettled([renderPrivateTrainingResults(get),renderLegacyTrainingResults(get,training)]);
+  await Promise.allSettled([renderHybridTrainingResults(get),renderPrivateTrainingResults(get),renderLegacyTrainingResults(get,training)]);
 }

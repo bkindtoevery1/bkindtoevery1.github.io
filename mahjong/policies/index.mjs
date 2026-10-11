@@ -1,6 +1,7 @@
 import {counts,isYao} from '../engine/tiles.mjs';
 import {shanten,effectiveTiles} from '../engine/shanten.mjs';
 import {scoreHand} from '../engine/score.mjs';
+import {honorValue,adaptiveMetrics} from './adaptive.mjs';
 
 export const POLICIES = Object.freeze({
   A:{name:'최속 화료 · 론 수락',speed:1000,ukeire:1,value:0,pinfu:0,risk:0,maxShantenLoss:0,callCost:0.2,declineRon:false},
@@ -18,10 +19,11 @@ export const OPPONENT_PROFILES=Object.freeze({
   valuePressure:[{id:'D',weights:{speed:55,value:0.2}},{id:'D',weights:{speed:30,value:0.3}},{id:'E',weights:{value:0.14,lowValueRisk:60,risk:8}}]
 });
 export function policyConfig(id,weights={}){
-  if(!POLICIES[id])throw new Error(`Unknown policy ${id}`);for(const [k,v]of Object.entries(weights))if(!['speed','ukeire','value','pinfu','risk','maxShantenLoss','callCost','lowValueRisk','lowValueThreshold'].includes(k)||!Number.isFinite(v)||v<0)throw new Error(`Invalid policy weight ${k}`);
-  return {lowValueRisk:0,lowValueThreshold:100,...POLICIES[id],...weights};
+  if(!POLICIES[id])throw new Error(`Unknown policy ${id}`);for(const [k,v]of Object.entries(weights))if(!['speed','ukeire','value','pinfu','risk','maxShantenLoss','callCost','lowValueRisk','lowValueThreshold','honorModel','adaptiveDefense'].includes(k)||!Number.isFinite(v)||v<0)throw new Error(`Invalid policy weight ${k}`);
+  if(weights.honorModel!==undefined&&![0,1].includes(weights.honorModel))throw new Error('Invalid honor model');
+  return {lowValueRisk:0,lowValueThreshold:100,honorModel:0,adaptiveDefense:0,...POLICIES[id],...weights};
 }
-function potential(c,melds,o){
+function potential(c,melds,o,honorModel=0){
   const tiles=[];for(let t=0;t<34;t++)for(let k=0;k<c[t];k++)tiles.push(t);
   for(const m of melds)tiles.push(...(m.type==='chi'?[m.tile,m.tile+1,m.tile+2]:Array(o.rules.fourOfAKindBonus&&m.type==='kan'?4:3).fill(m.tile)));
   const len=tiles.length,openTrip=melds.filter(m=>m.type!=='chi').length;
@@ -42,12 +44,14 @@ function potential(c,melds,o){
   if(!melds.some(m=>m.type==='chi'))val=Math.max(val,200*Math.min(1,(2*(triplets+openTrip)+pairs)/9));
   if(!melds.length)val=Math.max(val,400*(pairs/7)**3);
   const baseValue=val;
-  for(let t=27;t<34;t++){
+  const honorEstimate=honorModel?honorValue(c,melds,o):null;
+  if(honorEstimate)val+=honorEstimate.bonus;
+  else for(let t=27;t<34;t++){
     const unit=t>=31?o.rules.dragonBonus:(t===o.rules.roundWind?o.rules.roundWindBonus:0)+(t===27+(o.seat-o.dealer+4)%4?o.rules.seatWindBonus:0);
     val+=unit*(frequency[t]>=3?1:frequency[t]===2?0.45:0.05);
   }
   val+=(o.rules.fourOfAKindBonus?frequency.filter(n=>n===4).length:melds.filter(m=>m.type==='kan').length)*o.rules.kanBonus;
-  return {value:val,baseValue,pinfu};
+  return {value:val,baseValue,pinfu,...honorEstimate?{honors:honorEstimate.honors}:{}};
 }
 export function publicRisk(tile,o){
   const availability=(4-o.visible[tile])/4,shape=tile>=27?0.45:[0,8].includes(tile%9)?0.7:1;
@@ -61,8 +65,13 @@ export function publicRisk(tile,o){
   return availability*shape*threat;
 }
 function value13(c,melds,o,w,discard=null){
-  const e=effectiveTiles(c,melds.length,o.visible,o.rules),p=potential(c,melds,o);
+  const e=effectiveTiles(c,melds.length,o.visible,o.rules),p=potential(c,melds,o,w.honorModel||Number(w.adaptiveDefense>0));
   const activeFactor=0.6+o.activeCount/5;
+  if(w.adaptiveDefense>0){
+    const adaptive=adaptiveMetrics(c,melds,o,e,p,w,discard);
+    const score=-w.speed*e.shanten+w.ukeire*e.ukeire+w.value*adaptive.value*activeFactor+w.pinfu*p.pinfu-adaptive.riskWeight*adaptive.risk;
+    return {...adaptive,score,shanten:e.shanten,ukeire:e.ukeire,pinfu:p.pinfu,riskScale:1,honors:p.honors};
+  }
   const risk=discard===null?0:publicRisk(discard,o);
   let estimatedBase=p.baseValue;
   // At tenpai use the best structurally possible ron base, without bonuses.
@@ -76,13 +85,28 @@ function value13(c,melds,o,w,discard=null){
   const defensive=w.lowValueRisk>0&&estimatedBase<=w.lowValueThreshold;
   const riskWeight=defensive?w.lowValueRisk:w.risk;
   const score=-w.speed*e.shanten+w.ukeire*e.ukeire+w.value*p.value*activeFactor+w.pinfu*p.pinfu-riskWeight*risk*(e.shanten>=2?1.35:1);
-  return {score,shanten:e.shanten,ukeire:e.ukeire,value:p.value,pinfu:p.pinfu,risk,estimatedBase,defensive,riskWeight};
+  return {score,shanten:e.shanten,ukeire:e.ukeire,value:p.value,pinfu:p.pinfu,risk,estimatedBase,defensive,riskWeight,...p.honors?{honors:p.honors}:{}};
 }
 function bestDiscard(c,melds,o,w,allowed=null){
   const raw=[];for(let t=0;t<34;t++)if(c[t]&&(!allowed||allowed.includes(t))){c[t]--;const s=shanten(c,melds.length,o.rules.sevenPairsQuadAsTwo);c[t]++;raw.push({tile:t,shanten:s});}
   const min=Math.min(...raw.map(x=>x.shanten));let best=null;
   for(const candidate of raw)if(candidate.shanten<=min+w.maxShantenLoss){const t=candidate.tile;c[t]--;const metrics=value13(c,melds,o,w,t);c[t]++;const r={tile:t,...metrics};if(!best||r.score>best.score+1e-9)best=r;}
   return best;
+}
+// A kan is not an escape from discard risk. Average the next decision over
+// publicly unseen replacement types; the actual live-tail tile is never read.
+function replacementValue(c,melds,o,w){
+  let weight=0,score=0,shantenSum=0;
+  for(let tile=0;tile<34;tile++){
+    const remaining=Math.max(0,4-o.visible[tile]);if(!remaining||c[tile]>=4)continue;
+    const cc=[...c];cc[tile]++;const visible=[...o.visible];visible[tile]++;
+    const next={...o,visible,wallRemaining:Math.max(0,o.wallRemaining-1)};
+    const tiles=[];for(let t=0;t<34;t++)for(let n=0;n<cc[t];n++)tiles.push(t);
+    const win=scoreHand(tiles,melds,{method:'tsumo',winTile:tile,seatWind:27+(o.seat-o.dealer+4)%4},o.rules);
+    const value=win?{score:w.speed+w.value*win.total*(0.6+o.activeCount/5),shanten:-1}:bestDiscard(cc,melds,next,w);
+    if(!value)continue;weight+=remaining;score+=value.score*remaining;shantenSum+=value.shanten*remaining;
+  }
+  return weight?{score:score/weight,shanten:shantenSum/weight}:null;
 }
 export function chooseAction(o,id='E',weights={}){
   const w=policyConfig(id,weights),as=o.legalActions;
@@ -99,7 +123,12 @@ export function chooseAction(o,id='E',weights={}){
     for(const a of as.filter(a=>a.type==='ankan'||a.type==='kakan')){
       const cc=[...c],mm=melds.map(m=>({...m}));
       if(a.type==='ankan'){cc[a.tile]-=4;mm.push({type:'kan',tile:a.tile,open:false});}else {cc[mm[a.meld].tile]--;mm[a.meld].type='kan';}
-      const v=value13(cc,mm,o,w);if(v.shanten<=d.shanten&&v.score+3>best){best=v.score+3;chosen=a;}
+      if(w.adaptiveDefense>0){
+        const v=replacementValue(cc,mm,o,w);if(!v)continue;
+        const offer=a.type==='kakan'?value13(c,melds,o,w,melds[a.meld].tile):null;
+        const score=v.score-(offer?offer.riskWeight*offer.risk:0);
+        if(v.shanten<=d.shanten&&score>best+1e-9){best=score;chosen=a;}
+      }else{const v=value13(cc,mm,o,w);if(v.shanten<=d.shanten&&v.score+3>best){best=v.score+3;chosen=a;}}
     }
     return chosen;
   }
@@ -108,9 +137,9 @@ export function chooseAction(o,id='E',weights={}){
     const cc=[...c],mm=melds.map(m=>({...m})),t=o.lastDiscard.tile;
     const need=a.type==='chi'?[a.tile,a.tile+1,a.tile+2].filter(x=>x!==t):Array(a.type==='minkan'?3:2).fill(t);
     for(const n of need)cc[n]--;mm.push({type:a.type==='chi'?'chi':a.type==='pon'?'pon':'kan',tile:a.tile,open:true});
-    const v=a.type==='minkan'?value13(cc,mm,o,w):bestDiscard(cc,mm,o,w,o.rules.allowKuikae?null:Array.from({length:34},(_,i)=>i).filter(i=>i!==t));
+    const v=a.type==='minkan'?(w.adaptiveDefense>0?replacementValue(cc,mm,o,w):value13(cc,mm,o,w)):bestDiscard(cc,mm,o,w,o.rules.allowKuikae?null:Array.from({length:34},(_,i)=>i).filter(i=>i!==t));
     if(!v||v.shanten>base.shanten+w.maxShantenLoss)continue;
-    const score=v.score-w.callCost+(a.type==='minkan'?3:0);if(score>best+1e-9){best=score;chosen=a;}
+    const score=v.score-w.callCost+(a.type==='minkan'&&!w.adaptiveDefense?3:0);if(score>best+1e-9){best=score;chosen=a;}
   }
   return chosen;
 }
