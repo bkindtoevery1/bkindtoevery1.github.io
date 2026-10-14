@@ -1,0 +1,608 @@
+{
+  "schemaVersion": 1,
+  "id": "H-rulebook-training-20261015-v1",
+  "plan": {
+    "id": "H-rulebook-training-20261015-v1",
+    "output": "results/rulebook-training-20261015",
+    "rules": {
+      "id": "H-2026-jp-20261014"
+    },
+    "workers": 4,
+    "durationSeconds": 21600,
+    "holdoutReserveSeconds": 3600,
+    "finishReserveSeconds": 180,
+    "masterSeed": "20261015-H-Japanese-revision-diverse-v1",
+    "profiles": [
+      "speed",
+      "pinfu",
+      "value",
+      "cautious",
+      "mixed",
+      "valuePressure"
+    ],
+    "roundWinds": [
+      27,
+      28
+    ],
+    "pilot": {
+      "seedCount": 10,
+      "seatsPerSeed": 2,
+      "versions": [
+        "A-1",
+        "B-1",
+        "C-1",
+        "D-7",
+        "E-4"
+      ]
+    },
+    "tuning": {
+      "maxSeedCount": 60000,
+      "blockSeedCount": 12,
+      "minimumBlocks": 5
+    },
+    "holdout": {
+      "maxSeedCount": 12000,
+      "blockSeedCount": 12,
+      "minimumBlocks": 5
+    },
+    "bootstrap": {
+      "samples": 10000,
+      "seed": 20261015
+    },
+    "comparisons": [
+      [
+        "A+",
+        "A"
+      ],
+      [
+        "B+",
+        "B"
+      ],
+      [
+        "C+",
+        "C"
+      ],
+      [
+        "D+",
+        "D"
+      ],
+      [
+        "E+",
+        "E"
+      ]
+    ],
+    "families": [
+      {
+        "id": "A",
+        "includeBaseline": true,
+        "objective": "meanNet",
+        "candidates": [
+          {
+            "id": "A-1",
+            "weights": {
+              "ukeire": 0.7,
+              "callCost": 0.05
+            }
+          },
+          {
+            "id": "A-2",
+            "weights": {
+              "ukeire": 1.3,
+              "callCost": 0.05
+            }
+          },
+          {
+            "id": "A-3",
+            "weights": {
+              "ukeire": 1.3,
+              "callCost": 0.6
+            }
+          },
+          {
+            "id": "A-4",
+            "weights": {
+              "ukeire": 1.8,
+              "callCost": 0.2
+            }
+          }
+        ]
+      },
+      {
+        "id": "B",
+        "includeBaseline": true,
+        "objective": "meanNet",
+        "candidates": [
+          {
+            "id": "B-1",
+            "weights": {
+              "speed": 45,
+              "pinfu": 24
+            }
+          },
+          {
+            "id": "B-2",
+            "weights": {
+              "speed": 65,
+              "pinfu": 40
+            }
+          },
+          {
+            "id": "B-3",
+            "weights": {
+              "speed": 90,
+              "pinfu": 24
+            }
+          },
+          {
+            "id": "B-4",
+            "weights": {
+              "speed": 45,
+              "pinfu": 40
+            }
+          }
+        ]
+      },
+      {
+        "id": "C",
+        "includeBaseline": true,
+        "objective": "meanNet",
+        "candidates": [
+          {
+            "id": "C-1",
+            "weights": {
+              "speed": 45,
+              "pinfu": 24
+            }
+          },
+          {
+            "id": "C-2",
+            "weights": {
+              "speed": 65,
+              "pinfu": 40
+            }
+          },
+          {
+            "id": "C-3",
+            "weights": {
+              "speed": 90,
+              "pinfu": 24
+            }
+          },
+          {
+            "id": "C-4",
+            "weights": {
+              "speed": 45,
+              "pinfu": 40
+            }
+          }
+        ]
+      },
+      {
+        "id": "D",
+        "includeBaseline": false,
+        "objective": "highValue",
+        "minimumWins": 30,
+        "minimumWinRate": 0.25,
+        "candidates": [
+          {
+            "id": "D-1",
+            "name": "D-high 형태·1샨텐",
+            "weights": {
+              "speed": 30,
+              "ukeire": 0.7,
+              "value": 0.36,
+              "maxShantenLoss": 1,
+              "honorModel": 1,
+              "adaptiveDefense": 12
+            }
+          },
+          {
+            "id": "D-2",
+            "name": "D-high 형태·2샨텐",
+            "weights": {
+              "speed": 24,
+              "ukeire": 0.7,
+              "value": 0.5,
+              "maxShantenLoss": 2,
+              "honorModel": 1,
+              "adaptiveDefense": 20
+            }
+          },
+          {
+            "id": "D-3",
+            "name": "D-high 형태·3샨텐",
+            "weights": {
+              "speed": 18,
+              "ukeire": 0.6,
+              "value": 0.7,
+              "maxShantenLoss": 3,
+              "honorModel": 1,
+              "adaptiveDefense": 28
+            }
+          },
+          {
+            "id": "D-4",
+            "name": "D-high 400점 목표·잔여24패 해제",
+            "weights": {
+              "speed": 30,
+              "ukeire": 0.7,
+              "value": 0.36,
+              "maxShantenLoss": 1,
+              "honorModel": 1,
+              "adaptiveDefense": 12,
+              "minWinBase": 400,
+              "minWinWall": 24
+            }
+          },
+          {
+            "id": "D-5",
+            "name": "D-high 400점 목표·잔여12패 해제",
+            "weights": {
+              "speed": 24,
+              "ukeire": 0.7,
+              "value": 0.5,
+              "maxShantenLoss": 2,
+              "honorModel": 1,
+              "adaptiveDefense": 20,
+              "minWinBase": 400,
+              "minWinWall": 12
+            }
+          },
+          {
+            "id": "D-6",
+            "name": "D-high 800점 목표·잔여24패 해제",
+            "weights": {
+              "speed": 24,
+              "ukeire": 0.6,
+              "value": 0.6,
+              "maxShantenLoss": 2,
+              "honorModel": 1,
+              "adaptiveDefense": 24,
+              "minWinBase": 800,
+              "minWinWall": 24
+            }
+          },
+          {
+            "id": "D-7",
+            "name": "D-high 800점 목표·3샨텐·잔여12패 해제",
+            "weights": {
+              "speed": 18,
+              "ukeire": 0.6,
+              "value": 0.8,
+              "maxShantenLoss": 3,
+              "honorModel": 1,
+              "adaptiveDefense": 28,
+              "minWinBase": 800,
+              "minWinWall": 12
+            }
+          },
+          {
+            "id": "D-8",
+            "name": "D-high 800점 목표·2샨텐·잔여8패 해제",
+            "weights": {
+              "speed": 32,
+              "ukeire": 0.8,
+              "value": 0.45,
+              "maxShantenLoss": 2,
+              "honorModel": 1,
+              "adaptiveDefense": 36,
+              "minWinBase": 800,
+              "minWinWall": 8
+            }
+          }
+        ]
+      },
+      {
+        "id": "E",
+        "includeBaseline": true,
+        "objective": "meanNet",
+        "candidates": [
+          {
+            "id": "E-1",
+            "weights": {
+              "speed": 75,
+              "ukeire": 1.2,
+              "value": 0.16,
+              "pinfu": 0,
+              "risk": 0,
+              "maxShantenLoss": 1,
+              "honorModel": 1,
+              "adaptiveDefense": 32
+            }
+          },
+          {
+            "id": "E-2",
+            "weights": {
+              "speed": 60,
+              "ukeire": 1,
+              "value": 0.24,
+              "pinfu": 0,
+              "risk": 0,
+              "maxShantenLoss": 1,
+              "honorModel": 1,
+              "adaptiveDefense": 32
+            }
+          },
+          {
+            "id": "E-3",
+            "weights": {
+              "speed": 60,
+              "ukeire": 1,
+              "value": 0.24,
+              "pinfu": 0,
+              "risk": 0,
+              "maxShantenLoss": 1,
+              "honorModel": 1,
+              "adaptiveDefense": 48
+            }
+          },
+          {
+            "id": "E-4",
+            "weights": {
+              "speed": 45,
+              "ukeire": 0.9,
+              "value": 0.32,
+              "pinfu": 0,
+              "risk": 0,
+              "maxShantenLoss": 2,
+              "honorModel": 1,
+              "adaptiveDefense": 48
+            }
+          },
+          {
+            "id": "E-5",
+            "weights": {
+              "speed": 65,
+              "ukeire": 1,
+              "value": 0.18,
+              "pinfu": 0,
+              "risk": 0,
+              "maxShantenLoss": 1,
+              "honorModel": 1,
+              "adaptiveDefense": 64
+            }
+          },
+          {
+            "id": "E-6",
+            "weights": {
+              "speed": 55,
+              "ukeire": 1,
+              "value": 0.24,
+              "pinfu": 0,
+              "risk": 0,
+              "maxShantenLoss": 2,
+              "honorModel": 1,
+              "adaptiveDefense": 70
+            }
+          }
+        ]
+      }
+    ],
+    "selection": "A/B/C/E는 기본형을 포함한 후보의 튜닝 국당 평균 순수익 최대. D는 기본형과 별도로 고득점 후보만 비교: 화료율>=25%, 화료>=30국 후보 중 화료 시 원역점수 평균 + 400×원역400점이상비율 + 400×원역800점이상비율 최대. 조건을 만족하는 D 후보가 없으면 화료율 최대, 그다음 고득점 목적값. 모든 동률은 평균순수익, 후보 ID 순. 선택은 holdout 전에 고정하며 D의 수익·화료율 희생을 별도로 공개한다.",
+    "winFloorMeaning": "D-4~D-8만 실제 화료 기본점수(깡 +판 포함)가 목표보다 낮고 잔여패가 한계보다 많을 때 합법 론 패스/쯔모 보류. D-1~3과 기존 D는 즉시 화료. 400점은 원역 3판, 800점은 원역 4판이다.",
+    "scope": "신규 H룰에서 로컬 휴리스틱 가중치 탐색. 신경망 미세조정, 강화학습 Q학습 또는 전역최적 보장 아님. 상대 AI의 기존 A-E 구성과 가중치는 모든 후보에 동일하게 고정한다. 약6시간을 시계예산으로 사용하고 1시간은 최종검증에 예약한다. 후보별 종료 시점 차이는 성과가 아닌 실행시간/완료블록으로만 결정한다."
+  },
+  "planPath": "configs/rulebook-training-20261015.json",
+  "planHash": "605da1ea81573dde37692ebb8bcddf220784974eca732e67616ffead67c82a5c",
+  "runnerHash": "b21096fd8c596c547ba1a27a5e6750d2f0d2e26114c182b2f5e6c554eec5f2ad",
+  "analysisSourceHash": "227534ea835e8e7bc46002c3b060a10e0236bbe911f4763a4a855f074c43eb4f",
+  "code": {
+    "sha256": "a8edbbc0421637a2183aa4484413a246d9e0ef584cad57c2e7f09e8d561e37a5",
+    "files": [
+      {
+        "name": "engine/game.mjs",
+        "sha256": "04c32a9d8765df5b6774738a3f32cbb1a9350a8042e46ccdf92989072a082c19"
+      },
+      {
+        "name": "engine/rules.mjs",
+        "sha256": "6827c66dfcd3b2b27a37aaf3bc05c1f1a35662d5e492949593f93e43b8bbd747"
+      },
+      {
+        "name": "engine/score.mjs",
+        "sha256": "f84a72a56e7fba0e52c60178c1268f8d57b508f2b906d8f3ff9a0f5c008203b6"
+      },
+      {
+        "name": "engine/shanten.mjs",
+        "sha256": "b091251b815e49ab2e5f22b127445c6ac24c4770b4c6200d6b37d9980e09c416"
+      },
+      {
+        "name": "engine/tiles.mjs",
+        "sha256": "fba4a96fecb8755ccca3dc594373e3490c92aa5533d48d6aa66b0c23aed19034"
+      },
+      {
+        "name": "policies/adaptive.mjs",
+        "sha256": "a480bc5286d86c32ad5bcb2afe08e9cc7ed37f8c8df9f31304647386ae653148"
+      },
+      {
+        "name": "policies/index.mjs",
+        "sha256": "966e9863a8c3277eec9476fd383157f247e9f56fc93ad77af63065f2926c5e7b"
+      },
+      {
+        "name": "sim/io.mjs",
+        "sha256": "d95ac4042f198d8a241ad8b9837dda22f74211e0d7f1b68b52de70dc75b084cc"
+      },
+      {
+        "name": "sim/play.mjs",
+        "sha256": "5462ff102b383d201dd2071dc9f0021c23d2ae593167ff31d077d3c1703e779f"
+      },
+      {
+        "name": "sim/report.mjs",
+        "sha256": "a06f9613e2bfe6f1deb5ca05161a022a23739f9c9671802d44ca616c3e915459"
+      },
+      {
+        "name": "sim/run.mjs",
+        "sha256": "4fc1178561dd8e25c69d1912b2b875b2a313c67098c724030a200cd9a85750c1"
+      },
+      {
+        "name": "sim/stats.mjs",
+        "sha256": "7b3c7baa972e6ba40c51352d3cb848e15361afd4df4bfe14317848c1b46bc545"
+      },
+      {
+        "name": "sim/worker.mjs",
+        "sha256": "4130249e1ff3b69c069d866f138384ddadf9420aa330f02d98a08ab0b224d699"
+      }
+    ]
+  },
+  "rules": {
+    "id": "H-2026-jp-20261014",
+    "ronPassAllowed": true,
+    "passRonLock": "same-tile-until-draw",
+    "selfDiscardFuriten": false,
+    "pinfuClosedOnly": false,
+    "peikouClosedOnly": false,
+    "ryanpeikouDistinctSuits": true,
+    "concealedKanBreaksMenzen": true,
+    "concealedKanPrivate": true,
+    "menzenRequiresTsumo": false,
+    "sevenPairsQuadAsTwo": true,
+    "sevenPairsQuadBonus": 200,
+    "kanFanBonus": true,
+    "kanFanCap": 5,
+    "fanPoints": [
+      50,
+      100,
+      200,
+      400,
+      800,
+      1000
+    ],
+    "directKanTsumoBonus": false,
+    "greenTiles": [
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      32
+    ],
+    "kanBonus": 100,
+    "dragonBonus": 100,
+    "roundWindBonus": 100,
+    "seatWindBonus": 100,
+    "tsumoBonusPerPayer": 100,
+    "drawIncludesBonuses": false,
+    "drawWaitAvailability": "structural",
+    "deadWallTiles": 0,
+    "maxKans": 32,
+    "kanReplacement": "live-tail",
+    "addedKanRobAllowed": true,
+    "multipleRon": "all",
+    "chiFrom": "next-active",
+    "allowKuikae": true,
+    "revealWinnerHand": true,
+    "revealTsumoWinningTile": false,
+    "roundWind": 27,
+    "greenRequiresDragon": true,
+    "fourOfAKindBonus": true,
+    "ronContinuation": "last-winner"
+  },
+  "seedHash": "d906e78870207bed4562fb5c9c639e7698b692cdabc1387cc0022e4530bfb909",
+  "seedsFile": "seeds.json",
+  "seedCSV": "seeds.csv",
+  "createdAt": "2026-10-14T16:18:06.485Z",
+  "node": "v22.22.3",
+  "platform": "darwin",
+  "cpu": "Apple M4",
+  "pilot": {
+    "status": "complete",
+    "completed": 100,
+    "audited": 100,
+    "wallSeconds": 1.932898833,
+    "gamesPerWallSecond": 51.7357651071643,
+    "policyRates": [
+      {
+        "id": "A-1",
+        "policy": "A",
+        "games": 20,
+        "playSeconds": 0.5350109599999997,
+        "secondsPerGame": 0.026750547999999985
+      },
+      {
+        "id": "B-1",
+        "policy": "B",
+        "games": 20,
+        "playSeconds": 0.6453569149999996,
+        "secondsPerGame": 0.03226784574999998
+      },
+      {
+        "id": "C-1",
+        "policy": "C",
+        "games": 20,
+        "playSeconds": 0.6912786649999996,
+        "secondsPerGame": 0.03456393324999998
+      },
+      {
+        "id": "D-7",
+        "policy": "D",
+        "games": 20,
+        "playSeconds": 0.8716813749999996,
+        "secondsPerGame": 0.04358406874999998
+      },
+      {
+        "id": "E-4",
+        "policy": "E",
+        "games": 20,
+        "playSeconds": 0.7146928389999998,
+        "secondsPerGame": 0.03573464194999999
+      }
+    ],
+    "command": [
+      "node",
+      "training/rulebook-20261015-pilot.mjs"
+    ],
+    "startedAt": "2026-10-14T16:10:09.691Z",
+    "finishedAt": "2026-10-14T16:10:11.614Z",
+    "seedHash": "d906e78870207bed4562fb5c9c639e7698b692cdabc1387cc0022e4530bfb909",
+    "codeHash": "a8edbbc0421637a2183aa4484413a246d9e0ef584cad57c2e7f09e8d561e37a5",
+    "method": "100 unique games. Pilot additionally repeats each game to verify compact replay and settlement; wallSeconds includes audits. policyRates count production play time per worker, not elapsed wall time."
+  },
+  "pilotGames": 100,
+  "estimates": {
+    "tuningBlockSeconds": 13.323728968799992,
+    "holdoutBlockSeconds": 4.149624904799998,
+    "method": "Pilot production play time per worker divided by four. Small-sample projection; current completed-block wall time replaces this estimate during execution."
+  },
+  "runs": [
+    {
+      "startedAt": "2026-10-14T16:18:06.486Z",
+      "command": [
+        "node",
+        "training/rulebook-20261015-run.mjs",
+        "--execute"
+      ],
+      "pid": 7090,
+      "finishedAt": "2026-10-14T22:15:10.875Z",
+      "elapsedSeconds": 21424.389
+    }
+  ],
+  "experimentStartedAt": "2026-10-14T16:18:06.486Z",
+  "deadlineAt": "2026-10-14T22:18:06.486Z",
+  "tuningDeadlineAt": "2026-10-14T21:18:06.486Z",
+  "command": [
+    "node",
+    "training/rulebook-20261015-run.mjs",
+    "--execute"
+  ],
+  "pid": 7090,
+  "status": "complete",
+  "completedGames": 2840692,
+  "elapsedSeconds": 21424.389,
+  "stage": "analysis",
+  "currentBlock": 929,
+  "partialGames": 0,
+  "selectionHash": "bdcb03704c6f97343c578e9cf051d602daa2016c28a2609e13135c1b1f6f2223",
+  "frozenAt": "2026-10-14T21:17:54.212Z",
+  "analysisHash": "dd3e1ce7d3c5184dd5eeaad338c2993169486acc0e724a296021ca8889ca34c2",
+  "analysisSeconds": 6.088895500000566,
+  "finishedAt": "2026-10-14T22:15:10.875Z",
+  "counts": {
+    "pilot": 100,
+    "tuning": 2394192,
+    "holdout": 446400
+  },
+  "publicCopyNote": "Summary copy: per-block hashes/aggregates removed and local paths normalized. Original immutable evidence is retained locally."
+}

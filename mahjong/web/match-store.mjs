@@ -19,10 +19,10 @@ export class MatchStore{
   try{const raw=this.storage?.getItem(KEY),data=raw?JSON.parse(raw):{version:1,resume:false,active:null,history:[]};if(data?.version!==1||!Array.isArray(data.history))throw new Error('invalid format');this.data=data;return data;}
   catch{this.error='저장된 대국을 읽지 못했습니다. 기존 저장 데이터는 유지했습니다.';return null;}
  }
- save({match,seat,log,policy,profile}){
+ save({match,seat,log,policy,profile,trainingMode}){
   const data=this.read();if(!data)return false;
   if(data.active?.match.id!==match.id&&data.active){const old=data.active;data.history.unshift({seat:old.seat,summary:matchSummary(old.match,expandLog(old.log).game)});data.history=data.history.slice(0,9);}
-  data.active={match:clone(match),seat,policy,profile,log:compactLog(log)};data.resume=true;return this.write();
+  data.active={match:clone(match),seat,policy,profile,...typeof trainingMode==='string'?{trainingMode}:{},log:compactLog(log)};data.resume=true;return this.write();
  }
  write(){this.persisted=false;try{if(!this.storage)return false;this.storage.setItem(KEY,JSON.stringify(this.data));this.persisted=true;this.error=null;return true;}catch{this.error='대국 자동 저장 공간이 부족합니다. 점수표와 현재 로그를 파일로 저장해 주세요.';return false;}}
  setResume(enabled){const data=this.read();if(!data)return;data.resume=!!enabled;this.write();}

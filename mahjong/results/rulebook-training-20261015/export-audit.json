@@ -1,0 +1,10 @@
+{
+  "id": "H-rulebook-training-20261015-v1",
+  "verifiedAt": "2026-10-14T22:20:29.512Z",
+  "status": "complete",
+  "completedGames": 2840692,
+  "selectionHash": "bdcb03704c6f97343c578e9cf051d602daa2016c28a2609e13135c1b1f6f2223",
+  "analysisHash": "dd3e1ce7d3c5184dd5eeaad338c2993169486acc0e724a296021ca8889ca34c2",
+  "manifestHash": "aaf6bf8a00cc24728cc163d588d2cabf039f57a460b971a80ce966767aa21ebd",
+  "scope": "Completed evidence hashes and output validation. Independent raw-record audit is separate."
+}

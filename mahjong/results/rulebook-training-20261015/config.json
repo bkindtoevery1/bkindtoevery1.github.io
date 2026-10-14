@@ -1,0 +1,381 @@
+{
+  "id": "H-rulebook-training-20261015-v1",
+  "output": "results/rulebook-training-20261015",
+  "rules": {
+    "id": "H-2026-jp-20261014"
+  },
+  "workers": 4,
+  "durationSeconds": 21600,
+  "holdoutReserveSeconds": 3600,
+  "finishReserveSeconds": 180,
+  "masterSeed": "20261015-H-Japanese-revision-diverse-v1",
+  "profiles": [
+    "speed",
+    "pinfu",
+    "value",
+    "cautious",
+    "mixed",
+    "valuePressure"
+  ],
+  "roundWinds": [
+    27,
+    28
+  ],
+  "pilot": {
+    "seedCount": 10,
+    "seatsPerSeed": 2,
+    "versions": [
+      "A-1",
+      "B-1",
+      "C-1",
+      "D-7",
+      "E-4"
+    ]
+  },
+  "tuning": {
+    "maxSeedCount": 60000,
+    "blockSeedCount": 12,
+    "minimumBlocks": 5
+  },
+  "holdout": {
+    "maxSeedCount": 12000,
+    "blockSeedCount": 12,
+    "minimumBlocks": 5
+  },
+  "bootstrap": {
+    "samples": 10000,
+    "seed": 20261015
+  },
+  "comparisons": [
+    [
+      "A+",
+      "A"
+    ],
+    [
+      "B+",
+      "B"
+    ],
+    [
+      "C+",
+      "C"
+    ],
+    [
+      "D+",
+      "D"
+    ],
+    [
+      "E+",
+      "E"
+    ]
+  ],
+  "families": [
+    {
+      "id": "A",
+      "includeBaseline": true,
+      "objective": "meanNet",
+      "candidates": [
+        {
+          "id": "A-1",
+          "weights": {
+            "ukeire": 0.7,
+            "callCost": 0.05
+          }
+        },
+        {
+          "id": "A-2",
+          "weights": {
+            "ukeire": 1.3,
+            "callCost": 0.05
+          }
+        },
+        {
+          "id": "A-3",
+          "weights": {
+            "ukeire": 1.3,
+            "callCost": 0.6
+          }
+        },
+        {
+          "id": "A-4",
+          "weights": {
+            "ukeire": 1.8,
+            "callCost": 0.2
+          }
+        }
+      ]
+    },
+    {
+      "id": "B",
+      "includeBaseline": true,
+      "objective": "meanNet",
+      "candidates": [
+        {
+          "id": "B-1",
+          "weights": {
+            "speed": 45,
+            "pinfu": 24
+          }
+        },
+        {
+          "id": "B-2",
+          "weights": {
+            "speed": 65,
+            "pinfu": 40
+          }
+        },
+        {
+          "id": "B-3",
+          "weights": {
+            "speed": 90,
+            "pinfu": 24
+          }
+        },
+        {
+          "id": "B-4",
+          "weights": {
+            "speed": 45,
+            "pinfu": 40
+          }
+        }
+      ]
+    },
+    {
+      "id": "C",
+      "includeBaseline": true,
+      "objective": "meanNet",
+      "candidates": [
+        {
+          "id": "C-1",
+          "weights": {
+            "speed": 45,
+            "pinfu": 24
+          }
+        },
+        {
+          "id": "C-2",
+          "weights": {
+            "speed": 65,
+            "pinfu": 40
+          }
+        },
+        {
+          "id": "C-3",
+          "weights": {
+            "speed": 90,
+            "pinfu": 24
+          }
+        },
+        {
+          "id": "C-4",
+          "weights": {
+            "speed": 45,
+            "pinfu": 40
+          }
+        }
+      ]
+    },
+    {
+      "id": "D",
+      "includeBaseline": false,
+      "objective": "highValue",
+      "minimumWins": 30,
+      "minimumWinRate": 0.25,
+      "candidates": [
+        {
+          "id": "D-1",
+          "name": "D-high 형태·1샨텐",
+          "weights": {
+            "speed": 30,
+            "ukeire": 0.7,
+            "value": 0.36,
+            "maxShantenLoss": 1,
+            "honorModel": 1,
+            "adaptiveDefense": 12
+          }
+        },
+        {
+          "id": "D-2",
+          "name": "D-high 형태·2샨텐",
+          "weights": {
+            "speed": 24,
+            "ukeire": 0.7,
+            "value": 0.5,
+            "maxShantenLoss": 2,
+            "honorModel": 1,
+            "adaptiveDefense": 20
+          }
+        },
+        {
+          "id": "D-3",
+          "name": "D-high 형태·3샨텐",
+          "weights": {
+            "speed": 18,
+            "ukeire": 0.6,
+            "value": 0.7,
+            "maxShantenLoss": 3,
+            "honorModel": 1,
+            "adaptiveDefense": 28
+          }
+        },
+        {
+          "id": "D-4",
+          "name": "D-high 400점 목표·잔여24패 해제",
+          "weights": {
+            "speed": 30,
+            "ukeire": 0.7,
+            "value": 0.36,
+            "maxShantenLoss": 1,
+            "honorModel": 1,
+            "adaptiveDefense": 12,
+            "minWinBase": 400,
+            "minWinWall": 24
+          }
+        },
+        {
+          "id": "D-5",
+          "name": "D-high 400점 목표·잔여12패 해제",
+          "weights": {
+            "speed": 24,
+            "ukeire": 0.7,
+            "value": 0.5,
+            "maxShantenLoss": 2,
+            "honorModel": 1,
+            "adaptiveDefense": 20,
+            "minWinBase": 400,
+            "minWinWall": 12
+          }
+        },
+        {
+          "id": "D-6",
+          "name": "D-high 800점 목표·잔여24패 해제",
+          "weights": {
+            "speed": 24,
+            "ukeire": 0.6,
+            "value": 0.6,
+            "maxShantenLoss": 2,
+            "honorModel": 1,
+            "adaptiveDefense": 24,
+            "minWinBase": 800,
+            "minWinWall": 24
+          }
+        },
+        {
+          "id": "D-7",
+          "name": "D-high 800점 목표·3샨텐·잔여12패 해제",
+          "weights": {
+            "speed": 18,
+            "ukeire": 0.6,
+            "value": 0.8,
+            "maxShantenLoss": 3,
+            "honorModel": 1,
+            "adaptiveDefense": 28,
+            "minWinBase": 800,
+            "minWinWall": 12
+          }
+        },
+        {
+          "id": "D-8",
+          "name": "D-high 800점 목표·2샨텐·잔여8패 해제",
+          "weights": {
+            "speed": 32,
+            "ukeire": 0.8,
+            "value": 0.45,
+            "maxShantenLoss": 2,
+            "honorModel": 1,
+            "adaptiveDefense": 36,
+            "minWinBase": 800,
+            "minWinWall": 8
+          }
+        }
+      ]
+    },
+    {
+      "id": "E",
+      "includeBaseline": true,
+      "objective": "meanNet",
+      "candidates": [
+        {
+          "id": "E-1",
+          "weights": {
+            "speed": 75,
+            "ukeire": 1.2,
+            "value": 0.16,
+            "pinfu": 0,
+            "risk": 0,
+            "maxShantenLoss": 1,
+            "honorModel": 1,
+            "adaptiveDefense": 32
+          }
+        },
+        {
+          "id": "E-2",
+          "weights": {
+            "speed": 60,
+            "ukeire": 1,
+            "value": 0.24,
+            "pinfu": 0,
+            "risk": 0,
+            "maxShantenLoss": 1,
+            "honorModel": 1,
+            "adaptiveDefense": 32
+          }
+        },
+        {
+          "id": "E-3",
+          "weights": {
+            "speed": 60,
+            "ukeire": 1,
+            "value": 0.24,
+            "pinfu": 0,
+            "risk": 0,
+            "maxShantenLoss": 1,
+            "honorModel": 1,
+            "adaptiveDefense": 48
+          }
+        },
+        {
+          "id": "E-4",
+          "weights": {
+            "speed": 45,
+            "ukeire": 0.9,
+            "value": 0.32,
+            "pinfu": 0,
+            "risk": 0,
+            "maxShantenLoss": 2,
+            "honorModel": 1,
+            "adaptiveDefense": 48
+          }
+        },
+        {
+          "id": "E-5",
+          "weights": {
+            "speed": 65,
+            "ukeire": 1,
+            "value": 0.18,
+            "pinfu": 0,
+            "risk": 0,
+            "maxShantenLoss": 1,
+            "honorModel": 1,
+            "adaptiveDefense": 64
+          }
+        },
+        {
+          "id": "E-6",
+          "weights": {
+            "speed": 55,
+            "ukeire": 1,
+            "value": 0.24,
+            "pinfu": 0,
+            "risk": 0,
+            "maxShantenLoss": 2,
+            "honorModel": 1,
+            "adaptiveDefense": 70
+          }
+        }
+      ]
+    }
+  ],
+  "selection": "A/B/C/E는 기본형을 포함한 후보의 튜닝 국당 평균 순수익 최대. D는 기본형과 별도로 고득점 후보만 비교: 화료율>=25%, 화료>=30국 후보 중 화료 시 원역점수 평균 + 400×원역400점이상비율 + 400×원역800점이상비율 최대. 조건을 만족하는 D 후보가 없으면 화료율 최대, 그다음 고득점 목적값. 모든 동률은 평균순수익, 후보 ID 순. 선택은 holdout 전에 고정하며 D의 수익·화료율 희생을 별도로 공개한다.",
+  "winFloorMeaning": "D-4~D-8만 실제 화료 기본점수(깡 +판 포함)가 목표보다 낮고 잔여패가 한계보다 많을 때 합법 론 패스/쯔모 보류. D-1~3과 기존 D는 즉시 화료. 400점은 원역 3판, 800점은 원역 4판이다.",
+  "scope": "신규 H룰에서 로컬 휴리스틱 가중치 탐색. 신경망 미세조정, 강화학습 Q학습 또는 전역최적 보장 아님. 상대 AI의 기존 A-E 구성과 가중치는 모든 후보에 동일하게 고정한다. 약6시간을 시계예산으로 사용하고 1시간은 최종검증에 예약한다. 후보별 종료 시점 차이는 성과가 아닌 실행시간/완료블록으로만 결정한다."
+}

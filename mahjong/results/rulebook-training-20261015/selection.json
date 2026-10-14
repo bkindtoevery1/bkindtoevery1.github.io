@@ -1,0 +1,111 @@
+{
+  "id": "H-rulebook-training-20261015-v1",
+  "planHash": "605da1ea81573dde37692ebb8bcddf220784974eca732e67616ffead67c82a5c",
+  "seedHash": "d906e78870207bed4562fb5c9c639e7698b692cdabc1387cc0022e4530bfb909",
+  "codeHash": "a8edbbc0421637a2183aa4484413a246d9e0ef584cad57c2e7f09e8d561e37a5",
+  "frozenAt": "2026-10-14T21:17:54.212Z",
+  "tuningBlocks": 1609,
+  "tuningGames": 2394192,
+  "criterion": "A/B/C/E는 기본형을 포함한 후보의 튜닝 국당 평균 순수익 최대. D는 기본형과 별도로 고득점 후보만 비교: 화료율>=25%, 화료>=30국 후보 중 화료 시 원역점수 평균 + 400×원역400점이상비율 + 400×원역800점이상비율 최대. 조건을 만족하는 D 후보가 없으면 화료율 최대, 그다음 고득점 목적값. 모든 동률은 평균순수익, 후보 ID 순. 선택은 holdout 전에 고정하며 D의 수익·화료율 희생을 별도로 공개한다.",
+  "controls": [
+    {
+      "id": "A",
+      "policy": "A",
+      "weights": {}
+    },
+    {
+      "id": "B",
+      "policy": "B",
+      "weights": {}
+    },
+    {
+      "id": "C",
+      "policy": "C",
+      "weights": {}
+    },
+    {
+      "id": "D",
+      "policy": "D",
+      "weights": {}
+    },
+    {
+      "id": "E",
+      "policy": "E",
+      "weights": {}
+    }
+  ],
+  "versions": [
+    {
+      "family": "A",
+      "id": "A+",
+      "policy": "A",
+      "candidate": "A-1",
+      "weights": {
+        "ukeire": 0.7,
+        "callCost": 0.05
+      },
+      "objective": "meanNet",
+      "fallbackNoEligible": false
+    },
+    {
+      "family": "B",
+      "id": "B+",
+      "policy": "B",
+      "candidate": "B-3",
+      "weights": {
+        "speed": 90,
+        "pinfu": 24
+      },
+      "objective": "meanNet",
+      "fallbackNoEligible": false
+    },
+    {
+      "family": "C",
+      "id": "C+",
+      "policy": "C",
+      "candidate": "C-3",
+      "weights": {
+        "speed": 90,
+        "pinfu": 24
+      },
+      "objective": "meanNet",
+      "fallbackNoEligible": false
+    },
+    {
+      "family": "D",
+      "id": "D+",
+      "policy": "D",
+      "candidate": "D-6",
+      "weights": {
+        "speed": 24,
+        "ukeire": 0.6,
+        "value": 0.6,
+        "maxShantenLoss": 2,
+        "honorModel": 1,
+        "adaptiveDefense": 24,
+        "minWinBase": 800,
+        "minWinWall": 24
+      },
+      "objective": "highValue",
+      "fallbackNoEligible": false
+    },
+    {
+      "family": "E",
+      "id": "E+",
+      "policy": "E",
+      "candidate": "E-2",
+      "weights": {
+        "speed": 60,
+        "ukeire": 1,
+        "value": 0.24,
+        "pinfu": 0,
+        "risk": 0,
+        "maxShantenLoss": 1,
+        "honorModel": 1,
+        "adaptiveDefense": 32
+      },
+      "objective": "meanNet",
+      "fallbackNoEligible": false
+    }
+  ]
+}

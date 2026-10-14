@@ -657,8 +657,8 @@ function sRules(overrides = {}) {
   const defaults = overrides.id && overrides.id !== S_DEFAULTS.id ? { ...PREVIOUS_DEFAULTS, concealedKanPrivate: overrides.id === PREVIOUS_DEFAULTS.id } : S_DEFAULTS;
   const rules = { ...defaults, ...overrides };
   for (const key3 of Object.keys(S_DEFAULTS)) {
-    const value3 = rules[key3], base = S_DEFAULTS[key3];
-    if (typeof value3 !== typeof base || typeof base === "number" && (!Number.isSafeInteger(value3) || value3 < 0)) throw new Error(`Invalid S rule: ${key3}`);
+    const value4 = rules[key3], base = S_DEFAULTS[key3];
+    if (typeof value4 !== typeof base || typeof base === "number" && (!Number.isSafeInteger(value4) || value4 < 0)) throw new Error(`Invalid S rule: ${key3}`);
   }
   if (rules.variant !== "S" || rules.maxKans !== 4 || rules.deadWallTiles !== 14 || !["nearest", "all"].includes(rules.multipleRon) || rules.riichiDeposit !== 1e3 || rules.sevenPairsQuadAsTwo || !rules.selfDiscardFuriten || !rules.ronPassAllowed || rules.passRonLock !== "until-draw" || ![27, 28, 29, 30].includes(rules.roundWind)) throw new Error("Unsupported S rule configuration");
   return rules;
@@ -1244,7 +1244,7 @@ function effectiveTiles(c, openMelds, visible, rules) {
 }
 
 // policies/adaptive.mjs
-var clamp = (value3, low = 0, high = 1) => Math.min(high, Math.max(low, value3));
+var clamp = (value4, low = 0, high = 1) => Math.min(high, Math.max(low, value4));
 var wind = (o, seat) => 27 + (seat - (o.dealer ?? 0) + 4) % 4;
 var honorUnit = (tile, o, seat = o.seat) => tile >= 31 ? o.rules.dragonBonus : (tile === o.rules.roundWind ? o.rules.roundWindBonus : 0) + (tile === wind(o, seat) ? o.rules.seatWindBonus : 0);
 var unseen = (tile, o, fallback = 0) => clamp(4 - (o.visible?.[tile] ?? fallback), 0, 4);
@@ -1301,8 +1301,8 @@ function adaptiveRisk(tile, o) {
 }
 function adaptiveMetrics(c, melds, o, e, potential2, w, discard = null) {
   const honor = honorValue(c, melds, o), payers = opponents(o).length;
-  let value3 = potential2.value, estimatedBase = potential2.baseValue;
-  let ronValue = value3, tsumoReceipt = (value3 + o.rules.tsumoBonusPerPayer) * payers;
+  let value4 = potential2.value, estimatedBase = potential2.baseValue;
+  let ronValue = value4, tsumoReceipt = (value4 + o.rules.tsumoBonusPerPayer) * payers;
   let valueSource = "shape-heuristic", liveWaitCopies = null;
   if (e.shanten === 0) {
     const tiles2 = c.flatMap((count, tile) => Array(count).fill(tile));
@@ -1321,7 +1321,7 @@ function adaptiveMetrics(c, melds, o, e, potential2, w, discard = null) {
       tsumo += remaining * (tsumoHand.total + o.rules.tsumoBonusPerPayer) * payers;
     }
     liveWaitCopies = copies;
-    value3 = ronValue = copies ? ron / copies : 0;
+    value4 = ronValue = copies ? ron / copies : 0;
     estimatedBase = copies ? base / copies : 0;
     tsumoReceipt = copies ? tsumo / copies : 0;
     valueSource = copies ? "tenpai-unseen" : "tenpai-no-outs";
@@ -1336,7 +1336,7 @@ function adaptiveMetrics(c, melds, o, e, potential2, w, discard = null) {
   const defenseMix = pressure * (1 - attack);
   const riskWeight = 2 + Math.max(0, w.adaptiveDefense ?? 0) * defenseMix;
   return {
-    value: value3,
+    value: value4,
     estimatedBase,
     risk,
     riskWeight,
@@ -1495,11 +1495,11 @@ function replacementValue(c, melds, o, w) {
     const tiles2 = [];
     for (let t = 0; t < 34; t++) for (let n = 0; n < cc[t]; n++) tiles2.push(t);
     const win3 = scoreHand(tiles2, melds, { method: "tsumo", winTile: tile, seatWind: 27 + (o.seat - o.dealer + 4) % 4, ...o.rules.kanFanBonus === true ? { kanRelated: true } : {} }, o.rules);
-    const value3 = win3 && !belowWinTarget(win3, next, w) ? { score: w.speed + w.value * win3.total * (0.6 + o.activeCount / 5), shanten: -1 } : bestDiscard(cc, melds, next, w);
-    if (!value3) continue;
+    const value4 = win3 && !belowWinTarget(win3, next, w) ? { score: w.speed + w.value * win3.total * (0.6 + o.activeCount / 5), shanten: -1 } : bestDiscard(cc, melds, next, w);
+    if (!value4) continue;
     weight += remaining;
-    score += value3.score * remaining;
-    shantenSum += value3.shanten * remaining;
+    score += value4.score * remaining;
+    shantenSum += value4.shanten * remaining;
   }
   return weight ? { score: score / weight, shanten: shantenSum / weight } : null;
 }
@@ -1589,32 +1589,32 @@ function metrics(c, melds, o, w, discard = null) {
   }
   const closed = melds.every((m) => !m.open), all = [...c];
   for (const m of melds) for (const t of m.type === "chi" ? [m.tile, m.tile + 1, m.tile + 2] : Array(m.type === "kan" ? 4 : 3).fill(m.tile)) all[t]++;
-  let value3 = closed ? 100 : 0, connections = 0;
+  let value4 = closed ? 100 : 0, connections = 0;
   for (let t = 0; t < 27; t++) {
     if (t % 9 < 8) connections += Math.min(c[t], c[t + 1]);
     if (t % 9 < 7) connections += 0.35 * Math.min(c[t], c[t + 2]);
   }
-  for (let t = 27; t < 34; t++) if (t >= 31 || t === o.rules.roundWind || t === 27 + (o.seat - o.dealer + 4) % 4) value3 += all[t] >= 3 ? 200 : all[t] === 2 ? 75 : 0;
-  value3 += (o.doraIndicators ?? []).reduce((n, t) => n + all[doraAfter(t)] * 100, 0);
+  for (let t = 27; t < 34; t++) if (t >= 31 || t === o.rules.roundWind || t === 27 + (o.seat - o.dealer + 4) % 4) value4 += all[t] >= 3 ? 200 : all[t] === 2 ? 75 : 0;
+  value4 += (o.doraIndicators ?? []).reduce((n, t) => n + all[doraAfter(t)] * 100, 0);
   const size = all.reduce((a, b) => a + b, 0), simple = all.reduce((n, count, t) => n + (!isYao(t) ? count : 0), 0);
-  value3 += 100 * (simple / size) ** 5;
-  for (let suit = 0; suit < 3; suit++) value3 = Math.max(value3, 600 * (all.slice(suit * 9, suit * 9 + 9).reduce((a, b) => a + b, 0) / size) ** 5);
+  value4 += 100 * (simple / size) ** 5;
+  for (let suit = 0; suit < 3; suit++) value4 = Math.max(value4, 600 * (all.slice(suit * 9, suit * 9 + 9).reduce((a, b) => a + b, 0) / size) ** 5);
   const pinfu = closed ? connections / 4 - c.filter((n) => n >= 3).length * 0.3 : 0;
   let risk = 0;
   if (discard !== null) {
     for (const p of o.players) if (p.seat !== o.seat && !p.discards.some((d) => d.tile === discard)) risk += (p.riichi ? 3 : 0.2 + Math.min(1, p.discards.length / 16)) * (4 - o.visible[discard]) / 4 * (discard >= 27 ? 0.45 : 1);
   }
-  return { shanten: s, ukeire, value: value3, pinfu, risk, score: -w.speed * s + w.ukeire * ukeire + w.value * value3 + w.pinfu * pinfu - w.risk * risk };
+  return { shanten: s, ukeire, value: value4, pinfu, risk, score: -w.speed * s + w.ukeire * ukeire + w.value * value4 + w.pinfu * pinfu - w.risk * risk };
 }
 function bestDiscard2(c, melds, o, w, allowed) {
-  const rows = [];
+  const rows2 = [];
   for (let t = 0; t < 34; t++) if (c[t] && (!allowed || allowed.includes(t))) {
     c[t]--;
-    rows.push({ type: "discard", tile: t, ...metrics(c, melds, o, w, t) });
+    rows2.push({ type: "discard", tile: t, ...metrics(c, melds, o, w, t) });
     c[t]++;
   }
-  const min = Math.min(...rows.map((r) => r.shanten));
-  return rows.filter((r) => r.shanten <= min + w.maxShantenLoss).sort((a, b) => b.score - a.score)[0];
+  const min = Math.min(...rows2.map((r) => r.shanten));
+  return rows2.filter((r) => r.shanten <= min + w.maxShantenLoss).sort((a, b) => b.score - a.score)[0];
 }
 function evaluateDiscards2(o, id = "E", weights = {}) {
   const c = counts(o.hand), w = policyConfig(id, weights);
@@ -1714,9 +1714,9 @@ function nextDelay(state2, autoplay, seat = 0) {
 
 // web/recommendation-explanation.mjs
 var LABELS = { speed: "\uC644\uC131 \uC18D\uB3C4", ukeire: "\uC720\uD6A8\uD328", value: "\uC5ED \uAC00\uCE58", pinfu: "\uD551\uD6C4 \uD615\uD0DC", risk: "\uACF5\uAC1C \uC815\uBCF4 \uC704\uD5D8" };
-var format = (value3) => value3 !== 0 && Math.abs(value3) < 5e-3 ? value3.toPrecision(2) : Number(value3.toFixed(2)).toLocaleString("ko-KR");
-var signed = (value3) => `${value3 >= 0 ? "+" : "\u2212"}${format(Math.abs(value3))}`;
-var distance2 = (value3) => value3 === 0 ? "\uD150\uD30C\uC774(0\uC0E8\uD150)" : `${value3}\uC0E8\uD150`;
+var format = (value4) => value4 !== 0 && Math.abs(value4) < 5e-3 ? value4.toPrecision(2) : Number(value4.toFixed(2)).toLocaleString("ko-KR");
+var signed = (value4) => `${value4 >= 0 ? "+" : "\u2212"}${format(Math.abs(value4))}`;
+var distance2 = (value4) => value4 === 0 ? "\uD150\uD30C\uC774(0\uC0E8\uD150)" : `${value4}\uC0E8\uD150`;
 function components(row, view, weights, variant) {
   return {
     speed: -weights.speed * row.shanten,
@@ -1733,7 +1733,7 @@ function diagnostics(row) {
   return extra;
 }
 function honorReason(view, selected) {
-  const tile = selected.tile, count = view.hand.filter((value3) => value3 === tile).length;
+  const tile = selected.tile, count = view.hand.filter((value4) => value4 === tile).length;
   let text = "";
   if (tile >= 27) {
     const seatWind = 27 + (view.seat - view.dealer + 4) % 4, rules = view.rules;
@@ -1773,8 +1773,8 @@ function adaptiveReason(view, selected) {
   else if (metrics2.valueSource === "shape-heuristic") text += " \uC544\uC9C1 \uD150\uD30C\uC774\uAC00 \uC544\uB2C8\uBBC0\uB85C \uC190 \uAC12\uC740 \uD615\uD0DC\uC640 \uBC88\uD328 \uD6C4\uBCF4\uB97C \uBC14\uD0D5\uC73C\uB85C \uD55C \uCD94\uC815\uCE58\uC785\uB2C8\uB2E4.";
   return text;
 }
-function rankRows(rows, variant) {
-  const remaining = [...rows].sort((a, b) => a.tile - b.tile), ranked = [];
+function rankRows(rows2, variant) {
+  const remaining = [...rows2].sort((a, b) => a.tile - b.tile), ranked = [];
   while (remaining.length) {
     let best = 0;
     for (let index = 1; index < remaining.length; index++) {
@@ -1789,9 +1789,9 @@ function explainDiscards(view, policy, weights = {}, selectedAction = null) {
   const discards = view.legalActions.filter((action) => action.type === "discard");
   if (!discards.length) return null;
   const variant = view.rules.variant === "S" ? "S" : "H", config = policyConfig(policy, weights);
-  const rows = evaluateDiscards3({ ...view, legalActions: discards }, policy, weights);
-  const minShanten = Math.min(...rows.map((row) => row.shanten));
-  const eligible = rows.filter((row) => row.shanten <= minShanten + config.maxShantenLoss);
+  const rows2 = evaluateDiscards3({ ...view, legalActions: discards }, policy, weights);
+  const minShanten = Math.min(...rows2.map((row) => row.shanten));
+  const eligible = rows2.filter((row) => row.shanten <= minShanten + config.maxShantenLoss);
   const ordered = rankRows(eligible, variant), selectedTile = selectedAction?.tile ?? ordered[0].tile;
   if (!discards.some((action) => action.tile === selectedTile)) throw new Error("\uC124\uBA85\uD560 \uBC84\uB9BC\uD328\uAC00 \uD604\uC7AC \uD569\uBC95 \uD589\uB3D9\uC5D0 \uC5C6\uC2B5\uB2C8\uB2E4.");
   if (!eligible.some((row) => row.tile === selectedTile)) throw new Error("\uC124\uBA85\uD560 \uBC84\uB9BC\uD328\uAC00 \uC774 \uC804\uB7B5\uC758 \uC0E8\uD150 \uC81C\uD55C\uC5D0\uC11C \uC81C\uC678\uB418\uC5C8\uC2B5\uB2C8\uB2E4.");
@@ -1810,10 +1810,10 @@ function explainDiscards(view, policy, weights = {}, selectedAction = null) {
   let reason = `${tileName(selected.tile)}\uB97C \uBC84\uB9AC\uBA74 ${distance2(selected.shanten)}, \uC720\uD6A8\uD328 \uCD94\uC815 ${selected.ukeire}\uC7A5\uC785\uB2C8\uB2E4.`;
   let comparison = null;
   if (alternative) {
-    const differences = Object.entries(selected.components).map(([component, value3]) => ({
+    const differences = Object.entries(selected.components).map(([component, value4]) => ({
       component,
       label: LABELS[component],
-      difference: value3 - alternative.components[component]
+      difference: value4 - alternative.components[component]
     })).sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference));
     const scoreDifference = selected.score - alternative.score;
     comparison = { tile: alternative.tile, scoreDifference, components: Object.fromEntries(differences.map((row) => [row.component, row.difference])) };
@@ -1836,8 +1836,8 @@ function explainDiscards(view, policy, weights = {}, selectedAction = null) {
     ranking,
     selectedRank: selected.rank,
     comparison,
-    excludedCount: rows.length - eligible.length,
-    totalCount: rows.length,
+    excludedCount: rows2.length - eligible.length,
+    totalCount: rows2.length,
     eligibleCount: eligible.length,
     minShanten,
     maxShantenLoss: config.maxShantenLoss,
@@ -1938,7 +1938,7 @@ var SVG = "http://www.w3.org/2000/svg";
 var dots = { 1: [[50, 50]], 2: [[50, 24], [50, 76]], 3: [[24, 22], [50, 50], [76, 78]], 4: [[24, 24], [76, 24], [24, 76], [76, 76]], 5: [[24, 24], [76, 24], [50, 50], [24, 76], [76, 76]], 6: [[24, 18], [76, 18], [24, 50], [76, 50], [24, 82], [76, 82]], 7: [[24, 16], [50, 31], [76, 16], [24, 57], [76, 57], [24, 84], [76, 84]], 8: [[24, 13], [76, 13], [24, 38], [76, 38], [24, 63], [76, 63], [24, 88], [76, 88]], 9: [[22, 16], [50, 16], [78, 16], [22, 50], [50, 50], [78, 50], [22, 84], [50, 84], [78, 84]] };
 function element(tag, attributes) {
   const el = document.createElementNS(SVG, tag);
-  for (const [key3, value3] of Object.entries(attributes)) el.setAttribute(key3, String(value3));
+  for (const [key3, value4] of Object.entries(attributes)) el.setAttribute(key3, String(value4));
   return el;
 }
 function span(text, cls) {
@@ -2019,7 +2019,7 @@ var STORAGE = "h-mahjong-room-v1";
 var API_ORIGIN = ["127.0.0.1", "localhost"].includes(globalThis.location?.hostname) ? "http://127.0.0.1:8790" : "https://wellness-mahjong-h-lab.chayhyeon.chatgpt.site";
 var key2 = () => Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, "0")).join("");
 var canStartWithAI = (snapshot) => !!(snapshot?.host && !snapshot.state && snapshot.members?.length >= 1 && snapshot.members.length < 4);
-var roomMemberName = (member) => member?.kind === "ai" ? `AI \xB7 ${member.policy ?? "E"}` : member?.name ?? "\uD50C\uB808\uC774\uC5B4";
+var roomMemberName = (member) => member?.kind === "ai" ? `AI \xB7 ${member.trainingVersion ?? member.policy ?? "E"}` : member?.name ?? "\uD50C\uB808\uC774\uC5B4";
 var RoomClient = class {
   constructor({ onState, onStatus }) {
     this.onState = onState;
@@ -2150,14 +2150,14 @@ var RoomClient = class {
     const generation = this.generation, data = await this.request(`rooms/${this.session.code}/rematch`, { gameNumber: this.snapshot.gameNumber });
     if (generation === this.generation) this.accept(data);
   }
-  async startAI() {
+  async startAI(botMode = "original") {
     if (this.startingAI?.generation === this.generation) return this.startingAI.promise;
     if (!this.connected) throw new Error("\uC11C\uBC84 \uC5F0\uACB0\uC744 \uAE30\uB2E4\uB824 \uC8FC\uC138\uC694.");
     if (!canStartWithAI(this.snapshot)) throw new Error("\uBC29\uC7A5\uB9CC \uB300\uAE30 \uC911\uC778 \uBC29\uC758 \uBE48\uC790\uB9AC\uB97C AI\uB85C \uCC44\uC6B8 \uC218 \uC788\uC2B5\uB2C8\uB2E4.");
     const generation = this.generation, session = { ...this.session }, gameNumber = this.snapshot.gameNumber;
     const promise = (async () => {
       try {
-        const data = await this.request(`rooms/${session.code}/start-ai`, { gameNumber }, session);
+        const data = await this.request(`rooms/${session.code}/start-ai`, { gameNumber, ...botMode !== "original" ? { botMode } : {} }, session);
         if (generation === this.generation) this.accept(data);
         return data;
       } catch (error) {
@@ -2322,9 +2322,9 @@ function createKanPeek({
     timer2 = schedule2(expire, durationMs);
     onChange();
   };
-  const setContext = (value3) => {
-    if (value3 === context2) return false;
-    context2 = value3;
+  const setContext = (value4) => {
+    if (value4 === context2) return false;
+    context2 = value4;
     clear({ notify: false });
     return true;
   };
@@ -2332,7 +2332,7 @@ function createKanPeek({
 }
 
 // web/score-display.mjs
-var signedPoints = (value3) => `${value3 > 0 ? "+" : ""}${value3}`;
+var signedPoints = (value4) => `${value4 > 0 ? "+" : ""}${value4}`;
 function hBonusDetails(score, rules = {}) {
   const names = { kan: rules.fourOfAKindBonus ? "\uC0AC\uADC0\uC77C" : "\uAE61", dragon: "\uC0BC\uC6D0\uD328", roundWind: "\uC7A5\uD48D", seatWind: "\uC790\uD48D" };
   return Object.entries(names).filter(([key3]) => Number.isFinite(score.bonuses?.[key3]) && score.bonuses[key3] > 0).map(([key3, label2]) => `${label2} ${score.bonuses[key3]}\uC810`).join(" \xB7 ");
@@ -2422,24 +2422,24 @@ var PREFIX = "h-mahjong-log-v1:";
 var INDEX = PREFIX + "index";
 var MAX_LOGS = 10;
 var MAX_CHARS = 15e5;
-var clone = (value3) => structuredClone(value3);
+var clone = (value4) => structuredClone(value4);
 var scores = (game) => game.players.map((player) => player.score);
 var seats = ["\uB3D9", "\uB0A8", "\uC11C", "\uBD81"];
 var seatLabels = (game) => seats.map((_, i) => seats[(i - (game.dealer ?? 0) + 4) % 4]);
 var concealedForViewer = (game, seat, viewer) => game.rules.concealedKanPrivate === true && seat !== viewer;
-var signed2 = (value3) => `${value3 > 0 ? "+" : ""}${value3}`;
+var signed2 = (value4) => `${value4 > 0 ? "+" : ""}${value4}`;
 function beforeAction(game) {
   return { scores: scores(game), active: game.players.flatMap((p, i) => p.won ? [] : [i]), events: game.events.length, ledger: game.ledger.length, pot: game.pot ?? 0 };
 }
 function actionRecord(game, seat, action, before, error = null) {
   const seats2 = seatLabels(game);
   const after = scores(game), payments = clone(game.ledger.slice(before.ledger)), issues = [];
-  const delta = after.map((value3, i) => value3 - before.scores[i]), ledgerDelta = [0, 0, 0, 0];
+  const delta = after.map((value4, i) => value4 - before.scores[i]), ledgerDelta = [0, 0, 0, 0];
   for (const payment of payments) {
     if (Number.isInteger(payment.from)) ledgerDelta[payment.from] -= payment.amount;
     if (Number.isInteger(payment.to)) ledgerDelta[payment.to] += payment.amount;
   }
-  if (delta.some((value3, i) => value3 !== ledgerDelta[i])) issues.push("\uC810\uC218 \uBCC0\uD654\uC640 \uC2E4\uC81C \uC774\uCCB4 \uB0B4\uC5ED\uC774 \uC77C\uCE58\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
+  if (delta.some((value4, i) => value4 !== ledgerDelta[i])) issues.push("\uC810\uC218 \uBCC0\uD654\uC640 \uC2E4\uC81C \uC774\uCCB4 \uB0B4\uC5ED\uC774 \uC77C\uCE58\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
   const wins = game.events.slice(before.events).filter((e) => e.type === "win").map((win3) => {
     if (game.rules.variant === "S") {
       const actual2 = payments.filter((p) => p.to === win3.seat), actualReceipt2 = actual2.reduce((n, p) => n + p.amount, 0), expected = [], pao = win3.score.yakuman ? game.players[win3.seat].pao : null;
@@ -2522,8 +2522,8 @@ var GameJournal = class {
   }
   index() {
     try {
-      const value3 = JSON.parse(this.storage?.getItem(INDEX) ?? "[]");
-      return Array.isArray(value3) ? value3.filter((x) => x && typeof x.id === "string" && typeof x.updatedAt === "string" && Number.isSafeInteger(x.chars) && x.chars >= 0) : [];
+      const value4 = JSON.parse(this.storage?.getItem(INDEX) ?? "[]");
+      return Array.isArray(value4) ? value4.filter((x) => x && typeof x.id === "string" && typeof x.updatedAt === "string" && Number.isSafeInteger(x.chars) && x.chars >= 0) : [];
     } catch {
       return [];
     }
@@ -2616,7 +2616,7 @@ function reviewText(input) {
       if (!s && game.players[win3.seat].win?.payment?.method === "ron" && win3.method === "tsumo") lines.push("\uBA85\uAE61 \uACF5\uAE09\uC790 \uB2E8\uB3C5 \uC9C0\uBD88 (\uB860 \uC9C0\uAE09)");
       const fanDetail = hFanDetails(win3.score, game.rules);
       if (fanDetail) lines.push(fanDetail);
-      const extra = Object.entries(win3.score.bonuses ?? {}).filter(([, value3]) => typeof value3 === "number" && value3).map(([name, value3]) => `${{ kan: game.rules.fourOfAKindBonus ? "\uC0AC\uADC0\uC77C" : "\uAE61", dragon: "\uC0BC\uC6D0\uD328", roundWind: "\uC7A5\uD48D", seatWind: "\uC790\uD48D" }[name] ?? name} ${value3}`);
+      const extra = Object.entries(win3.score.bonuses ?? {}).filter(([, value4]) => typeof value4 === "number" && value4).map(([name, value4]) => `${{ kan: game.rules.fourOfAKindBonus ? "\uC0AC\uADC0\uC77C" : "\uAE61", dragon: "\uC0BC\uC6D0\uD328", roundWind: "\uC7A5\uD48D", seatWind: "\uC790\uD48D" }[name] ?? name} ${value4}`);
       lines.push(s ? `${seats2[win3.seat]} ${win3.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 ${scoreBreakdownText(win3.score)}` : `${seats2[win3.seat]} ${win3.score.name} ${win3.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 \uC5ED ${win3.score.base}${extra.length ? " + " + extra.join(" + ") : ""}${win3.tsumoBonus ? " + \uCBD4\uBAA8 " + win3.tsumoBonus + " / \uC9C0\uAE09\uC790" : ""}`);
     }
     for (const p of e.payments) lines.push(`  ${seats2[p.from] ?? "\uACF5\uD0C1"} \u2192 ${seats2[p.to] ?? "\uACF5\uD0C1"}: ${p.amount}\uC810`);
@@ -2705,10 +2705,10 @@ function readPreferences(storage) {
     return { recommendations: true, variant: "H", format: "single" };
   }
 }
-function savePreferences(storage, value3) {
+function savePreferences(storage, value4) {
   try {
-    const variant = value3.variant === "S" ? "S" : "H", format2 = ["single", "hanchan"].includes(value3.format) ? value3.format : defaultMatchFormat(variant);
-    storage?.setItem(KEY, JSON.stringify({ recommendations: !!value3.recommendations, variant, format: format2 }));
+    const variant = value4.variant === "S" ? "S" : "H", format2 = ["single", "hanchan"].includes(value4.format) ? value4.format : defaultMatchFormat(variant);
+    storage?.setItem(KEY, JSON.stringify({ recommendations: !!value4.recommendations, variant, format: format2 }));
     return !!storage;
   } catch {
     return false;
@@ -2854,7 +2854,7 @@ var label = (match) => match.format === "single" ? "\uB2E8\uD310\uC804" : roundL
 function createMatch2({ seed = 1, id = crypto.randomUUID(), format: format2 = "single", rules = {}, settings = {}, now = (/* @__PURE__ */ new Date()).toISOString() } = {}) {
   if (!Number.isInteger(seed) || seed < 0 || seed > 4294967295 || typeof id !== "string" || !id) throw new Error("Invalid match seed/id");
   if (!["single", "hanchan"].includes(format2)) throw new Error("\uB2E8\uD310\uC804 \uB610\uB294 \uBC18\uC7A5\uC804\uC744 \uC120\uD0DD\uD558\uC138\uC694.");
-  if (Object.entries(settings).some(([key3, value3]) => !Object.hasOwn(SETTINGS, key3) || (key3 === "dealerContinuation" ? !["none", "win"].includes(value3) : SETTINGS[key3] !== value3))) throw new Error("Unsupported H match settings");
+  if (Object.entries(settings).some(([key3, value4]) => !Object.hasOwn(SETTINGS, key3) || (key3 === "dealerContinuation" ? !["none", "win"].includes(value4) : SETTINGS[key3] !== value4))) throw new Error("Unsupported H match settings");
   const r = ruleset({ ...rules, roundWind: 27 }), config = { ...SETTINGS, dealerContinuation: r.id === "H-2026-jp-20261014" ? "win" : "none", ...settings };
   return { version: 1, variant: "H", format: format2, id, seed, startedAt: now, rules: r, settings: config, roundIndex: 0, repeat: 0, handNumber: 1, status: "playing", scores: [0, 0, 0, 0], pot: 0, rounds: [], next: null, finalTransfers: [] };
 }
@@ -2957,7 +2957,7 @@ var MatchStore = class {
       return null;
     }
   }
-  save({ match, seat, log, policy, profile }) {
+  save({ match, seat, log, policy, profile, trainingMode: trainingMode2 }) {
     const data = this.read();
     if (!data) return false;
     if (data.active?.match.id !== match.id && data.active) {
@@ -2965,7 +2965,7 @@ var MatchStore = class {
       data.history.unshift({ seat: old.seat, summary: matchSummary3(old.match, expandLog(old.log).game) });
       data.history = data.history.slice(0, 9);
     }
-    data.active = { match: clone4(match), seat, policy, profile, log: compactLog(log) };
+    data.active = { match: clone4(match), seat, policy, profile, ...typeof trainingMode2 === "string" ? { trainingMode: trainingMode2 } : {}, log: compactLog(log) };
     data.resume = true;
     return this.write();
   }
@@ -3023,16 +3023,16 @@ var MatchStore = class {
   }
 };
 function matchCSV(summary, names = ["\uC2DC\uC791 \uB3D9", "\uC2DC\uC791 \uB0A8", "\uC2DC\uC791 \uC11C", "\uC2DC\uC791 \uBD81"]) {
-  const cell = (value3) => '"' + String(value3 ?? "").replaceAll('"', '""') + '"', rows = [["\uAD6D", "\uACB0\uACFC", ...names.map((n) => n + " \uC99D\uAC10"), ...names.map((n) => n + " \uB204\uC801"), "\uACF5\uD0C1"]];
-  for (const r of summary.rounds) rows.push([r.label, roundResultName(r.result), ...r.delta, ...r.totals, r.pot]);
+  const cell = (value4) => '"' + String(value4 ?? "").replaceAll('"', '""') + '"', rows2 = [["\uAD6D", "\uACB0\uACFC", ...names.map((n) => n + " \uC99D\uAC10"), ...names.map((n) => n + " \uB204\uC801"), "\uACF5\uD0C1"]];
+  for (const r of summary.rounds) rows2.push([r.label, roundResultName(r.result), ...r.delta, ...r.totals, r.pot]);
   for (const t of summary.finalTransfers) {
     const delta = [0, 0, 0, 0];
     delta[t.to] = t.amount;
-    rows.push(["\uC885\uB8CC \uACF5\uD0C1 \uC9C0\uAE09", names[t.to], ...delta, ...summary.totals, summary.pot]);
+    rows2.push(["\uC885\uB8CC \uACF5\uD0C1 \uC9C0\uAE09", names[t.to], ...delta, ...summary.totals, summary.pot]);
   }
-  rows.push([summary.status === "complete" ? "\uCD5C\uC885" : "\uD604\uC7AC", summary.label, "", "", "", "", ...summary.totals, summary.pot]);
-  rows.push([summary.status === "complete" ? "\uCD5C\uC885 \uC21C\uC704" : "\uD604\uC7AC \uC21C\uC704", "\uB3D9\uC810 \uACF5\uB3D9 \uC21C\uC704", "", "", "", "", ...[0, 1, 2, 3].map((seat) => summary.rankings.find((r) => r.seat === seat).rank), ""]);
-  return "\uFEFF" + rows.map((r) => r.map(cell).join(",")).join("\r\n") + "\r\n";
+  rows2.push([summary.status === "complete" ? "\uCD5C\uC885" : "\uD604\uC7AC", summary.label, "", "", "", "", ...summary.totals, summary.pot]);
+  rows2.push([summary.status === "complete" ? "\uCD5C\uC885 \uC21C\uC704" : "\uD604\uC7AC \uC21C\uC704", "\uB3D9\uC810 \uACF5\uB3D9 \uC21C\uC704", "", "", "", "", ...[0, 1, 2, 3].map((seat) => summary.rankings.find((r) => r.seat === seat).rank), ""]);
+  return "\uFEFF" + rows2.map((r) => r.map(cell).join(",")).join("\r\n") + "\r\n";
 }
 
 // web/archive-client.mjs
@@ -3214,12 +3214,12 @@ var PROFILE_NAMES = { speed: "\uC18D\uB3C4\uD615", pinfu: "\uD551\uD6C4\uD615", 
 var BASE_NAMES = { A: "\uAE30\uC874 \uCD5C\uC18D", D: "\uAE30\uC874 \uACE0\uB4DD\uC810", E: "\uAE30\uC874 \uADE0\uD615", V1: "\uBE44\uACF5\uAC1C \uC548\uAE61 \uACE0\uB4DD\uC810", Y1: "V1 + \uC790\uD328 \uAC00\uCE58 \uBCF4\uC815" };
 var SEEDS = 504;
 var GAMES = SEEDS * 4;
-var fixed = (value3) => Number.isFinite(value3) ? value3.toFixed(2) : "\u2014";
-var percent = (value3) => Number.isFinite(value3) ? `${(value3 * 100).toFixed(1)}%` : "\u2014";
+var fixed = (value4) => Number.isFinite(value4) ? value4.toFixed(2) : "\u2014";
+var percent = (value4) => Number.isFinite(value4) ? `${(value4 * 100).toFixed(1)}%` : "\u2014";
 var range = (low, high) => `${fixed(low)} ~ ${fixed(high)}`;
 var improved = (row) => row.simultaneousLow > 0;
 var verdict = (row) => improved(row) ? "\uAE30\uC900 \uB300\uBE44 \uAC1C\uC120 \uD655\uC778" : row.simultaneousHigh < 0 ? "\uAE30\uC900 \uB300\uBE44 \uB0AE\uC74C" : "\uCC28\uC774 \uBBF8\uD655\uC815";
-var sameSet = (values, expected) => Array.isArray(values) && values.length === expected.length && new Set(values).size === expected.length && values.every((value3) => expected.includes(value3));
+var sameSet = (values, expected) => Array.isArray(values) && values.length === expected.length && new Set(values).size === expected.length && values.every((value4) => expected.includes(value4));
 var validSummary = (row, games, clusters) => row.games === games && row.seedClusters === clusters && [row.meanNet, row.ci95Low, row.ci95High, row.meanRank, row.topScoreRate, row.winRate].every(Number.isFinite) && row.ci95Low <= row.ci95High && row.meanRank >= 1 && row.meanRank <= 4 && row.topScoreRate >= 0 && row.topScoreRate <= 1 && row.winRate >= 0 && row.winRate <= 1;
 function hybridTrainingResultModel(manifest, selection, data) {
   const counts2 = manifest?.counts, plan = manifest?.plan;
@@ -3257,16 +3257,16 @@ function hybridTrainingResultModel(manifest, selection, data) {
     conclusion: `\uAE30\uBCF8 \uD63C\uD569\uD615 ${label2(selection.preferredVersion)}\uB294 \uCD5C\uC885 \uAC80\uC99D \uC804\uC5D0 \uD29C\uB2DD \uC131\uC801\uC73C\uB85C \uACE0\uC815\uD588\uC2B5\uB2C8\uB2E4. \uC774\uBC88 \uAC80\uC99D\uC758 \uD3C9\uADE0 \uC21C\uC218\uC775\uC740 ${label2(best.policy)}\uAC00 \uAD6D\uB2F9 ${fixed(best.meanNet)}\uC810\uC73C\uB85C \uAC00\uC7A5 \uB192\uC558\uC2B5\uB2C8\uB2E4. \uC5EC\uC12F \uC0AC\uC804 \uC9C0\uC815 \uBE44\uAD50\uB97C \uBCF4\uC815\uD55C \uB4A4 \uAC1C\uC120\uC774 \uD655\uC778\uB41C \uBE44\uAD50: ${approved.join(", ") || "\uC5C6\uC74C"}. \uD3C9\uADE0 1\uC704\uC640 \uAE30\uBCF8 \uC120\uD0DD\uC740 \uBCC4\uAC1C\uC774\uBA70, \uC0AC\uB78C \uC0C1\uB300 \uC131\uB2A5\uC774\uB098 \uC804\uC5ED \uCD5C\uC801 \uC804\uB7B5\uC744 \uB73B\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.`
   };
 }
-function fillRows(element2, rows, format2) {
-  element2.replaceChildren();
-  for (const row of rows) {
+function fillRows(element3, rows2, format2) {
+  element3.replaceChildren();
+  for (const row of rows2) {
     const tr = document.createElement("tr");
-    for (const value3 of format2(row)) {
+    for (const value4 of format2(row)) {
       const td = document.createElement("td");
-      td.textContent = value3;
+      td.textContent = value4;
       tr.append(td);
     }
-    element2.append(tr);
+    element3.append(tr);
   }
 }
 async function readResult(name) {
@@ -3319,8 +3319,8 @@ async function renderHybridTrainingResults(get) {
 // web/training-results.mjs
 var BASE_NAMES2 = { A: "\uCD5C\uC18D \uD654\uB8CC", B: "\uD551\uD6C4\xB7\uB860 \uC218\uB77D", C: "\uD551\uD6C4\xB7\uCBD4\uBAA8 \uC9C0\uD5A5", D: "\uACE0\uB4DD\uC810", E: "\uADE0\uD615" };
 var PROFILE_NAMES2 = { speed: "\uC18D\uB3C4\uD615", pinfu: "\uD551\uD6C4\uD615", value: "\uACE0\uB4DD\uC810\uD615", cautious: "\uC2E0\uC911\uD615", mixed: "\uD63C\uD569\uD615", valuePressure: "\uACE0\uB4DD\uC810 \uC555\uBC15\uD615" };
-var fixed2 = (value3) => Number.isFinite(value3) ? value3.toFixed(2) : "\u2014";
-var percent2 = (value3) => Number.isFinite(value3) ? `${(value3 * 100).toFixed(1)}%` : "\u2014";
+var fixed2 = (value4) => Number.isFinite(value4) ? value4.toFixed(2) : "\u2014";
+var percent2 = (value4) => Number.isFinite(value4) ? `${(value4 * 100).toFixed(1)}%` : "\u2014";
 var range2 = (low, high) => `${fixed2(low)} ~ ${fixed2(high)}`;
 var improved2 = (row) => row.simultaneousLow > 0;
 var verdict2 = (row) => improved2(row) ? "\uAE30\uC900 \uB300\uBE44 \uAC1C\uC120 \uD655\uC778" : row.simultaneousHigh < 0 ? "\uAE30\uC900 \uB300\uBE44 \uB0AE\uC74C" : "\uCC28\uC774 \uBBF8\uD655\uC815";
@@ -3353,16 +3353,16 @@ function privateTrainingResultModel(manifest, selection, data) {
     pairCB: data.pairs?.find((row) => row.policy === "C" && row.reference === "B")
   };
 }
-function fillRows2(element2, rows, format2) {
-  element2.replaceChildren();
-  for (const row of rows) {
+function fillRows2(element3, rows2, format2) {
+  element3.replaceChildren();
+  for (const row of rows2) {
     const tr = document.createElement("tr");
-    for (const value3 of format2(row)) {
+    for (const value4 of format2(row)) {
       const td = document.createElement("td");
-      td.textContent = value3;
+      td.textContent = value4;
       tr.append(td);
     }
-    element2.append(tr);
+    element3.append(tr);
   }
 }
 async function readResult2(name) {
@@ -3423,9 +3423,9 @@ async function renderLegacyTrainingResults(get, training) {
     get("training-summary").replaceChildren();
     for (const r of data.improvements) {
       const old = data.baselineSummary.find((x) => x.policy === r.policy), tuned = data.tunedSummary.find((x) => x.policy === r.policy), row = document.createElement("tr");
-      for (const value3 of [r.policy, old.meanNet.toFixed(2), tuned.meanNet.toFixed(2), r.meanDifference.toFixed(2), `${r.ci95Low.toFixed(2)} ~ ${r.ci95High.toFixed(2)}`, Object.hasOwn(training.weights, r.policy) ? "\uAD6C \uADDC\uCE59\uC5D0\uC11C\uB9CC \uAC80\uC99D" : "\uAE30\uC874 \uC720\uC9C0"]) {
+      for (const value4 of [r.policy, old.meanNet.toFixed(2), tuned.meanNet.toFixed(2), r.meanDifference.toFixed(2), `${r.ci95Low.toFixed(2)} ~ ${r.ci95High.toFixed(2)}`, Object.hasOwn(training.weights, r.policy) ? "\uAD6C \uADDC\uCE59\uC5D0\uC11C\uB9CC \uAC80\uC99D" : "\uAE30\uC874 \uC720\uC9C0"]) {
         const cell = document.createElement("td");
-        cell.textContent = value3;
+        cell.textContent = value4;
         row.append(cell);
       }
       get("training-summary").append(row);
@@ -7908,30 +7908,939 @@ var value2 = {
   "analysisSourceSha256": "64dfb031578ce40c791c62fc1967efdc3430646dc25dc09a64f1bd5276a15eb5",
   "exporterSha256": "a7aa11e15affef31dca27d657ac604aa90dde77ed1701226898e868ecd385119"
 };
-var freeze = (value3) => {
-  if (value3 && typeof value3 === "object") {
-    for (const child of Object.values(value3)) freeze(child);
-    Object.freeze(value3);
+var freeze = (value4) => {
+  if (value4 && typeof value4 === "object") {
+    for (const child of Object.values(value4)) freeze(child);
+    Object.freeze(value4);
   }
-  return value3;
+  return value4;
 };
 var HYBRID_TRAINING = freeze(value2);
+
+// game/rulebook-training.mjs
+var value3 = {
+  "id": "H-rulebook-training-20261015-v1",
+  "status": "complete",
+  "rules": {
+    "id": "H-2026-jp-20261014",
+    "ronPassAllowed": true,
+    "passRonLock": "same-tile-until-draw",
+    "selfDiscardFuriten": false,
+    "pinfuClosedOnly": false,
+    "peikouClosedOnly": false,
+    "ryanpeikouDistinctSuits": true,
+    "concealedKanBreaksMenzen": true,
+    "concealedKanPrivate": true,
+    "menzenRequiresTsumo": false,
+    "sevenPairsQuadAsTwo": true,
+    "sevenPairsQuadBonus": 200,
+    "kanFanBonus": true,
+    "kanFanCap": 5,
+    "fanPoints": [
+      50,
+      100,
+      200,
+      400,
+      800,
+      1e3
+    ],
+    "directKanTsumoBonus": false,
+    "greenTiles": [
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      32
+    ],
+    "kanBonus": 100,
+    "dragonBonus": 100,
+    "roundWindBonus": 100,
+    "seatWindBonus": 100,
+    "tsumoBonusPerPayer": 100,
+    "drawIncludesBonuses": false,
+    "drawWaitAvailability": "structural",
+    "deadWallTiles": 0,
+    "maxKans": 32,
+    "kanReplacement": "live-tail",
+    "addedKanRobAllowed": true,
+    "multipleRon": "all",
+    "chiFrom": "next-active",
+    "allowKuikae": true,
+    "revealWinnerHand": true,
+    "revealTsumoWinningTile": false,
+    "roundWind": 27,
+    "greenRequiresDragon": true,
+    "fourOfAKindBonus": true,
+    "ronContinuation": "last-winner"
+  },
+  "rulesetId": "H-2026-jp-20261014",
+  "completedGames": 2840692,
+  "counts": {
+    "pilot": 100,
+    "tuning": 2394192,
+    "holdout": 446400
+  },
+  "elapsedSeconds": 21424.389,
+  "finishedAt": "2026-10-14T22:15:10.875Z",
+  "frozenAt": "2026-10-14T21:17:54.212Z",
+  "versions": [
+    {
+      "id": "A+",
+      "policy": "A",
+      "candidate": "A-1",
+      "weights": {
+        "ukeire": 0.7,
+        "callCost": 0.05
+      },
+      "name": "\uCD5C\uC18D \uD654\uB8CC \uC870\uC815",
+      "description": "\uC720\uD6A8\uD328\xB7\uD6C4\uB85C \uBE44\uC6A9 \uC870\uC815, \uB860 \uC218\uB77D",
+      "objective": "meanNet",
+      "improved": false,
+      "validation": {
+        "policy": "A+",
+        "seedClusters": 11160,
+        "games": 44640,
+        "meanNet": 45.063844086021504,
+        "winRate": 0.7783826164874552,
+        "ronShareAmongWins": 0.6262123348778312,
+        "tsumoShareAmongWins": 0.3737876651221688,
+        "firstWinRate": 0.3089605734767025,
+        "averageWinOrder": 1.8759892940397733,
+        "averageWinDrawNumber": 45.41574812214004,
+        "netAmongWins": 151.64618528218264,
+        "winReceiptPerGame": 186.80667562724014,
+        "winReceiptAmongWins": 239.9933807235157,
+        "dealInLossPerGame": 52.07997311827957,
+        "tsumoPaidPerGame": 94.04681899641577,
+        "drawLossPerGame": 0.42450716845878134,
+        "drawGainPerGame": 4.808467741935484,
+        "ronDeclinedPerGame": 0,
+        "closedKansPerGame": 0.02260304659498208,
+        "pinfuWinsPerGame": 0.20109767025089606,
+        "meanRank": 2.252912186379928,
+        "topScoreRate": 0.33125,
+        "meanOriginalBaseAmongWins": 87.44783722335741,
+        "meanWinBaseAmongWins": 88.3313667366967,
+        "high400ShareAmongWins": 0.04181655970299594,
+        "high800ShareAmongWins": 0.001726767778513253,
+        "high400WinRate": 0.032549283154121866,
+        "high800WinRate": 0.0013440860215053765,
+        "ci95Low": 42.343189964157716,
+        "ci95High": 47.805807571684575,
+        "comparison": {
+          "comparison": "A+-A",
+          "policy": "A+",
+          "reference": "A",
+          "seedClusters": 11160,
+          "meanDifference": 0.13888888888888573,
+          "ci95Low": -0.14448924731182444,
+          "ci95High": 0.4345878136200767,
+          "ci99Low": -0.23185483870967974,
+          "ci99High": 0.5454805107526909,
+          "familySize": 5,
+          "familyConfidenceTarget": 0.95,
+          "superiorByMeanNet": false
+        }
+      }
+    },
+    {
+      "id": "B+",
+      "policy": "B",
+      "candidate": "B-3",
+      "weights": {
+        "speed": 90,
+        "pinfu": 24
+      },
+      "name": "\uD551\uD6C4\xB7\uC18D\uB3C4 \uC870\uC815",
+      "description": "\uD551\uD6C4\uC640 \uC18D\uB3C4 \uBCD1\uD589, \uB860 \uC218\uB77D",
+      "objective": "meanNet",
+      "improved": true,
+      "validation": {
+        "policy": "B+",
+        "seedClusters": 11160,
+        "games": 44640,
+        "meanNet": 7.512320788530466,
+        "winRate": 0.7368503584229391,
+        "ronShareAmongWins": 0.6374304563280941,
+        "tsumoShareAmongWins": 0.36256954367190586,
+        "firstWinRate": 0.28131720430107526,
+        "averageWinOrder": 1.9042349436050223,
+        "averageWinDrawNumber": 45.76067856382817,
+        "netAmongWins": 129.2493843674946,
+        "winReceiptPerGame": 162.24462365591398,
+        "winReceiptAmongWins": 220.1866658559572,
+        "dealInLossPerGame": 57.55152329749104,
+        "tsumoPaidPerGame": 101.69914874551971,
+        "drawLossPerGame": 0.4211469534050179,
+        "drawGainPerGame": 4.939516129032258,
+        "ronDeclinedPerGame": 0,
+        "closedKansPerGame": 0,
+        "pinfuWinsPerGame": 0.3255600358422939,
+        "meanRank": 2.3652105734767024,
+        "topScoreRate": 0.297334229390681,
+        "meanOriginalBaseAmongWins": 91.74748426716931,
+        "meanWinBaseAmongWins": 92.5288055209315,
+        "high400ShareAmongWins": 0.03648192624570577,
+        "high800ShareAmongWins": 6992369197093606e-19,
+        "high400WinRate": 0.026881720430107527,
+        "high800WinRate": 5152329749103943e-19,
+        "ci95Low": 4.763524865591397,
+        "ci95High": 10.210741487455191,
+        "comparison": {
+          "comparison": "B+-B",
+          "policy": "B+",
+          "reference": "B",
+          "seedClusters": 11160,
+          "meanDifference": 3.994175627240143,
+          "ci95Low": 2.545922939068096,
+          "ci95High": 5.384268593189961,
+          "ci99Low": 2.141577060931903,
+          "ci99High": 5.834459005376347,
+          "familySize": 5,
+          "familyConfidenceTarget": 0.95,
+          "superiorByMeanNet": true
+        }
+      }
+    },
+    {
+      "id": "C+",
+      "policy": "C",
+      "candidate": "C-3",
+      "weights": {
+        "speed": 90,
+        "pinfu": 24
+      },
+      "name": "\uD551\uD6C4\xB7\uCBD4\uBAA8 \uC9C0\uD5A5 \uC870\uC815",
+      "description": "\uD569\uBC95\uC801\uC778 \uB860 \uD328\uC2A4 \uD6C4 \uCBD4\uBAA8 \uC9C0\uD5A5",
+      "objective": "meanNet",
+      "improved": true,
+      "validation": {
+        "policy": "C+",
+        "seedClusters": 11160,
+        "games": 44640,
+        "meanNet": -50.22289426523297,
+        "winRate": 0.46686827956989246,
+        "ronShareAmongWins": 0,
+        "tsumoShareAmongWins": 1,
+        "firstWinRate": 0.11267921146953405,
+        "averageWinOrder": 2.2085792428386353,
+        "averageWinDrawNumber": 52.609231802696605,
+        "netAmongWins": 259.4069382467252,
+        "winReceiptPerGame": 179.25179211469535,
+        "winReceiptAmongWins": 383.94510820018235,
+        "dealInLossPerGame": 87.24798387096774,
+        "tsumoPaidPerGame": 152.98051075268816,
+        "drawLossPerGame": 0.4211469534050179,
+        "drawGainPerGame": 11.174955197132617,
+        "ronDeclinedPerGame": 0.7784498207885304,
+        "closedKansPerGame": 0,
+        "pinfuWinsPerGame": 0.20945340501792115,
+        "meanRank": 2.680421146953405,
+        "topScoreRate": 0.2989247311827957,
+        "meanOriginalBaseAmongWins": 90.49709706827888,
+        "meanWinBaseAmongWins": 90.72981142939398,
+        "high400ShareAmongWins": 0.03272395758360923,
+        "high800ShareAmongWins": 8636821649632935e-19,
+        "high400WinRate": 0.015277777777777777,
+        "high800WinRate": 4032258064516129e-19,
+        "ci95Low": -53.81846438172043,
+        "ci95High": -46.73941532258065,
+        "comparison": {
+          "comparison": "C+-C",
+          "policy": "C+",
+          "reference": "C",
+          "seedClusters": 11160,
+          "meanDifference": 4.657258064516128,
+          "ci95Low": 2.857302867383524,
+          "ci95High": 6.423611111111107,
+          "ci99Low": 2.320760528673832,
+          "ci99High": 7.01843077956987,
+          "familySize": 5,
+          "familyConfidenceTarget": 0.95,
+          "superiorByMeanNet": true
+        }
+      }
+    },
+    {
+      "id": "D+",
+      "policy": "D",
+      "candidate": "D-6",
+      "weights": {
+        "speed": 24,
+        "ukeire": 0.6,
+        "value": 0.6,
+        "maxShantenLoss": 2,
+        "honorModel": 1,
+        "adaptiveDefense": 24,
+        "minWinBase": 800,
+        "minWinWall": 24
+      },
+      "name": "\uACE0\uB4DD\uC810 \uC9D1\uC911 \uC2E4\uD5D8",
+      "description": "\uAE30\uBCF8\uC810 800\uC810 \uBAA9\uD45C\xB72\uC0E8\uD150 \uC190\uD574 \uD5C8\uC6A9\xB7\uC794\uC5EC 24\uD328 \uC774\uD558 \uBAA9\uD45C \uD574\uC81C. \uACE0\uB4DD\uC810 \uBAA9\uC801\uC774\uBA70 \uC21C\uC218\uC775\uC740 \uAE30\uC874 D\uBCF4\uB2E4 \uB0AE\uC74C",
+      "objective": "highValue",
+      "improved": false,
+      "validation": {
+        "policy": "D+",
+        "seedClusters": 11160,
+        "games": 44640,
+        "meanNet": -143.89112903225808,
+        "winRate": 0.30315860215053764,
+        "ronShareAmongWins": 0.5109731766792286,
+        "tsumoShareAmongWins": 0.48902682332077146,
+        "firstWinRate": 0.03474462365591398,
+        "averageWinOrder": 2.506096209266238,
+        "averageWinDrawNumber": 68.80979827089337,
+        "netAmongWins": 272.4894701839947,
+        "winReceiptPerGame": 131.70138888888889,
+        "winReceiptAmongWins": 434.4306510012562,
+        "dealInLossPerGame": 91.24551971326164,
+        "tsumoPaidPerGame": 186.76859318996415,
+        "drawLossPerGame": 13.044354838709678,
+        "drawGainPerGame": 15.46594982078853,
+        "ronDeclinedPerGame": 0.2588933691756272,
+        "closedKansPerGame": 0.04457885304659498,
+        "pinfuWinsPerGame": 0.1006720430107527,
+        "meanRank": 3.0502464157706095,
+        "topScoreRate": 0.18420698924731183,
+        "meanOriginalBaseAmongWins": 228.70760363555752,
+        "meanWinBaseAmongWins": 232.09931279095545,
+        "high400ShareAmongWins": 0.16803369541121702,
+        "high800ShareAmongWins": 0.10300746323801079,
+        "high400WinRate": 0.050940860215053764,
+        "high800WinRate": 0.031227598566308242,
+        "ci95Low": -148.1149473566308,
+        "ci95High": -139.77822580645162,
+        "comparison": {
+          "comparison": "D+-D",
+          "policy": "D+",
+          "reference": "D",
+          "seedClusters": 11160,
+          "meanDifference": -194.05577956989248,
+          "ci95Low": -199.0738967293907,
+          "ci95High": -189.1000224014337,
+          "ci99Low": -200.66662746415773,
+          "ci99High": -187.33531586021508,
+          "familySize": 5,
+          "familyConfidenceTarget": 0.95,
+          "superiorByMeanNet": false
+        }
+      }
+    },
+    {
+      "id": "E+",
+      "policy": "E",
+      "candidate": "E-2",
+      "weights": {
+        "speed": 60,
+        "ukeire": 1,
+        "value": 0.24,
+        "pinfu": 0,
+        "risk": 0,
+        "maxShantenLoss": 1,
+        "honorModel": 1,
+        "adaptiveDefense": 32
+      },
+      "name": "\uC5ED\uD328\xB7\uACF5\uC218 \uADE0\uD615",
+      "description": "\uC5ED\uD328 \uAC00\uCE58\uC640 \uC0C1\uD669\uBCC4 \uC218\uBE44\uB97C \uBC18\uC601\uD55C \uADE0\uD615\uD615",
+      "objective": "meanNet",
+      "improved": true,
+      "validation": {
+        "policy": "E+",
+        "seedClusters": 11160,
+        "games": 44640,
+        "meanNet": 62.19198028673835,
+        "winRate": 0.7441980286738351,
+        "ronShareAmongWins": 0.6179524999247464,
+        "tsumoShareAmongWins": 0.3820475000752536,
+        "firstWinRate": 0.2853942652329749,
+        "averageWinOrder": 1.904247313446314,
+        "averageWinDrawNumber": 46.49923241323259,
+        "netAmongWins": 191.22091448180367,
+        "winReceiptPerGame": 210.2296146953405,
+        "winReceiptAmongWins": 282.4914963426748,
+        "dealInLossPerGame": 53.07795698924731,
+        "tsumoPaidPerGame": 102.20318100358423,
+        "drawLossPerGame": 0.8635752688172043,
+        "drawGainPerGame": 8.107078853046595,
+        "ronDeclinedPerGame": 0,
+        "closedKansPerGame": 0.026232078853046594,
+        "pinfuWinsPerGame": 0.20495071684587812,
+        "meanRank": 2.245833333333333,
+        "topScoreRate": 0.3498879928315412,
+        "meanOriginalBaseAmongWins": 109.23813250654706,
+        "meanWinBaseAmongWins": 110.35790614370428,
+        "high400ShareAmongWins": 0.050690828090665545,
+        "high800ShareAmongWins": 0.016375184371331387,
+        "high400WinRate": 0.03772401433691756,
+        "high800WinRate": 0.012186379928315413,
+        "ci95Low": 58.65591397849463,
+        "ci95High": 65.64194108422939,
+        "comparison": {
+          "comparison": "E+-E",
+          "policy": "E+",
+          "reference": "E",
+          "seedClusters": 11160,
+          "meanDifference": 49.45340501792114,
+          "ci95Low": 45.023493503584234,
+          "ci95High": 53.778057795698935,
+          "ci99Low": 43.644702060931905,
+          "ci99High": 55.11652105734767,
+          "familySize": 5,
+          "familyConfidenceTarget": 0.95,
+          "superiorByMeanNet": true
+        }
+      }
+    }
+  ],
+  "summary": [
+    {
+      "policy": "A",
+      "seedClusters": 11160,
+      "games": 44640,
+      "meanNet": 44.92495519713262,
+      "winRate": 0.7786290322580646,
+      "ronShareAmongWins": 0.6263018585649347,
+      "tsumoShareAmongWins": 0.3736981414350653,
+      "firstWinRate": 0.3091173835125448,
+      "averageWinOrder": 1.8759709994821336,
+      "averageWinDrawNumber": 45.40641003509983,
+      "netAmongWins": 151.44283330456298,
+      "winReceiptPerGame": 186.671146953405,
+      "winReceiptAmongWins": 239.74336843316647,
+      "dealInLossPerGame": 52.03181003584229,
+      "tsumoPaidPerGame": 94.09498207885305,
+      "drawLossPerGame": 0.414426523297491,
+      "drawGainPerGame": 4.79502688172043,
+      "ronDeclinedPerGame": 0,
+      "closedKansPerGame": 0.021169354838709676,
+      "pinfuWinsPerGame": 0.20141129032258065,
+      "meanRank": 2.2528897849462366,
+      "topScoreRate": 0.33111559139784946,
+      "meanOriginalBaseAmongWins": 87.53524368490707,
+      "meanWinBaseAmongWins": 88.41561654870821,
+      "high400ShareAmongWins": 0.04194717762817193,
+      "high800ShareAmongWins": 0.0017549916565970424,
+      "high400WinRate": 0.032661290322580645,
+      "high800WinRate": 0.0013664874551971326,
+      "ci95Low": 42.204273073476706,
+      "ci95High": 47.67587925627242
+    },
+    {
+      "policy": "B",
+      "seedClusters": 11160,
+      "games": 44640,
+      "meanNet": 3.5181451612903225,
+      "winRate": 0.7290322580645161,
+      "ronShareAmongWins": 0.6352630285152409,
+      "tsumoShareAmongWins": 0.3647369714847591,
+      "firstWinRate": 0.2740143369175627,
+      "averageWinOrder": 1.9160213864306785,
+      "averageWinDrawNumber": 46.12994714847591,
+      "netAmongWins": 129.7166912487709,
+      "winReceiptPerGame": 161.71146953405017,
+      "winReceiptAmongWins": 221.8166175024582,
+      "dealInLossPerGame": 58.5663082437276,
+      "tsumoPaidPerGame": 104.24955197132617,
+      "drawLossPerGame": 0.4681899641577061,
+      "drawGainPerGame": 5.090725806451613,
+      "ronDeclinedPerGame": 0,
+      "closedKansPerGame": 0,
+      "pinfuWinsPerGame": 0.36113351254480286,
+      "meanRank": 2.377307347670251,
+      "topScoreRate": 0.296415770609319,
+      "meanOriginalBaseAmongWins": 95.66740412979351,
+      "meanWinBaseAmongWins": 96.4801499508358,
+      "high400ShareAmongWins": 0.040591199606686335,
+      "high800ShareAmongWins": 7989183874139626e-19,
+      "high400WinRate": 0.029592293906810035,
+      "high800WinRate": 5824372759856631e-19,
+      "ci95Low": 0.7627688172043021,
+      "ci95High": 6.200716845878134
+    },
+    {
+      "policy": "C",
+      "seedClusters": 11160,
+      "games": 44640,
+      "meanNet": -54.8801523297491,
+      "winRate": 0.46088709677419354,
+      "ronShareAmongWins": 0,
+      "tsumoShareAmongWins": 1,
+      "firstWinRate": 0.10994623655913978,
+      "averageWinOrder": 2.2160007776805677,
+      "averageWinDrawNumber": 52.82055020900165,
+      "netAmongWins": 258.092738407699,
+      "winReceiptPerGame": 176.7081093189964,
+      "winReceiptAmongWins": 383.4086711383299,
+      "dealInLossPerGame": 87.85618279569893,
+      "tsumoPaidPerGame": 154.7323028673835,
+      "drawLossPerGame": 0.4681899641577061,
+      "drawGainPerGame": 11.468413978494624,
+      "ronDeclinedPerGame": 0.7638888888888888,
+      "closedKansPerGame": 0,
+      "pinfuWinsPerGame": 0.23131720430107527,
+      "meanRank": 2.6942652329749106,
+      "topScoreRate": 0.2957661290322581,
+      "meanOriginalBaseAmongWins": 94.17225624574706,
+      "meanWinBaseAmongWins": 94.34480412170701,
+      "high400ShareAmongWins": 0.036016331291921846,
+      "high800ShareAmongWins": 0.001020705745115194,
+      "high400WinRate": 0.016599462365591396,
+      "high800WinRate": 47043010752688175e-20,
+      "ci95Low": -58.47334229390681,
+      "ci95High": -51.39107302867384
+    },
+    {
+      "policy": "D",
+      "seedClusters": 11160,
+      "games": 44640,
+      "meanNet": 50.16465053763441,
+      "winRate": 0.7538754480286738,
+      "ronShareAmongWins": 0.6201230202359374,
+      "tsumoShareAmongWins": 0.37987697976406265,
+      "firstWinRate": 0.29336917562724013,
+      "averageWinOrder": 1.8905892491011203,
+      "averageWinDrawNumber": 45.830030012183165,
+      "netAmongWins": 170.897096841292,
+      "winReceiptPerGame": 196.92540322580646,
+      "winReceiptAmongWins": 261.2174248952545,
+      "dealInLossPerGame": 55.65972222222222,
+      "tsumoPaidPerGame": 96.9758064516129,
+      "drawLossPerGame": 0.4939516129032258,
+      "drawGainPerGame": 6.368727598566308,
+      "ronDeclinedPerGame": 0,
+      "closedKansPerGame": 0.026344086021505377,
+      "pinfuWinsPerGame": 0.18870967741935485,
+      "meanRank": 2.265972222222222,
+      "topScoreRate": 0.336581541218638,
+      "meanOriginalBaseAmongWins": 96.3554512227736,
+      "meanWinBaseAmongWins": 97.48462247050783,
+      "high400ShareAmongWins": 0.03842153745579889,
+      "high800ShareAmongWins": 0.010281401360948505,
+      "high400WinRate": 0.02896505376344086,
+      "high800WinRate": 0.00775089605734767,
+      "ci95Low": 47.20542114695341,
+      "ci95High": 53.131776433691755
+    },
+    {
+      "policy": "E",
+      "seedClusters": 11160,
+      "games": 44640,
+      "meanNet": 12.738575268817204,
+      "winRate": 0.7167562724014337,
+      "ronShareAmongWins": 0.6200775096887111,
+      "tsumoShareAmongWins": 0.3799224903112889,
+      "firstWinRate": 0.27139336917562723,
+      "averageWinOrder": 1.9141455181897737,
+      "averageWinDrawNumber": 47.216870858857355,
+      "netAmongWins": 143.43824228028504,
+      "winReceiptPerGame": 167.99955197132616,
+      "winReceiptAmongWins": 234.38867358419802,
+      "dealInLossPerGame": 52.833781362007166,
+      "tsumoPaidPerGame": 107.96258960573476,
+      "drawLossPerGame": 0.9408602150537635,
+      "drawGainPerGame": 6.476254480286738,
+      "ronDeclinedPerGame": 0,
+      "closedKansPerGame": 0.020990143369175627,
+      "pinfuWinsPerGame": 0.28389336917562724,
+      "meanRank": 2.3409498207885306,
+      "topScoreRate": 0.3098790322580645,
+      "meanOriginalBaseAmongWins": 94.77903487935993,
+      "meanWinBaseAmongWins": 95.66664583072884,
+      "high400ShareAmongWins": 0.04466183272909113,
+      "high800ShareAmongWins": 0.0012189023627953493,
+      "high400WinRate": 0.03201164874551971,
+      "high800WinRate": 8736559139784947e-19,
+      "ci95Low": 9.722138216845877,
+      "ci95High": 15.789650537634406
+    },
+    {
+      "policy": "A+",
+      "seedClusters": 11160,
+      "games": 44640,
+      "meanNet": 45.063844086021504,
+      "winRate": 0.7783826164874552,
+      "ronShareAmongWins": 0.6262123348778312,
+      "tsumoShareAmongWins": 0.3737876651221688,
+      "firstWinRate": 0.3089605734767025,
+      "averageWinOrder": 1.8759892940397733,
+      "averageWinDrawNumber": 45.41574812214004,
+      "netAmongWins": 151.64618528218264,
+      "winReceiptPerGame": 186.80667562724014,
+      "winReceiptAmongWins": 239.9933807235157,
+      "dealInLossPerGame": 52.07997311827957,
+      "tsumoPaidPerGame": 94.04681899641577,
+      "drawLossPerGame": 0.42450716845878134,
+      "drawGainPerGame": 4.808467741935484,
+      "ronDeclinedPerGame": 0,
+      "closedKansPerGame": 0.02260304659498208,
+      "pinfuWinsPerGame": 0.20109767025089606,
+      "meanRank": 2.252912186379928,
+      "topScoreRate": 0.33125,
+      "meanOriginalBaseAmongWins": 87.44783722335741,
+      "meanWinBaseAmongWins": 88.3313667366967,
+      "high400ShareAmongWins": 0.04181655970299594,
+      "high800ShareAmongWins": 0.001726767778513253,
+      "high400WinRate": 0.032549283154121866,
+      "high800WinRate": 0.0013440860215053765,
+      "ci95Low": 42.343189964157716,
+      "ci95High": 47.805807571684575
+    },
+    {
+      "policy": "B+",
+      "seedClusters": 11160,
+      "games": 44640,
+      "meanNet": 7.512320788530466,
+      "winRate": 0.7368503584229391,
+      "ronShareAmongWins": 0.6374304563280941,
+      "tsumoShareAmongWins": 0.36256954367190586,
+      "firstWinRate": 0.28131720430107526,
+      "averageWinOrder": 1.9042349436050223,
+      "averageWinDrawNumber": 45.76067856382817,
+      "netAmongWins": 129.2493843674946,
+      "winReceiptPerGame": 162.24462365591398,
+      "winReceiptAmongWins": 220.1866658559572,
+      "dealInLossPerGame": 57.55152329749104,
+      "tsumoPaidPerGame": 101.69914874551971,
+      "drawLossPerGame": 0.4211469534050179,
+      "drawGainPerGame": 4.939516129032258,
+      "ronDeclinedPerGame": 0,
+      "closedKansPerGame": 0,
+      "pinfuWinsPerGame": 0.3255600358422939,
+      "meanRank": 2.3652105734767024,
+      "topScoreRate": 0.297334229390681,
+      "meanOriginalBaseAmongWins": 91.74748426716931,
+      "meanWinBaseAmongWins": 92.5288055209315,
+      "high400ShareAmongWins": 0.03648192624570577,
+      "high800ShareAmongWins": 6992369197093606e-19,
+      "high400WinRate": 0.026881720430107527,
+      "high800WinRate": 5152329749103943e-19,
+      "ci95Low": 4.763524865591397,
+      "ci95High": 10.210741487455191
+    },
+    {
+      "policy": "C+",
+      "seedClusters": 11160,
+      "games": 44640,
+      "meanNet": -50.22289426523297,
+      "winRate": 0.46686827956989246,
+      "ronShareAmongWins": 0,
+      "tsumoShareAmongWins": 1,
+      "firstWinRate": 0.11267921146953405,
+      "averageWinOrder": 2.2085792428386353,
+      "averageWinDrawNumber": 52.609231802696605,
+      "netAmongWins": 259.4069382467252,
+      "winReceiptPerGame": 179.25179211469535,
+      "winReceiptAmongWins": 383.94510820018235,
+      "dealInLossPerGame": 87.24798387096774,
+      "tsumoPaidPerGame": 152.98051075268816,
+      "drawLossPerGame": 0.4211469534050179,
+      "drawGainPerGame": 11.174955197132617,
+      "ronDeclinedPerGame": 0.7784498207885304,
+      "closedKansPerGame": 0,
+      "pinfuWinsPerGame": 0.20945340501792115,
+      "meanRank": 2.680421146953405,
+      "topScoreRate": 0.2989247311827957,
+      "meanOriginalBaseAmongWins": 90.49709706827888,
+      "meanWinBaseAmongWins": 90.72981142939398,
+      "high400ShareAmongWins": 0.03272395758360923,
+      "high800ShareAmongWins": 8636821649632935e-19,
+      "high400WinRate": 0.015277777777777777,
+      "high800WinRate": 4032258064516129e-19,
+      "ci95Low": -53.81846438172043,
+      "ci95High": -46.73941532258065
+    },
+    {
+      "policy": "D+",
+      "seedClusters": 11160,
+      "games": 44640,
+      "meanNet": -143.89112903225808,
+      "winRate": 0.30315860215053764,
+      "ronShareAmongWins": 0.5109731766792286,
+      "tsumoShareAmongWins": 0.48902682332077146,
+      "firstWinRate": 0.03474462365591398,
+      "averageWinOrder": 2.506096209266238,
+      "averageWinDrawNumber": 68.80979827089337,
+      "netAmongWins": 272.4894701839947,
+      "winReceiptPerGame": 131.70138888888889,
+      "winReceiptAmongWins": 434.4306510012562,
+      "dealInLossPerGame": 91.24551971326164,
+      "tsumoPaidPerGame": 186.76859318996415,
+      "drawLossPerGame": 13.044354838709678,
+      "drawGainPerGame": 15.46594982078853,
+      "ronDeclinedPerGame": 0.2588933691756272,
+      "closedKansPerGame": 0.04457885304659498,
+      "pinfuWinsPerGame": 0.1006720430107527,
+      "meanRank": 3.0502464157706095,
+      "topScoreRate": 0.18420698924731183,
+      "meanOriginalBaseAmongWins": 228.70760363555752,
+      "meanWinBaseAmongWins": 232.09931279095545,
+      "high400ShareAmongWins": 0.16803369541121702,
+      "high800ShareAmongWins": 0.10300746323801079,
+      "high400WinRate": 0.050940860215053764,
+      "high800WinRate": 0.031227598566308242,
+      "ci95Low": -148.1149473566308,
+      "ci95High": -139.77822580645162
+    },
+    {
+      "policy": "E+",
+      "seedClusters": 11160,
+      "games": 44640,
+      "meanNet": 62.19198028673835,
+      "winRate": 0.7441980286738351,
+      "ronShareAmongWins": 0.6179524999247464,
+      "tsumoShareAmongWins": 0.3820475000752536,
+      "firstWinRate": 0.2853942652329749,
+      "averageWinOrder": 1.904247313446314,
+      "averageWinDrawNumber": 46.49923241323259,
+      "netAmongWins": 191.22091448180367,
+      "winReceiptPerGame": 210.2296146953405,
+      "winReceiptAmongWins": 282.4914963426748,
+      "dealInLossPerGame": 53.07795698924731,
+      "tsumoPaidPerGame": 102.20318100358423,
+      "drawLossPerGame": 0.8635752688172043,
+      "drawGainPerGame": 8.107078853046595,
+      "ronDeclinedPerGame": 0,
+      "closedKansPerGame": 0.026232078853046594,
+      "pinfuWinsPerGame": 0.20495071684587812,
+      "meanRank": 2.245833333333333,
+      "topScoreRate": 0.3498879928315412,
+      "meanOriginalBaseAmongWins": 109.23813250654706,
+      "meanWinBaseAmongWins": 110.35790614370428,
+      "high400ShareAmongWins": 0.050690828090665545,
+      "high800ShareAmongWins": 0.016375184371331387,
+      "high400WinRate": 0.03772401433691756,
+      "high800WinRate": 0.012186379928315413,
+      "ci95Low": 58.65591397849463,
+      "ci95High": 65.64194108422939
+    }
+  ],
+  "improvements": [
+    {
+      "comparison": "A+-A",
+      "policy": "A+",
+      "reference": "A",
+      "seedClusters": 11160,
+      "meanDifference": 0.13888888888888573,
+      "ci95Low": -0.14448924731182444,
+      "ci95High": 0.4345878136200767,
+      "ci99Low": -0.23185483870967974,
+      "ci99High": 0.5454805107526909,
+      "familySize": 5,
+      "familyConfidenceTarget": 0.95,
+      "superiorByMeanNet": false
+    },
+    {
+      "comparison": "B+-B",
+      "policy": "B+",
+      "reference": "B",
+      "seedClusters": 11160,
+      "meanDifference": 3.994175627240143,
+      "ci95Low": 2.545922939068096,
+      "ci95High": 5.384268593189961,
+      "ci99Low": 2.141577060931903,
+      "ci99High": 5.834459005376347,
+      "familySize": 5,
+      "familyConfidenceTarget": 0.95,
+      "superiorByMeanNet": true
+    },
+    {
+      "comparison": "C+-C",
+      "policy": "C+",
+      "reference": "C",
+      "seedClusters": 11160,
+      "meanDifference": 4.657258064516128,
+      "ci95Low": 2.857302867383524,
+      "ci95High": 6.423611111111107,
+      "ci99Low": 2.320760528673832,
+      "ci99High": 7.01843077956987,
+      "familySize": 5,
+      "familyConfidenceTarget": 0.95,
+      "superiorByMeanNet": true
+    },
+    {
+      "comparison": "D+-D",
+      "policy": "D+",
+      "reference": "D",
+      "seedClusters": 11160,
+      "meanDifference": -194.05577956989248,
+      "ci95Low": -199.0738967293907,
+      "ci95High": -189.1000224014337,
+      "ci99Low": -200.66662746415773,
+      "ci99High": -187.33531586021508,
+      "familySize": 5,
+      "familyConfidenceTarget": 0.95,
+      "superiorByMeanNet": false
+    },
+    {
+      "comparison": "E+-E",
+      "policy": "E+",
+      "reference": "E",
+      "seedClusters": 11160,
+      "meanDifference": 49.45340501792114,
+      "ci95Low": 45.023493503584234,
+      "ci95High": 53.778057795698935,
+      "ci99Low": 43.644702060931905,
+      "ci99High": 55.11652105734767,
+      "familySize": 5,
+      "familyConfidenceTarget": 0.95,
+      "superiorByMeanNet": true
+    }
+  ],
+  "dMetrics": [
+    {
+      "comparison": "D+-D",
+      "metric": "meanNet",
+      "policy": "D+",
+      "reference": "D",
+      "baseline": 50.16465053763441,
+      "candidate": -143.89112903225808,
+      "meanDifference": -194.05577956989248,
+      "ci95Low": -199.0738967293907,
+      "ci95High": -189.1000224014337,
+      "bootstrapValidSamples": 1e4,
+      "exploratory": true
+    },
+    {
+      "comparison": "D+-D",
+      "metric": "winRate",
+      "policy": "D+",
+      "reference": "D",
+      "baseline": 0.7538754480286738,
+      "candidate": 0.30315860215053764,
+      "meanDifference": -0.45071684587813615,
+      "ci95Low": -0.4562724014336918,
+      "ci95High": -0.4451383288530465,
+      "bootstrapValidSamples": 1e4,
+      "exploratory": true
+    },
+    {
+      "comparison": "D+-D",
+      "metric": "meanOriginalBaseAmongWins",
+      "policy": "D+",
+      "reference": "D",
+      "baseline": 96.3554512227736,
+      "candidate": 228.70760363555752,
+      "meanDifference": 132.35215241278394,
+      "ci95Low": 128.41618963711335,
+      "ci95High": 136.27849427301763,
+      "bootstrapValidSamples": 1e4,
+      "exploratory": true
+    },
+    {
+      "comparison": "D+-D",
+      "metric": "meanWinBaseAmongWins",
+      "policy": "D+",
+      "reference": "D",
+      "baseline": 97.48462247050783,
+      "candidate": 232.09931279095545,
+      "meanDifference": 134.6146903204476,
+      "ci95Low": 130.66754913328333,
+      "ci95High": 138.5778182076593,
+      "bootstrapValidSamples": 1e4,
+      "exploratory": true
+    },
+    {
+      "comparison": "D+-D",
+      "metric": "high400ShareAmongWins",
+      "policy": "D+",
+      "reference": "D",
+      "baseline": 0.03842153745579889,
+      "candidate": 0.16803369541121702,
+      "meanDifference": 0.12961215795541814,
+      "ci95Low": 0.12324833814675605,
+      "ci95High": 0.1359076477149847,
+      "bootstrapValidSamples": 1e4,
+      "exploratory": true
+    },
+    {
+      "comparison": "D+-D",
+      "metric": "high800ShareAmongWins",
+      "policy": "D+",
+      "reference": "D",
+      "baseline": 0.010281401360948505,
+      "candidate": 0.10300746323801079,
+      "meanDifference": 0.09272606187706228,
+      "ci95Low": 0.08780000467712486,
+      "ci95High": 0.09781572570938533,
+      "bootstrapValidSamples": 1e4,
+      "exploratory": true
+    },
+    {
+      "comparison": "D+-D",
+      "metric": "high400WinRate",
+      "policy": "D+",
+      "reference": "D",
+      "baseline": 0.02896505376344086,
+      "candidate": 0.050940860215053764,
+      "meanDifference": 0.021975806451612904,
+      "ci95Low": 0.01953405017921147,
+      "ci95High": 0.024372759856630812,
+      "bootstrapValidSamples": 1e4,
+      "exploratory": true
+    },
+    {
+      "comparison": "D+-D",
+      "metric": "high800WinRate",
+      "policy": "D+",
+      "reference": "D",
+      "baseline": 0.00775089605734767,
+      "candidate": 0.031227598566308242,
+      "meanDifference": 0.02347670250896057,
+      "ci95Low": 0.021774193548387097,
+      "ci95High": 0.025156810035842296,
+      "bootstrapValidSamples": 1e4,
+      "exploratory": true
+    }
+  ],
+  "bootstrap": {
+    "samples": 1e4,
+    "seed": 20261015,
+    "method": "profile \xD7 round-wind stratified percentile bootstrap; each seed resamples all four seats and all ten policies together",
+    "rng": "Mulberry32 with uint32 state wrapping on every draw",
+    "canonicalOrder": "strata sorted by profile then roundWind, seed ascending within stratum",
+    "multiplicity": "Five predeclared candidate-minus-own-baseline mean-net comparisons use 99% marginal percentile intervals (Bonferroni target 95% family coverage). All other 95% intervals, including D auxiliary metrics and subgroups, are exploratory."
+  },
+  "validationSeeds": 11160,
+  "codeSha256": "a8edbbc0421637a2183aa4484413a246d9e0ef584cad57c2e7f09e8d561e37a5",
+  "selectionSha256": "bdcb03704c6f97343c578e9cf051d602daa2016c28a2609e13135c1b1f6f2223",
+  "analysisSha256": "dd3e1ce7d3c5184dd5eeaad338c2993169486acc0e724a296021ca8889ca34c2"
+};
+var freeze2 = (v) => {
+  if (v && typeof v === "object") {
+    Object.values(v).forEach(freeze2);
+    Object.freeze(v);
+  }
+  return v;
+};
+var RULEBOOK_TRAINING = freeze2(value3);
+var rulebookTrainingVersion = (id) => RULEBOOK_TRAINING.versions.find((v) => v.id === id);
+function rulebookTrainingCompatible(view) {
+  const rules = view?.rules ?? view;
+  return RULEBOOK_TRAINING.status === "complete" && rules?.variant !== "S" && [27, 28].includes(rules?.roundWind) && Object.entries(RULEBOOK_TRAINING.rules).every(([k, v]) => k === "roundWind" || JSON.stringify(rules?.[k]) === JSON.stringify(v));
+}
 
 // web/training-profile.mjs
 var completedVersions = (training) => training.status === "complete" ? training.versions : [];
 var hybridVersions = () => [...completedVersions(HYBRID_TRAINING), ...HYBRID_TRAINING.status === "complete" ? HYBRID_TRAINING.controls.filter((v) => v.id === "Y1").map((v) => ({ ...v, description: "\uC5ED\uD328 \uC7A5\uC218\xB7\uAC00\uC0B0 \uB2E8\uAC00\xB7\uACF5\uAC1C\uB41C \uC794\uC5EC \uD328\uB97C \uBC18\uC601\uD55C \uACE0\uB4DD\uC810\uD615", improved: false })) : []];
 var privateTrainingVersions = () => [...hybridVersions(), ...completedVersions(PRIVATE_KAN_TRAINING)];
 var privateTrainingVersion = (mode) => privateTrainingVersions().find((v) => v.id === mode);
-var trainingIdForMode = (mode) => hybridVersions().some((v) => v.id === mode) ? HYBRID_TRAINING.id : privateTrainingVersion(mode) ? PRIVATE_KAN_TRAINING.id : null;
+var trainingVersions = () => [...completedVersions(RULEBOOK_TRAINING), ...privateTrainingVersions()];
+var trainingVersion = (mode) => trainingVersions().find((v) => v.id === mode);
+var trainingIdForMode = (mode) => rulebookTrainingVersion(mode) ? RULEBOOK_TRAINING.id : hybridVersions().some((v) => v.id === mode) ? HYBRID_TRAINING.id : privateTrainingVersion(mode) ? PRIVATE_KAN_TRAINING.id : null;
 var defaultHybridMode = () => completedVersions(HYBRID_TRAINING).some((v) => v.id === HYBRID_TRAINING.preferredVersion) ? HYBRID_TRAINING.preferredVersion : null;
 function privateTrainingCompatible(view) {
-  return PRIVATE_KAN_TRAINING.status === "complete" && view?.rules?.variant !== "S" && view?.rules?.concealedKanPrivate === true && Object.entries(PRIVATE_KAN_TRAINING.rules).every(([key3, value3]) => JSON.stringify(view.rules[key3]) === JSON.stringify(value3));
+  return PRIVATE_KAN_TRAINING.status === "complete" && view?.rules?.variant !== "S" && view?.rules?.concealedKanPrivate === true && Object.entries(PRIVATE_KAN_TRAINING.rules).every(([key3, value4]) => JSON.stringify(view.rules[key3]) === JSON.stringify(value4));
 }
 function revisedTrainingApplicable(view) {
-  return view?.rules?.variant !== "S" && [27, 28].includes(view?.rules?.roundWind) && Object.entries(DEFAULT_RULES).every(([key3, value3]) => key3 === "roundWind" || JSON.stringify(view?.rules?.[key3]) === JSON.stringify(value3));
+  return view?.rules?.variant !== "S" && [27, 28].includes(view?.rules?.roundWind) && Object.entries(DEFAULT_RULES).every(([key3, value4]) => key3 === "roundWind" || JSON.stringify(view?.rules?.[key3]) === JSON.stringify(value4));
 }
 function trainingVersionApplicable(view, mode) {
-  return !!privateTrainingVersion(mode) && (privateTrainingCompatible(view) || revisedTrainingApplicable(view) && ["M1", "M2", "M3", "Y1"].includes(mode));
+  return rulebookTrainingVersion(mode) ? rulebookTrainingCompatible(view) : !!privateTrainingVersion(mode) && (privateTrainingCompatible(view) || revisedTrainingApplicable(view) && ["M1", "M2", "M3", "Y1"].includes(mode));
 }
 var KEY3 = "wellness-mahjong-training-profile-v2";
 function hasTrainedPolicies(training) {
@@ -7944,7 +8853,7 @@ function trainingCompatible(view, training) {
 function readTrainingMode(storage, training) {
   try {
     const saved = storage?.getItem(KEY3);
-    if (saved === "original" || privateTrainingVersion(saved)) return saved;
+    if (saved === "original" || trainingVersion(saved)) return saved;
     if (saved === "trained") return hasTrainedPolicies(training) ? "trained" : "original";
   } catch {
   }
@@ -7952,19 +8861,118 @@ function readTrainingMode(storage, training) {
 }
 function saveTrainingMode(storage, mode) {
   try {
-    storage?.setItem(KEY3, mode === "trained" || privateTrainingVersion(mode) ? mode : "original");
+    storage?.setItem(KEY3, mode === "trained" || trainingVersion(mode) ? mode : "original");
   } catch {
   }
 }
 function trainingWeights(view, mode, training) {
-  const version = privateTrainingVersion(mode);
+  const version = trainingVersion(mode);
   if (version) return trainingVersionApplicable(view, mode) ? { [version.policy]: version.weights } : {};
   return trainingCompatible(view, training) && mode === "trained" ? training.weights : {};
+}
+function trainingProvenance(view, mode, training) {
+  const version = trainingVersion(mode), applicable = trainingVersionApplicable(view, mode), legacy = mode === "trained" && trainingCompatible(view, training);
+  const effectiveMode = applicable || legacy ? mode : "original";
+  const validated = applicable && (!!rulebookTrainingVersion(mode) || privateTrainingCompatible(view)) || legacy;
+  return {
+    mode,
+    effectiveMode,
+    trainingId: applicable ? trainingIdForMode(mode) : legacy ? training.id : null,
+    rulesetId: view?.rules?.id ?? null,
+    validationStatus: validated ? "validated-for-rules" : applicable ? "not-validated-for-rules" : "baseline",
+    ...applicable ? { policy: version.policy, weights: structuredClone(version.weights) } : legacy ? { weights: structuredClone(training.weights) } : {}
+  };
+}
+function recordTrainingSelection(log, view, mode, training, { policy, profile } = {}) {
+  if (!log) return;
+  const selection = { ...trainingProvenance(view, mode, training), ...policy ? { autoPolicy: policy } : {}, ...profile ? { opponentProfile: profile } : {} };
+  const previous = log.training?.selections?.at(-1), { actionIndex: _, ...previousSelection } = previous ?? {};
+  if (JSON.stringify(previousSelection) === JSON.stringify(selection)) return;
+  log.training ??= { format: "wellness-training-selection/v1", selections: [] };
+  log.training.selections.push({ actionIndex: log.actions?.length ?? 0, ...selection });
 }
 function practiceAction(view, { humanSeat: humanSeat2, policy, profile, mode, training }) {
   if (view.seat === humanSeat2) return chooseAction3(view, policy, trainingWeights(view, mode, training)[policy]);
   const spec = OPPONENT_PROFILES2[profile][(view.seat - humanSeat2 + 4) % 4 - 1];
   return chooseAction3(view, spec.id, spec.weights);
+}
+
+// web/rulebook-results.mjs
+var fixed3 = (n) => Number.isFinite(n) ? n.toFixed(2) : "\u2014";
+var percent3 = (n) => Number.isFinite(n) ? `${(n * 100).toFixed(1)}%` : "\u2014";
+var interval = (low, high) => `${fixed3(low)} ~ ${fixed3(high)}`;
+var rulebookVerdict = (row) => row.ci99Low > 0 ? "\uAE30\uC874 \uB300\uBE44 \uC21C\uC218\uC775 \uAC1C\uC120 \uD655\uC778" : row.ci99High < 0 ? "\uAE30\uC874 \uB300\uBE44 \uC21C\uC218\uC775 \uB0AE\uC74C" : "\uC21C\uC218\uC775 \uCC28\uC774 \uBBF8\uD655\uC815";
+function rulebookVersionNote(version) {
+  const r = version.validation, c = r.comparison;
+  return `${version.id} \xB7 ${version.name} \xB7 \uC0C8 \uADDC\uCE59 \uBCC4\uB3C4 \uC2DC\uB4DC \uAC80\uC99D \xB7 \uAD6D\uB2F9 ${fixed3(r.meanNet)}\uC810 \xB7 \uD654\uB8CC\uC728 ${percent3(r.winRate)} \xB7 ${rulebookVerdict(c)}${version.objective === "highValue" ? ` \xB7 \uACE0\uB4DD\uC810 \uBAA9\uC801: \uAE30\uC874 D\uBCF4\uB2E4 \uAD6D\uB2F9 ${fixed3(Math.abs(c.meanDifference))}\uC810 ${c.meanDifference < 0 ? "\uB0AE\uC74C" : "\uB192\uC74C"}, \uC218\uC775 \uAC1C\uC120\uD615\uC774 \uC544\uB2D9\uB2C8\uB2E4.` : ""}`;
+}
+function rulebookResultModel(training = RULEBOOK_TRAINING) {
+  const { counts: counts2, summary, versions, improvements, validationSeeds } = training ?? {}, ids = ["A", "B", "C", "D", "E", "A+", "B+", "C+", "D+", "E+"];
+  if (training?.status !== "complete" || !counts2 || !Array.isArray(summary) || summary.length !== 10 || !Array.isArray(versions) || versions.length !== 5 || !Array.isArray(improvements) || improvements.length !== 5 || !Number.isSafeInteger(validationSeeds) || validationSeeds < 2 || counts2.holdout !== validationSeeds * 4 * 10 || training.completedGames !== counts2.pilot + counts2.tuning + counts2.holdout || !Number.isFinite(training.elapsedSeconds)) throw new Error("\uC644\uB8CC\uB41C \uAC80\uC99D \uAE30\uB85D\uC744 \uD655\uC778\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.");
+  for (const id of ids) {
+    const rows2 = summary.filter((r) => r.policy === id);
+    if (rows2.length !== 1 || rows2[0].games !== validationSeeds * 4 || ![rows2[0].meanNet, rows2[0].ci95Low, rows2[0].ci95High, rows2[0].winRate].every(Number.isFinite)) throw new Error("\uC815\uCC45\uBCC4 \uC644\uB8CC \uAD6D \uC218\uC640 \uACB0\uACFC\uAC00 \uC77C\uCE58\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
+  }
+  for (const [index, version] of versions.entries()) {
+    const baseline = "ABCDE"[index], r = summary.find((row) => row.policy === version.id), c = improvements.find((row) => row.policy === version.id && row.reference === baseline);
+    if (version.id !== baseline + "+" || version.policy !== baseline || !c || ![c.meanDifference, c.ci99Low, c.ci99High].every(Number.isFinite) || JSON.stringify(version.validation) !== JSON.stringify({ ...r, comparison: c })) throw new Error("\uB3D9\uACB0\uD55C \uC804\uB7B5\uACFC \uAC80\uC99D \uACB0\uACFC\uAC00 \uC77C\uCE58\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
+  }
+  const sorted = [...summary].sort((a, b) => b.meanNet - a.meanNet), best = sorted[0], approved = versions.filter((v) => v.validation.comparison.ci99Low > 0).map((v) => v.id);
+  return {
+    training,
+    summary: sorted,
+    versions,
+    improvements,
+    best,
+    conclusion: `\uC774\uBC88 \uC790\uB3D9 \uB300\uAD6D\uC758 \uD3C9\uADE0 \uC21C\uC218\uC775\uC740 ${best.policy}\uAC00 \uAD6D\uB2F9 ${fixed3(best.meanNet)}\uC810\uC73C\uB85C \uAC00\uC7A5 \uB192\uC558\uC2B5\uB2C8\uB2E4. \uC790\uAE30 \uAE30\uC900 A\u2013E\uC640\uC758 \uB2E4\uC12F \uBE44\uAD50\uB97C \uBCF4\uC815\uD55C \uB4A4 \uAC1C\uC120\uC744 \uD655\uC778\uD55C \uBC84\uC804: ${approved.join(", ") || "\uC5C6\uC74C"}. \uAE30\uBCF8 \uC120\uD0DD\uC740 \uBC14\uAFB8\uC9C0 \uC54A\uC73C\uBA70 \uC544\uB798\uC5D0\uC11C \uC9C1\uC811 \uC120\uD0DD\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.`
+  };
+}
+function element2(tag, text) {
+  const e = document.createElement(tag);
+  if (text !== void 0) e.textContent = text;
+  return e;
+}
+function rows(target, data, values) {
+  target.replaceChildren();
+  for (const row of data) {
+    const tr = element2("tr");
+    for (const text of values(row)) tr.append(element2("td", text));
+    target.append(tr);
+  }
+}
+function renderRulebookResults(get, { training = RULEBOOK_TRAINING, onSelect = () => {
+}, canSelect = () => false } = {}) {
+  const status = get("rulebook-training-status"), content = get("rulebook-training-data"), conclusion = get("rulebook-training-conclusion");
+  if (!status || !content || !conclusion) return;
+  content.hidden = true;
+  try {
+    const model = rulebookResultModel(training), c = training.counts;
+    status.textContent = `10/14 \uAC1C\uC815 H\uB8F0 \xB7 ${training.completedGames.toLocaleString()}\uAD6D \uC644\uB8CC \xB7 ${(training.elapsedSeconds / 3600).toFixed(2)}\uC2DC\uAC04`;
+    conclusion.textContent = model.conclusion;
+    get("rulebook-training-design").textContent = `\uC810\uAC80 ${c.pilot.toLocaleString()}\uAD6D \xB7 \uD29C\uB2DD ${c.tuning.toLocaleString()}\uAD6D \xB7 \uBCC4\uB3C4 \uAC80\uC99D ${c.holdout.toLocaleString()}\uAD6D (${training.validationSeeds.toLocaleString()}\uAC1C \uC0C8 \uC2DC\uB4DC \xD7 4\uC790\uB9AC \xD7 10\uC804\uB7B5). \uC0C1\uB300 6\uC131\uD5A5 \xD7 \uB3D9\xB7\uB0A8\uC7A5 12\uCE35\uC758 \uBE44\uC728\uC744 \uC720\uC9C0\uD558\uACE0, \uAC19\uC740 \uC2DC\uB4DC\uC758 \uBAA8\uB4E0 \uC790\uB9AC\xB7\uC815\uCC45\uC744 \uBB36\uC5B4 \uC2E0\uB8B0\uAD6C\uAC04\uC744 \uACC4\uC0B0\uD588\uC2B5\uB2C8\uB2E4.`;
+    const cards = get("rulebook-training-versions");
+    cards.replaceChildren();
+    for (const v of model.versions) {
+      const card = element2("article");
+      card.className = "training-version-card";
+      const r = v.validation, description = element2("p", v.description), verdict3 = element2("p", rulebookVersionNote(v));
+      verdict3.className = "training-version-verdict";
+      card.append(element2("h3", `${v.id} \xB7 ${v.name}`), description, verdict3);
+      if (v.objective === "highValue") card.append(element2("p", `\uD654\uB8CC \uC2DC \uD3C9\uADE0 \uC6D0\uC5ED \uAE30\uBCF8\uC810 ${fixed3(r.meanOriginalBaseAmongWins)}\uC810 \xB7 \uD654\uB8CC \uC911 400\uC810 \uC774\uC0C1 ${percent3(r.high400ShareAmongWins)}, 800\uC810 \uC774\uC0C1 ${percent3(r.high800ShareAmongWins)}. \uAE61 +1\uD310\xB7\uC0AC\uADC0\uC77C\xB7\uBC88\uD328 \uAC00\uC0B0 \uC804 \uAE30\uC900\uC785\uB2C8\uB2E4.`));
+      const button = element2("button", `${v.id}\uB97C \uB0B4 \uCD94\uCC9C\xB7\uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC120\uD0DD`);
+      button.dataset.rulebookVersion = v.id;
+      button.disabled = !canSelect(v.id);
+      button.onclick = () => onSelect(v.id);
+      card.append(button);
+      cards.append(card);
+    }
+    rows(get("rulebook-training-summary"), model.summary, (r) => [r.policy, fixed3(r.meanNet), interval(r.ci95Low, r.ci95High), percent3(r.winRate), percent3(r.ronShareAmongWins), percent3(r.tsumoShareAmongWins)]);
+    rows(get("rulebook-training-comparisons"), model.improvements, (r) => [`${r.policy} \u2212 ${r.reference}`, fixed3(r.meanDifference), interval(r.ci99Low, r.ci99High), rulebookVerdict(r)]);
+    content.hidden = false;
+  } catch (error) {
+    status.textContent = "\uC0C8 \uADDC\uCE59 \uAC80\uC99D \uAE30\uB85D \uD655\uC778 \uD544\uC694";
+    conclusion.textContent = error.message;
+  }
 }
 
 // web/app.mjs
@@ -8049,13 +9057,19 @@ for (const [id, p] of Object.entries(POLICIES2)) {
   $("policy").append(opt);
 }
 $("policy").value = "D";
-for (const v of privateTrainingVersions()) {
+for (const v of trainingVersions()) {
   const option = document.createElement("option");
   option.value = v.id;
-  option.textContent = `${v.id} \xB7 ${v.name}${v.id === defaultHybridMode() ? " \xB7 \uAE30\uBCF8 \uD63C\uD569\uD615" : ""}${v.improved ? " \xB7 \uBE44\uAD50 \uAE30\uC900 \uB300\uBE44 \uAC1C\uC120 \uD655\uC778" : " \xB7 \uC2E4\uD5D8 \uD6C4\uBCF4"}`;
+  option.textContent = `${v.id} \xB7 ${v.name}${v.id === defaultHybridMode() ? " \xB7 \uAE30\uBCF8 \uD63C\uD569\uD615" : ""} \xB7 ${rulebookTrainingVersion(v.id) ? rulebookVerdict(v.validation.comparison) : v.improved ? "\uAD6C \uADDC\uCE59 \uBE44\uAD50 \uAE30\uC900 \uB300\uBE44 \uAC1C\uC120 \uD655\uC778" : "\uAD6C \uADDC\uCE59 \uC2E4\uD5D8 \uD6C4\uBCF4"}`;
   $("training-mode").append(option);
 }
-if (privateTrainingVersion(trainingMode)) $("policy").value = privateTrainingVersion(trainingMode).policy;
+for (const v of RULEBOOK_TRAINING.versions) {
+  const option = document.createElement("option");
+  option.value = v.id;
+  option.textContent = `${v.id} \xB7 ${v.name}`;
+  $("room-ai-policy").append(option);
+}
+if (trainingVersion(trainingMode)) $("policy").value = trainingVersion(trainingMode).policy;
 var seatIndex = (seat) => (seat - (state?.dealer ?? 0) + 4) % 4;
 var seatName = (seat) => SEAT_NAMES[seatIndex(seat)];
 var wind2 = (seat) => ["\u6771", "\u5357", "\u897F", "\u5317"][seatIndex(seat)];
@@ -8224,7 +9238,7 @@ function renderDiscardRanking(discard) {
   for (const row of discard.ranking) {
     const li = node2("li"), title = node2("strong", `${row.rank}\uC704 \xB7 ${tileName(row.tile)}${row.selected ? " \xB7 \uCD94\uCC9C" : ""}`);
     li.append(title, node2("span", `\uD3C9\uAC00 ${row.score.toFixed(2)} \xB7 ${row.shanten}\uC0E8\uD150 \xB7 \uC720\uD6A8\uD328 ${row.ukeire}\uC7A5`));
-    li.append(node2("span", Object.entries(row.components).map(([key3, value3]) => `${{ speed: "\uC0E8\uD150", ukeire: "\uC720\uD6A8\uD328", value: "\uC5ED \uAC00\uCE58", pinfu: "\uD551\uD6C4 \uD615\uD0DC", risk: "\uC704\uD5D8" }[key3]} ${value3 >= 0 ? "+" : ""}${value3.toFixed(2)}`).join(" / "), "ranking-components"));
+    li.append(node2("span", Object.entries(row.components).map(([key3, value4]) => `${{ speed: "\uC0E8\uD150", ukeire: "\uC720\uD6A8\uD328", value: "\uC5ED \uAC00\uCE58", pinfu: "\uD551\uD6C4 \uD615\uD0DC", risk: "\uC704\uD5D8" }[key3]} ${value4 >= 0 ? "+" : ""}${value4.toFixed(2)}`).join(" / "), "ranking-components"));
     list.append(li);
   }
   details.append(list, node2("p", "\uAC19\uC740 \uC804\uB7B5 \uC548\uC758 \uD6C4\uBCF4 \uBE44\uAD50\uC6A9 \uD3C9\uAC00\uC810\uC218\uC785\uB2C8\uB2E4. \uC608\uC0C1 \uC218\uC775\xB7\uD655\uB960\xB7\uAC15\uD654\uD559\uC2B5 Q\uAC12\uC774 \uC544\uB2D9\uB2C8\uB2E4."));
@@ -8265,7 +9279,7 @@ function renderRecommendations() {
   }
   const view = observation4(state, humanSeat);
   currentRecommendations = strategyRecommendations(view, trainingWeights(view, trainingMode, TRAINING));
-  const selectedVersion = trainingVersionApplicable(view, trainingMode) && privateTrainingVersion(trainingMode);
+  const selectedVersion = trainingVersionApplicable(view, trainingMode) && trainingVersion(trainingMode);
   if (selectedVersion) {
     for (const rec of currentRecommendations) if (rec.policy === selectedVersion.policy) rec.name = `${selectedVersion.id} \xB7 ${selectedVersion.name}`;
   }
@@ -8300,7 +9314,7 @@ function executeRecommendation(policy, mode, revision) {
   const rec = currentRecommendations.find((r) => r.policy === policy), action = mode === "discard" ? rec?.discard?.action : rec?.action;
   if (!action) throw new Error("\uC9C0\uAE08 \uC2E4\uD589\uD560 \uC218 \uC788\uB294 \uCD94\uCC9C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.");
   const result = playHumanAction(action);
-  return result?.then ? result.then((value3) => ({ policy, action: { ...action }, ...value3 })) : { policy, action: { ...action }, ...result };
+  return result?.then ? result.then((value4) => ({ policy, action: { ...action }, ...value4 })) : { policy, action: { ...action }, ...result };
 }
 function actRecommendation(policy, mode, revision) {
   try {
@@ -8431,7 +9445,7 @@ function updateTableLayout() {
     return Math.max(3, el?.children.length ?? 0) * (rowHeight + gap) - gap;
   };
   const compact = matchMedia("(max-width:760px)").matches, topCard = surface.querySelector(".opponent-top"), leftCard = surface.querySelector(".opponent-left"), rightCard = surface.querySelector(".opponent-right");
-  const set = (name, value3) => surface.style.setProperty(name, `${value3}px`), edge = compact ? 8 : 14, meldSizes = {};
+  const set = (name, value4) => surface.style.setProperty(name, `${value4}px`), edge = compact ? 8 : 14, meldSizes = {};
   for (const position of ["bottom", "right", "top", "left"]) {
     const zone = surface.querySelector(".meld-zone-" + position), rack = zone?.querySelector(".meld-rack");
     if (!rack) {
@@ -8474,7 +9488,11 @@ window.addEventListener("resize", updateTableLayout);
 function aiAction(view) {
   return practiceAction(view, { humanSeat, policy: $("policy").value, profile: $("profile").value, mode: trainingMode, training: TRAINING });
 }
+function recordPracticeTraining() {
+  recordTrainingSelection(journal.current, state, trainingMode, TRAINING, { policy: $("policy").value, profile: $("profile").value });
+}
 function loggedStep(game, seat, action) {
+  recordPracticeTraining();
   const before = beforeAction(game);
   try {
     const result = step3(game, seat, action);
@@ -8578,8 +9596,9 @@ function savePractice() {
     auto = false;
     updateAuto();
   }
+  recordPracticeTraining();
   journal.save(state);
-  if (practiceMatch) matchStore.save({ match: practiceMatch, seat: humanSeat, log: journal.read(), policy: $("policy").value, profile: $("profile").value });
+  if (practiceMatch) matchStore.save({ match: practiceMatch, seat: humanSeat, log: journal.read(), policy: $("policy").value, profile: $("profile").value, trainingMode });
 }
 function practiceInfo() {
   const match = currentMatch();
@@ -8631,8 +9650,12 @@ function restorePractice(force = false) {
   state = saved.log.game;
   humanSeat = saved.seat;
   journal.current = saved.log;
+  if (["original", "trained"].includes(saved.trainingMode) || trainingVersion(saved.trainingMode)) {
+    trainingMode = saved.trainingMode;
+    saveTrainingMode(logStorage, trainingMode);
+  }
   if (saved.policy in POLICIES2) $("policy").value = saved.policy;
-  if (trainingVersionApplicable(state, trainingMode)) $("policy").value = privateTrainingVersion(trainingMode).policy;
+  else if (trainingVersionApplicable(state, trainingMode)) $("policy").value = trainingVersion(trainingMode).policy;
   if (saved.profile in OPPONENT_PROFILES2) $("profile").value = saved.profile;
   setVariant(state.rules.variant === "S" ? "S" : "H", practiceMatch.format ?? defaultMatchFormat(state.rules.variant));
   savePractice();
@@ -8732,6 +9755,13 @@ function renderRoomStart() {
   button.hidden = !allowed;
   button.disabled = roomMutationBusy || !roomClient.connected;
   button.textContent = roomMutationBusy ? "AI\uB97C \uCC44\uC6B0\uACE0 \uC2DC\uC791\uD558\uB294 \uC911\u2026" : `\uBE48\uC790\uB9AC ${4 - (remote?.members.length ?? 0)}\uAC1C\uB97C AI\uB85C \uCC44\uC6B0\uACE0 \uC2DC\uC791`;
+  const compatible = rulebookTrainingCompatible(remote?.rules), selector = $("room-ai-policy");
+  $("room-ai-settings").hidden = !allowed;
+  selector.disabled = roomMutationBusy || !roomClient.connected;
+  for (const option of selector.options) option.disabled = option.value !== "original" && !compatible;
+  if (!compatible) selector.value = "original";
+  const v = rulebookTrainingVersion(selector.value);
+  $("room-ai-note").textContent = v ? `${rulebookVersionNote(v)} \xB7 \uBE48\uC790\uB9AC \uBAA8\uB450 \uAC19\uC740 \uBC84\uC804\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4. \uD63C\uD569 \uC0C1\uB300 \uAC80\uC99D \uC218\uCE58\uC640 \uC774 \uBC29\uC758 \uB300\uAD6D \uC870\uAC74\uC740 \uB2E4\uB985\uB2C8\uB2E4.` : compatible ? "\uBE48\uC790\uB9AC\uB294 \uAE30\uC874 \uAE30\uBCF8 AI\uB85C \uCC44\uC6C1\uB2C8\uB2E4. \uC0C8 A+\u2013E+\uB294 \uC9C1\uC811 \uC120\uD0DD\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." : "\uC774 \uBC29\uC758 \uADDC\uCE59\uC5D0\uC11C\uB294 \uAE30\uC874 \uAE30\uBCF8 AI\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4.";
   $("rematch-room").disabled = roomMutationBusy || !roomClient.connected;
 }
 function receiveRoom(snapshot) {
@@ -8764,6 +9794,8 @@ function receiveRoom(snapshot) {
     state = snapshot.state;
     humanSeat = snapshot.seat;
     if (journal.current?.mode !== "online" || journal.current.room !== snapshot.code || journal.current.gameNumber !== snapshot.gameNumber) journal.begin(state, { mode: "online", seat: humanSeat, room: snapshot.code, gameNumber: snapshot.gameNumber, build: buildId });
+    const roomAI = snapshot.members.filter((member) => member.kind === "ai").map((member) => ({ seat: member.seat, policy: member.policy, ...member.trainingVersion ? { trainingVersion: member.trainingVersion, trainingId: member.trainingId } : {} }));
+    if (roomAI.length) journal.current.roomAI = roomAI;
     journal.observe(state, snapshot.revision);
     $("practice-info").textContent = `${roomTitle} \xB7 \uBC29 ${snapshot.code} \xB7 \uB098\uB294 ${seatName(humanSeat)}. \uD328\uB97C \uC120\uD0DD\uD55C \uB4A4 \uB2E4\uC2DC \uB204\uB974\uAC70\uB098 \uBC84\uB9AC\uAE30\uB85C \uD655\uC815\uD558\uC138\uC694.`;
     render();
@@ -8819,7 +9851,8 @@ $("resume-room").onclick = () => {
   showOnline();
   roomClient.resume().catch(roomError);
 };
-$("start-ai-room").onclick = () => mutateRoom(() => roomClient.startAI());
+$("start-ai-room").onclick = () => mutateRoom(() => roomClient.startAI($("room-ai-policy").value));
+$("room-ai-policy").onchange = renderRoomStart;
 $("rematch-room").onclick = () => mutateRoom(() => roomClient.rematch());
 $("copy-room-link").onclick = async () => {
   if (!remote) return;
@@ -8886,24 +9919,32 @@ function effectiveTrainingMode(view) {
   return trainingCompatible(view, TRAINING) && ["original", "trained"].includes(trainingMode) || trainingVersionApplicable(view, trainingMode) ? trainingMode : "original";
 }
 function renderTrainingMode(variant = chosenVariant) {
-  const view = state && (!online || remote?.state) && variant === "H" ? state : { rules: { variant } }, oldCompatible = trainingCompatible(view, TRAINING), privateCompatible = privateTrainingCompatible(view), revisedCompatible = revisedTrainingApplicable(view), enabled = hasTrainedPolicies(TRAINING), version = privateTrainingVersion(trainingMode);
+  const view = state && (!online || remote?.state) && variant === "H" ? state : { rules: remote?.rules ?? { variant } }, oldCompatible = trainingCompatible(view, TRAINING), privateCompatible = privateTrainingCompatible(view), revisedCompatible = revisedTrainingApplicable(view), newCompatible = rulebookTrainingCompatible(view), enabled = hasTrainedPolicies(TRAINING), version = trainingVersion(effectiveTrainingMode(view));
   $("training-mode").value = effectiveTrainingMode(view);
-  $("training-mode").disabled = variant === "S" || !oldCompatible && !privateCompatible && !revisedCompatible;
+  $("training-mode").disabled = variant === "S" || !oldCompatible && !privateCompatible && !revisedCompatible && !newCompatible;
   $("training-mode").querySelector('[value="trained"]').disabled = !oldCompatible || !enabled;
-  for (const v of privateTrainingVersions()) $("training-mode").querySelector(`[value="${v.id}"]`).disabled = !trainingVersionApplicable(view, v.id);
-  $("training-note").textContent = variant === "S" ? "S\uB8F0\uC740 \uC804\uC6A9 \uAE30\uBCF8 \uC804\uB7B5\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4." : revisedCompatible ? `${trainingVersionApplicable(view, trainingMode) ? version.id + " \xB7 " + version.name : "\uAE30\uC874 A\u2013E"} \xB7 \uC0C8 \uADDC\uCE59 \uC801\uC6A9 \xB7 \uC131\uB2A5 \uC7AC\uAC80\uC99D \uC804. M1\u2013M3\xB7Y1\uC740 \uAE30\uC874 \uAC00\uC911\uCE58\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4.` : privateCompatible ? version ? `${version.id} \xB7 ${version.description} \xB7 ${version.policy} \uCD94\uCC9C\uACFC \uB0B4 \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9 \xB7 \uB2E4\uB978 \uCD94\uCC9C\uACFC \uC0C1\uB300 AI\uB294 \uAE30\uBCF8\uAC12` : "\uC548\uAE61 \uBE44\uACF5\uAC1C \uADDC\uCE59 \xB7 \uAE30\uC874 A\u2013E \uC0AC\uC6A9 \xB7 \uACF5\uACA9\xB7\uC218\uBE44 \uD63C\uD569\uD615 M1\u2013M3\uACFC \uC5ED\uD328 \uBCF4\uC815 Y1\uC744 \uC120\uD0DD\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." : oldCompatible ? trainingMode === "trained" ? "\uAD6C \uADDC\uCE59 \uAC80\uC99D \uAC00\uC911\uCE58\uB97C \uB0B4 \uCD94\uCC9C\uACFC \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9" : "\uAE30\uC874 A\u2013E \uC804\uB7B5" : "\uC774 \uB300\uAD6D\uC758 \uADDC\uCE59\uACFC \uC77C\uCE58\uD558\uB294 \uD559\uC2B5 \uACB0\uACFC\uAC00 \uC5C6\uC5B4 \uAE30\uBCF8 A\u2013E\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4.";
+  for (const v of trainingVersions()) $("training-mode").querySelector(`[value="${v.id}"]`).disabled = !trainingVersionApplicable(view, v.id);
+  for (const button of document.querySelectorAll("[data-rulebook-version]")) button.disabled = !trainingVersionApplicable(view, button.dataset.rulebookVersion);
+  $("training-note").textContent = variant === "S" ? "S\uB8F0\uC740 \uC804\uC6A9 \uAE30\uBCF8 \uC804\uB7B5\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4." : newCompatible && rulebookTrainingVersion(trainingMode) ? `${rulebookVersionNote(version)} \xB7 ${version.policy} \uCD94\uCC9C\uACFC \uB0B4 \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9 \xB7 \uB2E4\uB978 \uCD94\uCC9C\uACFC \uC0C1\uB300 AI\uB294 \uAE30\uBCF8\uAC12` : revisedCompatible ? `${trainingVersionApplicable(view, trainingMode) ? version.id + " \xB7 " + version.name : "\uAE30\uC874 A\u2013E"} \xB7 M1\u2013M3\xB7Y1\uC758 \uC0C8 \uADDC\uCE59 \uC131\uB2A5\uC740 \uC7AC\uAC80\uC99D\uD558\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4. \uC0C8 \uADDC\uCE59\uC5D0\uC11C \uAC80\uC99D\uD55C A+\u2013E+\uB97C \uC9C1\uC811 \uC120\uD0DD\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.` : privateCompatible ? version ? `${version.id} \xB7 ${version.description} \xB7 ${version.policy} \uCD94\uCC9C\uACFC \uB0B4 \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9 \xB7 \uB2E4\uB978 \uCD94\uCC9C\uACFC \uC0C1\uB300 AI\uB294 \uAE30\uBCF8\uAC12` : "\uC548\uAE61 \uBE44\uACF5\uAC1C \uADDC\uCE59 \xB7 \uAE30\uC874 A\u2013E \uC0AC\uC6A9 \xB7 \uACF5\uACA9\xB7\uC218\uBE44 \uD63C\uD569\uD615 M1\u2013M3\uACFC \uC5ED\uD328 \uBCF4\uC815 Y1\uC744 \uC120\uD0DD\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." : oldCompatible ? trainingMode === "trained" ? "\uAD6C \uADDC\uCE59 \uAC80\uC99D \uAC00\uC911\uCE58\uB97C \uB0B4 \uCD94\uCC9C\uACFC \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9" : "\uAE30\uC874 A\u2013E \uC804\uB7B5" : "\uC774 \uB300\uAD6D\uC758 \uADDC\uCE59\uACFC \uC77C\uCE58\uD558\uB294 \uD559\uC2B5 \uACB0\uACFC\uAC00 \uC5C6\uC5B4 \uAE30\uBCF8 A\u2013E\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4.";
 }
 function setTrainingMode(mode) {
-  const version = privateTrainingVersion(mode);
+  const version = trainingVersion(mode);
   if (!["original", "trained"].includes(mode) && !version || mode === "trained" && !hasTrainedPolicies(TRAINING)) throw new Error("\uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC804\uB7B5 \uBC84\uC804\uC744 \uC120\uD0DD\uD558\uC138\uC694.");
   trainingMode = mode;
   if (version) $("policy").value = version.policy;
   saveTrainingMode(logStorage, mode);
+  if (state && !online) savePractice();
   if (state && (!online || remote?.state)) render();
   else renderTrainingMode(remote?.variant ?? chosenVariant);
   return { mode, policies: version ? [version.policy] : Object.keys(TRAINING.weights) };
 }
 $("training-mode").onchange = () => setTrainingMode($("training-mode").value);
+$("policy").onchange = () => {
+  if (state && !online) savePractice();
+};
+$("profile").onchange = () => {
+  if (state && !online) savePractice();
+};
 function persistPreferences() {
   savePreferences(logStorage, { variant: chosenVariant, format: chosenFormat, recommendations: recommendationsEnabled });
 }
@@ -8913,7 +9954,7 @@ function setVariant(variant, format2 = variant === chosenVariant ? chosenFormat 
   chosenVariant = variant;
   chosenFormat = format2;
   for (const rule of ["H", "S"]) $("rule-" + rule.toLowerCase()).setAttribute("aria-pressed", String(variant === rule));
-  for (const value3 of ["single", "hanchan"]) $("format-" + value3).setAttribute("aria-pressed", String(format2 === value3));
+  for (const value4 of ["single", "hanchan"]) $("format-" + value4).setAttribute("aria-pressed", String(format2 === value4));
   $("random-game").textContent = `${variant}\uB8F0 \uC0C8 ${matchFormatName(format2)} \u21BB`;
   $("create-room").textContent = `${variant}\uB8F0 ${matchFormatName(format2)} \uBC29 \uB9CC\uB4E4\uAE30`;
   $("format-note").textContent = format2 === "single" ? "\uD55C \uAD6D \uC815\uC0B0 \uD6C4 \uC885\uB8CC\uD569\uB2C8\uB2E4. \uC120\uD0DD\uC740 \uC0C8 \uB300\uAD6D\xB7\uC0C8 \uBC29\uC5D0 \uC801\uC6A9\uB418\uBA70, \uC785\uC7A5\uD55C \uBC29\uC758 \uBC29\uC2DD\uC740 \uC720\uC9C0\uB429\uB2C8\uB2E4." : variant === "H" ? "\uB3D91\uAD6D~\uB0A84\uAD6D\uAE4C\uC9C0 \uB204\uC801\uD569\uB2C8\uB2E4. \uC0C8 H\uB8F0\uC740 \uCE5C\uC774 \uD654\uB8CC\uD558\uBA74 \uC21C\uBC88\uACFC \uAD00\uACC4\uC5C6\uC774 \uC5F0\uC7A5\uD569\uB2C8\uB2E4. \uC0C8 \uB300\uAD6D\xB7\uC0C8 \uBC29\uC5D0 \uC801\uC6A9\uB429\uB2C8\uB2E4." : "\uB3D91\uAD6D~\uB0A84\uAD6D\uAE4C\uC9C0 \uB204\uC801 \uC810\uC218\uB97C \uAE30\uB85D\uD558\uBA70 \uCE5C \uD654\uB8CC\xB7\uD150\uD30C\uC774 \uC2DC \uC5F0\uC7A5\uD569\uB2C8\uB2E4. \uC0C8 \uB300\uAD6D\xB7\uC0C8 \uBC29\uC5D0 \uC801\uC6A9\uB429\uB2C8\uB2E4.";
@@ -8999,16 +10040,17 @@ fetch(new URL("../results/baseline/analysis.json", import.meta.url)).then((r) =>
   if (reverse.length) $("conclusion").textContent += " \uC0C1\uB300\uBCC4 \uC608\uC678: " + reverse.map((r) => `${r.profile} C\u2212B +${r.meanDifference.toFixed(2)}\uC810`).join(", ") + ".";
   for (const r of data.summary) {
     const tr = node2("tr", void 0, r.policy === data.conclusion.bestMeanPolicy ? "best" : "");
-    for (const value3 of [`${r.policy} \xB7 ${POLICIES2[r.policy].name}`, r.meanNet.toFixed(2) + "\uC810", `${r.ci95Low.toFixed(2)} ~ ${r.ci95High.toFixed(2)}`, (r.winRate * 100).toFixed(1) + "%"]) tr.append(node2("td", value3));
+    for (const value4 of [`${r.policy} \xB7 ${POLICIES2[r.policy].name}`, r.meanNet.toFixed(2) + "\uC810", `${r.ci95Low.toFixed(2)} ~ ${r.ci95High.toFixed(2)}`, (r.winRate * 100).toFixed(1) + "%"]) tr.append(node2("td", value4));
     $("summary").append(tr);
   }
 }).catch(() => {
   $("conclusion").textContent = "\uC644\uB8CC\uB41C \uACB0\uACFC \uD30C\uC77C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4. headless \uC2E4\uD5D8 \uD6C4 \uBCF4\uACE0\uC11C\uB97C \uC0DD\uC131\uD558\uBA74 \uC5EC\uAE30\uC5D0 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
 });
 void renderTrainingResults($, TRAINING);
+renderRulebookResults($, { onSelect: setTrainingMode, canSelect: (id) => trainingVersionApplicable(state, id) });
 function readGame() {
   if (online && !remote?.state) return { mode: "online", phase: "waiting", room: remote ? { code: remote.code, members: remote.members, variant: remote.variant, format: remote.format ?? defaultMatchFormat(remote.variant) } : null, legalActions: [], recommendations: [] };
-  return { match: currentMatch(), variant: state.rules.variant === "S" ? "S" : "H", trainingMode: effectiveTrainingMode(state), trainingId: privateTrainingCompatible(state) ? trainingIdForMode(effectiveTrainingMode(state)) : effectiveTrainingMode(state) === "trained" ? TRAINING.id : null, validationStatus: revisedTrainingApplicable(state) ? "not-validated-for-rules" : null, recommendationsEnabled, selectedVariant: chosenVariant, selectedFormat: chosenFormat, format: currentMatch() ? summaryFormat(currentMatch()) : remote?.format ?? defaultMatchFormat(state.rules.variant), mode: online ? "online" : "practice", room: online && remote ? { code: remote.code, members: remote.members, gameNumber: remote.gameNumber } : null, seat: humanSeat, phase: online && !remote?.state ? "waiting" : state.phase, turn: actor4(state), ownHand: state.players[humanSeat].hand.map(typeOf), drawnTile: handDisplay(state, humanSeat).drawn === null ? null : typeOf(handDisplay(state, humanSeat).drawn), scores: state.players.map((p) => p.score), winners: [...state.winners], legalActions: actor4(state) === humanSeat ? legalActions4(state) : [], recommendationRevision, recommendations: structuredClone(currentRecommendations) };
+  return { match: currentMatch(), variant: state.rules.variant === "S" ? "S" : "H", trainingMode: effectiveTrainingMode(state), trainingId: trainingProvenance(state, trainingMode, TRAINING).trainingId, validationStatus: trainingProvenance(state, trainingMode, TRAINING).validationStatus, recommendationsEnabled, selectedVariant: chosenVariant, selectedFormat: chosenFormat, format: currentMatch() ? summaryFormat(currentMatch()) : remote?.format ?? defaultMatchFormat(state.rules.variant), mode: online ? "online" : "practice", room: online && remote ? { code: remote.code, members: remote.members, gameNumber: remote.gameNumber } : null, seat: humanSeat, phase: online && !remote?.state ? "waiting" : state.phase, turn: actor4(state), ownHand: state.players[humanSeat].hand.map(typeOf), drawnTile: handDisplay(state, humanSeat).drawn === null ? null : typeOf(handDisplay(state, humanSeat).drawn), scores: state.players.map((p) => p.score), winners: [...state.winners], legalActions: actor4(state) === humanSeat ? legalActions4(state) : [], recommendationRevision, recommendations: structuredClone(currentRecommendations) };
 }
 if (document.modelContext?.registerTool) {
   const life = new AbortController();
