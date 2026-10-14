@@ -65,6 +65,11 @@ var LEGACY_RULES = Object.freeze({
   concealedKanPrivate: false,
   menzenRequiresTsumo: false,
   sevenPairsQuadAsTwo: false,
+  sevenPairsQuadBonus: 0,
+  kanFanBonus: false,
+  kanFanCap: 5,
+  fanPoints: [50, 100, 200, 400, 800, 1e3],
+  directKanTsumoBonus: false,
   greenTiles: [18, 19, 20, 21, 22, 23, 24, 25, 26, 32],
   kanBonus: 100,
   dragonBonus: 100,
@@ -94,28 +99,38 @@ var CLARIFIED_RULES = Object.freeze({
   fourOfAKindBonus: true,
   ronContinuation: "last-winner"
 });
-var DEFAULT_RULES = Object.freeze({
+var PRIVATE_KAN_RULES = Object.freeze({
   ...CLARIFIED_RULES,
   id: "H-2026-private-kan-v1",
   concealedKanPrivate: true
 });
+var DEFAULT_RULES = Object.freeze({
+  ...PRIVATE_KAN_RULES,
+  id: "H-2026-jp-20261014",
+  sevenPairsQuadAsTwo: true,
+  sevenPairsQuadBonus: 200,
+  kanFanBonus: true,
+  passRonLock: "same-tile-until-draw"
+});
 function ruleset(overrides = {}) {
   for (const k of Object.keys(overrides)) if (!(k in DEFAULT_RULES)) throw new Error(`Unknown H ruleset key: ${k}`);
-  const defaults = overrides.id === CLARIFIED_RULES.id ? CLARIFIED_RULES : overrides.id && overrides.id !== DEFAULT_RULES.id ? LEGACY_RULES : DEFAULT_RULES;
-  const r = { ...defaults, ...overrides, greenTiles: [...overrides.greenTiles ?? defaults.greenTiles] };
+  const defaults = overrides.id === CLARIFIED_RULES.id ? CLARIFIED_RULES : overrides.id === PRIVATE_KAN_RULES.id ? PRIVATE_KAN_RULES : overrides.id && overrides.id !== DEFAULT_RULES.id ? LEGACY_RULES : DEFAULT_RULES;
+  const r = { ...defaults, ...overrides, greenTiles: [...overrides.greenTiles ?? defaults.greenTiles], fanPoints: [...overrides.fanPoints ?? defaults.fanPoints] };
   for (const k of Object.keys(DEFAULT_RULES)) {
     if (typeof DEFAULT_RULES[k] === "boolean" && typeof r[k] !== "boolean") throw new Error(`Invalid boolean ${k}`);
     if (typeof DEFAULT_RULES[k] === "number" && (!Number.isSafeInteger(r[k]) || r[k] < 0)) throw new Error(`Invalid number ${k}`);
   }
-  if (!["none", "until-draw"].includes(r.passRonLock) || !["all", "nearest"].includes(r.multipleRon) || !["next-active", "next-seat"].includes(r.chiFrom)) throw new Error("Invalid rules enum");
+  if (!["none", "until-draw", "same-tile-until-draw"].includes(r.passRonLock) || !["all", "nearest"].includes(r.multipleRon) || !["next-active", "next-seat"].includes(r.chiFrom)) throw new Error("Invalid rules enum");
   if (!["structural", "public-possible"].includes(r.drawWaitAvailability)) throw new Error("Invalid draw wait rule");
   if (!["discarder", "last-winner"].includes(r.ronContinuation)) throw new Error("Invalid ron continuation");
   if (r.kanReplacement !== "live-tail" || r.deadWallTiles > 70 || ![27, 28, 29, 30].includes(r.roundWind)) throw new Error("Unsupported wall or wind configuration");
   if (!r.greenTiles.every((t) => Number.isInteger(t) && t >= 0 && t < 34)) throw new Error("Invalid green tile");
+  if (r.fanPoints.length < 6 || !r.fanPoints.every((n, i) => Number.isSafeInteger(n) && n >= 0 && (!i || n >= r.fanPoints[i - 1])) || r.kanFanCap < 5 || r.kanFanCap >= r.fanPoints.length) throw new Error("Invalid fan points or cap");
   return r;
 }
 
 // engine/score.mjs
+var ORIGINAL_FAN_POINTS = [50, 100, 200, 400, 800, 1e3];
 var YAKU = {
   noYaku: ["\uBB34\uC5ED(\u4EBA\u548C)", 50],
   pinfu: ["\uD551\uD6C4", 100],
@@ -245,16 +260,19 @@ function scoreHand(tiles2, melds = [], context2 = {}, r = DEFAULT_RULES) {
     const trip = gs.filter((g) => g.type !== "chi"), bonuses = {
       // The legacy field name stays stable in saved logs. Under the clarified
       // rules this counts four identical physical tiles, declared kan or not.
-      kan: (r.fourOfAKindBonus ? physicalCounts.filter((n) => n === 4).length : melds.filter((m) => m.type === "kan").length) * r.kanBonus,
+      kan: (r.fourOfAKindBonus ? physicalCounts.filter((n) => n === 4).length : melds.filter((m) => m.type === "kan").length) * (d.kind === "sevenPairs" && r.sevenPairsQuadBonus > 0 ? r.sevenPairsQuadBonus : r.kanBonus),
       dragon: trip.filter((g) => g.tile >= 31).length * r.dragonBonus,
       roundWind: trip.filter((g) => g.tile === r.roundWind).length * r.roundWindBonus,
       seatWind: trip.filter((g) => g.tile === (context2.seatWind ?? 27)).length * r.seatWindBonus
     };
     for (const id of ids) allEligible.add(id);
     ids.sort((a, b) => YAKU[b][1] - YAKU[a][1]);
-    const base = YAKU[ids[0]][1], bonus = Object.values(bonuses).reduce((a, b) => a + b, 0), total = base + bonus;
+    const originalBase = YAKU[ids[0]][1], baseFan = ORIGINAL_FAN_POINTS.indexOf(originalBase), kanFan = r.kanFanBonus === true && context2.kanRelated === true ? 1 : 0;
+    const fan = baseFan + kanFan, scoredFan = Math.min(fan, r.kanFanCap ?? 5);
+    const base = r.kanFanBonus === true ? (r.fanPoints ?? ORIGINAL_FAN_POINTS)[scoredFan] : originalBase, bonus = Object.values(bonuses).reduce((a, b) => a + b, 0), total = base + bonus;
     const name = ids[0] === "allGreen" && r.greenRequiresDragon ? "\uB179\uC77C\uC0C9" : YAKU[ids[0]][0];
-    if (!best || total > best.total) best = { yaku: ids[0], name, base, bonus, total, bonuses, eligibleYaku: ids, closed, shape: d };
+    const better = !best || (r.kanFanBonus === true ? baseFan > best.baseFan || baseFan === best.baseFan && total > best.total : total > best.total);
+    if (better) best = { yaku: ids[0], name, base, bonus, total, bonuses, eligibleYaku: ids, closed, shape: d, ...r.kanFanBonus === true ? { baseFan, kanFan, fan, scoredFan } : {} };
   }
   best.eligibleYaku = [...allEligible].sort((a, b) => YAKU[b][1] - YAKU[a][1]);
   return best;
@@ -283,12 +301,14 @@ function nextActive(s, seat) {
 }
 var event = (s, e) => s.events.push({ n: s.events.length, ...e });
 var handTypes = (p) => p.hand.map(typeOf);
-var scoreContext = (s, seat, method, t) => ({ method, winTile: t, seatWind: 27 + (seat - s.dealer + 4) % 4 });
+var scoreContext = (s, seat, method, t) => ({ method, winTile: t, seatWind: 27 + (seat - s.dealer + 4) % 4, ...s.rules.kanFanBonus === true && t !== void 0 ? { kanRelated: method === "tsumo" ? s.kanContext?.seat === seat : s.reaction?.kind === "kakan" || s.reaction?.afterKan === true } : {} });
 function createGame({ seed = 1, rules = {}, dealer = 0, wall = null } = {}) {
   if (!Number.isInteger(seed) || seed < 0 || seed > 4294967295 || !Number.isInteger(dealer) || dealer < 0 || dealer > 3) throw new Error("Invalid seed/dealer");
   const r = ruleset(rules), w = wall ? [...wall] : shuffledWall(seed);
   if (w.length !== 136 || new Set(w).size !== 136 || w.some((t) => !Number.isInteger(t) || t < 0 || t >= 136)) throw new Error("Invalid wall");
   const s = { version: 1, seed, rules: r, dealer, wall: w, dead: [], players: Array.from({ length: 4 }, () => ({ hand: [], melds: [], river: [], score: 0, won: false, win: null, passLock: false, drawn: null, forbidden: [], stats: { winReceipt: 0, dealInLoss: 0, tsumoPaid: 0, drawLoss: 0, drawGain: 0, ronDeclined: 0, closedKans: 0 } })), phase: "init", turn: dealer, draws: 0, kans: 0, winners: [], events: [], reaction: null, ledger: [], end: null };
+  if (r.kanFanBonus === true) s.kanContext = null;
+  if (r.passRonLock === "same-tile-until-draw") for (const p of s.players) p.passTileLocks = {};
   if (r.deadWallTiles) s.dead = s.wall.splice(s.wall.length - r.deadWallTiles);
   for (let n = 0; n < 13; n++) for (let off = 0; off < 4; off++) s.players[(dealer + off) % 4].hand.push(s.wall.shift());
   for (const p of s.players) p.hand.sort((a, b) => a - b);
@@ -328,6 +348,8 @@ function draw(s, seat, kan = false) {
   s.reaction = null;
   s.draws++;
   event(s, { type: kan ? "kanDraw" : "draw", seat, id });
+  if (s.rules.passRonLock === "same-tile-until-draw") p.passTileLocks = {};
+  if (s.rules.kanFanBonus === true && !kan) s.kanContext = null;
 }
 function win(s, seat, method, source, tile) {
   const p = s.players[seat];
@@ -336,14 +358,19 @@ function win(s, seat, method, source, tile) {
   if (method === "ron") ts.push(typeOf(tile));
   const score = scoreHand(ts, p.melds, scoreContext(s, seat, method, typeOf(tile)), s.rules);
   if (!score) throw new Error("Illegal win");
-  const payers = method === "ron" ? [source] : activeSeats(s).filter((i) => i !== seat);
-  for (const from of payers) transfer(s, from, seat, score.total + (method === "tsumo" ? s.rules.tsumoBonusPerPayer : 0), method);
+  const directKan = s.rules.kanFanBonus === true && method === "tsumo" && s.kanContext?.seat === seat && s.kanContext.kind === "minkan";
+  const paymentMethod = directKan ? "ron" : method, paymentSource = directKan ? s.kanContext.supplier : method === "ron" ? source : null;
+  const payers = paymentMethod === "ron" ? [paymentSource] : activeSeats(s).filter((i) => i !== seat);
+  const amount = score.total + (method === "tsumo" && (!directKan || s.rules.directKanTsumoBonus === true) ? s.rules.tsumoBonusPerPayer : 0);
+  for (const from of payers) transfer(s, from, seat, amount, paymentMethod);
+  const payment = s.rules.kanFanBonus === true ? { method: paymentMethod, source: paymentSource, payers, amount, kanKind: method === "tsumo" ? s.kanContext?.kind ?? null : s.reaction?.kind === "kakan" ? "kakan" : s.reaction?.kanKind ?? null } : null;
   p.won = true;
-  p.win = { method, source, tile, order: s.winners.length + 1, drawNumber: s.draws, score };
+  p.win = { method, source, tile, order: s.winners.length + 1, drawNumber: s.draws, score, ...payment ? { payment } : {} };
   p.drawn = null;
   p.forbidden = [];
   s.winners.push(seat);
   event(s, { type: "win", seat, ...p.win });
+  if (s.rules.kanFanBonus === true) s.kanContext = null;
 }
 function finishOrDraw(s, previous) {
   if (s.winners.length >= 3) {
@@ -391,7 +418,9 @@ function canRon(s, seat) {
     const waits = winningTiles(handTypes(p), p.melds, scoreContext(s, seat, "ron"), s.rules);
     if (waits.some((w) => p.river.some((d) => typeOf(d.id) === w.tile))) return null;
   }
-  return scoreHand([...handTypes(p), t], p.melds, scoreContext(s, seat, "ron", t), s.rules);
+  const score = scoreHand([...handTypes(p), t], p.melds, scoreContext(s, seat, "ron", t), s.rules);
+  if (score && s.rules.passRonLock === "same-tile-until-draw" && p.passTileLocks?.[t] !== void 0 && (score.fan ?? [50, 100, 200, 400, 800, 1e3].indexOf(score.base)) <= p.passTileLocks[t]) return null;
+  return score;
 }
 function actor(s) {
   if (s.phase === "turn") return s.turn;
@@ -445,9 +474,10 @@ function beginReaction(s, source, id, kind, extra = {}) {
   s.phase = "reaction";
   s.reaction = { source, id, kind, pending, answers: [], ...extra };
 }
-function completeKan(s, seat) {
+function completeKan(s, seat, kind, supplier = null) {
   s.kans++;
-  event(s, { type: "kan", seat });
+  if (s.rules.kanFanBonus === true) s.kanContext = { seat, kind, supplier };
+  event(s, { type: "kan", seat, ...s.rules.kanFanBonus === true ? { kind, supplier } : {} });
   draw(s, seat, true);
 }
 function resolveReaction(s) {
@@ -469,7 +499,7 @@ function resolveReaction(s) {
     const p2 = s.players[r.source], m = p2.melds[r.meld];
     m.ids.push(...removeTypes(p2, [m.tile]));
     m.type = "kan";
-    completeKan(s, r.source);
+    completeKan(s, r.source, "kakan");
     return;
   }
   const calls = r.answers.filter((x) => ["pon", "minkan", "chi"].includes(x.action.type));
@@ -489,17 +519,22 @@ function resolveReaction(s) {
   s.phase = "turn";
   s.reaction = null;
   event(s, { type: "call", seat, action: a, from: r.source });
-  if (a.type === "minkan") completeKan(s, seat);
+  if (s.rules.kanFanBonus === true) s.kanContext = null;
+  if (a.type === "minkan") completeKan(s, seat, "minkan", r.source);
 }
 function step(s, seat, a, { validate = true } = {}) {
   if (!a || !legalActions(s, seat).some((x) => actionKey(x) === actionKey(a))) throw new Error(`Illegal action by ${seat}: ${JSON.stringify(a)}`);
   const p = s.players[seat];
   event(s, { type: "action", seat, action: { ...a } });
   if (s.phase === "reaction") {
-    const r = s.reaction;
-    if (a.type !== "ron" && canRon(s, seat)) {
+    const r = s.reaction, declined = a.type !== "ron" && canRon(s, seat);
+    if (declined) {
       p.stats.ronDeclined++;
       if (s.rules.passRonLock === "until-draw") p.passLock = true;
+      if (s.rules.passRonLock === "same-tile-until-draw") {
+        p.passTileLocks ??= {};
+        p.passTileLocks[typeOf(r.id)] = declined.fan ?? [50, 100, 200, 400, 800, 1e3].indexOf(declined.base);
+      }
     }
     r.answers.push({ seat, action: { ...a } });
     r.pending.shift();
@@ -512,12 +547,14 @@ function step(s, seat, a, { validate = true } = {}) {
     p.river.push({ id, claimed: false });
     p.drawn = null;
     p.forbidden = [];
-    beginReaction(s, seat, id, "discard");
+    const extra = s.rules.kanFanBonus === true && s.kanContext?.seat === seat ? { afterKan: true, kanKind: s.kanContext.kind } : {};
+    beginReaction(s, seat, id, "discard", extra);
+    if (s.rules.kanFanBonus === true) s.kanContext = null;
   } else if (a.type === "ankan") {
     const ids = removeTypes(p, Array(4).fill(a.tile));
     p.melds.push({ type: "kan", tile: a.tile, open: false, from: seat, ids });
     p.stats.closedKans++;
-    completeKan(s, seat);
+    completeKan(s, seat, "ankan");
   } else if (a.type === "kakan") {
     const id = p.hand.find((id2) => typeOf(id2) === p.melds[a.meld].tile);
     if (s.rules.addedKanRobAllowed) beginReaction(s, seat, id, "kakan", { meld: a.meld });
@@ -525,7 +562,7 @@ function step(s, seat, a, { validate = true } = {}) {
       const m = p.melds[a.meld];
       m.ids.push(...removeTypes(p, [m.tile]));
       m.type = "kan";
-      completeKan(s, seat);
+      completeKan(s, seat, "kakan");
     }
   }
   if (validate) assertInvariants(s);
@@ -535,7 +572,7 @@ function observation(s, seat = actor(s)) {
   if (seat !== actor(s)) throw new Error("Not this player\u2019s decision");
   const p = s.players[seat];
   const players = s.players.map((p2, i) => ({ seat: i, won: p2.won, score: p2.score, handSize: p2.hand.length, melds: p2.melds.map((m) => visibleMeld(s, m, i, seat)), discards: p2.river.map((d) => ({ tile: typeOf(d.id), claimed: d.claimed })), revealed: p2.won && s.rules.revealWinnerHand ? p2.hand.filter((id) => s.rules.revealTsumoWinningTile || p2.win.method !== "tsumo" || id !== p2.win.tile).map(typeOf) : [] }));
-  return { seat, dealer: s.dealer, rules: structuredClone(s.rules), hand: handTypes(p), melds: p.melds.map(meldView), players, visible: visibleCounts(s, seat), activeCount: activeSeats(s).length, wallRemaining: s.wall.length, draws: s.draws, phase: s.phase, lastDiscard: s.reaction ? { seat: s.reaction.source, tile: typeOf(s.reaction.id), kind: s.reaction.kind } : null, legalActions: legalActions(s, seat) };
+  return { seat, dealer: s.dealer, rules: structuredClone(s.rules), hand: handTypes(p), melds: p.melds.map(meldView), players, visible: visibleCounts(s, seat), activeCount: activeSeats(s).length, wallRemaining: s.wall.length, draws: s.draws, phase: s.phase, lastDiscard: s.reaction ? { seat: s.reaction.source, tile: typeOf(s.reaction.id), kind: s.reaction.kind, ...s.rules.kanFanBonus === true ? { afterKan: s.reaction.kind === "kakan" || s.reaction.afterKan === true, kanKind: s.reaction.kind === "kakan" ? "kakan" : s.reaction.kanKind ?? null } : {} } : null, legalActions: legalActions(s, seat), ...s.rules.kanFanBonus === true ? { kanContext: s.kanContext ? { ...s.kanContext } : null } : {}, ...s.rules.passRonLock === "same-tile-until-draw" ? { passTileLocks: { ...p.passTileLocks } } : {} };
 }
 function assertInvariants(s) {
   const all = [...s.wall, ...s.dead];
@@ -579,7 +616,7 @@ __export(game_exports2, {
 });
 
 // s-engine/rules.mjs
-var S_DEFAULTS = Object.freeze({
+var PREVIOUS_DEFAULTS = Object.freeze({
   id: "S-2026-private-kan-v1",
   variant: "S",
   pinfuHan: 2,
@@ -600,17 +637,30 @@ var S_DEFAULTS = Object.freeze({
   deadWallTiles: 14,
   revealWinnerHand: true,
   revealTsumoWinningTile: true,
-  concealedKanPrivate: true
+  concealedKanPrivate: true,
+  riichiIsYaku: false,
+  invalidHandNoten: false,
+  paoByYakuman: false
+});
+var S_DEFAULTS = Object.freeze({
+  ...PREVIOUS_DEFAULTS,
+  id: "S-2026-jp-20261014",
+  peikouClosedOnly: false,
+  openSequenceReduction: true,
+  multipleRon: "all",
+  riichiIsYaku: true,
+  invalidHandNoten: true,
+  paoByYakuman: true
 });
 function sRules(overrides = {}) {
   for (const key3 of Object.keys(overrides)) if (!(key3 in S_DEFAULTS)) throw new Error(`Unknown S rule: ${key3}`);
-  const defaults = overrides.id && overrides.id !== S_DEFAULTS.id ? { ...S_DEFAULTS, concealedKanPrivate: false } : S_DEFAULTS;
+  const defaults = overrides.id && overrides.id !== S_DEFAULTS.id ? { ...PREVIOUS_DEFAULTS, concealedKanPrivate: overrides.id === PREVIOUS_DEFAULTS.id } : S_DEFAULTS;
   const rules = { ...defaults, ...overrides };
   for (const key3 of Object.keys(S_DEFAULTS)) {
     const value3 = rules[key3], base = S_DEFAULTS[key3];
     if (typeof value3 !== typeof base || typeof base === "number" && (!Number.isSafeInteger(value3) || value3 < 0)) throw new Error(`Invalid S rule: ${key3}`);
   }
-  if (rules.variant !== "S" || rules.maxKans !== 4 || rules.deadWallTiles !== 14 || rules.multipleRon !== "nearest" || rules.riichiDeposit !== 1e3 || rules.sevenPairsQuadAsTwo || !rules.selfDiscardFuriten || !rules.ronPassAllowed || rules.passRonLock !== "until-draw" || ![27, 28, 29, 30].includes(rules.roundWind)) throw new Error("Unsupported S rule configuration");
+  if (rules.variant !== "S" || rules.maxKans !== 4 || rules.deadWallTiles !== 14 || !["nearest", "all"].includes(rules.multipleRon) || rules.riichiDeposit !== 1e3 || rules.sevenPairsQuadAsTwo || !rules.selfDiscardFuriten || !rules.ronPassAllowed || rules.passRonLock !== "until-draw" || ![27, 28, 29, 30].includes(rules.roundWind)) throw new Error("Unsupported S rule configuration");
   return rules;
 }
 
@@ -657,6 +707,7 @@ function scoreS(tiles2, melds = [], context2 = {}, rules = S_DEFAULTS) {
     add("ryanpeikou", "\uB7C9\uD398\uCF54", 3, identical >= 2 && (!rules.peikouClosedOnly || closed));
     add("iipeikou", "\uC774\uD398\uCF54", 1, identical === 1 && (!rules.peikouClosedOnly || closed));
     add("menzenTsumo", "\uBA58\uC820 \uCBD4\uBAA8", 1, closed && context2.method === "tsumo");
+    add("riichi", "\uB9AC\uCE58", 1, rules.riichiIsYaku === true && closed && context2.riichi);
     add("tanyao", "\uD0D5\uC57C\uC624", 1, all.every((t) => !isYao(t)));
     add("rinshan", "\uC601\uC0C1\uAC1C\uD654", 1, context2.rinshan && context2.method === "tsumo");
     add("haitei", "\uD574\uC800\uB85C\uC6D4", 1, context2.lastTile && context2.method === "tsumo" && !context2.rinshan);
@@ -702,7 +753,7 @@ function scoreS(tiles2, melds = [], context2 = {}, rules = S_DEFAULTS) {
     const bonus = (id, name, han2) => {
       if (han2) bonuses.push({ id, name, han: han2 });
     };
-    bonus("riichi", "\uB9AC\uCE58", context2.riichi ? 1 : 0);
+    bonus("riichi", "\uB9AC\uCE58", rules.riichiIsYaku !== true && context2.riichi ? 1 : 0);
     bonus("ippatsu", "\uC77C\uBC1C", context2.riichi && context2.ippatsu ? 1 : 0);
     bonus("kan", "\uAE61 \uAC00\uC0B0", melds.filter((m) => m.type === "kan" && !m.open).length + Math.floor(melds.filter((m) => m.type === "kan" && m.open).length / 2));
     bonus("dora", "\uB3C4\uB77C", (context2.doraIndicators ?? []).reduce((n, t) => n + c[doraAfter(t)], 0));
@@ -785,19 +836,20 @@ function createGame2({ seed = 1, rules = {}, dealer = 0, wall = null, pot = 0, s
     ledger: [],
     end: null
   };
+  if (s.rules.paoByYakuman === true) for (const p of s.players) p.paoYaku = null;
   for (let n = 0; n < 13; n++) for (let off = 0; off < 4; off++) s.players[(dealer + off) % 4].hand.push(s.wall.shift());
   for (const p of s.players) p.hand.sort((a, b) => a - b);
   draw2(s, dealer);
   assertInvariants2(s);
   return s;
 }
-function transfer2(s, from, to, amount, kind) {
+function transfer2(s, from, to, amount, kind, details = {}) {
   if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error("Invalid transfer");
   if (from === "pot") s.pot -= amount;
   else s.players[from].score -= amount;
   if (to === "pot") s.pot += amount;
   else s.players[to].score += amount;
-  s.ledger.push({ from, to, amount, kind });
+  s.ledger.push({ from, to, amount, kind, ...details });
   if (kind === "riichi") s.players[from].stats.riichiPaid += amount;
   else if (kind === "pot") s.players[to].stats.winReceipt += amount;
   else if (kind === "draw") {
@@ -838,28 +890,29 @@ function end(s, reason) {
   s.reaction = null;
   event2(s, { type: "end", reason });
 }
-function win2(s, seat, method, source, tile) {
+function win2(s, seat, method, source, tile, { finish = true } = {}) {
   const p = s.players[seat], tiles2 = handTypes2(p);
   if (method === "ron") tiles2.push(typeOf(tile));
   const score = scoreS(tiles2, p.melds, context(s, seat, method, typeOf(tile)), s.rules);
   if (!score) throw new Error("Illegal S win");
-  const first = s.ledger.length, pao = score.yakuman ? p.pao : null;
+  const first = s.ledger.length, pao = score.yakuman && Number.isInteger(p.pao) && (s.rules.paoByYakuman !== true || score.yakuEntries.some((y) => y.id === p.paoYaku)) ? p.pao : null;
+  const responsibility = pao !== null && s.rules.paoByYakuman === true ? { pao: { seat: pao, yaku: p.paoYaku } } : {};
   if (pao !== null) {
-    if (method === "tsumo" || source === pao) transfer2(s, pao, seat, score.points.ron, method);
+    if (method === "tsumo" || source === pao) transfer2(s, pao, seat, score.points.ron, method, responsibility);
     else {
-      transfer2(s, pao, seat, score.points.ron / 2, method);
-      transfer2(s, source, seat, score.points.ron / 2, method);
+      transfer2(s, pao, seat, score.points.ron / 2, method, responsibility);
+      transfer2(s, source, seat, score.points.ron / 2, method, responsibility);
     }
   } else if (method === "ron") transfer2(s, source, seat, score.points.ron, method);
   else for (let from = 0; from < 4; from++) if (from !== seat) transfer2(s, from, seat, from === s.dealer ? score.points.tsumoDealer : score.points.tsumoOther, method);
   if (s.pot) transfer2(s, "pot", seat, s.pot, "pot");
   const payments = structuredClone(s.ledger.slice(first));
   p.won = true;
-  p.win = { method, source, tile, order: 1, drawNumber: s.draws, score, payments, receipt: payments.reduce((n, p2) => n + p2.amount, 0) };
+  p.win = { method, source, tile, order: s.winners.length + 1, drawNumber: s.draws, score, payments, receipt: payments.reduce((n, p2) => n + p2.amount, 0), ...responsibility };
   p.drawn = null;
   s.winners.push(seat);
   event2(s, { type: "win", seat, ...p.win });
-  end(s, "win");
+  if (finish) end(s, "win");
 }
 function visibleCounts2(s, seat) {
   const out = Array(34).fill(0), add = (id) => out[typeOf(id)]++;
@@ -874,7 +927,12 @@ function visibleCounts2(s, seat) {
 }
 function settleDraw2(s) {
   if (s.phase === "end" || s.wall.length) throw new Error("Cannot settle this game");
+  const invalidHands = s.rules.invalidHandNoten === true ? s.players.flatMap((p, seat) => {
+    const actual = p.hand.length + 3 * p.melds.length;
+    return actual === 13 ? [] : [{ seat, actual, expected: 13 }];
+  }) : [];
   const ready = s.players.flatMap((p, seat) => {
+    if (invalidHands.some((x) => x.seat === seat)) return [];
     const waits = shapeWaits(handTypes2(p), p.melds, s.rules);
     return waits.length ? [{ seat, waits }] : [];
   });
@@ -892,7 +950,7 @@ function settleDraw2(s) {
       }
     }
   }
-  event2(s, { type: "drawSettlement", ready });
+  event2(s, { type: "drawSettlement", ready, ...invalidHands.length ? { invalidHands } : {} });
   end(s, "exhaustive-draw");
 }
 function canRon2(s, seat) {
@@ -970,14 +1028,15 @@ function acceptRiichi(s, r) {
   event2(s, { type: "riichi", seat: r.source });
 }
 function resolve(s) {
-  const r = s.reaction, ron = r.answers.find((x) => x.action.type === "ron");
-  if (ron) {
+  const r = s.reaction, rons = r.answers.filter((x) => x.action.type === "ron");
+  if (rons.length) {
     if (r.kind === "kakan") {
       const p2 = s.players[r.source];
       p2.hand.splice(p2.hand.indexOf(r.id), 1);
       p2.river.push({ id: r.id, claimed: false, robbedKan: true });
     }
-    win2(s, ron.seat, "ron", r.source, r.id);
+    for (const ron of s.rules.multipleRon === "all" ? rons : rons.slice(0, 1)) win2(s, ron.seat, "ron", r.source, r.id, { finish: false });
+    end(s, "win");
     return;
   }
   if (r.kind === "kakan") {
@@ -998,7 +1057,11 @@ function resolve(s) {
   s.players[r.source].river.at(-1).claimed = true;
   p.melds.push({ type: a.type === "chi" ? "chi" : a.type === "minkan" ? "kan" : "pon", tile: a.tile, open: true, from: r.source, ids });
   const open = p.melds.filter((m) => m.open && m.type !== "chi");
-  if (t >= 31 && open.filter((m) => m.tile >= 31).length === 3 || t >= 27 && t < 31 && open.filter((m) => m.tile >= 27 && m.tile < 31).length === 4) p.pao = r.source;
+  const paoYaku = a.type !== "chi" && (t >= 31 && open.filter((m) => m.tile >= 31).length === 3 ? "bigThreeDragons" : t >= 27 && t < 31 && open.filter((m) => m.tile >= 27 && m.tile < 31).length === 4 ? "bigFourWinds" : null);
+  if (paoYaku) {
+    p.pao = r.source;
+    if (s.rules.paoByYakuman === true) p.paoYaku = paoYaku;
+  }
   p.drawn = null;
   p.drawSource = null;
   p.forbidden = s.rules.allowKuikae ? [] : [t];
@@ -1058,7 +1121,9 @@ function assertInvariants2(s) {
   if (s.players.reduce((n, p) => n + p.score, 0) + s.pot !== s.initialPot || s.pot < 0) throw new Error("Score conservation violated");
   for (let seat = 0; seat < 4; seat++) {
     const p = s.players[seat], extra = s.phase === "turn" && s.turn === seat || s.phase === "reaction" && s.reaction.kind === "kakan" && s.reaction.source === seat || p.win?.method === "tsumo";
-    if (p.hand.length + 3 * p.melds.length !== (extra ? 14 : 13)) throw new Error(`Hand size violated seat ${seat}`);
+    const size = p.hand.length + 3 * p.melds.length;
+    const recordedNoten = s.rules.invalidHandNoten === true && s.end === "exhaustive-draw" && s.events.some((e) => e.type === "drawSettlement" && !e.ready.some((r) => r.seat === seat) && e.invalidHands?.some((h) => h.seat === seat && h.actual === size && h.expected === 13));
+    if (size !== (extra ? 14 : 13) && !recordedNoten) throw new Error(`Hand size violated seat ${seat}`);
     for (const m of p.melds) {
       const wanted = m.type === "chi" ? [m.tile, m.tile + 1, m.tile + 2] : Array(m.type === "kan" ? 4 : 3).fill(m.tile);
       if (!same(m.ids.map(typeOf).sort((a, b) => a - b), wanted)) throw new Error("Illegal meld");
@@ -1066,7 +1131,11 @@ function assertInvariants2(s) {
     const st = p.stats;
     if (p.score !== st.winReceipt + st.drawGain - st.dealInLoss - st.tsumoPaid - st.drawLoss - st.riichiPaid) throw new Error("Ledger attribution violated");
   }
-  if (s.dead.length !== 14 || s.kans > 4 || s.winners.length > 1 || s.winners.length !== s.players.filter((p) => p.won).length) throw new Error("S round invariant violated");
+  if (s.dead.length !== 14 || s.kans > 4 || s.winners.length > (s.rules.multipleRon === "all" ? 3 : 1) || s.winners.length !== s.players.filter((p) => p.won).length || new Set(s.winners).size !== s.winners.length) throw new Error("S round invariant violated");
+  if (s.winners.length > 1 && s.winners.some((seat) => {
+    const win3 = s.players[seat].win, first = s.players[s.winners[0]].win;
+    return win3.method !== "ron" || win3.source !== first.source || win3.tile !== first.tile;
+  })) throw new Error("S multiple ron invariant violated");
   return true;
 }
 
@@ -1085,6 +1154,7 @@ __export(policies_exports, {
   POLICIES: () => POLICIES,
   chooseAction: () => chooseAction,
   evaluateDiscards: () => evaluateDiscards,
+  legalWinScore: () => legalWinScore,
   policyConfig: () => policyConfig,
   publicRisk: () => publicRisk
 });
@@ -1301,10 +1371,22 @@ var OPPONENT_PROFILES = Object.freeze({
 });
 function policyConfig(id, weights = {}) {
   if (!POLICIES[id]) throw new Error(`Unknown policy ${id}`);
-  for (const [k, v] of Object.entries(weights)) if (!["speed", "ukeire", "value", "pinfu", "risk", "maxShantenLoss", "callCost", "lowValueRisk", "lowValueThreshold", "honorModel", "adaptiveDefense"].includes(k) || !Number.isFinite(v) || v < 0) throw new Error(`Invalid policy weight ${k}`);
+  for (const [k, v] of Object.entries(weights)) if (!["speed", "ukeire", "value", "pinfu", "risk", "maxShantenLoss", "callCost", "lowValueRisk", "lowValueThreshold", "honorModel", "adaptiveDefense", "minWinBase", "minWinWall"].includes(k) || !Number.isFinite(v) || v < 0) throw new Error(`Invalid policy weight ${k}`);
   if (weights.honorModel !== void 0 && ![0, 1].includes(weights.honorModel)) throw new Error("Invalid honor model");
-  return { lowValueRisk: 0, lowValueThreshold: 100, honorModel: 0, adaptiveDefense: 0, ...POLICIES[id], ...weights };
+  return { lowValueRisk: 0, lowValueThreshold: 100, honorModel: 0, adaptiveDefense: 0, minWinBase: 0, minWinWall: 0, ...POLICIES[id], ...weights };
 }
+function legalWinScore(o, method) {
+  if (!["ron", "tsumo"].includes(method) || !o.legalActions.some((a) => a.type === method)) return null;
+  const tile = method === "ron" ? o.lastDiscard?.tile : void 0;
+  if (method === "ron" && !Number.isInteger(tile)) return null;
+  return scoreHand(method === "ron" ? [...o.hand, tile] : o.hand, o.melds, {
+    method,
+    winTile: tile,
+    seatWind: 27 + (o.seat - o.dealer + 4) % 4,
+    ...o.rules.kanFanBonus === true ? { kanRelated: method === "tsumo" ? o.kanContext?.seat === o.seat : o.lastDiscard?.kind === "kakan" || o.lastDiscard?.afterKan === true } : {}
+  }, o.rules);
+}
+var belowWinTarget = (score, o, w) => w.minWinBase > 0 && o.wallRemaining > w.minWinWall && score !== null && score.base < w.minWinBase;
 function potential(c, melds, o, honorModel = 0) {
   const tiles2 = [];
   for (let t = 0; t < 34; t++) for (let k = 0; k < c[t]; k++) tiles2.push(t);
@@ -1412,8 +1494,8 @@ function replacementValue(c, melds, o, w) {
     const next = { ...o, visible, wallRemaining: Math.max(0, o.wallRemaining - 1) };
     const tiles2 = [];
     for (let t = 0; t < 34; t++) for (let n = 0; n < cc[t]; n++) tiles2.push(t);
-    const win3 = scoreHand(tiles2, melds, { method: "tsumo", winTile: tile, seatWind: 27 + (o.seat - o.dealer + 4) % 4 }, o.rules);
-    const value3 = win3 ? { score: w.speed + w.value * win3.total * (0.6 + o.activeCount / 5), shanten: -1 } : bestDiscard(cc, melds, next, w);
+    const win3 = scoreHand(tiles2, melds, { method: "tsumo", winTile: tile, seatWind: 27 + (o.seat - o.dealer + 4) % 4, ...o.rules.kanFanBonus === true ? { kanRelated: true } : {} }, o.rules);
+    const value3 = win3 && !belowWinTarget(win3, next, w) ? { score: w.speed + w.value * win3.total * (0.6 + o.activeCount / 5), shanten: -1 } : bestDiscard(cc, melds, next, w);
     if (!value3) continue;
     weight += remaining;
     score += value3.score * remaining;
@@ -1425,9 +1507,12 @@ function chooseAction(o, id = "E", weights = {}) {
   const w = policyConfig(id, weights), as = o.legalActions;
   if (!as.length) throw new Error("No legal action");
   const find = (t) => as.find((a) => a.type === t);
-  if (find("tsumo")) return find("tsumo");
-  if (find("ron") && (!w.declineRon || !find("pass"))) return find("ron");
-  if (find("ron") && w.declineRon) return find("pass");
+  if (find("tsumo") && (!w.minWinBase || !find("discard") || !belowWinTarget(legalWinScore(o, "tsumo"), o, w))) return find("tsumo");
+  if (find("ron")) {
+    if (!find("pass")) return find("ron");
+    if (w.declineRon || w.minWinBase > 0 && belowWinTarget(legalWinScore(o, "ron"), o, w)) return find("pass");
+    return find("ron");
+  }
   if (as.length === 1) return as[0];
   const c = counts(o.hand), melds = o.melds;
   if (o.phase === "turn") {
@@ -1797,11 +1882,11 @@ function actionLabel(action, view = {}) {
 }
 function reasonFor(action, view, policy, weights) {
   const adaptive = view.rules.variant !== "S" && weights?.adaptiveDefense > 0;
-  if (action.type === "riichi") return "\uBA58\uC820 \uD150\uD30C\uC774\uB85C 1,000\uC810\uC744 \uACF5\uD0C1\uD569\uB2C8\uB2E4. \uB9AC\uCE58\uB9CC\uC73C\uB85C\uB294 S\uB8F0\uC758 \uD654\uB8CC \uC5ED \uC870\uAC74\uC744 \uCDA9\uC871\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
+  if (action.type === "riichi") return view.rules.riichiIsYaku === true ? "\uBA58\uC820 \uD150\uD30C\uC774\uB85C 1,000\uC810\uC744 \uACF5\uD0C1\uD569\uB2C8\uB2E4. \uC0C8 S\uB8F0\uC5D0\uC11C\uB294 \uB9AC\uCE58 \uC790\uCCB4\uAC00 1\uD310 \uC5ED\uC785\uB2C8\uB2E4." : "\uBA58\uC820 \uD150\uD30C\uC774\uB85C 1,000\uC810\uC744 \uACF5\uD0C1\uD569\uB2C8\uB2E4. \uC774 \uB300\uAD6D\uC758 \uAD6C S\uB8F0\uC5D0\uC11C\uB294 \uB9AC\uCE58 \uC678\uC758 \uD654\uB8CC \uC5ED\uC774 \uD544\uC694\uD569\uB2C8\uB2E4.";
   if (action.type === "tsumo") return "\uC9C0\uAE08 \uCBD4\uBAA8 \uD654\uB8CC\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.";
   if (action.type === "ron") return policy === "C" ? "\uC774 \uADDC\uCE59\uC5D0\uC11C\uB294 \uB860\uC744 \uB118\uAE38 \uC218 \uC5C6\uC5B4 \uD654\uB8CC\uD569\uB2C8\uB2E4." : "\uC644\uC131\uB41C \uD328\uB85C \uC9C0\uAE08 \uB860 \uD654\uB8CC\uD569\uB2C8\uB2E4.";
   if (action.type === "pass") {
-    if (view.legalActions.some((a) => a.type === "ron")) return view.rules.variant === "S" ? "\uB860\uC744 \uB118\uACA8 \uD6C4\uB9AC\uD150\uC774 \uB429\uB2C8\uB2E4. \uB9AC\uCE58 \uC911\uC774\uBA74 \uC774 \uAD6D\uC5D0\uC11C \uB2E4\uC2DC \uB860\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4." : "\uD569\uBC95\uC801\uC778 \uB860\uC744 \uB118\uAE30\uACE0 \uCBD4\uBAA8\uB97C \uAE30\uB2E4\uB9AC\uB294 \uC120\uD0DD\uC785\uB2C8\uB2E4.";
+    if (view.legalActions.some((a) => a.type === "ron")) return view.rules.variant === "S" ? "\uB860\uC744 \uB118\uACA8 \uD6C4\uB9AC\uD150\uC774 \uB429\uB2C8\uB2E4. \uB9AC\uCE58 \uC911\uC774\uBA74 \uC774 \uAD6D\uC5D0\uC11C \uB2E4\uC2DC \uB860\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4." : view.rules.passRonLock === "same-tile-until-draw" ? "\uB860\uC744 \uB118\uAE41\uB2C8\uB2E4. \uB2E4\uC74C \uC790\uAE30 \uCBD4\uBAA8 \uC804\uC5D0\uB294 \uAC19\uC740 \uD328\uB85C \uB2E4\uC2DC \uB860\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. \uD310\uC218\uAC00 \uB192\uC544\uC9C0\uBA74 \uC608\uC678\uC774\uBA70, \uCBD4\uBAA8\uB294 \uAC00\uB2A5\uD569\uB2C8\uB2E4." : "\uD569\uBC95\uC801\uC778 \uB860\uC744 \uB118\uAE30\uACE0 \uCBD4\uBAA8\uB97C \uAE30\uB2E4\uB9AC\uB294 \uC120\uD0DD\uC785\uB2C8\uB2E4.";
     if (view.legalActions.length === 1) return "\uB860\uC774\uB098 \uD6C4\uB85C\uAC00 \uBD88\uAC00\uB2A5\uD574 \uB118\uAE41\uB2C8\uB2E4.";
     return "\uD6C4\uB85C \uC774\uD6C4\uC758 \uD615\uD0DC\uC640 \uC190\uD328 \uC720\uC9C0\uB97C \uBE44\uAD50\uD574 \uB118\uAE30\uAE30\uB97C \uC120\uD0DD\uD588\uC2B5\uB2C8\uB2E4.";
   }
@@ -1810,6 +1895,12 @@ function reasonFor(action, view, policy, weights) {
   if (adaptive) return "\uC644\uC131 \uC18D\uB3C4\xB7\uC190 \uAC00\uCE58\xB7\uB0A8\uC740 \uC9C0\uAE09\uC790 \uC218\uC640 \uACF5\uAC1C\uB41C \uC704\uD611\uC744 \uD568\uAED8 \uBE44\uAD50\uD558\uACE0, \uC190\uC758 \uC0C1\uD0DC\uC5D0 \uB530\uB77C \uC218\uBE44 \uAC10\uC810\uC744 \uC870\uC808\uD569\uB2C8\uB2E4.";
   if (policy === "E" && weights?.risk === 0) return "\uC18D\uB3C4\xB7\uC5ED \uAC00\uCE58\xB7\uB0A8\uC740 \uC0C1\uB300 \uC218\uB97C \uBD05\uB2C8\uB2E4. \uC774 \uD559\uC2B5 \uBC84\uC804\uC740 \uC704\uD5D8\uB3C4 \uAC10\uC810\uC744 \uC4F0\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
   return focus[policy];
+}
+function deferredWinReason(view, action, weights) {
+  if (view.rules.variant === "S" || !weights?.minWinBase || ["ron", "tsumo"].includes(action.type) || view.wallRemaining <= (weights.minWinWall ?? 0)) return "";
+  const method = view.legalActions.some((a) => a.type === "tsumo") ? "tsumo" : "ron", score = legalWinScore(view, method);
+  if (!score || score.base >= weights.minWinBase) return "";
+  return `\uC9C0\uAE08 ${score.name}\uC758 \uC5ED \uC810\uC218\uB294 ${score.base}\uC810\uC73C\uB85C \uBAA9\uD45C ${weights.minWinBase}\uC810\uBCF4\uB2E4 \uB0AE\uC544 ${method === "ron" ? "\uB860\uC744" : "\uCBD4\uBAA8\uB97C"} \uB118\uAE41\uB2C8\uB2E4. \uBC88\uD328\xB7\uC0AC\uADC0\uC77C\xB7\uCBD4\uBAA8 \uAC00\uC0B0\uC740 \uBAA9\uD45C \uC5ED \uC810\uC218\uC5D0\uC11C \uC81C\uC678\uD569\uB2C8\uB2E4. \uD328\uC0B0 ${weights.minWinWall ?? 0}\uC7A5 \uC774\uD558\uC5D0\uC11C\uB294 \uB0AE\uC740 \uC810\uC218\uB3C4 \uD654\uB8CC\uD569\uB2C8\uB2E4.`;
 }
 function strategyRecommendations(view, weights = {}) {
   if (!view.legalActions.length) return [];
@@ -1836,7 +1927,7 @@ function strategyRecommendations(view, weights = {}) {
       name: config.name,
       action: { ...action },
       label: actionLabel(action, view),
-      reason: action.type === "discard" ? discard.reason : reasonFor(action, view, policy, weights[policy]),
+      reason: [deferredWinReason(view, action, weights[policy]), action.type === "discard" ? discard.reason : reasonFor(action, view, policy, weights[policy])].filter(Boolean).join(" "),
       discard
     };
   });
@@ -2246,6 +2337,11 @@ function hBonusDetails(score, rules = {}) {
   const names = { kan: rules.fourOfAKindBonus ? "\uC0AC\uADC0\uC77C" : "\uAE61", dragon: "\uC0BC\uC6D0\uD328", roundWind: "\uC7A5\uD48D", seatWind: "\uC790\uD48D" };
   return Object.entries(names).filter(([key3]) => Number.isFinite(score.bonuses?.[key3]) && score.bonuses[key3] > 0).map(([key3, label2]) => `${label2} ${score.bonuses[key3]}\uC810`).join(" \xB7 ");
 }
+function hFanDetails(score, rules = {}) {
+  if (!score.kanFan) return "";
+  const original = rules.fanPoints?.[score.baseFan];
+  return `\uAE61 \uC0C1\uD669 +${score.kanFan}\uD310: ${score.baseFan}\uD310${Number.isFinite(original) ? " " + original + "\uC810" : ""} \u2192 ${score.fan}\uD310 \xB7 ${score.base}\uC810${score.fan > score.scoredFan ? " (\uC810\uC218\uD45C \uC0C1\uD55C \uC7A0\uC815 \uC801\uC6A9)" : ""}`;
+}
 function scoreBreakdown(score) {
   if (score?.variant !== "S") return null;
   const yaku = (score.yakuEntries ?? []).map((e) => ({ ...e })), bonuses = score.yakuman ? [] : (score.bonuses ?? []).map((e) => ({ ...e }));
@@ -2298,22 +2394,23 @@ function winSettlement(state2, seat) {
       calculation: `${score.yakuman ? "\uC5ED\uB9CC" : score.han + "\uD310"} \xB7 ${payments.map((p) => `${seats2[p.from] ?? "\uACF5\uD0C1"} ${p.amount}`).join(" + ")} = +${receipt2}\uC810`
     };
   }
-  const payerCount = win3.method === "tsumo" ? state2.players.length - win3.order : 1;
-  const tsumoBonus = win3.method === "tsumo" ? state2.rules.tsumoBonusPerPayer : 0;
+  const paymentMethod = win3.payment?.method ?? win3.method;
+  const payerCount = win3.payment?.payers.length ?? (win3.method === "tsumo" ? state2.players.length - win3.order : 1);
+  const tsumoBonus = paymentMethod === "tsumo" || win3.method === "tsumo" && state2.rules.directKanTsumoBonus === true ? state2.rules.tsumoBonusPerPayer : 0;
   const perPayer = score.total + tsumoBonus, expectedReceipt = perPayer * payerCount;
-  const receipt = Array.isArray(state2.ledger) ? state2.ledger.filter((payment) => payment.to === seat && payment.kind === win3.method).reduce((sum3, payment) => sum3 + payment.amount, 0) : expectedReceipt;
+  const receipt = Array.isArray(state2.ledger) ? state2.ledger.filter((payment) => payment.to === seat && payment.kind === paymentMethod).reduce((sum3, payment) => sum3 + payment.amount, 0) : expectedReceipt;
   const parts = [`\uC5ED ${score.base}`];
   if (score.bonus) parts.push(`\uAC00\uC0B0 ${score.bonus}`);
-  if (win3.method === "tsumo") parts.push(`\uCBD4\uBAA8 ${tsumoBonus}`);
+  if (tsumoBonus) parts.push(`\uCBD4\uBAA8 ${tsumoBonus}`);
   return {
     payerCount,
     perPayer,
     receipt,
     expectedReceipt,
-    bonusDetails: hBonusDetails(score, state2.rules),
+    bonusDetails: [hFanDetails(score, state2.rules), hBonusDetails(score, state2.rules)].filter(Boolean).join(" \xB7 "),
     net: player.score,
     previousNet: player.score - receipt,
-    title: `${score.name} ${win3.method === "tsumo" ? "\uCBD4\uBAA8" : "\uB860"} \xB7 \uC774\uBC88 \uD654\uB8CC +${receipt}\uC810`,
+    title: `${score.name} ${win3.method === "tsumo" ? "\uCBD4\uBAA8" : "\uB860"}${paymentMethod !== win3.method ? " \xB7 \uBA85\uAE61 \uACF5\uAE09\uC790 \uB2E8\uB3C5 \uC9C0\uBD88" : ""} \xB7 \uC774\uBC88 \uD654\uB8CC +${receipt}\uC810`,
     calculation: `(${parts.join(" + ")}) \xD7 ${payerCount}\uBA85 = +${expectedReceipt}\uC810${receipt !== expectedReceipt ? ` \xB7 \uC2E4\uC81C \uC774\uCCB4 +${receipt}\uC810 (\uC815\uC0B0 \uD655\uC778 \uD544\uC694)` : ""}`
   };
 }
@@ -2351,22 +2448,24 @@ function actionRecord(game, seat, action, before, error = null) {
         else expected.push({ from: pao, amount: win3.score.total / 2 }, { from: win3.source, amount: win3.score.total / 2 });
       } else if (win3.method === "ron") expected.push({ from: win3.source, amount: win3.score.points.ron });
       else for (let from = 0; from < 4; from++) if (from !== win3.seat) expected.push({ from, amount: from === game.dealer ? win3.score.points.tsumoDealer : win3.score.points.tsumoOther });
-      if (before.pot) expected.push({ from: "pot", amount: before.pot });
+      if (before.pot && game.winners[0] === win3.seat) expected.push({ from: "pot", amount: before.pot });
       const expectedReceipt2 = expected.reduce((n, p) => n + p.amount, 0), problems2 = [];
-      if (actual2.length !== expected.length || expected.some((e) => actual2.filter((p) => p.from === e.from && p.amount === e.amount).length !== 1) || actualReceipt2 !== delta[win3.seat]) problems2.push("S\uB8F0 \uC9C0\uAE09\uC790 \uB610\uB294 \uC9C0\uAE09\uC561\uC774 \uC801\uC6A9 \uADDC\uCE59\uACFC \uB2E4\uB985\uB2C8\uB2E4.");
+      if (actual2.length !== expected.length || expected.some((e) => actual2.filter((p) => p.from === e.from && p.amount === e.amount).length !== 1) || actualReceipt2 !== expectedReceipt2) problems2.push("S\uB8F0 \uC9C0\uAE09\uC790 \uB610\uB294 \uC9C0\uAE09\uC561\uC774 \uC801\uC6A9 \uADDC\uCE59\uACFC \uB2E4\uB985\uB2C8\uB2E4.");
       issues.push(...problems2.map((text) => `${seats2[win3.seat]}: ${text}`));
       return { seat: win3.seat, method: win3.method, order: win3.order, score: clone(win3.score), payers: expected.map((p) => p.from), expectedReceipt: expectedReceipt2, actualReceipt: actualReceipt2, scoreBefore: before.scores[win3.seat], scoreAfter: after[win3.seat], payments: actual2, issues: problems2 };
     }
-    const payers = win3.method === "tsumo" ? before.active.filter((i) => i !== win3.seat) : [win3.source];
-    const actual = payments.filter((p) => p.to === win3.seat && p.kind === win3.method);
-    const tsumoBonus = win3.method === "tsumo" ? game.rules.tsumoBonusPerPayer : 0;
+    const paymentMethod = win3.payment?.method ?? win3.method;
+    const payers = win3.payment?.payers ?? (win3.method === "tsumo" ? before.active.filter((i) => i !== win3.seat) : [win3.source]);
+    const actual = payments.filter((p) => p.to === win3.seat && p.kind === paymentMethod);
+    const tsumoBonus = paymentMethod === "tsumo" || win3.method === "tsumo" && game.rules.directKanTsumoBonus === true ? game.rules.tsumoBonusPerPayer : 0;
     const perPayer = win3.score.total + tsumoBonus, expectedReceipt = perPayer * payers.length, actualReceipt = actual.reduce((sum3, p) => sum3 + p.amount, 0);
     const problems = [];
     if (actual.length !== payers.length || payers.some((i) => actual.filter((p) => p.from === i && p.amount === perPayer).length !== 1)) problems.push("\uC9C0\uAE09\uC790 \uB610\uB294 \uC9C0\uAE09\uC561\uC774 \uC801\uC6A9 \uADDC\uCE59\uACFC \uB2E4\uB985\uB2C8\uB2E4.");
     if (win3.score.yaku === "pinfu" || win3.score.name === "\uD551\uD6C4") {
       const player = game.players[win3.seat], tiles2 = [...player.hand, ...player.melds.flatMap((m) => m.ids), ...win3.method === "ron" ? [win3.tile] : []].map(typeOf);
       const expectedBonus = game.rules.fourOfAKindBonus ? counts(tiles2).filter((n) => n === 4).length * game.rules.kanBonus : 0;
-      if (win3.score.base !== 100 || win3.score.bonus !== expectedBonus || win3.score.total !== 100 + expectedBonus) problems.push("\uD551\uD6C4 \uC5ED \uC810\uC218 \uB610\uB294 \uC0AC\uADC0\uC77C \uAC00\uC0B0\uC810\uC774 \uC798\uBABB\uB418\uC5C8\uC2B5\uB2C8\uB2E4.");
+      const expectedBase = win3.score.kanFan ? game.rules.fanPoints[win3.score.scoredFan] : 100;
+      if (win3.score.base !== expectedBase || win3.score.bonus !== expectedBonus || win3.score.total !== expectedBase + expectedBonus) problems.push("\uD551\uD6C4 \uC5ED \uC810\uC218 \uB610\uB294 \uC0AC\uADC0\uC77C \uAC00\uC0B0\uC810\uC774 \uC798\uBABB\uB418\uC5C8\uC2B5\uB2C8\uB2E4.");
     }
     if (actualReceipt !== expectedReceipt || delta[win3.seat] !== actualReceipt) problems.push("\uD654\uB8CC \uC218\uC785\uACFC \uC810\uC218 \uBCC0\uD654\uAC00 \uB2E4\uB985\uB2C8\uB2E4.");
     issues.push(...problems.map((text) => `${seats2[win3.seat]}: ${text}`));
@@ -2489,8 +2588,9 @@ function logText(log) {
     const action = entry.action, tile = action.type === "ankan" && concealedForViewer(game, entry.seat, log.humanSeat) ? " (\uBE44\uACF5\uAC1C)" : Number.isInteger(action.tile) ? ` ${tileName(action.tile)}` : "";
     if (action.type !== "pass") lines.push(`#${entry.n + 1} ${seats2[entry.seat]} ${{ discard: "\uBC84\uB9BC", riichi: "\uB9AC\uCE58\xB7\uBC84\uB9BC", tsumo: "\uCBD4\uBAA8", ron: "\uB860", chi: "\uCE58", pon: "\uD401", ankan: "\uC548\uAE61", minkan: "\uBA85\uAE61", kakan: "\uAC00\uAE61" }[action.type] ?? action.type}${tile}`);
     for (const win3 of entry.wins) {
-      const detail = variant === "S" ? scoreBreakdownText(win3.score) : `\uC5ED ${win3.score.base}${win3.score.bonus ? " + " + (hBonusDetails(win3.score, game.rules) || "\uAC00\uC0B0 " + win3.score.bonus) : ""}${win3.tsumoBonus ? " + \uCBD4\uBAA8 " + win3.tsumoBonus : ""}`;
+      const detail = variant === "S" ? scoreBreakdownText(win3.score) : `${hFanDetails(win3.score, game.rules) ? hFanDetails(win3.score, game.rules) + " \xB7 " : ""}\uC5ED ${win3.score.base}${win3.score.bonus ? " + " + (hBonusDetails(win3.score, game.rules) || "\uAC00\uC0B0 " + win3.score.bonus) : ""}${win3.tsumoBonus ? " + \uCBD4\uBAA8 " + win3.tsumoBonus : ""}`;
       lines.push(variant === "S" ? `  ${seats2[win3.seat]} ${detail}` : `  ${seats2[win3.seat]} ${win3.score.name} (${detail})`);
+      if (variant === "H" && game.players[win3.seat].win?.payment?.method === "ron" && win3.method === "tsumo") lines.push("  \uBA85\uAE61 \uACF5\uAE09\uC790 \uB2E8\uB3C5 \uC9C0\uBD88 (\uB860 \uC9C0\uAE09)");
       if (win3.issues.length) lines.push(`  \uADDC\uCE59\uC0C1 ${win3.expectedReceipt}, \uC2E4\uC81C \uC218\uC785 ${win3.actualReceipt}`);
     }
     for (const payment of entry.payments) lines.push(`  ${seats2[payment.from] ?? "\uACF5\uD0C1"} \u2192 ${seats2[payment.to] ?? "\uACF5\uD0C1"}: ${payment.amount}\uC810`);
@@ -2513,6 +2613,9 @@ function reviewText(input) {
   for (const e of log.actions) {
     if (["ankan", "minkan", "kakan"].includes(e.action.type)) lines.push(`${seats2[e.seat]} ${e.action.type === "ankan" ? "\uC548\uAE61" : e.action.type === "minkan" ? "\uBA85\uAE61" : "\uAC00\uAE61"}${e.action.type === "ankan" && concealedForViewer(game, e.seat, log.humanSeat) ? " \xB7 \uBE44\uACF5\uAC1C" : Number.isInteger(e.action.tile) ? " \xB7 " + tileName(e.action.tile) : ""} (\uC774\uB54C\uB294 \uC810\uC218 \uC774\uB3D9 \uC5C6\uC74C)`);
     for (const win3 of e.wins) {
+      if (!s && game.players[win3.seat].win?.payment?.method === "ron" && win3.method === "tsumo") lines.push("\uBA85\uAE61 \uACF5\uAE09\uC790 \uB2E8\uB3C5 \uC9C0\uBD88 (\uB860 \uC9C0\uAE09)");
+      const fanDetail = hFanDetails(win3.score, game.rules);
+      if (fanDetail) lines.push(fanDetail);
       const extra = Object.entries(win3.score.bonuses ?? {}).filter(([, value3]) => typeof value3 === "number" && value3).map(([name, value3]) => `${{ kan: game.rules.fourOfAKindBonus ? "\uC0AC\uADC0\uC77C" : "\uAE61", dragon: "\uC0BC\uC6D0\uD328", roundWind: "\uC7A5\uD48D", seatWind: "\uC790\uD48D" }[name] ?? name} ${value3}`);
       lines.push(s ? `${seats2[win3.seat]} ${win3.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 ${scoreBreakdownText(win3.score)}` : `${seats2[win3.seat]} ${win3.score.name} ${win3.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 \uC5ED ${win3.score.base}${extra.length ? " + " + extra.join(" + ") : ""}${win3.tsumoBonus ? " + \uCBD4\uBAA8 " + win3.tsumoBonus + " / \uC9C0\uAE09\uC790" : ""}`);
     }
@@ -2676,7 +2779,7 @@ function recordRound(match, game, { logId = null } = {}) {
   match.pot = game.pot;
   const dealerReady = game.events.find((e) => e.type === "drawSettlement")?.ready.some((r) => r.seat === game.dealer) ?? false;
   const retained = match.format !== "single" && match.settings.dealerContinuation === "win-or-tenpai" && (game.winners.includes(game.dealer) || game.end === "exhaustive-draw" && dealerReady);
-  match.rounds.push({ handNumber: match.handNumber, roundIndex: match.roundIndex, repeat: match.repeat, label: match.format === "single" ? "\uB2E8\uD310\uC804" : roundLabel(match.roundIndex, match.repeat), dealer: game.dealer, seed: game.seed, result: game.end, winner: game.winners[0] ?? null, delta, totals: [...match.scores], pot: match.pot, retained, logId });
+  match.rounds.push({ handNumber: match.handNumber, roundIndex: match.roundIndex, repeat: match.repeat, label: match.format === "single" ? "\uB2E8\uD310\uC804" : roundLabel(match.roundIndex, match.repeat), dealer: game.dealer, seed: game.seed, result: game.end, winner: game.winners[0] ?? null, winners: [...game.winners], delta, totals: [...match.scores], pot: match.pot, retained, logId });
   if (match.format === "single" || match.roundIndex === 7 && !retained) {
     match.status = "complete";
     match.next = null;
@@ -2747,18 +2850,19 @@ function assertMatch(match, game) {
 var SETTINGS = Object.freeze({ dealerContinuation: "none", honbaPoints: 0, finalPot: "none", endOnBankrupt: false });
 var sum2 = (xs) => xs.reduce((n, x) => n + x, 0);
 var clone3 = (x) => structuredClone(x);
-var label = (match) => match.format === "single" ? "\uB2E8\uD310\uC804" : roundLabel(match.roundIndex);
+var label = (match) => match.format === "single" ? "\uB2E8\uD310\uC804" : roundLabel(match.roundIndex, match.repeat);
 function createMatch2({ seed = 1, id = crypto.randomUUID(), format: format2 = "single", rules = {}, settings = {}, now = (/* @__PURE__ */ new Date()).toISOString() } = {}) {
   if (!Number.isInteger(seed) || seed < 0 || seed > 4294967295 || typeof id !== "string" || !id) throw new Error("Invalid match seed/id");
   if (!["single", "hanchan"].includes(format2)) throw new Error("\uB2E8\uD310\uC804 \uB610\uB294 \uBC18\uC7A5\uC804\uC744 \uC120\uD0DD\uD558\uC138\uC694.");
-  if (Object.entries(settings).some(([key3, value3]) => !Object.hasOwn(SETTINGS, key3) || SETTINGS[key3] !== value3)) throw new Error("Unsupported H match settings");
-  return { version: 1, variant: "H", format: format2, id, seed, startedAt: now, rules: ruleset({ ...rules, roundWind: 27 }), settings: { ...SETTINGS }, roundIndex: 0, repeat: 0, handNumber: 1, status: "playing", scores: [0, 0, 0, 0], pot: 0, rounds: [], next: null, finalTransfers: [] };
+  if (Object.entries(settings).some(([key3, value3]) => !Object.hasOwn(SETTINGS, key3) || (key3 === "dealerContinuation" ? !["none", "win"].includes(value3) : SETTINGS[key3] !== value3))) throw new Error("Unsupported H match settings");
+  const r = ruleset({ ...rules, roundWind: 27 }), config = { ...SETTINGS, dealerContinuation: r.id === "H-2026-jp-20261014" ? "win" : "none", ...settings };
+  return { version: 1, variant: "H", format: format2, id, seed, startedAt: now, rules: r, settings: config, roundIndex: 0, repeat: 0, handNumber: 1, status: "playing", scores: [0, 0, 0, 0], pot: 0, rounds: [], next: null, finalTransfers: [] };
 }
 function createMatchGame2(match) {
   if (match.status !== "playing") throw new Error("\uB300\uAD6D\uC774 \uB2E4\uC74C \uAD6D\uC744 \uC2DC\uC791\uD560 \uC0C1\uD0DC\uAC00 \uC544\uB2D9\uB2C8\uB2E4.");
   const game = createGame({ seed: roundSeed(match.seed, match.handNumber), dealer: match.roundIndex % 4, rules: { ...match.rules, roundWind: match.roundIndex < 4 ? 27 : 28 } });
   game.startingScores = [...match.scores];
-  game.matchContext = { id: match.id, handNumber: match.handNumber, roundIndex: match.roundIndex, repeat: 0 };
+  game.matchContext = { id: match.id, handNumber: match.handNumber, roundIndex: match.roundIndex, repeat: match.repeat };
   return game;
 }
 function recordRound2(match, game, { logId = null } = {}) {
@@ -2768,13 +2872,14 @@ function recordRound2(match, game, { logId = null } = {}) {
   assertMatch2(match, game);
   const delta = game.players.map((p) => p.score);
   match.scores = match.scores.map((n, i) => n + delta[i]);
-  match.rounds.push({ handNumber: match.handNumber, roundIndex: match.roundIndex, repeat: 0, label: label(match), dealer: game.dealer, seed: game.seed, result: game.end, winner: game.winners[0] ?? null, winners: [...game.winners], delta, totals: [...match.scores], pot: 0, retained: false, logId });
-  if (match.format === "single" || match.roundIndex === 7) {
+  const retained = match.format !== "single" && match.settings.dealerContinuation === "win" && game.winners.includes(game.dealer);
+  match.rounds.push({ handNumber: match.handNumber, roundIndex: match.roundIndex, repeat: match.repeat, label: label(match), dealer: game.dealer, seed: game.seed, result: game.end, winner: game.winners[0] ?? null, winners: [...game.winners], delta, totals: [...match.scores], pot: 0, retained, logId });
+  if (match.format === "single" || match.roundIndex === 7 && !retained) {
     match.status = "complete";
     match.next = null;
   } else {
     match.status = "between-rounds";
-    match.next = { roundIndex: match.roundIndex + 1, repeat: 0 };
+    match.next = { roundIndex: match.roundIndex + (retained ? 0 : 1), repeat: retained ? match.repeat + 1 : 0 };
   }
   assertMatch2(match, game);
   return true;
@@ -2782,6 +2887,7 @@ function recordRound2(match, game, { logId = null } = {}) {
 function advanceMatch2(match, expectedHandNumber = match.handNumber) {
   if (match.status !== "between-rounds" || !match.next || expectedHandNumber !== match.handNumber) throw new Error("\uD604\uC7AC \uAD6D\uC774 \uB05D\uB09C \uB4A4 \uB2E4\uC74C \uAD6D\uC73C\uB85C \uC9C4\uD589\uD558\uC138\uC694.");
   match.roundIndex = match.next.roundIndex;
+  match.repeat = match.next.repeat;
   match.handNumber++;
   match.next = null;
   match.status = "playing";
@@ -2792,12 +2898,12 @@ function matchTotals2(match, game) {
 }
 function matchSummary2(match, game) {
   const totals = matchTotals2(match, game), rankings = totals.map((points, seat) => ({ seat, points, rank: 1 + totals.filter((n) => n > points).length })).sort((a, b) => b.points - a.points || a.seat - b.seat);
-  return { id: match.id, variant: "H", format: match.format, startedAt: match.startedAt, roundIndex: match.roundIndex, repeat: 0, handNumber: match.handNumber, label: label(match), status: match.status, totals, pot: 0, nextLabel: match.next ? roundLabel(match.next.roundIndex) : null, settings: clone3(match.settings), startingPoints: 0, rankings, rounds: match.rounds.map(({ seed, logId, ...row }) => clone3(row)), finalTransfers: [] };
+  return { id: match.id, variant: "H", format: match.format, startedAt: match.startedAt, roundIndex: match.roundIndex, repeat: match.repeat, handNumber: match.handNumber, label: label(match), status: match.status, totals, pot: 0, nextLabel: match.next ? roundLabel(match.next.roundIndex, match.next.repeat) : null, settings: clone3(match.settings), startingPoints: 0, rankings, rounds: match.rounds.map(({ seed, logId, ...row }) => clone3(row)), finalTransfers: [] };
 }
 function assertMatch2(match, game) {
-  if (match.version !== 1 || match.variant !== "H" || !["single", "hanchan"].includes(match.format) || !["playing", "between-rounds", "complete"].includes(match.status) || !Number.isInteger(match.roundIndex) || match.roundIndex < 0 || match.roundIndex > 7 || match.handNumber !== match.roundIndex + 1 || match.repeat !== 0 || match.format === "single" && (match.roundIndex !== 0 || match.status === "between-rounds")) throw new Error("Invalid H match progress");
+  if (match.version !== 1 || match.variant !== "H" || !["single", "hanchan"].includes(match.format) || !["playing", "between-rounds", "complete"].includes(match.status) || !Number.isInteger(match.roundIndex) || match.roundIndex < 0 || match.roundIndex > 7 || !Number.isInteger(match.handNumber) || match.handNumber < match.roundIndex + 1 || !Number.isInteger(match.repeat) || match.repeat < 0 || !["none", "win"].includes(match.settings.dealerContinuation) || match.settings.dealerContinuation === "none" && (match.handNumber !== match.roundIndex + 1 || match.repeat !== 0) || match.format === "single" && (match.roundIndex !== 0 || match.repeat !== 0 || match.handNumber !== 1 || match.status === "between-rounds")) throw new Error("Invalid H match progress");
   if (!Array.isArray(match.scores) || match.scores.length !== 4 || match.scores.some((n) => !Number.isSafeInteger(n)) || sum2(match.scores) !== 0 || match.pot !== 0 || match.finalTransfers.length) throw new Error("Match score conservation violated");
-  if (game.rules.variant === "S" || game.matchContext?.id !== match.id || game.matchContext.handNumber !== match.handNumber || game.matchContext.roundIndex !== match.roundIndex || game.matchContext.repeat !== 0 || game.dealer !== match.roundIndex % 4 || game.rules.roundWind !== (match.roundIndex < 4 ? 27 : 28)) throw new Error("Match round mismatch");
+  if (game.rules.variant === "S" || game.matchContext?.id !== match.id || game.matchContext.handNumber !== match.handNumber || game.matchContext.roundIndex !== match.roundIndex || game.matchContext.repeat !== match.repeat || game.dealer !== match.roundIndex % 4 || game.rules.roundWind !== (match.roundIndex < 4 ? 27 : 28)) throw new Error("Match round mismatch");
   if (!Array.isArray(game.startingScores) || game.startingScores.length !== 4 || game.startingScores.some((n) => !Number.isSafeInteger(n))) throw new Error("Missing match starting balances");
   if (game.startingScores.some((n, i) => n + (match.status === "playing" ? 0 : game.players[i].score) !== match.scores[i])) throw new Error("Match carried balances mismatch");
   if (match.status !== "playing" && !game.end) throw new Error("Unfinished round cannot be settled");
@@ -2830,7 +2936,7 @@ var roundResultName = (result) => result === "exhaustive-draw" ? "\uC720\uAD6D" 
 function matchRulesDescription(summary) {
   const variant = summaryVariant(summary), format2 = summaryFormat(summary), start2 = `${summary.startingPoints.toLocaleString()}\uC810 \uC2DC\uC791`;
   if (format2 === "single") return `${start2} \xB7 \uD55C \uAD6D \uC815\uC0B0 \uD6C4 \uC885\uB8CC\uD569\uB2C8\uB2E4.${variant === "S" ? " \uB0A8\uC740 \uACF5\uD0C1\uC740 1\uC704\uC5D0\uAC8C \uC9C0\uAE09\uD569\uB2C8\uB2E4." : ""}`;
-  return variant === "H" ? `${start2} \xB7 \uB3D91\uAD6D~\uB0A84\uAD6D \uCD1D 8\uAD6D \xB7 \uC5F0\uC7A5 \uC5C6\uC774 \uC790\uB9AC\uAC00 \uC21C\uD658\uD569\uB2C8\uB2E4. H\uB8F0 \uBC18\uC7A5\uC804\uC740 \uC774 \uC571\uC758 \uC5F0\uC2B5\uC6A9 \uC9C4\uD589 \uBC29\uC2DD\uC785\uB2C8\uB2E4.` : `${start2} \xB7 \uB0A84\uAD6D\uAE4C\uC9C0 \xB7 \uCE5C \uD654\uB8CC/\uD150\uD30C\uC774 \uC2DC \uC5F0\uC7A5 \xB7 \uBCF8\uC7A5 \uAC00\uC0B0 \uC5C6\uC74C. \uB0A84\uAD6D\uC5D0\uC11C \uCE5C\uC774 \uB118\uC5B4\uAC08 \uB54C \uC885\uB8CC\uD558\uBA70, \uB0A8\uC740 \uACF5\uD0C1\uC740 1\uC704\uC5D0\uAC8C \uC9C0\uAE09\uD569\uB2C8\uB2E4.`;
+  return variant === "H" ? `${start2} \xB7 \uB3D91\uAD6D~\uB0A84\uAD6D \xB7 ${summary.settings?.dealerContinuation === "win" ? "\uCE5C\uC774 \uD654\uB8CC\uD558\uBA74 \uC5F0\uC7A5(\uD654\uB8CC \uC21C\uBC88 \uBB34\uAD00), \uADF8 \uC678 \uAD50\uB300" : "\uAD6C \uADDC\uCE59: \uC5F0\uC7A5 \uC5C6\uC774 \uCD1D 8\uAD6D"}. \uBCF8\uC7A5 \uAC00\uC0B0 \uC5C6\uC74C. \uB0A84\uAD6D\uC5D0\uC11C \uCE5C\uC774 \uB118\uC5B4\uAC00\uBA74 \uC885\uB8CC\uD569\uB2C8\uB2E4.` : `${start2} \xB7 \uB0A84\uAD6D\uAE4C\uC9C0 \xB7 \uCE5C \uD654\uB8CC/\uD150\uD30C\uC774 \uC2DC \uC5F0\uC7A5 \xB7 \uBCF8\uC7A5 \uAC00\uC0B0 \uC5C6\uC74C. \uB0A84\uAD6D\uC5D0\uC11C \uCE5C\uC774 \uB118\uC5B4\uAC08 \uB54C \uC885\uB8CC\uD558\uBA70, \uB0A8\uC740 \uACF5\uD0C1\uC740 1\uC704\uC5D0\uAC8C \uC9C0\uAE09\uD569\uB2C8\uB2E4.`;
 }
 var MatchStore = class {
   constructor(storage = null) {
@@ -7821,6 +7927,12 @@ var defaultHybridMode = () => completedVersions(HYBRID_TRAINING).some((v) => v.i
 function privateTrainingCompatible(view) {
   return PRIVATE_KAN_TRAINING.status === "complete" && view?.rules?.variant !== "S" && view?.rules?.concealedKanPrivate === true && Object.entries(PRIVATE_KAN_TRAINING.rules).every(([key3, value3]) => JSON.stringify(view.rules[key3]) === JSON.stringify(value3));
 }
+function revisedTrainingApplicable(view) {
+  return view?.rules?.variant !== "S" && [27, 28].includes(view?.rules?.roundWind) && Object.entries(DEFAULT_RULES).every(([key3, value3]) => key3 === "roundWind" || JSON.stringify(view?.rules?.[key3]) === JSON.stringify(value3));
+}
+function trainingVersionApplicable(view, mode) {
+  return !!privateTrainingVersion(mode) && (privateTrainingCompatible(view) || revisedTrainingApplicable(view) && ["M1", "M2", "M3", "Y1"].includes(mode));
+}
 var KEY3 = "wellness-mahjong-training-profile-v2";
 function hasTrainedPolicies(training) {
   return Object.keys(training.weights).length > 0;
@@ -7846,7 +7958,7 @@ function saveTrainingMode(storage, mode) {
 }
 function trainingWeights(view, mode, training) {
   const version = privateTrainingVersion(mode);
-  if (version) return privateTrainingCompatible(view) ? { [version.policy]: version.weights } : {};
+  if (version) return trainingVersionApplicable(view, mode) ? { [version.policy]: version.weights } : {};
   return trainingCompatible(view, training) && mode === "trained" ? training.weights : {};
 }
 function practiceAction(view, { humanSeat: humanSeat2, policy, profile, mode, training }) {
@@ -8153,7 +8265,7 @@ function renderRecommendations() {
   }
   const view = observation4(state, humanSeat);
   currentRecommendations = strategyRecommendations(view, trainingWeights(view, trainingMode, TRAINING));
-  const selectedVersion = privateTrainingCompatible(view) && privateTrainingVersion(trainingMode);
+  const selectedVersion = trainingVersionApplicable(view, trainingMode) && privateTrainingVersion(trainingMode);
   if (selectedVersion) {
     for (const rec of currentRecommendations) if (rec.policy === selectedVersion.policy) rec.name = `${selectedVersion.id} \xB7 ${selectedVersion.name}`;
   }
@@ -8211,11 +8323,14 @@ function render() {
   if (variant === "S") $("s-rule-status").textContent = `${state.rules.roundWind === 28 ? "\uB0A8\uC7A5" : "\uB3D9\uC7A5"} \xB7 ${match ? matchFormatName(summaryFormat(match)) + " \uAE30\uB85D \xB7 " : ""}\uCE5C ${seatName(state.dealer)} \xB7 \uACF5\uD0C1 ${match?.pot ?? state.pot ?? 0}\uC810`;
   renderDora();
   const a = actor4(state), shownTurn = displayedTurn(state), p = state.players[humanSeat], positions = seatPositions(humanSeat);
+  const passTiles = variant === "H" ? Object.keys(p.passTileLocks ?? {}).map(Number) : [];
+  $("h-pass-status").hidden = !passTiles.length;
+  $("h-pass-status").textContent = passTiles.length ? `\uB860 \uD328\uC2A4 \uC81C\uD55C: ${passTiles.map(tileName).join("\xB7")} \xB7 \uB2E4\uC74C \uC790\uAE30 \uCBD4\uBAA8 \uC804\uAE4C\uC9C0, \uD310\uC218\uAC00 \uB354 \uB192\uC73C\uBA74 \uC608\uC678 \xB7 \uCBD4\uBAA8 \uAC00\uB2A5` : "";
   const reacting = state.phase === "reaction", humanChoice = reacting && a === humanSeat && !auto && !needsPass(state, humanSeat);
   $("game-status").textContent = match?.status === "complete" ? matchFormatName(summaryFormat(match)) + " \uC644\uB8CC" : state.end ? `${state.end === "three-winners" ? "\uC138 \uBC88\uC9F8 \uD654\uB8CC" : state.end === "win" ? "\uD654\uB8CC" : "\uC720\uAD6D"} \xB7 \uAD6D \uC885\uB8CC` : p.won ? "\uD654\uB8CC \uC644\uB8CC \xB7 \uB0A8\uC740 \uB300\uAD6D \uC9C4\uD589 \uC911" : reacting ? humanChoice ? "\uB860 \xB7 \uD6C4\uB85C \uC120\uD0DD" : "\uD6C4\uB85C \uD655\uC778 \uC911" : a === humanSeat ? "\uB0B4 \uCC28\uB840 \xB7 \uBC84\uB9BC\uD328 \uC120\uD0DD" : `${seatName(a)} \uD50C\uB808\uC774\uC5B4 \uCC28\uB840`;
   $("turn-indicator").textContent = state.end ? "\uAD6D \uC885\uB8CC" : reacting ? humanChoice ? "\uB860 \xB7 \uD6C4\uB85C \uC120\uD0DD \uAC00\uB2A5" : "\uD6C4\uB85C \uD655\uC778 \uC911" : a === humanSeat ? "\u25CF \uB0B4 \uCC28\uB840" : `${seatName(a)} \uC9C4\uD589 \uC911`;
   $("wall").textContent = `\uB0A8\uC740 \uD328 ${state.wall.length}`;
-  $("win-count").textContent = `\uD654\uB8CC ${state.winners.length} / ${variant === "S" ? 1 : 3}\uBA85`;
+  $("win-count").textContent = variant === "S" ? `\uD654\uB8CC ${state.winners.length}\uBA85` : `\uD654\uB8CC ${state.winners.length} / 3\uBA85`;
   $("opponents").replaceChildren();
   $("rivers").replaceChildren();
   renderMelds();
@@ -8249,15 +8364,17 @@ function render() {
   $("self-title").replaceChildren(node2("span", wind2(humanSeat), "seat-badge"), node2("span", `${seatName(humanSeat)} \xB7 \uB098`), node2("span", match ? `${matchFormatName(summaryFormat(match))} ${match.totals[humanSeat].toLocaleString()}\uC810` : `\uAD6D \uB204\uC801 ${signedPoints(p.score)}\uC810`, "self-score"));
   if (p.riichi) $("self-title").append(riichiMarker(humanSeat));
   if (p.won) $("self-title").append(node2("span", `${p.win.order}\uBC88\uC9F8 \uD654\uB8CC`, "player-sub"));
-  const settledSeat = variant === "S" ? state.winners[0] : humanSeat, settlement = settledSeat === void 0 ? null : winSettlement(state, settledSeat), result = $("win-settlement");
-  result.hidden = !settlement;
+  const result = $("win-settlement"), settlements = (variant === "S" ? state.winners : [humanSeat]).map((seat) => ({ seat, value: winSettlement(state, seat) })).filter((x) => x.value);
+  result.hidden = !settlements.length;
   result.replaceChildren();
-  if (settlement) {
-    result.append(node2("strong", `${variant === "S" ? seatName(settledSeat) + " \xB7 " : ""}${settlement.title}`));
-    if (settlement.breakdown) result.append(renderHanBreakdown(settlement.breakdown));
-    result.append(node2("p", settlement.calculation));
-    if (variant === "H" && settlement.bonusDetails) result.append(node2("p", settlement.bonusDetails));
-    if (settlement.previousNet !== 0) result.append(node2("p", `\uD654\uB8CC \uC804 \uB204\uC801 ${signedPoints(settlement.previousNet)}\uC810 \u2192 \uAD6D \uB204\uC801 ${signedPoints(settlement.net)}\uC810`));
+  for (const { seat: settledSeat, value: settlement } of settlements) {
+    const section = node2("div");
+    section.append(node2("strong", `${variant === "S" ? seatName(settledSeat) + " \xB7 " : ""}${settlement.title}`));
+    if (settlement.breakdown) section.append(renderHanBreakdown(settlement.breakdown));
+    section.append(node2("p", settlement.calculation));
+    if (variant === "H" && settlement.bonusDetails) section.append(node2("p", settlement.bonusDetails));
+    if (settlement.previousNet !== 0) section.append(node2("p", `\uD654\uB8CC \uC678 \uC99D\uAC10 ${signedPoints(settlement.previousNet)}\uC810 \u2192 \uAD6D \uB204\uC801 ${signedPoints(settlement.net)}\uC810`));
+    result.append(section);
   }
   const legal = a === humanSeat ? legalActions4(state) : [], hand = handDisplay(state, humanSeat), automaticPass = needsPass(state, humanSeat);
   $("hand").replaceChildren();
@@ -8299,8 +8416,8 @@ function render() {
   updateTableLayout();
   $("events").replaceChildren();
   for (const e of state.events.filter((e2) => ["win", "kan", "drawSettlement", "call"].includes(e2.type)).slice(-30)) {
-    const settlement2 = e.type === "win" ? winSettlement(state, e.seat) : null;
-    const text = settlement2 ? `${seatName(e.seat)}: ${settlement2.title} \xB7 ${settlement2.calculation}` : e.type === "call" ? `${seatName(e.seat)}: ${e.action.type}` : e.type === "kan" ? `${seatName(e.seat)}: \uAE61, \uBCF4\uCDA9\uD328 \uC218\uB839` : "\uC720\uAD6D \uD150\uD30C\uC774 \uC815\uC0B0 \uC644\uB8CC";
+    const settlement = e.type === "win" ? winSettlement(state, e.seat) : null;
+    const text = settlement ? `${seatName(e.seat)}: ${settlement.title} \xB7 ${settlement.calculation}` : e.type === "call" ? `${seatName(e.seat)}: ${e.action.type}` : e.type === "kan" ? `${seatName(e.seat)}: \uAE61, \uBCF4\uCDA9\uD328 \uC218\uB839` : "\uC720\uAD6D \uD150\uD30C\uC774 \uC815\uC0B0 \uC644\uB8CC";
     $("events").append(node2("li", text));
   }
 }
@@ -8515,7 +8632,7 @@ function restorePractice(force = false) {
   humanSeat = saved.seat;
   journal.current = saved.log;
   if (saved.policy in POLICIES2) $("policy").value = saved.policy;
-  if (privateTrainingCompatible(state) && privateTrainingVersion(trainingMode)) $("policy").value = privateTrainingVersion(trainingMode).policy;
+  if (trainingVersionApplicable(state, trainingMode)) $("policy").value = privateTrainingVersion(trainingMode).policy;
   if (saved.profile in OPPONENT_PROFILES2) $("profile").value = saved.profile;
   setVariant(state.rules.variant === "S" ? "S" : "H", practiceMatch.format ?? defaultMatchFormat(state.rules.variant));
   savePractice();
@@ -8766,15 +8883,15 @@ function randomGame() {
   return start(crypto.getRandomValues(new Uint32Array(1))[0], chosenVariant);
 }
 function effectiveTrainingMode(view) {
-  return trainingCompatible(view, TRAINING) && ["original", "trained"].includes(trainingMode) || privateTrainingCompatible(view) && privateTrainingVersion(trainingMode) ? trainingMode : "original";
+  return trainingCompatible(view, TRAINING) && ["original", "trained"].includes(trainingMode) || trainingVersionApplicable(view, trainingMode) ? trainingMode : "original";
 }
 function renderTrainingMode(variant = chosenVariant) {
-  const view = state && (!online || remote?.state) && variant === "H" ? state : { rules: { variant } }, oldCompatible = trainingCompatible(view, TRAINING), privateCompatible = privateTrainingCompatible(view), enabled = hasTrainedPolicies(TRAINING), version = privateTrainingVersion(trainingMode);
+  const view = state && (!online || remote?.state) && variant === "H" ? state : { rules: { variant } }, oldCompatible = trainingCompatible(view, TRAINING), privateCompatible = privateTrainingCompatible(view), revisedCompatible = revisedTrainingApplicable(view), enabled = hasTrainedPolicies(TRAINING), version = privateTrainingVersion(trainingMode);
   $("training-mode").value = effectiveTrainingMode(view);
-  $("training-mode").disabled = variant === "S" || !oldCompatible && !privateCompatible;
+  $("training-mode").disabled = variant === "S" || !oldCompatible && !privateCompatible && !revisedCompatible;
   $("training-mode").querySelector('[value="trained"]').disabled = !oldCompatible || !enabled;
-  for (const v of privateTrainingVersions()) $("training-mode").querySelector(`[value="${v.id}"]`).disabled = !privateCompatible;
-  $("training-note").textContent = variant === "S" ? "S\uB8F0\uC740 \uC804\uC6A9 \uAE30\uBCF8 \uC804\uB7B5\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4." : privateCompatible ? version ? `${version.id} \xB7 ${version.description} \xB7 ${version.policy} \uCD94\uCC9C\uACFC \uB0B4 \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9 \xB7 \uB2E4\uB978 \uCD94\uCC9C\uACFC \uC0C1\uB300 AI\uB294 \uAE30\uBCF8\uAC12` : "\uC548\uAE61 \uBE44\uACF5\uAC1C \uADDC\uCE59 \xB7 \uAE30\uC874 A\u2013E \uC0AC\uC6A9 \xB7 \uACF5\uACA9\xB7\uC218\uBE44 \uD63C\uD569\uD615 M1\u2013M3\uACFC \uC5ED\uD328 \uBCF4\uC815 Y1\uC744 \uC120\uD0DD\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." : oldCompatible ? trainingMode === "trained" ? "\uAD6C \uADDC\uCE59 \uAC80\uC99D \uAC00\uC911\uCE58\uB97C \uB0B4 \uCD94\uCC9C\uACFC \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9" : "\uAE30\uC874 A\u2013E \uC804\uB7B5" : "\uC774 \uB300\uAD6D\uC758 \uADDC\uCE59\uACFC \uC77C\uCE58\uD558\uB294 \uD559\uC2B5 \uACB0\uACFC\uAC00 \uC5C6\uC5B4 \uAE30\uBCF8 A\u2013E\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4.";
+  for (const v of privateTrainingVersions()) $("training-mode").querySelector(`[value="${v.id}"]`).disabled = !trainingVersionApplicable(view, v.id);
+  $("training-note").textContent = variant === "S" ? "S\uB8F0\uC740 \uC804\uC6A9 \uAE30\uBCF8 \uC804\uB7B5\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4." : revisedCompatible ? `${trainingVersionApplicable(view, trainingMode) ? version.id + " \xB7 " + version.name : "\uAE30\uC874 A\u2013E"} \xB7 \uC0C8 \uADDC\uCE59 \uC801\uC6A9 \xB7 \uC131\uB2A5 \uC7AC\uAC80\uC99D \uC804. M1\u2013M3\xB7Y1\uC740 \uAE30\uC874 \uAC00\uC911\uCE58\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4.` : privateCompatible ? version ? `${version.id} \xB7 ${version.description} \xB7 ${version.policy} \uCD94\uCC9C\uACFC \uB0B4 \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9 \xB7 \uB2E4\uB978 \uCD94\uCC9C\uACFC \uC0C1\uB300 AI\uB294 \uAE30\uBCF8\uAC12` : "\uC548\uAE61 \uBE44\uACF5\uAC1C \uADDC\uCE59 \xB7 \uAE30\uC874 A\u2013E \uC0AC\uC6A9 \xB7 \uACF5\uACA9\xB7\uC218\uBE44 \uD63C\uD569\uD615 M1\u2013M3\uACFC \uC5ED\uD328 \uBCF4\uC815 Y1\uC744 \uC120\uD0DD\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." : oldCompatible ? trainingMode === "trained" ? "\uAD6C \uADDC\uCE59 \uAC80\uC99D \uAC00\uC911\uCE58\uB97C \uB0B4 \uCD94\uCC9C\uACFC \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9" : "\uAE30\uC874 A\u2013E \uC804\uB7B5" : "\uC774 \uB300\uAD6D\uC758 \uADDC\uCE59\uACFC \uC77C\uCE58\uD558\uB294 \uD559\uC2B5 \uACB0\uACFC\uAC00 \uC5C6\uC5B4 \uAE30\uBCF8 A\u2013E\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4.";
 }
 function setTrainingMode(mode) {
   const version = privateTrainingVersion(mode);
@@ -8799,7 +8916,7 @@ function setVariant(variant, format2 = variant === chosenVariant ? chosenFormat 
   for (const value3 of ["single", "hanchan"]) $("format-" + value3).setAttribute("aria-pressed", String(format2 === value3));
   $("random-game").textContent = `${variant}\uB8F0 \uC0C8 ${matchFormatName(format2)} \u21BB`;
   $("create-room").textContent = `${variant}\uB8F0 ${matchFormatName(format2)} \uBC29 \uB9CC\uB4E4\uAE30`;
-  $("format-note").textContent = format2 === "single" ? "\uD55C \uAD6D \uC815\uC0B0 \uD6C4 \uC885\uB8CC\uD569\uB2C8\uB2E4. \uC120\uD0DD\uC740 \uC0C8 \uB300\uAD6D\xB7\uC0C8 \uBC29\uC5D0 \uC801\uC6A9\uB418\uBA70, \uC785\uC7A5\uD55C \uBC29\uC758 \uBC29\uC2DD\uC740 \uC720\uC9C0\uB429\uB2C8\uB2E4." : variant === "H" ? "\uB3D91\uAD6D~\uB0A84\uAD6D \uCD1D 8\uAD6D, \uC5F0\uC7A5 \uC5C6\uC774 \uC9C4\uD589\uD558\uB294 H\uB8F0 \uC5F0\uC2B5\uC6A9 \uBC29\uC2DD\uC785\uB2C8\uB2E4. \uC0C8 \uB300\uAD6D\xB7\uC0C8 \uBC29\uC5D0 \uC801\uC6A9\uB429\uB2C8\uB2E4." : "\uB3D91\uAD6D~\uB0A84\uAD6D\uAE4C\uC9C0 \uB204\uC801 \uC810\uC218\uB97C \uAE30\uB85D\uD558\uBA70 \uCE5C \uD654\uB8CC\xB7\uD150\uD30C\uC774 \uC2DC \uC5F0\uC7A5\uD569\uB2C8\uB2E4. \uC0C8 \uB300\uAD6D\xB7\uC0C8 \uBC29\uC5D0 \uC801\uC6A9\uB429\uB2C8\uB2E4.";
+  $("format-note").textContent = format2 === "single" ? "\uD55C \uAD6D \uC815\uC0B0 \uD6C4 \uC885\uB8CC\uD569\uB2C8\uB2E4. \uC120\uD0DD\uC740 \uC0C8 \uB300\uAD6D\xB7\uC0C8 \uBC29\uC5D0 \uC801\uC6A9\uB418\uBA70, \uC785\uC7A5\uD55C \uBC29\uC758 \uBC29\uC2DD\uC740 \uC720\uC9C0\uB429\uB2C8\uB2E4." : variant === "H" ? "\uB3D91\uAD6D~\uB0A84\uAD6D\uAE4C\uC9C0 \uB204\uC801\uD569\uB2C8\uB2E4. \uC0C8 H\uB8F0\uC740 \uCE5C\uC774 \uD654\uB8CC\uD558\uBA74 \uC21C\uBC88\uACFC \uAD00\uACC4\uC5C6\uC774 \uC5F0\uC7A5\uD569\uB2C8\uB2E4. \uC0C8 \uB300\uAD6D\xB7\uC0C8 \uBC29\uC5D0 \uC801\uC6A9\uB429\uB2C8\uB2E4." : "\uB3D91\uAD6D~\uB0A84\uAD6D\uAE4C\uC9C0 \uB204\uC801 \uC810\uC218\uB97C \uAE30\uB85D\uD558\uBA70 \uCE5C \uD654\uB8CC\xB7\uD150\uD30C\uC774 \uC2DC \uC5F0\uC7A5\uD569\uB2C8\uB2E4. \uC0C8 \uB300\uAD6D\xB7\uC0C8 \uBC29\uC5D0 \uC801\uC6A9\uB429\uB2C8\uB2E4.";
   persistPreferences();
 }
 function toggleRecommendations(enabled) {
@@ -8891,7 +9008,7 @@ fetch(new URL("../results/baseline/analysis.json", import.meta.url)).then((r) =>
 void renderTrainingResults($, TRAINING);
 function readGame() {
   if (online && !remote?.state) return { mode: "online", phase: "waiting", room: remote ? { code: remote.code, members: remote.members, variant: remote.variant, format: remote.format ?? defaultMatchFormat(remote.variant) } : null, legalActions: [], recommendations: [] };
-  return { match: currentMatch(), variant: state.rules.variant === "S" ? "S" : "H", trainingMode: effectiveTrainingMode(state), trainingId: trainingIdForMode(effectiveTrainingMode(state)) ?? (effectiveTrainingMode(state) === "trained" ? TRAINING.id : null), recommendationsEnabled, selectedVariant: chosenVariant, selectedFormat: chosenFormat, format: currentMatch() ? summaryFormat(currentMatch()) : remote?.format ?? defaultMatchFormat(state.rules.variant), mode: online ? "online" : "practice", room: online && remote ? { code: remote.code, members: remote.members, gameNumber: remote.gameNumber } : null, seat: humanSeat, phase: online && !remote?.state ? "waiting" : state.phase, turn: actor4(state), ownHand: state.players[humanSeat].hand.map(typeOf), drawnTile: handDisplay(state, humanSeat).drawn === null ? null : typeOf(handDisplay(state, humanSeat).drawn), scores: state.players.map((p) => p.score), winners: [...state.winners], legalActions: actor4(state) === humanSeat ? legalActions4(state) : [], recommendationRevision, recommendations: structuredClone(currentRecommendations) };
+  return { match: currentMatch(), variant: state.rules.variant === "S" ? "S" : "H", trainingMode: effectiveTrainingMode(state), trainingId: privateTrainingCompatible(state) ? trainingIdForMode(effectiveTrainingMode(state)) : effectiveTrainingMode(state) === "trained" ? TRAINING.id : null, validationStatus: revisedTrainingApplicable(state) ? "not-validated-for-rules" : null, recommendationsEnabled, selectedVariant: chosenVariant, selectedFormat: chosenFormat, format: currentMatch() ? summaryFormat(currentMatch()) : remote?.format ?? defaultMatchFormat(state.rules.variant), mode: online ? "online" : "practice", room: online && remote ? { code: remote.code, members: remote.members, gameNumber: remote.gameNumber } : null, seat: humanSeat, phase: online && !remote?.state ? "waiting" : state.phase, turn: actor4(state), ownHand: state.players[humanSeat].hand.map(typeOf), drawnTile: handDisplay(state, humanSeat).drawn === null ? null : typeOf(handDisplay(state, humanSeat).drawn), scores: state.players.map((p) => p.score), winners: [...state.winners], legalActions: actor4(state) === humanSeat ? legalActions4(state) : [], recommendationRevision, recommendations: structuredClone(currentRecommendations) };
 }
 if (document.modelContext?.registerTool) {
   const life = new AbortController();

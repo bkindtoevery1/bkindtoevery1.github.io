@@ -23,6 +23,11 @@ var LEGACY_RULES = Object.freeze({
   concealedKanPrivate: false,
   menzenRequiresTsumo: false,
   sevenPairsQuadAsTwo: false,
+  sevenPairsQuadBonus: 0,
+  kanFanBonus: false,
+  kanFanCap: 5,
+  fanPoints: [50, 100, 200, 400, 800, 1e3],
+  directKanTsumoBonus: false,
   greenTiles: [18, 19, 20, 21, 22, 23, 24, 25, 26, 32],
   kanBonus: 100,
   dragonBonus: 100,
@@ -52,14 +57,22 @@ var CLARIFIED_RULES = Object.freeze({
   fourOfAKindBonus: true,
   ronContinuation: "last-winner"
 });
-var DEFAULT_RULES = Object.freeze({
+var PRIVATE_KAN_RULES = Object.freeze({
   ...CLARIFIED_RULES,
   id: "H-2026-private-kan-v1",
   concealedKanPrivate: true
 });
+var DEFAULT_RULES = Object.freeze({
+  ...PRIVATE_KAN_RULES,
+  id: "H-2026-jp-20261014",
+  sevenPairsQuadAsTwo: true,
+  sevenPairsQuadBonus: 200,
+  kanFanBonus: true,
+  passRonLock: "same-tile-until-draw"
+});
 
 // s-engine/rules.mjs
-var S_DEFAULTS = Object.freeze({
+var PREVIOUS_DEFAULTS = Object.freeze({
   id: "S-2026-private-kan-v1",
   variant: "S",
   pinfuHan: 2,
@@ -80,13 +93,31 @@ var S_DEFAULTS = Object.freeze({
   deadWallTiles: 14,
   revealWinnerHand: true,
   revealTsumoWinningTile: true,
-  concealedKanPrivate: true
+  concealedKanPrivate: true,
+  riichiIsYaku: false,
+  invalidHandNoten: false,
+  paoByYakuman: false
+});
+var S_DEFAULTS = Object.freeze({
+  ...PREVIOUS_DEFAULTS,
+  id: "S-2026-jp-20261014",
+  peikouClosedOnly: false,
+  openSequenceReduction: true,
+  multipleRon: "all",
+  riichiIsYaku: true,
+  invalidHandNoten: true,
+  paoByYakuman: true
 });
 
 // web/score-display.mjs
 function hBonusDetails(score, rules = {}) {
   const names = { kan: rules.fourOfAKindBonus ? "\uC0AC\uADC0\uC77C" : "\uAE61", dragon: "\uC0BC\uC6D0\uD328", roundWind: "\uC7A5\uD48D", seatWind: "\uC790\uD48D" };
   return Object.entries(names).filter(([key2]) => Number.isFinite(score.bonuses?.[key2]) && score.bonuses[key2] > 0).map(([key2, label]) => `${label} ${score.bonuses[key2]}\uC810`).join(" \xB7 ");
+}
+function hFanDetails(score, rules = {}) {
+  if (!score.kanFan) return "";
+  const original = rules.fanPoints?.[score.baseFan];
+  return `\uAE61 \uC0C1\uD669 +${score.kanFan}\uD310: ${score.baseFan}\uD310${Number.isFinite(original) ? " " + original + "\uC810" : ""} \u2192 ${score.fan}\uD310 \xB7 ${score.base}\uC810${score.fan > score.scoredFan ? " (\uC810\uC218\uD45C \uC0C1\uD55C \uC7A0\uC815 \uC801\uC6A9)" : ""}`;
 }
 function scoreBreakdown(score) {
   if (score?.variant !== "S") return null;
@@ -136,22 +167,24 @@ function actionRecord(game, seat, action, before, error = null) {
         else expected.push({ from: pao, amount: win.score.total / 2 }, { from: win.source, amount: win.score.total / 2 });
       } else if (win.method === "ron") expected.push({ from: win.source, amount: win.score.points.ron });
       else for (let from = 0; from < 4; from++) if (from !== win.seat) expected.push({ from, amount: from === game.dealer ? win.score.points.tsumoDealer : win.score.points.tsumoOther });
-      if (before.pot) expected.push({ from: "pot", amount: before.pot });
+      if (before.pot && game.winners[0] === win.seat) expected.push({ from: "pot", amount: before.pot });
       const expectedReceipt2 = expected.reduce((n, p) => n + p.amount, 0), problems2 = [];
-      if (actual2.length !== expected.length || expected.some((e) => actual2.filter((p) => p.from === e.from && p.amount === e.amount).length !== 1) || actualReceipt2 !== delta[win.seat]) problems2.push("S\uB8F0 \uC9C0\uAE09\uC790 \uB610\uB294 \uC9C0\uAE09\uC561\uC774 \uC801\uC6A9 \uADDC\uCE59\uACFC \uB2E4\uB985\uB2C8\uB2E4.");
+      if (actual2.length !== expected.length || expected.some((e) => actual2.filter((p) => p.from === e.from && p.amount === e.amount).length !== 1) || actualReceipt2 !== expectedReceipt2) problems2.push("S\uB8F0 \uC9C0\uAE09\uC790 \uB610\uB294 \uC9C0\uAE09\uC561\uC774 \uC801\uC6A9 \uADDC\uCE59\uACFC \uB2E4\uB985\uB2C8\uB2E4.");
       issues.push(...problems2.map((text) => `${seats2[win.seat]}: ${text}`));
       return { seat: win.seat, method: win.method, order: win.order, score: clone(win.score), payers: expected.map((p) => p.from), expectedReceipt: expectedReceipt2, actualReceipt: actualReceipt2, scoreBefore: before.scores[win.seat], scoreAfter: after[win.seat], payments: actual2, issues: problems2 };
     }
-    const payers = win.method === "tsumo" ? before.active.filter((i) => i !== win.seat) : [win.source];
-    const actual = payments.filter((p) => p.to === win.seat && p.kind === win.method);
-    const tsumoBonus = win.method === "tsumo" ? game.rules.tsumoBonusPerPayer : 0;
+    const paymentMethod = win.payment?.method ?? win.method;
+    const payers = win.payment?.payers ?? (win.method === "tsumo" ? before.active.filter((i) => i !== win.seat) : [win.source]);
+    const actual = payments.filter((p) => p.to === win.seat && p.kind === paymentMethod);
+    const tsumoBonus = paymentMethod === "tsumo" || win.method === "tsumo" && game.rules.directKanTsumoBonus === true ? game.rules.tsumoBonusPerPayer : 0;
     const perPayer = win.score.total + tsumoBonus, expectedReceipt = perPayer * payers.length, actualReceipt = actual.reduce((sum, p) => sum + p.amount, 0);
     const problems = [];
     if (actual.length !== payers.length || payers.some((i) => actual.filter((p) => p.from === i && p.amount === perPayer).length !== 1)) problems.push("\uC9C0\uAE09\uC790 \uB610\uB294 \uC9C0\uAE09\uC561\uC774 \uC801\uC6A9 \uADDC\uCE59\uACFC \uB2E4\uB985\uB2C8\uB2E4.");
     if (win.score.yaku === "pinfu" || win.score.name === "\uD551\uD6C4") {
       const player = game.players[win.seat], tiles = [...player.hand, ...player.melds.flatMap((m) => m.ids), ...win.method === "ron" ? [win.tile] : []].map(typeOf);
       const expectedBonus = game.rules.fourOfAKindBonus ? counts(tiles).filter((n) => n === 4).length * game.rules.kanBonus : 0;
-      if (win.score.base !== 100 || win.score.bonus !== expectedBonus || win.score.total !== 100 + expectedBonus) problems.push("\uD551\uD6C4 \uC5ED \uC810\uC218 \uB610\uB294 \uC0AC\uADC0\uC77C \uAC00\uC0B0\uC810\uC774 \uC798\uBABB\uB418\uC5C8\uC2B5\uB2C8\uB2E4.");
+      const expectedBase = win.score.kanFan ? game.rules.fanPoints[win.score.scoredFan] : 100;
+      if (win.score.base !== expectedBase || win.score.bonus !== expectedBonus || win.score.total !== expectedBase + expectedBonus) problems.push("\uD551\uD6C4 \uC5ED \uC810\uC218 \uB610\uB294 \uC0AC\uADC0\uC77C \uAC00\uC0B0\uC810\uC774 \uC798\uBABB\uB418\uC5C8\uC2B5\uB2C8\uB2E4.");
     }
     if (actualReceipt !== expectedReceipt || delta[win.seat] !== actualReceipt) problems.push("\uD654\uB8CC \uC218\uC785\uACFC \uC810\uC218 \uBCC0\uD654\uAC00 \uB2E4\uB985\uB2C8\uB2E4.");
     issues.push(...problems.map((text) => `${seats2[win.seat]}: ${text}`));
@@ -174,8 +207,9 @@ function logText(log) {
     const action = entry.action, tile = action.type === "ankan" && concealedForViewer(game, entry.seat, log.humanSeat) ? " (\uBE44\uACF5\uAC1C)" : Number.isInteger(action.tile) ? ` ${tileName(action.tile)}` : "";
     if (action.type !== "pass") lines.push(`#${entry.n + 1} ${seats2[entry.seat]} ${{ discard: "\uBC84\uB9BC", riichi: "\uB9AC\uCE58\xB7\uBC84\uB9BC", tsumo: "\uCBD4\uBAA8", ron: "\uB860", chi: "\uCE58", pon: "\uD401", ankan: "\uC548\uAE61", minkan: "\uBA85\uAE61", kakan: "\uAC00\uAE61" }[action.type] ?? action.type}${tile}`);
     for (const win of entry.wins) {
-      const detail2 = variant === "S" ? scoreBreakdownText(win.score) : `\uC5ED ${win.score.base}${win.score.bonus ? " + " + (hBonusDetails(win.score, game.rules) || "\uAC00\uC0B0 " + win.score.bonus) : ""}${win.tsumoBonus ? " + \uCBD4\uBAA8 " + win.tsumoBonus : ""}`;
+      const detail2 = variant === "S" ? scoreBreakdownText(win.score) : `${hFanDetails(win.score, game.rules) ? hFanDetails(win.score, game.rules) + " \xB7 " : ""}\uC5ED ${win.score.base}${win.score.bonus ? " + " + (hBonusDetails(win.score, game.rules) || "\uAC00\uC0B0 " + win.score.bonus) : ""}${win.tsumoBonus ? " + \uCBD4\uBAA8 " + win.tsumoBonus : ""}`;
       lines.push(variant === "S" ? `  ${seats2[win.seat]} ${detail2}` : `  ${seats2[win.seat]} ${win.score.name} (${detail2})`);
+      if (variant === "H" && game.players[win.seat].win?.payment?.method === "ron" && win.method === "tsumo") lines.push("  \uBA85\uAE61 \uACF5\uAE09\uC790 \uB2E8\uB3C5 \uC9C0\uBD88 (\uB860 \uC9C0\uAE09)");
       if (win.issues.length) lines.push(`  \uADDC\uCE59\uC0C1 ${win.expectedReceipt}, \uC2E4\uC81C \uC218\uC785 ${win.actualReceipt}`);
     }
     for (const payment of entry.payments) lines.push(`  ${seats2[payment.from] ?? "\uACF5\uD0C1"} \u2192 ${seats2[payment.to] ?? "\uACF5\uD0C1"}: ${payment.amount}\uC810`);
@@ -198,6 +232,9 @@ function reviewText(input) {
   for (const e of log.actions) {
     if (["ankan", "minkan", "kakan"].includes(e.action.type)) lines.push(`${seats2[e.seat]} ${e.action.type === "ankan" ? "\uC548\uAE61" : e.action.type === "minkan" ? "\uBA85\uAE61" : "\uAC00\uAE61"}${e.action.type === "ankan" && concealedForViewer(game, e.seat, log.humanSeat) ? " \xB7 \uBE44\uACF5\uAC1C" : Number.isInteger(e.action.tile) ? " \xB7 " + tileName(e.action.tile) : ""} (\uC774\uB54C\uB294 \uC810\uC218 \uC774\uB3D9 \uC5C6\uC74C)`);
     for (const win of e.wins) {
+      if (!s && game.players[win.seat].win?.payment?.method === "ron" && win.method === "tsumo") lines.push("\uBA85\uAE61 \uACF5\uAE09\uC790 \uB2E8\uB3C5 \uC9C0\uBD88 (\uB860 \uC9C0\uAE09)");
+      const fanDetail = hFanDetails(win.score, game.rules);
+      if (fanDetail) lines.push(fanDetail);
       const extra = Object.entries(win.score.bonuses ?? {}).filter(([, value]) => typeof value === "number" && value).map(([name, value]) => `${{ kan: game.rules.fourOfAKindBonus ? "\uC0AC\uADC0\uC77C" : "\uAE61", dragon: "\uC0BC\uC6D0\uD328", roundWind: "\uC7A5\uD48D", seatWind: "\uC790\uD48D" }[name] ?? name} ${value}`);
       lines.push(s ? `${seats2[win.seat]} ${win.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 ${scoreBreakdownText(win.score)}` : `${seats2[win.seat]} ${win.score.name} ${win.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 \uC5ED ${win.score.base}${extra.length ? " + " + extra.join(" + ") : ""}${win.tsumoBonus ? " + \uCBD4\uBAA8 " + win.tsumoBonus + " / \uC9C0\uAE09\uC790" : ""}`);
     }

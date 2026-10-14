@@ -10,12 +10,14 @@ export function activeSeats(s){return s.players.map((p,i)=>p.won?null:i).filter(
 export function nextActive(s,seat){for(let i=1;i<=4;i++)if(!s.players[(seat+i)%4].won)return (seat+i)%4;throw new Error('No active player');}
 const event=(s,e)=>s.events.push({n:s.events.length,...e});
 const handTypes=p=>p.hand.map(typeOf);
-const scoreContext=(s,seat,method,t)=>({method,winTile:t,seatWind:27+(seat-s.dealer+4)%4});
+const scoreContext=(s,seat,method,t)=>({method,winTile:t,seatWind:27+(seat-s.dealer+4)%4,...(s.rules.kanFanBonus===true&&t!==undefined?{kanRelated:method==='tsumo'?s.kanContext?.seat===seat:s.reaction?.kind==='kakan'||s.reaction?.afterKan===true}:{})});
 export function createGame({seed=1,rules={},dealer=0,wall=null}={}){
   if(!Number.isInteger(seed)||seed<0||seed>0xffffffff||!Number.isInteger(dealer)||dealer<0||dealer>3)throw new Error('Invalid seed/dealer');
   const r=ruleset(rules),w=wall?[...wall]:shuffledWall(seed);
   if(w.length!==136||new Set(w).size!==136||w.some(t=>!Number.isInteger(t)||t<0||t>=136))throw new Error('Invalid wall');
   const s={version:1,seed,rules:r,dealer,wall:w,dead:[],players:Array.from({length:4},()=>({hand:[],melds:[],river:[],score:0,won:false,win:null,passLock:false,drawn:null,forbidden:[],stats:{winReceipt:0,dealInLoss:0,tsumoPaid:0,drawLoss:0,drawGain:0,ronDeclined:0,closedKans:0}})),phase:'init',turn:dealer,draws:0,kans:0,winners:[],events:[],reaction:null,ledger:[],end:null};
+  if(r.kanFanBonus===true)s.kanContext=null;
+  if(r.passRonLock==='same-tile-until-draw')for(const p of s.players)p.passTileLocks={};
   if(r.deadWallTiles)s.dead=s.wall.splice(s.wall.length-r.deadWallTiles);
   for(let n=0;n<13;n++)for(let off=0;off<4;off++)s.players[(dealer+off)%4].hand.push(s.wall.shift());
   for(const p of s.players)p.hand.sort((a,b)=>a-b);
@@ -25,14 +27,21 @@ function transfer(s,from,to,amount,kind){if(amount<0||!Number.isSafeInteger(amou
 function draw(s,seat,kan=false){
   if(!s.wall.length){settleDraw(s);return;}
   const p=s.players[seat],id=kan?s.wall.pop():s.wall.shift();p.hand.push(id);p.hand.sort((a,b)=>a-b);p.drawn=id;p.passLock=false;p.forbidden=[];s.turn=seat;s.phase='turn';s.reaction=null;s.draws++;event(s,{type:kan?'kanDraw':'draw',seat,id});
+  if(s.rules.passRonLock==='same-tile-until-draw')p.passTileLocks={};
+  if(s.rules.kanFanBonus===true&&!kan)s.kanContext=null;
 }
 function win(s,seat,method,source,tile){
   const p=s.players[seat];if(p.won)throw new Error('Already won');
   const ts=handTypes(p);if(method==='ron')ts.push(typeOf(tile));
   const score=scoreHand(ts,p.melds,scoreContext(s,seat,method,typeOf(tile)),s.rules);if(!score)throw new Error('Illegal win');
-  const payers=method==='ron'?[source]:activeSeats(s).filter(i=>i!==seat);
-  for(const from of payers)transfer(s,from,seat,score.total+(method==='tsumo'?s.rules.tsumoBonusPerPayer:0),method);
-  p.won=true;p.win={method,source,tile,order:s.winners.length+1,drawNumber:s.draws,score};p.drawn=null;p.forbidden=[];s.winners.push(seat);event(s,{type:'win',seat,...p.win});
+  const directKan=s.rules.kanFanBonus===true&&method==='tsumo'&&s.kanContext?.seat===seat&&s.kanContext.kind==='minkan';
+  const paymentMethod=directKan?'ron':method,paymentSource=directKan?s.kanContext.supplier:method==='ron'?source:null;
+  const payers=paymentMethod==='ron'?[paymentSource]:activeSeats(s).filter(i=>i!==seat);
+  const amount=score.total+(method==='tsumo'&&(!directKan||s.rules.directKanTsumoBonus===true)?s.rules.tsumoBonusPerPayer:0);
+  for(const from of payers)transfer(s,from,seat,amount,paymentMethod);
+  const payment=s.rules.kanFanBonus===true?{method:paymentMethod,source:paymentSource,payers,amount,kanKind:method==='tsumo'?s.kanContext?.kind??null:s.reaction?.kind==='kakan'?'kakan':s.reaction?.kanKind??null}:null;
+  p.won=true;p.win={method,source,tile,order:s.winners.length+1,drawNumber:s.draws,score,...(payment?{payment}:{})};p.drawn=null;p.forbidden=[];s.winners.push(seat);event(s,{type:'win',seat,...p.win});
+  if(s.rules.kanFanBonus===true)s.kanContext=null;
 }
 function finishOrDraw(s,previous){if(s.winners.length>=3){s.end='three-winners';s.phase='end';s.reaction=null;event(s,{type:'end',reason:s.end});}else draw(s,nextActive(s,previous));}
 export function visibleCounts(s,seat){
@@ -59,7 +68,9 @@ function canRon(s,seat){
   const p=s.players[seat],r=s.reaction,t=typeOf(r.id);
   if(p.won||seat===r.source||p.passLock)return null;
   if(s.rules.selfDiscardFuriten){const waits=winningTiles(handTypes(p),p.melds,scoreContext(s,seat,'ron'),s.rules);if(waits.some(w=>p.river.some(d=>typeOf(d.id)===w.tile)))return null;}
-  return scoreHand([...handTypes(p),t],p.melds,scoreContext(s,seat,'ron',t),s.rules);
+  const score=scoreHand([...handTypes(p),t],p.melds,scoreContext(s,seat,'ron',t),s.rules);
+  if(score&&s.rules.passRonLock==='same-tile-until-draw'&&p.passTileLocks?.[t]!==undefined&&(score.fan??[50,100,200,400,800,1000].indexOf(score.base))<=p.passTileLocks[t])return null;
+  return score;
 }
 export function actor(s){if(s.phase==='turn')return s.turn;if(s.phase==='reaction')return s.reaction.pending[0];return null;}
 export function legalActions(s,seat=actor(s)){
@@ -93,7 +104,7 @@ function beginReaction(s,source,id,kind,extra={}){
   const pending=[];for(let n=1;n<4;n++){const i=(source+n)%4;if(!s.players[i].won)pending.push(i);}
   s.phase='reaction';s.reaction={source,id,kind,pending,answers:[],...extra};
 }
-function completeKan(s,seat){s.kans++;event(s,{type:'kan',seat});draw(s,seat,true);}
+function completeKan(s,seat,kind,supplier=null){s.kans++;if(s.rules.kanFanBonus===true)s.kanContext={seat,kind,supplier};event(s,{type:'kan',seat,...(s.rules.kanFanBonus===true?{kind,supplier}:{})});draw(s,seat,true);}
 function resolveReaction(s){
   const r=s.reaction;let rons=r.answers.filter(x=>x.action.type==='ron');if(s.rules.multipleRon==='nearest')rons=rons.slice(0,1);
   if(rons.length){
@@ -104,7 +115,7 @@ function resolveReaction(s){
     finishOrDraw(s,s.rules.ronContinuation==='last-winner'?rons.at(-1).seat:r.source);return;
   }
   if(r.kind==='kakan'){
-    const p=s.players[r.source],m=p.melds[r.meld];m.ids.push(...removeTypes(p,[m.tile]));m.type='kan';completeKan(s,r.source);return;
+    const p=s.players[r.source],m=p.melds[r.meld];m.ids.push(...removeTypes(p,[m.tile]));m.type='kan';completeKan(s,r.source,'kakan');return;
   }
   const calls=r.answers.filter(x=>['pon','minkan','chi'].includes(x.action.type));
   calls.sort((a,b)=>(a.action.type==='chi')-(b.action.type==='chi'));
@@ -114,23 +125,24 @@ function resolveReaction(s){
   const ids=[...removeTypes(p,needed),r.id];s.players[r.source].river.at(-1).claimed=true;
   p.melds.push({type:a.type==='chi'?'chi':a.type==='minkan'?'kan':'pon',tile:a.tile,open:true,from:r.source,ids});
   p.drawn=null;p.forbidden=s.rules.allowKuikae?[]:[t];s.turn=seat;s.phase='turn';s.reaction=null;event(s,{type:'call',seat,action:a,from:r.source});
-  if(a.type==='minkan')completeKan(s,seat);
+  if(s.rules.kanFanBonus===true)s.kanContext=null;
+  if(a.type==='minkan')completeKan(s,seat,'minkan',r.source);
 }
 export function step(s,seat,a,{validate=true}={}){
   if(!a||!legalActions(s,seat).some(x=>actionKey(x)===actionKey(a)))throw new Error(`Illegal action by ${seat}: ${JSON.stringify(a)}`);
   const p=s.players[seat];event(s,{type:'action',seat,action:{...a}});
   if(s.phase==='reaction'){
-    const r=s.reaction;if(a.type!=='ron'&&canRon(s,seat)){p.stats.ronDeclined++;if(s.rules.passRonLock==='until-draw')p.passLock=true;}
+    const r=s.reaction,declined=a.type!=='ron'&&canRon(s,seat);if(declined){p.stats.ronDeclined++;if(s.rules.passRonLock==='until-draw')p.passLock=true;if(s.rules.passRonLock==='same-tile-until-draw'){p.passTileLocks??={};p.passTileLocks[typeOf(r.id)]=declined.fan??[50,100,200,400,800,1000].indexOf(declined.base);}}
     r.answers.push({seat,action:{...a}});r.pending.shift();if(!r.pending.length)resolveReaction(s);
   }else if(a.type==='tsumo'){win(s,seat,'tsumo',seat,p.drawn);finishOrDraw(s,seat);}
   else if(a.type==='discard'){
-    const [id]=removeTypes(p,[a.tile]);p.river.push({id,claimed:false});p.drawn=null;p.forbidden=[];beginReaction(s,seat,id,'discard');
+    const [id]=removeTypes(p,[a.tile]);p.river.push({id,claimed:false});p.drawn=null;p.forbidden=[];const extra=s.rules.kanFanBonus===true&&s.kanContext?.seat===seat?{afterKan:true,kanKind:s.kanContext.kind}:{};beginReaction(s,seat,id,'discard',extra);if(s.rules.kanFanBonus===true)s.kanContext=null;
   }else if(a.type==='ankan'){
-    const ids=removeTypes(p,Array(4).fill(a.tile));p.melds.push({type:'kan',tile:a.tile,open:false,from:seat,ids});p.stats.closedKans++;completeKan(s,seat);
+    const ids=removeTypes(p,Array(4).fill(a.tile));p.melds.push({type:'kan',tile:a.tile,open:false,from:seat,ids});p.stats.closedKans++;completeKan(s,seat,'ankan');
   }else if(a.type==='kakan'){
     const id=p.hand.find(id=>typeOf(id)===p.melds[a.meld].tile);
     if(s.rules.addedKanRobAllowed)beginReaction(s,seat,id,'kakan',{meld:a.meld});
-    else {const m=p.melds[a.meld];m.ids.push(...removeTypes(p,[m.tile]));m.type='kan';completeKan(s,seat);}
+    else {const m=p.melds[a.meld];m.ids.push(...removeTypes(p,[m.tile]));m.type='kan';completeKan(s,seat,'kakan');}
   }
   if(validate)assertInvariants(s);return s;
 }
@@ -138,7 +150,7 @@ export function step(s,seat,a,{validate=true}={}){
 export function observation(s,seat=actor(s)){
   if(seat!==actor(s))throw new Error('Not this player’s decision');const p=s.players[seat];
   const players=s.players.map((p,i)=>({seat:i,won:p.won,score:p.score,handSize:p.hand.length,melds:p.melds.map(m=>visibleMeld(s,m,i,seat)),discards:p.river.map(d=>({tile:typeOf(d.id),claimed:d.claimed})),revealed:p.won&&s.rules.revealWinnerHand?p.hand.filter(id=>s.rules.revealTsumoWinningTile||p.win.method!=='tsumo'||id!==p.win.tile).map(typeOf):[]}));
-  return {seat,dealer:s.dealer,rules:structuredClone(s.rules),hand:handTypes(p),melds:p.melds.map(meldView),players,visible:visibleCounts(s,seat),activeCount:activeSeats(s).length,wallRemaining:s.wall.length,draws:s.draws,phase:s.phase,lastDiscard:s.reaction?{seat:s.reaction.source,tile:typeOf(s.reaction.id),kind:s.reaction.kind}:null,legalActions:legalActions(s,seat)};
+  return {seat,dealer:s.dealer,rules:structuredClone(s.rules),hand:handTypes(p),melds:p.melds.map(meldView),players,visible:visibleCounts(s,seat),activeCount:activeSeats(s).length,wallRemaining:s.wall.length,draws:s.draws,phase:s.phase,lastDiscard:s.reaction?{seat:s.reaction.source,tile:typeOf(s.reaction.id),kind:s.reaction.kind,...(s.rules.kanFanBonus===true?{afterKan:s.reaction.kind==='kakan'||s.reaction.afterKan===true,kanKind:s.reaction.kind==='kakan'?'kakan':s.reaction.kanKind??null}:{})}:null,legalActions:legalActions(s,seat),...(s.rules.kanFanBonus===true?{kanContext:s.kanContext?{...s.kanContext}:null}:{}),...(s.rules.passRonLock==='same-tile-until-draw'?{passTileLocks:{...p.passTileLocks}}:{})};
 }
 export function assertInvariants(s){
   const all=[...s.wall,...s.dead];for(const p of s.players){all.push(...p.hand);for(const m of p.melds)all.push(...m.ids);for(const d of p.river)if(!d.claimed)all.push(d.id);}

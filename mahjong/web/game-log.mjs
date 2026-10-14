@@ -1,6 +1,6 @@
 import {step,assertInvariants} from '../game/engine.mjs';
 import {tileName,typeOf,counts} from '../engine/tiles.mjs';
-import {scoreBreakdownText,hBonusDetails} from './score-display.mjs';
+import {scoreBreakdownText,hBonusDetails,hFanDetails} from './score-display.mjs';
 
 export const LOG_FORMAT='h-mahjong-log/v1';
 export const COMPACT_FORMAT='wellness-mahjong-log/v2';
@@ -29,22 +29,24 @@ export function actionRecord(game,seat,action,before,error=null){
       if(pao!==null&&pao!==undefined){if(win.method==='tsumo'||win.source===pao)expected.push({from:pao,amount:win.score.total});else expected.push({from:pao,amount:win.score.total/2},{from:win.source,amount:win.score.total/2});}
       else if(win.method==='ron')expected.push({from:win.source,amount:win.score.points.ron});
       else for(let from=0;from<4;from++)if(from!==win.seat)expected.push({from,amount:from===game.dealer?win.score.points.tsumoDealer:win.score.points.tsumoOther});
-      if(before.pot)expected.push({from:'pot',amount:before.pot});
+      if(before.pot&&game.winners[0]===win.seat)expected.push({from:'pot',amount:before.pot});
       const expectedReceipt=expected.reduce((n,p)=>n+p.amount,0),problems=[];
-      if(actual.length!==expected.length||expected.some(e=>actual.filter(p=>p.from===e.from&&p.amount===e.amount).length!==1)||actualReceipt!==delta[win.seat])problems.push('S룰 지급자 또는 지급액이 적용 규칙과 다릅니다.');
+      if(actual.length!==expected.length||expected.some(e=>actual.filter(p=>p.from===e.from&&p.amount===e.amount).length!==1)||actualReceipt!==expectedReceipt)problems.push('S룰 지급자 또는 지급액이 적용 규칙과 다릅니다.');
       issues.push(...problems.map(text=>`${seats[win.seat]}: ${text}`));
       return {seat:win.seat,method:win.method,order:win.order,score:clone(win.score),payers:expected.map(p=>p.from),expectedReceipt,actualReceipt,scoreBefore:before.scores[win.seat],scoreAfter:after[win.seat],payments:actual,issues:problems};
     }
-    const payers=win.method==='tsumo'?before.active.filter(i=>i!==win.seat):[win.source];
-    const actual=payments.filter(p=>p.to===win.seat&&p.kind===win.method);
-    const tsumoBonus=win.method==='tsumo'?game.rules.tsumoBonusPerPayer:0;
+    const paymentMethod=win.payment?.method??win.method;
+    const payers=win.payment?.payers??(win.method==='tsumo'?before.active.filter(i=>i!==win.seat):[win.source]);
+    const actual=payments.filter(p=>p.to===win.seat&&p.kind===paymentMethod);
+    const tsumoBonus=paymentMethod==='tsumo'||win.method==='tsumo'&&game.rules.directKanTsumoBonus===true?game.rules.tsumoBonusPerPayer:0;
     const perPayer=win.score.total+tsumoBonus,expectedReceipt=perPayer*payers.length,actualReceipt=actual.reduce((sum,p)=>sum+p.amount,0);
     const problems=[];
     if(actual.length!==payers.length||payers.some(i=>actual.filter(p=>p.from===i&&p.amount===perPayer).length!==1))problems.push('지급자 또는 지급액이 적용 규칙과 다릅니다.');
     if(win.score.yaku==='pinfu'||win.score.name==='핑후'){
       const player=game.players[win.seat],tiles=[...player.hand,...player.melds.flatMap(m=>m.ids),...win.method==='ron'?[win.tile]:[]].map(typeOf);
       const expectedBonus=game.rules.fourOfAKindBonus?counts(tiles).filter(n=>n===4).length*game.rules.kanBonus:0;
-      if(win.score.base!==100||win.score.bonus!==expectedBonus||win.score.total!==100+expectedBonus)problems.push('핑후 역 점수 또는 사귀일 가산점이 잘못되었습니다.');
+      const expectedBase=win.score.kanFan?game.rules.fanPoints[win.score.scoredFan]:100;
+      if(win.score.base!==expectedBase||win.score.bonus!==expectedBonus||win.score.total!==expectedBase+expectedBonus)problems.push('핑후 역 점수 또는 사귀일 가산점이 잘못되었습니다.');
     }
     if(actualReceipt!==expectedReceipt||delta[win.seat]!==actualReceipt)problems.push('화료 수입과 점수 변화가 다릅니다.');
     issues.push(...problems.map(text=>`${seats[win.seat]}: ${text}`));
@@ -108,7 +110,7 @@ export function logText(log){
   for(const entry of log.actions){
     const action=entry.action,tile=action.type==='ankan'&&concealedForViewer(game,entry.seat,log.humanSeat)?' (비공개)':Number.isInteger(action.tile)?` ${tileName(action.tile)}`:'';
     if(action.type!=='pass')lines.push(`#${entry.n+1} ${seats[entry.seat]} ${({discard:'버림',riichi:'리치·버림',tsumo:'쯔모',ron:'론',chi:'치',pon:'퐁',ankan:'안깡',minkan:'명깡',kakan:'가깡'})[action.type]??action.type}${tile}`);
-    for(const win of entry.wins){const detail=variant==='S'?scoreBreakdownText(win.score):`역 ${win.score.base}${win.score.bonus?' + '+(hBonusDetails(win.score,game.rules)||'가산 '+win.score.bonus):''}${win.tsumoBonus?' + 쯔모 '+win.tsumoBonus:''}`;lines.push(variant==='S'?`  ${seats[win.seat]} ${detail}`:`  ${seats[win.seat]} ${win.score.name} (${detail})`);if(win.issues.length)lines.push(`  규칙상 ${win.expectedReceipt}, 실제 수입 ${win.actualReceipt}`);}
+    for(const win of entry.wins){const detail=variant==='S'?scoreBreakdownText(win.score):`${hFanDetails(win.score,game.rules)?hFanDetails(win.score,game.rules)+' · ':''}역 ${win.score.base}${win.score.bonus?' + '+(hBonusDetails(win.score,game.rules)||'가산 '+win.score.bonus):''}${win.tsumoBonus?' + 쯔모 '+win.tsumoBonus:''}`;lines.push(variant==='S'?`  ${seats[win.seat]} ${detail}`:`  ${seats[win.seat]} ${win.score.name} (${detail})`);if(variant==='H'&&game.players[win.seat].win?.payment?.method==='ron'&&win.method==='tsumo')lines.push('  명깡 공급자 단독 지불 (론 지급)');if(win.issues.length)lines.push(`  규칙상 ${win.expectedReceipt}, 실제 수입 ${win.actualReceipt}`);}
     for(const payment of entry.payments)lines.push(`  ${seats[payment.from]??'공탁'} → ${seats[payment.to]??'공탁'}: ${payment.amount}점`);
     for(const draw of entry.draws)lines.push(`  ${seats[draw.seat]} ${draw.type==='kanDraw'?'보충패':'뽑은 패'}: ${tileName(typeOf(draw.id))}`);
     for(const issue of entry.issues)lines.push(`  [정산 확인 필요] ${issue}`);
@@ -126,7 +128,7 @@ export function reviewText(input){
  const log=expandLog(input),game=log.game,seats=seatLabels(game),s=game.rules.variant==='S',lines=[`${s?'S':'H'}룰 · ${game.seed??log.room}`,`${s||game.startingScores||game.matchContext?'이번 국 증감':'최종'}: ${game.players.map((p,i)=>seats[i]+' '+signed(p.score)).join(' / ')}`];
  for(const e of log.actions){
   if(['ankan','minkan','kakan'].includes(e.action.type))lines.push(`${seats[e.seat]} ${e.action.type==='ankan'?'안깡':e.action.type==='minkan'?'명깡':'가깡'}${e.action.type==='ankan'&&concealedForViewer(game,e.seat,log.humanSeat)?' · 비공개':Number.isInteger(e.action.tile)?' · '+tileName(e.action.tile):''} (이때는 점수 이동 없음)`);
-  for(const win of e.wins){const extra=Object.entries(win.score.bonuses??{}).filter(([,value])=>typeof value==='number'&&value).map(([name,value])=>`${({kan:game.rules.fourOfAKindBonus?'사귀일':'깡',dragon:'삼원패',roundWind:'장풍',seatWind:'자풍'})[name]??name} ${value}`);
+  for(const win of e.wins){if(!s&&game.players[win.seat].win?.payment?.method==='ron'&&win.method==='tsumo')lines.push('명깡 공급자 단독 지불 (론 지급)');const fanDetail=hFanDetails(win.score,game.rules);if(fanDetail)lines.push(fanDetail);const extra=Object.entries(win.score.bonuses??{}).filter(([,value])=>typeof value==='number'&&value).map(([name,value])=>`${({kan:game.rules.fourOfAKindBonus?'사귀일':'깡',dragon:'삼원패',roundWind:'장풍',seatWind:'자풍'})[name]??name} ${value}`);
    lines.push(s?`${seats[win.seat]} ${win.method==='ron'?'론':'쯔모'} · ${scoreBreakdownText(win.score)}`:`${seats[win.seat]} ${win.score.name} ${win.method==='ron'?'론':'쯔모'} · 역 ${win.score.base}${extra.length?' + '+extra.join(' + '):''}${win.tsumoBonus?' + 쯔모 '+win.tsumoBonus+' / 지급자':''}`);
   }
   for(const p of e.payments)lines.push(`  ${seats[p.from]??'공탁'} → ${seats[p.to]??'공탁'}: ${p.amount}점`);

@@ -32,6 +32,7 @@ export function scoreS(tiles,melds=[],context={},rules=S_DEFAULTS){
     add('ryanpeikou','량페코',3,identical>=2&&(!rules.peikouClosedOnly||closed));
     add('iipeikou','이페코',1,identical===1&&(!rules.peikouClosedOnly||closed));
     add('menzenTsumo','멘젠 쯔모',1,closed&&context.method==='tsumo');
+    add('riichi','리치',1,rules.riichiIsYaku===true&&closed&&context.riichi);
     add('tanyao','탕야오',1,all.every(t=>!isYao(t)));
     add('rinshan','영상개화',1,context.rinshan&&context.method==='tsumo');
     add('haitei','해저로월',1,context.lastTile&&context.method==='tsumo'&&!context.rinshan);
@@ -57,9 +58,9 @@ export function scoreS(tiles,melds=[],context={},rules=S_DEFAULTS){
       limit('allHonors','자일색',all.every(isHonor));limit('allTerminals','청노두',all.every(isTerminal));limit('allGreen','녹일색',all.every(t=>[19,20,21,23,25,32].includes(t)));
       if(closed&&!melds.length&&suits.size===1&&!honors){const offset=[...suits][0]*9;limit('nineGates','구련보등',c[offset]>=3&&c[offset+8]>=3&&Array.from({length:7},(_,i)=>i+1).every(n=>c[offset+n]>=1));}
     }
-    if(!entries.length&&!limits.length)continue; // Riichi, dora and kan bonuses cannot supply the required yaku.
+    if(!entries.length&&!limits.length)continue; // Dora/kan are never yaku; legacy riichi was a bonus only.
     const bonuses=[];const bonus=(id,name,han)=>{if(han)bonuses.push({id,name,han});};
-    bonus('riichi','리치',context.riichi?1:0);bonus('ippatsu','일발',context.riichi&&context.ippatsu?1:0);
+    bonus('riichi','리치',rules.riichiIsYaku!==true&&context.riichi?1:0);bonus('ippatsu','일발',context.riichi&&context.ippatsu?1:0);
     bonus('kan','깡 가산',melds.filter(m=>m.type==='kan'&&!m.open).length+Math.floor(melds.filter(m=>m.type==='kan'&&m.open).length/2));
     bonus('dora','도라',(context.doraIndicators??[]).reduce((n,t)=>n+c[doraAfter(t)],0));
     bonus('ura','우라도라',context.riichi?(context.uraIndicators??[]).reduce((n,t)=>n+c[doraAfter(t)],0):0);

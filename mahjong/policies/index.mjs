@@ -19,10 +19,23 @@ export const OPPONENT_PROFILES=Object.freeze({
   valuePressure:[{id:'D',weights:{speed:55,value:0.2}},{id:'D',weights:{speed:30,value:0.3}},{id:'E',weights:{value:0.14,lowValueRisk:60,risk:8}}]
 });
 export function policyConfig(id,weights={}){
-  if(!POLICIES[id])throw new Error(`Unknown policy ${id}`);for(const [k,v]of Object.entries(weights))if(!['speed','ukeire','value','pinfu','risk','maxShantenLoss','callCost','lowValueRisk','lowValueThreshold','honorModel','adaptiveDefense'].includes(k)||!Number.isFinite(v)||v<0)throw new Error(`Invalid policy weight ${k}`);
+  if(!POLICIES[id])throw new Error(`Unknown policy ${id}`);for(const [k,v]of Object.entries(weights))if(!['speed','ukeire','value','pinfu','risk','maxShantenLoss','callCost','lowValueRisk','lowValueThreshold','honorModel','adaptiveDefense','minWinBase','minWinWall'].includes(k)||!Number.isFinite(v)||v<0)throw new Error(`Invalid policy weight ${k}`);
   if(weights.honorModel!==undefined&&![0,1].includes(weights.honorModel))throw new Error('Invalid honor model');
-  return {lowValueRisk:0,lowValueThreshold:100,honorModel:0,adaptiveDefense:0,...POLICIES[id],...weights};
+  return {lowValueRisk:0,lowValueThreshold:100,honorModel:0,adaptiveDefense:0,minWinBase:0,minWinWall:0,...POLICIES[id],...weights};
 }
+
+// Score only an offered legal win using the player's hand and public kan event.
+// Flat rewards and payer count are intentionally outside the base-score target.
+export function legalWinScore(o,method){
+  if(!['ron','tsumo'].includes(method)||!o.legalActions.some(a=>a.type===method))return null;
+  const tile=method==='ron'?o.lastDiscard?.tile:undefined;
+  if(method==='ron'&&!Number.isInteger(tile))return null;
+  return scoreHand(method==='ron'?[...o.hand,tile]:o.hand,o.melds,{
+    method,winTile:tile,seatWind:27+(o.seat-o.dealer+4)%4,
+    ...(o.rules.kanFanBonus===true?{kanRelated:method==='tsumo'?o.kanContext?.seat===o.seat:o.lastDiscard?.kind==='kakan'||o.lastDiscard?.afterKan===true}:{})
+  },o.rules);
+}
+const belowWinTarget=(score,o,w)=>w.minWinBase>0&&o.wallRemaining>w.minWinWall&&score!==null&&score.base<w.minWinBase;
 function potential(c,melds,o,honorModel=0){
   const tiles=[];for(let t=0;t<34;t++)for(let k=0;k<c[t];k++)tiles.push(t);
   for(const m of melds)tiles.push(...(m.type==='chi'?[m.tile,m.tile+1,m.tile+2]:Array(o.rules.fourOfAKindBonus&&m.type==='kan'?4:3).fill(m.tile)));
@@ -102,8 +115,8 @@ function replacementValue(c,melds,o,w){
     const cc=[...c];cc[tile]++;const visible=[...o.visible];visible[tile]++;
     const next={...o,visible,wallRemaining:Math.max(0,o.wallRemaining-1)};
     const tiles=[];for(let t=0;t<34;t++)for(let n=0;n<cc[t];n++)tiles.push(t);
-    const win=scoreHand(tiles,melds,{method:'tsumo',winTile:tile,seatWind:27+(o.seat-o.dealer+4)%4},o.rules);
-    const value=win?{score:w.speed+w.value*win.total*(0.6+o.activeCount/5),shanten:-1}:bestDiscard(cc,melds,next,w);
+    const win=scoreHand(tiles,melds,{method:'tsumo',winTile:tile,seatWind:27+(o.seat-o.dealer+4)%4,...(o.rules.kanFanBonus===true?{kanRelated:true}:{})},o.rules);
+    const value=win&&!belowWinTarget(win,next,w)?{score:w.speed+w.value*win.total*(0.6+o.activeCount/5),shanten:-1}:bestDiscard(cc,melds,next,w);
     if(!value)continue;weight+=remaining;score+=value.score*remaining;shantenSum+=value.shanten*remaining;
   }
   return weight?{score:score/weight,shanten:shantenSum/weight}:null;
@@ -112,9 +125,12 @@ export function chooseAction(o,id='E',weights={}){
   const w=policyConfig(id,weights),as=o.legalActions;
   if(!as.length)throw new Error('No legal action');
   const find=t=>as.find(a=>a.type===t);
-  if(find('tsumo'))return find('tsumo');
-  if(find('ron')&&(!w.declineRon||!find('pass')))return find('ron');
-  if(find('ron')&&w.declineRon)return find('pass');
+  if(find('tsumo')&&(!w.minWinBase||!find('discard')||!belowWinTarget(legalWinScore(o,'tsumo'),o,w)))return find('tsumo');
+  if(find('ron')){
+    if(!find('pass'))return find('ron');
+    if(w.declineRon||w.minWinBase>0&&belowWinTarget(legalWinScore(o,'ron'),o,w))return find('pass');
+    return find('ron');
+  }
   if(as.length===1)return as[0];
   const c=counts(o.hand),melds=o.melds;
   if(o.phase==='turn'){

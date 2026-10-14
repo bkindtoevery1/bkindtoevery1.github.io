@@ -10,6 +10,12 @@ export function hBonusDetails(score,rules={}){
     .map(([key,label])=>`${label} ${score.bonuses[key]}점`).join(' · ');
 }
 
+export function hFanDetails(score,rules={}){
+ if(!score.kanFan)return '';
+ const original=rules.fanPoints?.[score.baseFan];
+ return `깡 상황 +${score.kanFan}판: ${score.baseFan}판${Number.isFinite(original)?' '+original+'점':''} → ${score.fan}판 · ${score.base}점${score.fan>score.scoredFan?' (점수표 상한 잠정 적용)':''}`;
+}
+
 // Derive presentation from the recorded score, including old room logs that
 // have itemized entries but do not have separate subtotal fields.
 export function scoreBreakdown(score){
@@ -51,22 +57,23 @@ export function winSettlement(state, seat) {
       title:`${score.name} ${win.method==='tsumo'?'쯔모':'론'} · 이번 화료 +${receipt}점`,
       calculation:`${score.yakuman?'역만':score.han+'판'} · ${payments.map(p=>`${seats[p.from]??'공탁'} ${p.amount}`).join(' + ')} = +${receipt}점`};
   }
-  const payerCount = win.method === 'tsumo' ? state.players.length - win.order : 1;
-  const tsumoBonus = win.method === 'tsumo' ? state.rules.tsumoBonusPerPayer : 0;
+  const paymentMethod=win.payment?.method??win.method;
+  const payerCount = win.payment?.payers.length??(win.method === 'tsumo' ? state.players.length - win.order : 1);
+  const tsumoBonus = paymentMethod==='tsumo'||win.method==='tsumo'&&state.rules.directKanTsumoBonus===true ? state.rules.tsumoBonusPerPayer : 0;
   const perPayer = score.total + tsumoBonus, expectedReceipt = perPayer * payerCount;
   // Practice has an actual transfer ledger. Never replace an unexpected real
   // receipt with a recalculated value, which would hide a settlement defect.
   const receipt = Array.isArray(state.ledger)
-    ? state.ledger.filter(payment=>payment.to===seat&&payment.kind===win.method).reduce((sum,payment)=>sum+payment.amount,0)
+    ? state.ledger.filter(payment=>payment.to===seat&&payment.kind===paymentMethod).reduce((sum,payment)=>sum+payment.amount,0)
     : expectedReceipt;
   const parts = [`역 ${score.base}`];
   if (score.bonus) parts.push(`가산 ${score.bonus}`);
-  if (win.method === 'tsumo') parts.push(`쯔모 ${tsumoBonus}`);
+  if (tsumoBonus) parts.push(`쯔모 ${tsumoBonus}`);
   return {
     payerCount, perPayer, receipt, expectedReceipt,
-    bonusDetails:hBonusDetails(score,state.rules),
+    bonusDetails:[hFanDetails(score,state.rules),hBonusDetails(score,state.rules)].filter(Boolean).join(' · '),
     net: player.score, previousNet: player.score - receipt,
-    title: `${score.name} ${win.method === 'tsumo' ? '쯔모' : '론'} · 이번 화료 +${receipt}점`,
+    title: `${score.name} ${win.method === 'tsumo' ? '쯔모' : '론'}${paymentMethod!==win.method?' · 명깡 공급자 단독 지불':''} · 이번 화료 +${receipt}점`,
     calculation: `(${parts.join(' + ')}) × ${payerCount}명 = +${expectedReceipt}점${receipt!==expectedReceipt?` · 실제 이체 +${receipt}점 (정산 확인 필요)`:''}`,
   };
 }

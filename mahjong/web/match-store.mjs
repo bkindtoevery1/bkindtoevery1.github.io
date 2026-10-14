@@ -10,7 +10,7 @@ export const roundResultName=result=>result==='exhaustive-draw'?'유국':'화료
 export function matchRulesDescription(summary){
  const variant=summaryVariant(summary),format=summaryFormat(summary),start=`${summary.startingPoints.toLocaleString()}점 시작`;
  if(format==='single')return `${start} · 한 국 정산 후 종료합니다.${variant==='S'?' 남은 공탁은 1위에게 지급합니다.':''}`;
- return variant==='H'?`${start} · 동1국~남4국 총 8국 · 연장 없이 자리가 순환합니다. H룰 반장전은 이 앱의 연습용 진행 방식입니다.`:`${start} · 남4국까지 · 친 화료/텐파이 시 연장 · 본장 가산 없음. 남4국에서 친이 넘어갈 때 종료하며, 남은 공탁은 1위에게 지급합니다.`;
+ return variant==='H'?`${start} · 동1국~남4국 · ${summary.settings?.dealerContinuation==='win'?'친이 화료하면 연장(화료 순번 무관), 그 외 교대':'구 규칙: 연장 없이 총 8국'}. 본장 가산 없음. 남4국에서 친이 넘어가면 종료합니다.`:`${start} · 남4국까지 · 친 화료/텐파이 시 연장 · 본장 가산 없음. 남4국에서 친이 넘어갈 때 종료하며, 남은 공탁은 1위에게 지급합니다.`;
 }
 export class MatchStore{
  constructor(storage=null){this.storage=storage;this.persisted=false;this.error=null;this.data=null;}

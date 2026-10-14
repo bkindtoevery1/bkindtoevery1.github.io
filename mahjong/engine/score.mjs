@@ -1,6 +1,8 @@
 import {counts, isTerminal, isHonor, isYao} from './tiles.mjs';
 import {DEFAULT_RULES} from './rules.mjs';
 
+const ORIGINAL_FAN_POINTS=[50,100,200,400,800,1000];
+
 export const YAKU = {
   noYaku:['무역(人和)',50],pinfu:['핑후',100],iipeikou:['이페코',100],menzen:['멘젠',100],tanyao:['탕야오',100],
   toitoi:['또이또이',200],fiveGates:['오문(五门)',200],sanshokuTriplets:['삼색동각',200],sanshokuSequences:['삼색동순',200],chanta:['찬타',200],honitsu:['혼일색',200],
@@ -72,15 +74,22 @@ export function scoreHand(tiles,melds=[],context={},r=DEFAULT_RULES) {
     const trip=gs.filter(g=>g.type!=='chi'),bonuses={
       // The legacy field name stays stable in saved logs. Under the clarified
       // rules this counts four identical physical tiles, declared kan or not.
-      kan:(r.fourOfAKindBonus?physicalCounts.filter(n=>n===4).length:melds.filter(m=>m.type==='kan').length)*r.kanBonus,
+      kan:(r.fourOfAKindBonus?physicalCounts.filter(n=>n===4).length:melds.filter(m=>m.type==='kan').length)*(d.kind==='sevenPairs'&&r.sevenPairsQuadBonus>0?r.sevenPairsQuadBonus:r.kanBonus),
       dragon:trip.filter(g=>g.tile>=31).length*r.dragonBonus,
       roundWind:trip.filter(g=>g.tile===r.roundWind).length*r.roundWindBonus,
       seatWind:trip.filter(g=>g.tile===(context.seatWind??27)).length*r.seatWindBonus
     };
     for(const id of ids)allEligible.add(id);
-    ids.sort((a,b)=>YAKU[b][1]-YAKU[a][1]);const base=YAKU[ids[0]][1],bonus=Object.values(bonuses).reduce((a,b)=>a+b,0),total=base+bonus;
+    ids.sort((a,b)=>YAKU[b][1]-YAKU[a][1]);
+    const originalBase=YAKU[ids[0]][1],baseFan=ORIGINAL_FAN_POINTS.indexOf(originalBase),kanFan=r.kanFanBonus===true&&context.kanRelated===true?1:0;
+    const fan=baseFan+kanFan,scoredFan=Math.min(fan,r.kanFanCap??5);
+    const base=r.kanFanBonus===true?(r.fanPoints??ORIGINAL_FAN_POINTS)[scoredFan]:originalBase,bonus=Object.values(bonuses).reduce((a,b)=>a+b,0),total=base+bonus;
     const name=ids[0]==='allGreen'&&r.greenRequiresDragon?'녹일색':YAKU[ids[0]][0];
-    if(!best||total>best.total)best={yaku:ids[0],name,base,bonus,total,bonuses,eligibleYaku:ids,closed,shape:d};
+    // Revised §8.2 selects the highest single yaku before flat rewards. A
+    // seven-pairs quad reward must not select a lower-fan decomposition, even
+    // when the capped kan progression makes its final receipt larger.
+    const better=!best||(r.kanFanBonus===true?(baseFan>best.baseFan||baseFan===best.baseFan&&total>best.total):total>best.total);
+    if(better)best={yaku:ids[0],name,base,bonus,total,bonuses,eligibleYaku:ids,closed,shape:d,...(r.kanFanBonus===true?{baseFan,kanFan,fan,scoredFan}:{} )};
   }
   best.eligibleYaku=[...allEligible].sort((a,b)=>YAKU[b][1]-YAKU[a][1]);return best;
 }

@@ -22,15 +22,16 @@ export function createGame({seed=1,rules={},dealer=0,wall=null,pot=0,startingSco
     players:Array.from({length:4},()=>({hand:[],melds:[],river:[],score:0,won:false,win:null,passLock:false,drawn:null,drawSource:null,forbidden:[],
       riichi:false,riichiFuriten:false,riichiWaits:[],ippatsu:false,pao:null,stats:{winReceipt:0,dealInLoss:0,tsumoPaid:0,drawLoss:0,drawGain:0,ronDeclined:0,closedKans:0,riichiPaid:0}})),
     phase:'init',turn:dealer,draws:0,kans:0,winners:[],events:[],reaction:null,ledger:[],end:null};
+  if(s.rules.paoByYakuman===true)for(const p of s.players)p.paoYaku=null;
   for(let n=0;n<13;n++)for(let off=0;off<4;off++)s.players[(dealer+off)%4].hand.push(s.wall.shift());
   for(const p of s.players)p.hand.sort((a,b)=>a-b);
   draw(s,dealer);assertInvariants(s);return s;
 }
-function transfer(s,from,to,amount,kind){
+function transfer(s,from,to,amount,kind,details={}){
   if(!Number.isSafeInteger(amount)||amount<=0)throw new Error('Invalid transfer');
   if(from==='pot')s.pot-=amount;else s.players[from].score-=amount;
   if(to==='pot')s.pot+=amount;else s.players[to].score+=amount;
-  s.ledger.push({from,to,amount,kind});
+  s.ledger.push({from,to,amount,kind,...details});
   if(kind==='riichi')s.players[from].stats.riichiPaid+=amount;
   else if(kind==='pot')s.players[to].stats.winReceipt+=amount;
   else if(kind==='draw'){s.players[from].stats.drawLoss+=amount;s.players[to].stats.drawGain+=amount;}
@@ -44,19 +45,21 @@ function draw(s,seat,kan=false){
   s.turn=seat;s.phase='turn';s.reaction=null;s.draws++;event(s,{type:kan?'kanDraw':'draw',seat,id});
 }
 function end(s,reason){s.end=reason;s.phase='end';s.reaction=null;event(s,{type:'end',reason});}
-function win(s,seat,method,source,tile){
+function win(s,seat,method,source,tile,{finish=true}={}){
   const p=s.players[seat],tiles=handTypes(p);if(method==='ron')tiles.push(typeOf(tile));
   const score=scoreS(tiles,p.melds,context(s,seat,method,typeOf(tile)),s.rules);if(!score)throw new Error('Illegal S win');
-  const first=s.ledger.length,pao=score.yakuman?p.pao:null;
+  const first=s.ledger.length,pao=score.yakuman&&Number.isInteger(p.pao)&&
+    (s.rules.paoByYakuman!==true||score.yakuEntries.some(y=>y.id===p.paoYaku))?p.pao:null;
+  const responsibility=pao!==null&&s.rules.paoByYakuman===true?{pao:{seat:pao,yaku:p.paoYaku}}:{};
   if(pao!==null){
-    if(method==='tsumo'||source===pao)transfer(s,pao,seat,score.points.ron,method);
-    else{transfer(s,pao,seat,score.points.ron/2,method);transfer(s,source,seat,score.points.ron/2,method);}
+    if(method==='tsumo'||source===pao)transfer(s,pao,seat,score.points.ron,method,responsibility);
+    else{transfer(s,pao,seat,score.points.ron/2,method,responsibility);transfer(s,source,seat,score.points.ron/2,method,responsibility);}
   }else if(method==='ron')transfer(s,source,seat,score.points.ron,method);
   else for(let from=0;from<4;from++)if(from!==seat)transfer(s,from,seat,from===s.dealer?score.points.tsumoDealer:score.points.tsumoOther,method);
   if(s.pot)transfer(s,'pot',seat,s.pot,'pot');
   const payments=structuredClone(s.ledger.slice(first));
-  p.won=true;p.win={method,source,tile,order:1,drawNumber:s.draws,score,payments,receipt:payments.reduce((n,p)=>n+p.amount,0)};
-  p.drawn=null;s.winners.push(seat);event(s,{type:'win',seat,...p.win});end(s,'win');
+  p.won=true;p.win={method,source,tile,order:s.winners.length+1,drawNumber:s.draws,score,payments,receipt:payments.reduce((n,p)=>n+p.amount,0),...responsibility};
+  p.drawn=null;s.winners.push(seat);event(s,{type:'win',seat,...p.win});if(finish)end(s,'win');
 }
 export function visibleCounts(s,seat){
   const out=Array(34).fill(0),add=id=>out[typeOf(id)]++;
@@ -65,9 +68,12 @@ export function visibleCounts(s,seat){
 }
 export function settleDraw(s){
   if(s.phase==='end'||s.wall.length)throw new Error('Cannot settle this game');
-  const ready=s.players.flatMap((p,seat)=>{const waits=shapeWaits(handTypes(p),p.melds,s.rules);return waits.length?[{seat,waits}]:[];});
+  const invalidHands=s.rules.invalidHandNoten===true?s.players.flatMap((p,seat)=>{
+    const actual=p.hand.length+3*p.melds.length;return actual===13?[]:[{seat,actual,expected:13}];
+  }):[];
+  const ready=s.players.flatMap((p,seat)=>{if(invalidHands.some(x=>x.seat===seat))return [];const waits=shapeWaits(handTypes(p),p.melds,s.rules);return waits.length?[{seat,waits}]:[];});
   if(ready.length&&ready.length<4){const due=ready.map(p=>({seat:p.seat,amount:3000/ready.length}));for(let from=0;from<4;from++)if(!ready.some(x=>x.seat===from)){let debt=3000/(4-ready.length);for(const to of due){const amount=Math.min(debt,to.amount);if(amount){transfer(s,from,to.seat,amount,'draw');debt-=amount;to.amount-=amount;}}}}
-  event(s,{type:'drawSettlement',ready});end(s,'exhaustive-draw');
+  event(s,{type:'drawSettlement',ready,...invalidHands.length?{invalidHands}:{}});end(s,'exhaustive-draw');
 }
 function canRon(s,seat){
   const p=s.players[seat],r=s.reaction;if(seat===r.source||p.passLock||p.riichiFuriten)return null;
@@ -106,15 +112,23 @@ function cancelIppatsu(s){for(const p of s.players)p.ippatsu=false;}
 function completeKan(s,seat){cancelIppatsu(s);s.kans++;event(s,{type:'kan',seat});draw(s,seat,true);}
 function acceptRiichi(s,r){if(!r.riichi)return;const p=s.players[r.source];p.riichi=true;p.ippatsu=true;p.riichiWaits=shapeWaits(handTypes(p),p.melds,s.rules);transfer(s,r.source,'pot',1000,'riichi');event(s,{type:'riichi',seat:r.source});}
 function resolve(s){
-  const r=s.reaction,ron=r.answers.find(x=>x.action.type==='ron');
-  if(ron){if(r.kind==='kakan'){const p=s.players[r.source];p.hand.splice(p.hand.indexOf(r.id),1);p.river.push({id:r.id,claimed:false,robbedKan:true});}win(s,ron.seat,'ron',r.source,r.id);return;}
+  const r=s.reaction,rons=r.answers.filter(x=>x.action.type==='ron');
+  if(rons.length){
+    if(r.kind==='kakan'){const p=s.players[r.source];p.hand.splice(p.hand.indexOf(r.id),1);p.river.push({id:r.id,claimed:false,robbedKan:true});}
+    // All legal claimants are paid in turn order. The first receives the pot.
+    // Keep the reaction until every score is calculated (including chankan).
+    for(const ron of s.rules.multipleRon==='all'?rons:rons.slice(0,1))win(s,ron.seat,'ron',r.source,r.id,{finish:false});
+    end(s,'win');return;
+  }
   if(r.kind==='kakan'){const p=s.players[r.source],m=p.melds[r.meld];m.ids.push(...remove(p,[m.tile]));m.type='kan';completeKan(s,r.source);return;}
   acceptRiichi(s,r);
   const calls=r.answers.filter(x=>['pon','minkan','chi'].includes(x.action.type)).sort((a,b)=>(a.action.type==='chi')-(b.action.type==='chi'));
   if(!calls.length){draw(s,(r.source+1)%4);return;}
   cancelIppatsu(s);const {seat,action:a}=calls[0],p=s.players[seat],t=typeOf(r.id),ids=[...remove(p,a.type==='chi'?[a.tile,a.tile+1,a.tile+2].filter(x=>x!==t):Array(a.type==='minkan'?3:2).fill(t)),r.id];
   s.players[r.source].river.at(-1).claimed=true;p.melds.push({type:a.type==='chi'?'chi':a.type==='minkan'?'kan':'pon',tile:a.tile,open:true,from:r.source,ids});
-  const open=p.melds.filter(m=>m.open&&m.type!=='chi');if(t>=31&&open.filter(m=>m.tile>=31).length===3||t>=27&&t<31&&open.filter(m=>m.tile>=27&&m.tile<31).length===4)p.pao=r.source;
+  const open=p.melds.filter(m=>m.open&&m.type!=='chi');
+  const paoYaku=a.type!=='chi'&&(t>=31&&open.filter(m=>m.tile>=31).length===3?'bigThreeDragons':t>=27&&t<31&&open.filter(m=>m.tile>=27&&m.tile<31).length===4?'bigFourWinds':null);
+  if(paoYaku){p.pao=r.source;if(s.rules.paoByYakuman===true)p.paoYaku=paoYaku;}
   p.drawn=null;p.drawSource=null;p.forbidden=s.rules.allowKuikae?[]:[t];s.turn=seat;s.phase='turn';s.reaction=null;event(s,{type:'call',seat,action:a,from:r.source});
   if(a.type==='minkan')completeKan(s,seat);
 }
@@ -141,10 +155,16 @@ export function assertInvariants(s){
   if(s.players.reduce((n,p)=>n+p.score,0)+s.pot!==s.initialPot||s.pot<0)throw new Error('Score conservation violated');
   for(let seat=0;seat<4;seat++){
     const p=s.players[seat],extra=s.phase==='turn'&&s.turn===seat||s.phase==='reaction'&&s.reaction.kind==='kakan'&&s.reaction.source===seat||p.win?.method==='tsumo';
-    if(p.hand.length+3*p.melds.length!==(extra?14:13))throw new Error(`Hand size violated seat ${seat}`);
+    const size=p.hand.length+3*p.melds.length;
+    // The rulebook treats a discovered wrong tile count as noten at exhaustion.
+    // Only that recorded terminal exception is allowed; active states still fail.
+    const recordedNoten=s.rules.invalidHandNoten===true&&s.end==='exhaustive-draw'&&s.events.some(e=>e.type==='drawSettlement'&&
+      !e.ready.some(r=>r.seat===seat)&&e.invalidHands?.some(h=>h.seat===seat&&h.actual===size&&h.expected===13));
+    if(size!==(extra?14:13)&&!recordedNoten)throw new Error(`Hand size violated seat ${seat}`);
     for(const m of p.melds){const wanted=m.type==='chi'?[m.tile,m.tile+1,m.tile+2]:Array(m.type==='kan'?4:3).fill(m.tile);if(!same(m.ids.map(typeOf).sort((a,b)=>a-b),wanted))throw new Error('Illegal meld');}
     const st=p.stats;if(p.score!==st.winReceipt+st.drawGain-st.dealInLoss-st.tsumoPaid-st.drawLoss-st.riichiPaid)throw new Error('Ledger attribution violated');
   }
-  if(s.dead.length!==14||s.kans>4||s.winners.length>1||s.winners.length!==s.players.filter(p=>p.won).length)throw new Error('S round invariant violated');
+  if(s.dead.length!==14||s.kans>4||s.winners.length>(s.rules.multipleRon==='all'?3:1)||s.winners.length!==s.players.filter(p=>p.won).length||new Set(s.winners).size!==s.winners.length)throw new Error('S round invariant violated');
+  if(s.winners.length>1&&s.winners.some(seat=>{const win=s.players[seat].win,first=s.players[s.winners[0]].win;return win.method!=='ron'||win.source!==first.source||win.tile!==first.tile;}))throw new Error('S multiple ron invariant violated');
   return true;
 }

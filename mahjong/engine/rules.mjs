@@ -11,6 +11,11 @@ export const LEGACY_RULES = Object.freeze({
   concealedKanPrivate: false,
   menzenRequiresTsumo: false,
   sevenPairsQuadAsTwo: false,
+  sevenPairsQuadBonus: 0,
+  kanFanBonus: false,
+  kanFanCap: 5,
+  fanPoints: [50,100,200,400,800,1000],
+  directKanTsumoBonus: false,
   greenTiles: [18,19,20,21,22,23,24,25,26,32],
   kanBonus: 100,
   dragonBonus: 100,
@@ -44,24 +49,36 @@ export const CLARIFIED_RULES = Object.freeze({
 });
 
 // Full concealment is a user-requested app setting, not a tournament ruling.
-export const DEFAULT_RULES = Object.freeze({
+export const PRIVATE_KAN_RULES = Object.freeze({
   ...CLARIFIED_RULES,
   id: 'H-2026-private-kan-v1',
   concealedKanPrivate: true
 });
 
+// Revised Japanese §8.2, received 2026-10-14. The printed table ends at
+// five fan; the cap and direct-kan tsumo reward remain explicit assumptions.
+export const DEFAULT_RULES = Object.freeze({
+  ...PRIVATE_KAN_RULES,
+  id: 'H-2026-jp-20261014',
+  sevenPairsQuadAsTwo: true,
+  sevenPairsQuadBonus: 200,
+  kanFanBonus: true,
+  passRonLock: 'same-tile-until-draw'
+});
+
 export function ruleset(overrides = {}) {
   for (const k of Object.keys(overrides)) if (!(k in DEFAULT_RULES)) throw new Error(`Unknown H ruleset key: ${k}`);
-  const defaults=overrides.id===CLARIFIED_RULES.id ? CLARIFIED_RULES : overrides.id && overrides.id!==DEFAULT_RULES.id ? LEGACY_RULES : DEFAULT_RULES;
-  const r = {...defaults, ...overrides, greenTiles: [...(overrides.greenTiles ?? defaults.greenTiles)]};
+  const defaults=overrides.id===CLARIFIED_RULES.id ? CLARIFIED_RULES : overrides.id===PRIVATE_KAN_RULES.id ? PRIVATE_KAN_RULES : overrides.id && overrides.id!==DEFAULT_RULES.id ? LEGACY_RULES : DEFAULT_RULES;
+  const r = {...defaults, ...overrides, greenTiles: [...(overrides.greenTiles ?? defaults.greenTiles)], fanPoints: [...(overrides.fanPoints ?? defaults.fanPoints)]};
   for (const k of Object.keys(DEFAULT_RULES)) {
     if (typeof DEFAULT_RULES[k] === 'boolean' && typeof r[k] !== 'boolean') throw new Error(`Invalid boolean ${k}`);
     if (typeof DEFAULT_RULES[k] === 'number' && (!Number.isSafeInteger(r[k]) || r[k] < 0)) throw new Error(`Invalid number ${k}`);
   }
-  if (!['none','until-draw'].includes(r.passRonLock) || !['all','nearest'].includes(r.multipleRon) || !['next-active','next-seat'].includes(r.chiFrom)) throw new Error('Invalid rules enum');
+  if (!['none','until-draw','same-tile-until-draw'].includes(r.passRonLock) || !['all','nearest'].includes(r.multipleRon) || !['next-active','next-seat'].includes(r.chiFrom)) throw new Error('Invalid rules enum');
   if (!['structural','public-possible'].includes(r.drawWaitAvailability)) throw new Error('Invalid draw wait rule');
   if (!['discarder','last-winner'].includes(r.ronContinuation)) throw new Error('Invalid ron continuation');
   if (r.kanReplacement !== 'live-tail' || r.deadWallTiles > 70 || ![27,28,29,30].includes(r.roundWind)) throw new Error('Unsupported wall or wind configuration');
   if (!r.greenTiles.every(t=>Number.isInteger(t) && t>=0 && t<34)) throw new Error('Invalid green tile');
+  if (r.fanPoints.length<6 || !r.fanPoints.every((n,i)=>Number.isSafeInteger(n)&&n>=0&&(!i||n>=r.fanPoints[i-1])) || r.kanFanCap<5 || r.kanFanCap>=r.fanPoints.length) throw new Error('Invalid fan points or cap');
   return r;
 }

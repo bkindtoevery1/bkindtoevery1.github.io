@@ -25,7 +25,7 @@ export function recordRound(match,game,{logId=null}={}){
  const delta=game.players.map(p=>p.score);match.scores=match.scores.map((n,i)=>n+delta[i]);match.pot=game.pot;
  const dealerReady=game.events.find(e=>e.type==='drawSettlement')?.ready.some(r=>r.seat===game.dealer)??false;
  const retained=match.format!=='single'&&match.settings.dealerContinuation==='win-or-tenpai'&&(game.winners.includes(game.dealer)||game.end==='exhaustive-draw'&&dealerReady);
- match.rounds.push({handNumber:match.handNumber,roundIndex:match.roundIndex,repeat:match.repeat,label:match.format==='single'?'단판전':roundLabel(match.roundIndex,match.repeat),dealer:game.dealer,seed:game.seed,result:game.end,winner:game.winners[0]??null,delta,totals:[...match.scores],pot:match.pot,retained,logId});
+ match.rounds.push({handNumber:match.handNumber,roundIndex:match.roundIndex,repeat:match.repeat,label:match.format==='single'?'단판전':roundLabel(match.roundIndex,match.repeat),dealer:game.dealer,seed:game.seed,result:game.end,winner:game.winners[0]??null,winners:[...game.winners],delta,totals:[...match.scores],pot:match.pot,retained,logId});
  if(match.format==='single'||match.roundIndex===7&&!retained){
   match.status='complete';match.next=null;
   if(match.pot){const top=match.scores.reduce((best,n,i)=>n>match.scores[best]?i:best,0);match.finalTransfers.push({from:'pot',to:top,amount:match.pot,kind:'final-pot'});match.scores[top]+=match.pot;match.pot=0;}
