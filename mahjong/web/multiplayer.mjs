@@ -2,7 +2,7 @@ const STORAGE='h-mahjong-room-v1';
 export const API_ORIGIN=['127.0.0.1','localhost'].includes(globalThis.location?.hostname)?'http://127.0.0.1:8790':'https://wellness-mahjong-h-lab.chayhyeon.chatgpt.site';
 const key=()=>Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');
 export const canStartWithAI=snapshot=>!!(snapshot?.host&&!snapshot.state&&snapshot.members?.length>=1&&snapshot.members.length<4);
-export const roomMemberName=member=>member?.kind==='ai'?`AI · ${member.trainingVersion??member.policy??'E'}`:member?.name??'플레이어';
+export const roomMemberName=member=>member?.kind==='ai'?`AI · ${/^[A-E]\+$/.test(member.trainingVersion)?member.policy??member.trainingVersion[0]:member.trainingVersion??member.policy??'E'}`:member?.name??'플레이어';
 export class RoomClient{
  constructor({onState,onStatus}){this.onState=onState;this.onStatus=onStatus;this.session=null;this.snapshot=null;this.timer=null;this.generation=0;this.connected=false;this.failures=0;this.startingAI=null;}
  saved(){try{return JSON.parse(sessionStorage.getItem(STORAGE));}catch{return null;}}

@@ -46,9 +46,9 @@ export function trainingProvenance(view,mode,training){
 }
 // Optional, compact provenance: add one entry when a choice changes, never on
 // every draw. Existing logs without this field remain readable.
-export function recordTrainingSelection(log,view,mode,training,{policy,profile}={}){
+export function recordTrainingSelection(log,view,mode,training,{policy,profile,opponentTrainingId}={}){
  if(!log)return;
- const selection={...trainingProvenance(view,mode,training),...policy?{autoPolicy:policy}:{},...profile?{opponentProfile:profile}:{}};
+ const selection={...trainingProvenance(view,mode,training),...policy?{autoPolicy:policy}:{},...profile?{opponentProfile:profile}:{},...opponentTrainingId!==undefined?{opponentTrainingId}:{}};
  const previous=log.training?.selections?.at(-1),{actionIndex:_,...previousSelection}=previous??{};
  if(JSON.stringify(previousSelection)===JSON.stringify(selection))return;
  log.training??={format:'wellness-training-selection/v1',selections:[]};

@@ -1677,7 +1677,6 @@ function chooseAction2(o, id = "E", weights = {}) {
 
 // game/policies.mjs
 var POLICIES2 = POLICIES;
-var OPPONENT_PROFILES2 = OPPONENT_PROFILES;
 var chooseAction3 = (view, id, weights) => (view.rules.variant === "S" ? policy_exports : policies_exports).chooseAction(view, id, weights);
 var evaluateDiscards3 = (view, id, weights) => (view.rules.variant === "S" ? policy_exports : policies_exports).evaluateDiscards(view, id, weights);
 
@@ -2019,7 +2018,7 @@ var STORAGE = "h-mahjong-room-v1";
 var API_ORIGIN = ["127.0.0.1", "localhost"].includes(globalThis.location?.hostname) ? "http://127.0.0.1:8790" : "https://wellness-mahjong-h-lab.chayhyeon.chatgpt.site";
 var key2 = () => Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, "0")).join("");
 var canStartWithAI = (snapshot) => !!(snapshot?.host && !snapshot.state && snapshot.members?.length >= 1 && snapshot.members.length < 4);
-var roomMemberName = (member) => member?.kind === "ai" ? `AI \xB7 ${member.trainingVersion ?? member.policy ?? "E"}` : member?.name ?? "\uD50C\uB808\uC774\uC5B4";
+var roomMemberName = (member) => member?.kind === "ai" ? `AI \xB7 ${/^[A-E]\+$/.test(member.trainingVersion) ? member.policy ?? member.trainingVersion[0] : member.trainingVersion ?? member.policy ?? "E"}` : member?.name ?? "\uD50C\uB808\uC774\uC5B4";
 var RoomClient = class {
   constructor({ onState, onStatus }) {
     this.onState = onState;
@@ -2482,7 +2481,7 @@ var GameJournal = class {
     this.current = null;
     this.persisted = false;
   }
-  begin(game, { mode = "practice", seat = 0, policy = null, profile = null, room = null, gameNumber = null, build = null } = {}) {
+  begin(game, { mode = "practice", seat = 0, policy = null, profile: profile2 = null, room = null, gameNumber = null, build = null } = {}) {
     this.current = {
       format: LOG_FORMAT,
       id: this.newId(),
@@ -2491,7 +2490,7 @@ var GameJournal = class {
       mode,
       humanSeat: seat,
       policy,
-      profile,
+      profile: profile2,
       room,
       gameNumber,
       build,
@@ -2957,7 +2956,7 @@ var MatchStore = class {
       return null;
     }
   }
-  save({ match, seat, log, policy, profile, trainingMode: trainingMode2 }) {
+  save({ match, seat, log, policy, profile: profile2, trainingMode: trainingMode2 }) {
     const data = this.read();
     if (!data) return false;
     if (data.active?.match.id !== match.id && data.active) {
@@ -2965,7 +2964,7 @@ var MatchStore = class {
       data.history.unshift({ seat: old.seat, summary: matchSummary3(old.match, expandLog(old.log).game) });
       data.history = data.history.slice(0, 9);
     }
-    data.active = { match: clone4(match), seat, policy, profile, ...typeof trainingMode2 === "string" ? { trainingMode: trainingMode2 } : {}, log: compactLog(log) };
+    data.active = { match: clone4(match), seat, policy, profile: profile2, ...typeof trainingMode2 === "string" ? { trainingMode: trainingMode2 } : {}, log: compactLog(log) };
     data.resume = true;
     return this.write();
   }
@@ -3237,7 +3236,7 @@ function hybridTrainingResultModel(manifest, selection, data) {
   const comparisons = MIXED.flatMap((policy) => REFERENCES.map((reference) => `${policy}-${reference}`));
   if (!Array.isArray(data.improvements) || !sameSet(data.improvements.map((row) => `${row.policy}-${row.reference}`), comparisons) || data.improvements.some((row) => row.seedClusters !== SEEDS || row.familySize !== 6 || !Number.isFinite(row.simultaneousConfidence) || Math.abs(row.simultaneousConfidence - (1 - 0.05 / 6)) > 1e-12 || ![row.meanDifference, row.ci95Low, row.ci95High, row.simultaneousLow, row.simultaneousHigh].every(Number.isFinite) || row.ci95Low > row.ci95High || row.simultaneousLow > row.simultaneousHigh))
     throw new Error("\uD63C\uD569\uD615\uC758 \uC0AC\uC804 \uC9C0\uC815 \uC5EC\uC12F \uBE44\uAD50\uC640 \uBCF4\uC815 \uAD6C\uAC04\uC774 \uB9DE\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
-  const profileKeys = PROFILES.flatMap((profile) => IDS.map((policy) => `${profile}:${policy}`));
+  const profileKeys = PROFILES.flatMap((profile2) => IDS.map((policy) => `${profile2}:${policy}`));
   if (!Array.isArray(data.profileSummary) || !sameSet(data.profileSummary.map((row) => `${row.profile}:${row.policy}`), profileKeys) || data.profileSummary.some((row) => !validSummary(row, GAMES / 6, SEEDS / 6)))
     throw new Error("\uC0C1\uB300 \uC131\uD5A5\uBCC4 \uD63C\uD569\uD615 \uAC80\uC99D \uACB0\uACFC\uAC00 \uB9DE\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
   const names = { ...BASE_NAMES, ...Object.fromEntries([...selection.controls, ...versions].map((row) => [row.id, row.name ?? BASE_NAMES[row.id] ?? row.id])) };
@@ -8865,11 +8864,6 @@ function saveTrainingMode(storage, mode) {
   } catch {
   }
 }
-function trainingWeights(view, mode, training) {
-  const version = trainingVersion(mode);
-  if (version) return trainingVersionApplicable(view, mode) ? { [version.policy]: version.weights } : {};
-  return trainingCompatible(view, training) && mode === "trained" ? training.weights : {};
-}
 function trainingProvenance(view, mode, training) {
   const version = trainingVersion(mode), applicable = trainingVersionApplicable(view, mode), legacy = mode === "trained" && trainingCompatible(view, training);
   const effectiveMode = applicable || legacy ? mode : "original";
@@ -8883,18 +8877,38 @@ function trainingProvenance(view, mode, training) {
     ...applicable ? { policy: version.policy, weights: structuredClone(version.weights) } : legacy ? { weights: structuredClone(training.weights) } : {}
   };
 }
-function recordTrainingSelection(log, view, mode, training, { policy, profile } = {}) {
+function recordTrainingSelection(log, view, mode, training, { policy, profile: profile2, opponentTrainingId } = {}) {
   if (!log) return;
-  const selection = { ...trainingProvenance(view, mode, training), ...policy ? { autoPolicy: policy } : {}, ...profile ? { opponentProfile: profile } : {} };
+  const selection = { ...trainingProvenance(view, mode, training), ...policy ? { autoPolicy: policy } : {}, ...profile2 ? { opponentProfile: profile2 } : {}, ...opponentTrainingId !== void 0 ? { opponentTrainingId } : {} };
   const previous = log.training?.selections?.at(-1), { actionIndex: _, ...previousSelection } = previous ?? {};
   if (JSON.stringify(previousSelection) === JSON.stringify(selection)) return;
   log.training ??= { format: "wellness-training-selection/v1", selections: [] };
   log.training.selections.push({ actionIndex: log.actions?.length ?? 0, ...selection });
 }
-function practiceAction(view, { humanSeat: humanSeat2, policy, profile, mode, training }) {
-  if (view.seat === humanSeat2) return chooseAction3(view, policy, trainingWeights(view, mode, training)[policy]);
-  const spec = OPPONENT_PROFILES2[profile][(view.seat - humanSeat2 + 4) % 4 - 1];
-  return chooseAction3(view, spec.id, spec.weights);
+
+// web/current-strategies.mjs
+var CURRENT_STRATEGIES = Object.freeze(RULEBOOK_TRAINING.versions.map(
+  (version) => Object.freeze({ ...version, id: version.policy, versionId: version.id })
+));
+var currentStrategy = (id) => CURRENT_STRATEGIES.find((strategy) => strategy.id === id);
+var currentWeightMap = Object.freeze(Object.fromEntries(CURRENT_STRATEGIES.map((strategy) => [strategy.id, strategy.weights])));
+var baselineWeights = Object.freeze({});
+var currentWeights = (view) => rulebookTrainingCompatible(view) ? currentWeightMap : baselineWeights;
+var profile = (name, policies) => Object.freeze({ name, policies: Object.freeze(policies) });
+var PRACTICE_PROFILES = Object.freeze({
+  mixed: profile("\uD63C\uD569\uD615 \xB7 A\xB7D\xB7E", ["A", "D", "E"]),
+  speed: profile("\uCD5C\uC18D \uD654\uB8CC\uD615 \xB7 A", ["A", "A", "A"]),
+  pinfu: profile("\uD551\uD6C4 \uC6B0\uC120\uD615 \xB7 B", ["B", "B", "B"]),
+  tsumo: profile("\uCBD4\uBAA8 \uC9C0\uD5A5\uD615 \xB7 C", ["C", "C", "C"]),
+  value: profile("\uACE0\uB4DD\uC810 \uC9C0\uD5A5\uD615 \xB7 D", ["D", "D", "D"]),
+  cautious: profile("\uC0C1\uD669\uBCC4 \uACF5\uC218 \uADE0\uD615\uD615 \xB7 E", ["E", "E", "E"])
+});
+function currentPracticeAction(view, { humanSeat: humanSeat2, policy = "E", profile: profile2 = "mixed" } = {}) {
+  if (!Number.isInteger(humanSeat2) || humanSeat2 < 0 || humanSeat2 > 3 || !Number.isInteger(view?.seat) || view.seat < 0 || view.seat > 3) throw new Error("Invalid practice seat");
+  const lineup = Object.hasOwn(PRACTICE_PROFILES, profile2) ? PRACTICE_PROFILES[profile2] : PRACTICE_PROFILES.mixed;
+  const id = view.seat === humanSeat2 ? policy : lineup.policies[(view.seat - humanSeat2 + 4) % 4 - 1];
+  if (!currentStrategy(id)) throw new Error("Unknown current strategy " + id);
+  return chooseAction3(view, id, currentWeights(view)[id]);
 }
 
 // web/rulebook-results.mjs
@@ -8902,9 +8916,9 @@ var fixed3 = (n) => Number.isFinite(n) ? n.toFixed(2) : "\u2014";
 var percent3 = (n) => Number.isFinite(n) ? `${(n * 100).toFixed(1)}%` : "\u2014";
 var interval = (low, high) => `${fixed3(low)} ~ ${fixed3(high)}`;
 var rulebookVerdict = (row) => row.ci99Low > 0 ? "\uAE30\uC874 \uB300\uBE44 \uC21C\uC218\uC775 \uAC1C\uC120 \uD655\uC778" : row.ci99High < 0 ? "\uAE30\uC874 \uB300\uBE44 \uC21C\uC218\uC775 \uB0AE\uC74C" : "\uC21C\uC218\uC775 \uCC28\uC774 \uBBF8\uD655\uC815";
-function rulebookVersionNote(version) {
+function rulebookVersionNote(version, { displayId = version.id } = {}) {
   const r = version.validation, c = r.comparison;
-  return `${version.id} \xB7 ${version.name} \xB7 \uC0C8 \uADDC\uCE59 \uBCC4\uB3C4 \uC2DC\uB4DC \uAC80\uC99D \xB7 \uAD6D\uB2F9 ${fixed3(r.meanNet)}\uC810 \xB7 \uD654\uB8CC\uC728 ${percent3(r.winRate)} \xB7 ${rulebookVerdict(c)}${version.objective === "highValue" ? ` \xB7 \uACE0\uB4DD\uC810 \uBAA9\uC801: \uAE30\uC874 D\uBCF4\uB2E4 \uAD6D\uB2F9 ${fixed3(Math.abs(c.meanDifference))}\uC810 ${c.meanDifference < 0 ? "\uB0AE\uC74C" : "\uB192\uC74C"}, \uC218\uC775 \uAC1C\uC120\uD615\uC774 \uC544\uB2D9\uB2C8\uB2E4.` : ""}`;
+  return `${displayId} \xB7 ${version.name} \xB7 \uC0C8 \uADDC\uCE59 \uBCC4\uB3C4 \uC2DC\uB4DC \uAC80\uC99D \xB7 \uAD6D\uB2F9 ${fixed3(r.meanNet)}\uC810 \xB7 \uD654\uB8CC\uC728 ${percent3(r.winRate)} \xB7 ${rulebookVerdict(c)}${version.objective === "highValue" ? ` \xB7 \uACE0\uB4DD\uC810 \uBAA9\uC801: \uAE30\uC874 D\uBCF4\uB2E4 \uAD6D\uB2F9 ${fixed3(Math.abs(c.meanDifference))}\uC810 ${c.meanDifference < 0 ? "\uB0AE\uC74C" : "\uB192\uC74C"}, \uC218\uC775 \uAC1C\uC120\uD615\uC774 \uC544\uB2D9\uB2C8\uB2E4.` : ""}`;
 }
 function rulebookResultModel(training = RULEBOOK_TRAINING) {
   const { counts: counts2, summary, versions, improvements, validationSeeds } = training ?? {}, ids = ["A", "B", "C", "D", "E", "A+", "B+", "C+", "D+", "E+"];
@@ -8924,7 +8938,7 @@ function rulebookResultModel(training = RULEBOOK_TRAINING) {
     versions,
     improvements,
     best,
-    conclusion: `\uC774\uBC88 \uC790\uB3D9 \uB300\uAD6D\uC758 \uD3C9\uADE0 \uC21C\uC218\uC775\uC740 ${best.policy}\uAC00 \uAD6D\uB2F9 ${fixed3(best.meanNet)}\uC810\uC73C\uB85C \uAC00\uC7A5 \uB192\uC558\uC2B5\uB2C8\uB2E4. \uC790\uAE30 \uAE30\uC900 A\u2013E\uC640\uC758 \uB2E4\uC12F \uBE44\uAD50\uB97C \uBCF4\uC815\uD55C \uB4A4 \uAC1C\uC120\uC744 \uD655\uC778\uD55C \uBC84\uC804: ${approved.join(", ") || "\uC5C6\uC74C"}. \uAE30\uBCF8 \uC120\uD0DD\uC740 \uBC14\uAFB8\uC9C0 \uC54A\uC73C\uBA70 \uC544\uB798\uC5D0\uC11C \uC9C1\uC811 \uC120\uD0DD\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.`
+    conclusion: `\uC774\uBC88 \uC790\uB3D9 \uB300\uAD6D\uC758 \uD3C9\uADE0 \uC21C\uC218\uC775\uC740 \uD604\uC7AC ${best.policy.replace("+", "")}\uAC00 \uAD6D\uB2F9 ${fixed3(best.meanNet)}\uC810\uC73C\uB85C \uAC00\uC7A5 \uB192\uC558\uC2B5\uB2C8\uB2E4. \uD559\uC2B5 \uC804 \uAE30\uC900\uACFC\uC758 \uB2E4\uC12F \uBE44\uAD50\uB97C \uBCF4\uC815\uD55C \uB4A4 \uAC1C\uC120\uC744 \uD655\uC778\uD55C \uC804\uB7B5: ${approved.map((id) => id.replace("+", "")).join(", ") || "\uC5C6\uC74C"}. \uC544\uB798\uC5D0\uC11C \uB0B4 \uC790\uB3D9 \uB300\uAD6D \uC804\uB7B5\uC744 \uC120\uD0DD\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.`
   };
 }
 function element2(tag, text) {
@@ -8955,19 +8969,19 @@ function renderRulebookResults(get, { training = RULEBOOK_TRAINING, onSelect = (
     for (const v of model.versions) {
       const card = element2("article");
       card.className = "training-version-card";
-      const r = v.validation, description = element2("p", v.description), verdict3 = element2("p", rulebookVersionNote(v));
+      const r = v.validation, description = element2("p", v.description), verdict3 = element2("p", rulebookVersionNote(v, { displayId: v.policy }));
       verdict3.className = "training-version-verdict";
-      card.append(element2("h3", `${v.id} \xB7 ${v.name}`), description, verdict3);
+      card.append(element2("h3", `${v.policy} \xB7 ${v.name}`), description, verdict3);
       if (v.objective === "highValue") card.append(element2("p", `\uD654\uB8CC \uC2DC \uD3C9\uADE0 \uC6D0\uC5ED \uAE30\uBCF8\uC810 ${fixed3(r.meanOriginalBaseAmongWins)}\uC810 \xB7 \uD654\uB8CC \uC911 400\uC810 \uC774\uC0C1 ${percent3(r.high400ShareAmongWins)}, 800\uC810 \uC774\uC0C1 ${percent3(r.high800ShareAmongWins)}. \uAE61 +1\uD310\xB7\uC0AC\uADC0\uC77C\xB7\uBC88\uD328 \uAC00\uC0B0 \uC804 \uAE30\uC900\uC785\uB2C8\uB2E4.`));
-      const button = element2("button", `${v.id}\uB97C \uB0B4 \uCD94\uCC9C\xB7\uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC120\uD0DD`);
+      const button = element2("button", `${v.policy}\uB97C \uB0B4 \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC120\uD0DD`);
       button.dataset.rulebookVersion = v.id;
       button.disabled = !canSelect(v.id);
       button.onclick = () => onSelect(v.id);
       card.append(button);
       cards.append(card);
     }
-    rows(get("rulebook-training-summary"), model.summary, (r) => [r.policy, fixed3(r.meanNet), interval(r.ci95Low, r.ci95High), percent3(r.winRate), percent3(r.ronShareAmongWins), percent3(r.tsumoShareAmongWins)]);
-    rows(get("rulebook-training-comparisons"), model.improvements, (r) => [`${r.policy} \u2212 ${r.reference}`, fixed3(r.meanDifference), interval(r.ci99Low, r.ci99High), rulebookVerdict(r)]);
+    rows(get("rulebook-training-summary"), model.summary, (r) => [`${r.policy.replace("+", "")} \xB7 ${r.policy.endsWith("+") ? "\uD604\uC7AC" : "\uBE44\uAD50 \uAE30\uC900"}`, fixed3(r.meanNet), interval(r.ci95Low, r.ci95High), percent3(r.winRate), percent3(r.ronShareAmongWins), percent3(r.tsumoShareAmongWins)]);
+    rows(get("rulebook-training-comparisons"), model.improvements, (r) => [`\uD604\uC7AC ${r.policy.replace("+", "")} \u2212 \uAE30\uC900 ${r.reference}`, fixed3(r.meanDifference), interval(r.ci99Low, r.ci99High), rulebookVerdict(r)]);
     content.hidden = false;
   } catch (error) {
     status.textContent = "\uC0C8 \uADDC\uCE59 \uAC80\uC99D \uAE30\uB85D \uD655\uC778 \uD544\uC694";
@@ -9050,24 +9064,18 @@ var roomClient = new RoomClient({ onState: receiveRoom, onStatus: (message) => {
     render();
   }
 } });
-for (const [id, p] of Object.entries(POLICIES2)) {
-  const opt = document.createElement("option");
-  opt.value = id;
-  opt.textContent = `${id} \xB7 ${p.name}`;
-  $("policy").append(opt);
-}
-$("policy").value = "D";
-for (const v of trainingVersions()) {
-  const option = document.createElement("option");
-  option.value = v.id;
-  option.textContent = `${v.id} \xB7 ${v.name}${v.id === defaultHybridMode() ? " \xB7 \uAE30\uBCF8 \uD63C\uD569\uD615" : ""} \xB7 ${rulebookTrainingVersion(v.id) ? rulebookVerdict(v.validation.comparison) : v.improved ? "\uAD6C \uADDC\uCE59 \uBE44\uAD50 \uAE30\uC900 \uB300\uBE44 \uAC1C\uC120 \uD655\uC778" : "\uAD6C \uADDC\uCE59 \uC2E4\uD5D8 \uD6C4\uBCF4"}`;
-  $("training-mode").append(option);
-}
-for (const v of RULEBOOK_TRAINING.versions) {
+for (const v of CURRENT_STRATEGIES) {
   const option = document.createElement("option");
   option.value = v.id;
   option.textContent = `${v.id} \xB7 ${v.name}`;
-  $("room-ai-policy").append(option);
+  $("policy").append(option);
+}
+$("policy").value = "E";
+for (const [id, p] of Object.entries(PRACTICE_PROFILES)) {
+  const option = document.createElement("option");
+  option.value = id;
+  option.textContent = p.name;
+  $("profile").append(option);
 }
 if (trainingVersion(trainingMode)) $("policy").value = trainingVersion(trainingMode).policy;
 var seatIndex = (seat) => (seat - (state?.dealer ?? 0) + 4) % 4;
@@ -9278,11 +9286,8 @@ function renderRecommendations() {
     return;
   }
   const view = observation4(state, humanSeat);
-  currentRecommendations = strategyRecommendations(view, trainingWeights(view, trainingMode, TRAINING));
-  const selectedVersion = trainingVersionApplicable(view, trainingMode) && trainingVersion(trainingMode);
-  if (selectedVersion) {
-    for (const rec of currentRecommendations) if (rec.policy === selectedVersion.policy) rec.name = `${selectedVersion.id} \xB7 ${selectedVersion.name}`;
-  }
+  currentRecommendations = strategyRecommendations(view, currentWeights(view));
+  if (rulebookTrainingCompatible(view)) for (const rec of currentRecommendations) rec.name = currentStrategy(rec.policy).name;
   status.textContent = "\uBC84\uD2BC\uC744 \uB204\uB974\uBA74 \uD574\uB2F9 \uC804\uB7B5\uC758 \uC120\uD0DD\uC744 \uD55C \uBC88 \uC2E4\uD589\uD569\uB2C8\uB2E4.";
   for (const rec of currentRecommendations) {
     const card = node2("article", void 0, "recommendation-card"), title = node2("h4");
@@ -9486,10 +9491,11 @@ function updateTableLayout() {
 }
 window.addEventListener("resize", updateTableLayout);
 function aiAction(view) {
-  return practiceAction(view, { humanSeat, policy: $("policy").value, profile: $("profile").value, mode: trainingMode, training: TRAINING });
+  return currentPracticeAction(view, { humanSeat, policy: $("policy").value, profile: $("profile").value });
 }
 function recordPracticeTraining() {
-  recordTrainingSelection(journal.current, state, trainingMode, TRAINING, { policy: $("policy").value, profile: $("profile").value });
+  trainingMode = effectiveTrainingMode(state);
+  recordTrainingSelection(journal.current, state, trainingMode, TRAINING, { policy: $("policy").value, profile: $("profile").value, opponentTrainingId: rulebookTrainingCompatible(state) ? RULEBOOK_TRAINING.id : null });
 }
 function loggedStep(game, seat, action) {
   recordPracticeTraining();
@@ -9650,13 +9656,11 @@ function restorePractice(force = false) {
   state = saved.log.game;
   humanSeat = saved.seat;
   journal.current = saved.log;
-  if (["original", "trained"].includes(saved.trainingMode) || trainingVersion(saved.trainingMode)) {
-    trainingMode = saved.trainingMode;
-    saveTrainingMode(logStorage, trainingMode);
-  }
   if (saved.policy in POLICIES2) $("policy").value = saved.policy;
-  else if (trainingVersionApplicable(state, trainingMode)) $("policy").value = trainingVersion(trainingMode).policy;
-  if (saved.profile in OPPONENT_PROFILES2) $("profile").value = saved.profile;
+  else if (trainingVersion(saved.trainingMode)) $("policy").value = trainingVersion(saved.trainingMode).policy;
+  $("profile").value = Object.hasOwn(PRACTICE_PROFILES, saved.profile) ? saved.profile : "mixed";
+  trainingMode = effectiveTrainingMode(state);
+  saveTrainingMode(logStorage, trainingMode);
   setVariant(state.rules.variant === "S" ? "S" : "H", practiceMatch.format ?? defaultMatchFormat(state.rules.variant));
   savePractice();
   selectedTileId = null;
@@ -9757,11 +9761,19 @@ function renderRoomStart() {
   button.textContent = roomMutationBusy ? "AI\uB97C \uCC44\uC6B0\uACE0 \uC2DC\uC791\uD558\uB294 \uC911\u2026" : `\uBE48\uC790\uB9AC ${4 - (remote?.members.length ?? 0)}\uAC1C\uB97C AI\uB85C \uCC44\uC6B0\uACE0 \uC2DC\uC791`;
   const compatible = rulebookTrainingCompatible(remote?.rules), selector = $("room-ai-policy");
   $("room-ai-settings").hidden = !allowed;
-  selector.disabled = roomMutationBusy || !roomClient.connected;
-  for (const option of selector.options) option.disabled = option.value !== "original" && !compatible;
-  if (!compatible) selector.value = "original";
+  if (selector.dataset.rules !== (compatible ? "current" : "baseline")) {
+    selector.replaceChildren();
+    for (const v2 of compatible ? CURRENT_STRATEGIES : [{ versionId: "original", id: "", name: "\uAE30\uBCF8 AI" }]) {
+      const option = node2("option", `${v2.id ? v2.id + " \xB7 " : ""}${v2.name}`);
+      option.value = v2.versionId;
+      selector.append(option);
+    }
+    selector.value = compatible ? "E+" : "original";
+    selector.dataset.rules = compatible ? "current" : "baseline";
+  }
+  selector.disabled = roomMutationBusy || !roomClient.connected || !compatible;
   const v = rulebookTrainingVersion(selector.value);
-  $("room-ai-note").textContent = v ? `${rulebookVersionNote(v)} \xB7 \uBE48\uC790\uB9AC \uBAA8\uB450 \uAC19\uC740 \uBC84\uC804\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4. \uD63C\uD569 \uC0C1\uB300 \uAC80\uC99D \uC218\uCE58\uC640 \uC774 \uBC29\uC758 \uB300\uAD6D \uC870\uAC74\uC740 \uB2E4\uB985\uB2C8\uB2E4.` : compatible ? "\uBE48\uC790\uB9AC\uB294 \uAE30\uC874 \uAE30\uBCF8 AI\uB85C \uCC44\uC6C1\uB2C8\uB2E4. \uC0C8 A+\u2013E+\uB294 \uC9C1\uC811 \uC120\uD0DD\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." : "\uC774 \uBC29\uC758 \uADDC\uCE59\uC5D0\uC11C\uB294 \uAE30\uC874 \uAE30\uBCF8 AI\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4.";
+  $("room-ai-note").textContent = v ? `${rulebookVersionNote(v, { displayId: v.policy })} \xB7 \uBE48\uC790\uB9AC \uBAA8\uB450 \uC120\uD0DD\uD55C \uC804\uB7B5\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4. \uC2E4\uD5D8\uC758 \uACE0\uC815 \uC0C1\uB300 \uAD6C\uC131\uACFC\uB294 \uC870\uAC74\uC774 \uB2E4\uB985\uB2C8\uB2E4.` : "\uC774 \uBC29\uC740 \uC800\uC7A5\uB41C \uADDC\uCE59\uC5D0 \uB9DE\uB294 \uAE30\uBCF8 AI\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4.";
   $("rematch-room").disabled = roomMutationBusy || !roomClient.connected;
 }
 function receiveRoom(snapshot) {
@@ -9916,32 +9928,28 @@ function randomGame() {
   return start(crypto.getRandomValues(new Uint32Array(1))[0], chosenVariant);
 }
 function effectiveTrainingMode(view) {
-  return trainingCompatible(view, TRAINING) && ["original", "trained"].includes(trainingMode) || trainingVersionApplicable(view, trainingMode) ? trainingMode : "original";
+  return rulebookTrainingCompatible(view) ? currentStrategy($("policy").value).versionId : "original";
 }
 function renderTrainingMode(variant = chosenVariant) {
-  const view = state && (!online || remote?.state) && variant === "H" ? state : { rules: remote?.rules ?? { variant } }, oldCompatible = trainingCompatible(view, TRAINING), privateCompatible = privateTrainingCompatible(view), revisedCompatible = revisedTrainingApplicable(view), newCompatible = rulebookTrainingCompatible(view), enabled = hasTrainedPolicies(TRAINING), version = trainingVersion(effectiveTrainingMode(view));
-  $("training-mode").value = effectiveTrainingMode(view);
-  $("training-mode").disabled = variant === "S" || !oldCompatible && !privateCompatible && !revisedCompatible && !newCompatible;
-  $("training-mode").querySelector('[value="trained"]').disabled = !oldCompatible || !enabled;
-  for (const v of trainingVersions()) $("training-mode").querySelector(`[value="${v.id}"]`).disabled = !trainingVersionApplicable(view, v.id);
-  for (const button of document.querySelectorAll("[data-rulebook-version]")) button.disabled = !trainingVersionApplicable(view, button.dataset.rulebookVersion);
-  $("training-note").textContent = variant === "S" ? "S\uB8F0\uC740 \uC804\uC6A9 \uAE30\uBCF8 \uC804\uB7B5\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4." : newCompatible && rulebookTrainingVersion(trainingMode) ? `${rulebookVersionNote(version)} \xB7 ${version.policy} \uCD94\uCC9C\uACFC \uB0B4 \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9 \xB7 \uB2E4\uB978 \uCD94\uCC9C\uACFC \uC0C1\uB300 AI\uB294 \uAE30\uBCF8\uAC12` : revisedCompatible ? `${trainingVersionApplicable(view, trainingMode) ? version.id + " \xB7 " + version.name : "\uAE30\uC874 A\u2013E"} \xB7 M1\u2013M3\xB7Y1\uC758 \uC0C8 \uADDC\uCE59 \uC131\uB2A5\uC740 \uC7AC\uAC80\uC99D\uD558\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4. \uC0C8 \uADDC\uCE59\uC5D0\uC11C \uAC80\uC99D\uD55C A+\u2013E+\uB97C \uC9C1\uC811 \uC120\uD0DD\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.` : privateCompatible ? version ? `${version.id} \xB7 ${version.description} \xB7 ${version.policy} \uCD94\uCC9C\uACFC \uB0B4 \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9 \xB7 \uB2E4\uB978 \uCD94\uCC9C\uACFC \uC0C1\uB300 AI\uB294 \uAE30\uBCF8\uAC12` : "\uC548\uAE61 \uBE44\uACF5\uAC1C \uADDC\uCE59 \xB7 \uAE30\uC874 A\u2013E \uC0AC\uC6A9 \xB7 \uACF5\uACA9\xB7\uC218\uBE44 \uD63C\uD569\uD615 M1\u2013M3\uACFC \uC5ED\uD328 \uBCF4\uC815 Y1\uC744 \uC120\uD0DD\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." : oldCompatible ? trainingMode === "trained" ? "\uAD6C \uADDC\uCE59 \uAC80\uC99D \uAC00\uC911\uCE58\uB97C \uB0B4 \uCD94\uCC9C\uACFC \uC790\uB3D9 \uB300\uAD6D\uC5D0 \uC801\uC6A9" : "\uAE30\uC874 A\u2013E \uC804\uB7B5" : "\uC774 \uB300\uAD6D\uC758 \uADDC\uCE59\uACFC \uC77C\uCE58\uD558\uB294 \uD559\uC2B5 \uACB0\uACFC\uAC00 \uC5C6\uC5B4 \uAE30\uBCF8 A\u2013E\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4.";
+  const view = online ? remote?.state ?? { rules: remote?.rules } : state, newCompatible = rulebookTrainingCompatible(view), isS = view?.rules?.variant === "S" || !view?.rules && variant === "S";
+  for (const option of $("policy").options) option.textContent = `${option.value} \xB7 ${newCompatible ? currentStrategy(option.value).name : POLICIES2[option.value].name}`;
+  for (const button of document.querySelectorAll("[data-rulebook-version]")) button.disabled = !newCompatible;
+  $("training-note").textContent = isS ? "S\uB8F0 \uC804\uC6A9 A\u2013E \uC804\uB7B5\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4." : newCompatible ? online ? "\uB0B4 \uC804\uB7B5\uBCC4 \uCD94\uCC9C\uC740 \uC774\uBC88 \uADDC\uCE59\uC758 A\u2013E\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4. \uC0C1\uB300 AI\uB294 \uBC29\uC5D0 \uC800\uC7A5\uB41C \uC124\uC815\uC744 \uB530\uB974\uBA70, \uBC29\uC7A5\uC774 \uC2DC\uC791 \uC804\uC5D0 \uBE48\uC790\uB9AC AI \uC804\uB7B5\uC744 \uC120\uD0DD\uD569\uB2C8\uB2E4." : "\uC774\uBC88 \uADDC\uCE59\uC73C\uB85C \uD559\uC2B5\uD55C A\u2013E\uB97C \uCD94\uCC9C\xB7\uB0B4 \uC790\uB3D9 \uB300\uAD6D\xB7\uC0C1\uB300 AI\uC5D0 \uC801\uC6A9\uD569\uB2C8\uB2E4. \uC0C1\uB300 \uC131\uD5A5\uC740 \uC544\uB798\uC5D0\uC11C \uC120\uD0DD\uD558\uC138\uC694." : "\uC800\uC7A5 \uB2F9\uC2DC \uADDC\uCE59\uC744 \uC720\uC9C0\uD558\uBA70 \uD574\uB2F9 \uADDC\uCE59\uC758 \uAE30\uBCF8 A\u2013E\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4. \uC0C8 H\uB8F0 \uB300\uAD6D\uC5D0\uC11C\uB294 \uC774\uBC88 \uD559\uC2B5 \uC804\uB7B5\uC744 \uC801\uC6A9\uD569\uB2C8\uB2E4.";
+  $("policy-note").hidden = online;
+  $("policy-note").textContent = newCompatible && $("policy").value === "D" ? "D\uB294 \uACE0\uB4DD\uC810\uC744 \uC704\uD574 \uD654\uB8CC \uAE30\uD68C\uB97C \uC77C\uBD80 \uD3EC\uAE30\uD569\uB2C8\uB2E4. \uAC80\uC99D\uC5D0\uC11C \uD654\uB8CC\uC728\uACFC \uD3C9\uADE0 \uC21C\uC218\uC775\uC774 \uB0AE\uC544\uC84C\uC2B5\uB2C8\uB2E4." : "";
 }
 function setTrainingMode(mode) {
-  const version = trainingVersion(mode);
-  if (!["original", "trained"].includes(mode) && !version || mode === "trained" && !hasTrainedPolicies(TRAINING)) throw new Error("\uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC804\uB7B5 \uBC84\uC804\uC744 \uC120\uD0DD\uD558\uC138\uC694.");
-  trainingMode = mode;
-  if (version) $("policy").value = version.policy;
-  saveTrainingMode(logStorage, mode);
+  const version = rulebookTrainingVersion(mode);
+  if (!version) throw new Error("A\u2013E \uC911\uC5D0\uC11C \uC804\uB7B5\uC744 \uC120\uD0DD\uD558\uC138\uC694.");
+  $("policy").value = version.policy;
+  trainingMode = effectiveTrainingMode(state);
+  saveTrainingMode(logStorage, trainingMode);
   if (state && !online) savePractice();
   if (state && (!online || remote?.state)) render();
   else renderTrainingMode(remote?.variant ?? chosenVariant);
-  return { mode, policies: version ? [version.policy] : Object.keys(TRAINING.weights) };
+  return { mode: trainingMode, policies: [version.policy] };
 }
-$("training-mode").onchange = () => setTrainingMode($("training-mode").value);
-$("policy").onchange = () => {
-  if (state && !online) savePractice();
-};
+$("policy").onchange = () => setTrainingMode(currentStrategy($("policy").value).versionId);
 $("profile").onchange = () => {
   if (state && !online) savePractice();
 };
@@ -10047,10 +10055,10 @@ fetch(new URL("../results/baseline/analysis.json", import.meta.url)).then((r) =>
   $("conclusion").textContent = "\uC644\uB8CC\uB41C \uACB0\uACFC \uD30C\uC77C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4. headless \uC2E4\uD5D8 \uD6C4 \uBCF4\uACE0\uC11C\uB97C \uC0DD\uC131\uD558\uBA74 \uC5EC\uAE30\uC5D0 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
 });
 void renderTrainingResults($, TRAINING);
-renderRulebookResults($, { onSelect: setTrainingMode, canSelect: (id) => trainingVersionApplicable(state, id) });
+renderRulebookResults($, { onSelect: setTrainingMode, canSelect: () => rulebookTrainingCompatible(state) });
 function readGame() {
   if (online && !remote?.state) return { mode: "online", phase: "waiting", room: remote ? { code: remote.code, members: remote.members, variant: remote.variant, format: remote.format ?? defaultMatchFormat(remote.variant) } : null, legalActions: [], recommendations: [] };
-  return { match: currentMatch(), variant: state.rules.variant === "S" ? "S" : "H", trainingMode: effectiveTrainingMode(state), trainingId: trainingProvenance(state, trainingMode, TRAINING).trainingId, validationStatus: trainingProvenance(state, trainingMode, TRAINING).validationStatus, recommendationsEnabled, selectedVariant: chosenVariant, selectedFormat: chosenFormat, format: currentMatch() ? summaryFormat(currentMatch()) : remote?.format ?? defaultMatchFormat(state.rules.variant), mode: online ? "online" : "practice", room: online && remote ? { code: remote.code, members: remote.members, gameNumber: remote.gameNumber } : null, seat: humanSeat, phase: online && !remote?.state ? "waiting" : state.phase, turn: actor4(state), ownHand: state.players[humanSeat].hand.map(typeOf), drawnTile: handDisplay(state, humanSeat).drawn === null ? null : typeOf(handDisplay(state, humanSeat).drawn), scores: state.players.map((p) => p.score), winners: [...state.winners], legalActions: actor4(state) === humanSeat ? legalActions4(state) : [], recommendationRevision, recommendations: structuredClone(currentRecommendations) };
+  return { match: currentMatch(), variant: state.rules.variant === "S" ? "S" : "H", trainingMode: effectiveTrainingMode(state), trainingId: trainingProvenance(state, effectiveTrainingMode(state), TRAINING).trainingId, validationStatus: trainingProvenance(state, effectiveTrainingMode(state), TRAINING).validationStatus, recommendationsEnabled, selectedVariant: chosenVariant, selectedFormat: chosenFormat, format: currentMatch() ? summaryFormat(currentMatch()) : remote?.format ?? defaultMatchFormat(state.rules.variant), mode: online ? "online" : "practice", room: online && remote ? { code: remote.code, members: remote.members, gameNumber: remote.gameNumber } : null, seat: humanSeat, phase: online && !remote?.state ? "waiting" : state.phase, turn: actor4(state), ownHand: state.players[humanSeat].hand.map(typeOf), drawnTile: handDisplay(state, humanSeat).drawn === null ? null : typeOf(handDisplay(state, humanSeat).drawn), scores: state.players.map((p) => p.score), winners: [...state.winners], legalActions: actor4(state) === humanSeat ? legalActions4(state) : [], recommendationRevision, recommendations: structuredClone(currentRecommendations) };
 }
 if (document.modelContext?.registerTool) {
   const life = new AbortController();
