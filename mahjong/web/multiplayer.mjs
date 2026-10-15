@@ -49,7 +49,7 @@ export class RoomClient{
   try{const data=await this.request(`rooms/${this.session.code}/action`,body);if(generation===this.generation)this.accept(data);return data;}
   catch(error){if(generation===this.generation){try{this.accept(await this.request(`rooms/${this.session.code}/state`));}catch{this.connected=false;}}throw error;}
  }
- async rematch(){const generation=this.generation,data=await this.request(`rooms/${this.session.code}/rematch`,{gameNumber:this.snapshot.gameNumber});if(generation===this.generation)this.accept(data);}
+ async rematch(){const generation=this.generation,data=await this.request(`rooms/${this.session.code}/rematch`,{gameNumber:this.snapshot.gameNumber,expectedMatchStatus:this.snapshot.match?.status});if(generation===this.generation)this.accept(data);}
  async startAI(botMode='original'){
   if(this.startingAI?.generation===this.generation)return this.startingAI.promise;
   if(!this.connected)throw new Error('서버 연결을 기다려 주세요.');

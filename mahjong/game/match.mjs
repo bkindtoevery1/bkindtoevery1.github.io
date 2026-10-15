@@ -12,4 +12,5 @@ export const advanceMatch=(match,expectedHandNumber)=>engine(match).advanceMatch
 export const matchTotals=(match,game)=>engine(match).matchTotals(match,game);
 export const matchSummary=(match,game)=>engine(match).matchSummary(match,game);
 export const assertMatch=(match,game)=>engine(match).assertMatch(match,game);
+export const upgradeDealerContinuation=(match,game)=>matchVariant(match)==='H'?h.upgradeDealerContinuation(match,game):false;
 export {roundLabel,roundSeed} from '../s-engine/match.mjs';

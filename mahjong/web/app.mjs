@@ -2146,7 +2146,7 @@ var RoomClient = class {
     }
   }
   async rematch() {
-    const generation = this.generation, data = await this.request(`rooms/${this.session.code}/rematch`, { gameNumber: this.snapshot.gameNumber });
+    const generation = this.generation, data = await this.request(`rooms/${this.session.code}/rematch`, { gameNumber: this.snapshot.gameNumber, expectedMatchStatus: this.snapshot.match?.status });
     if (generation === this.generation) this.accept(data);
   }
   async startAI(botMode = "original") {
@@ -2723,7 +2723,8 @@ __export(h_match_exports, {
   createMatchGame: () => createMatchGame2,
   matchSummary: () => matchSummary2,
   matchTotals: () => matchTotals2,
-  recordRound: () => recordRound2
+  recordRound: () => recordRound2,
+  upgradeDealerContinuation: () => upgradeDealerContinuation
 });
 
 // s-engine/match.mjs
@@ -2847,14 +2848,36 @@ function assertMatch(match, game) {
 
 // game/h-match.mjs
 var SETTINGS = Object.freeze({ dealerContinuation: "none", honbaPoints: 0, finalPot: "none", endOnBankrupt: false });
+var CONTINUATIONS = ["none", "win", "first-win"];
 var sum2 = (xs) => xs.reduce((n, x) => n + x, 0);
 var clone3 = (x) => structuredClone(x);
 var label = (match) => match.format === "single" ? "\uB2E8\uD310\uC804" : roundLabel(match.roundIndex, match.repeat);
+function firstWinIncludesDealer(game) {
+  const firstSeat = game.winners[0];
+  if (firstSeat === void 0 || !game.winners.includes(game.dealer)) return false;
+  if (firstSeat === game.dealer) return true;
+  const win3 = (seat) => game.events?.find((event3) => event3.type === "win" && event3.seat === seat) ?? game.players[seat]?.win;
+  const first = win3(firstSeat), dealer = win3(game.dealer);
+  if (first?.method === "tsumo" || dealer?.method === "tsumo") return false;
+  const complete = (record) => record?.method === "ron" && Number.isInteger(record.source) && Number.isInteger(record.tile) && Number.isInteger(record.drawNumber);
+  if (!complete(first) || !complete(dealer)) throw new Error("\uCCAB \uD654\uB8CC \uC0AC\uAC74\uC744 \uD655\uC778\uD560 \uC6D0\uBCF8 \uD654\uB8CC \uAE30\uB85D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.");
+  return first.source === dealer.source && first.tile === dealer.tile && first.drawNumber === dealer.drawNumber;
+}
+var retainsDealer = (match, game, mode = match.settings.dealerContinuation) => match.format !== "single" && (mode === "win" ? game.winners.includes(game.dealer) : mode === "first-win" && firstWinIncludesDealer(game));
+function setNextRound(match, retained) {
+  if (match.format === "single" || match.roundIndex === 7 && !retained) {
+    match.status = "complete";
+    match.next = null;
+  } else {
+    match.status = "between-rounds";
+    match.next = { roundIndex: match.roundIndex + (retained ? 0 : 1), repeat: retained ? match.repeat + 1 : 0 };
+  }
+}
 function createMatch2({ seed = 1, id = crypto.randomUUID(), format: format2 = "single", rules = {}, settings = {}, now = (/* @__PURE__ */ new Date()).toISOString() } = {}) {
   if (!Number.isInteger(seed) || seed < 0 || seed > 4294967295 || typeof id !== "string" || !id) throw new Error("Invalid match seed/id");
   if (!["single", "hanchan"].includes(format2)) throw new Error("\uB2E8\uD310\uC804 \uB610\uB294 \uBC18\uC7A5\uC804\uC744 \uC120\uD0DD\uD558\uC138\uC694.");
-  if (Object.entries(settings).some(([key3, value4]) => !Object.hasOwn(SETTINGS, key3) || (key3 === "dealerContinuation" ? !["none", "win"].includes(value4) : SETTINGS[key3] !== value4))) throw new Error("Unsupported H match settings");
-  const r = ruleset({ ...rules, roundWind: 27 }), config = { ...SETTINGS, dealerContinuation: r.id === "H-2026-jp-20261014" ? "win" : "none", ...settings };
+  if (Object.entries(settings).some(([key3, value4]) => !Object.hasOwn(SETTINGS, key3) || (key3 === "dealerContinuation" ? !CONTINUATIONS.includes(value4) : SETTINGS[key3] !== value4))) throw new Error("Unsupported H match settings");
+  const r = ruleset({ ...rules, roundWind: 27 }), config = { ...SETTINGS, dealerContinuation: r.id === "H-2026-jp-20261014" ? "first-win" : "none", ...settings };
   return { version: 1, variant: "H", format: format2, id, seed, startedAt: now, rules: r, settings: config, roundIndex: 0, repeat: 0, handNumber: 1, status: "playing", scores: [0, 0, 0, 0], pot: 0, rounds: [], next: null, finalTransfers: [] };
 }
 function createMatchGame2(match) {
@@ -2864,22 +2887,31 @@ function createMatchGame2(match) {
   game.matchContext = { id: match.id, handNumber: match.handNumber, roundIndex: match.roundIndex, repeat: match.repeat };
   return game;
 }
+function upgradeDealerContinuation(match, game) {
+  if (match?.variant !== "H" || match.rules?.id !== "H-2026-jp-20261014" || match.settings?.dealerContinuation !== "win" || match.status === "complete") return false;
+  assertMatch2(match, game);
+  const between = match.status === "between-rounds", row = between ? match.rounds.at(-1) : null;
+  if (between && row.handNumber !== match.handNumber) throw new Error("\uD604\uC7AC \uAD6D\uC758 \uC815\uC0B0 \uAE30\uB85D\uC774 \uB9DE\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
+  const retained = between ? retainsDealer(match, game, "first-win") : false;
+  match.settings = { ...match.settings, dealerContinuation: "first-win" };
+  if (between) {
+    row.retained = retained;
+    setNextRound(match, retained);
+  }
+  assertMatch2(match, game);
+  return true;
+}
 function recordRound2(match, game, { logId = null } = {}) {
   if (game.matchContext?.id !== match.id || game.matchContext.handNumber !== match.handNumber) throw new Error("\uB2E4\uB978 \uB300\uAD6D \uB610\uB294 \uAD6D\uC758 \uC815\uC0B0\uC785\uB2C8\uB2E4.");
+  if (match.status === "playing" && !game.end) throw new Error("\uAD6D\uC774 \uB05D\uB09C \uB4A4 \uC815\uC0B0\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.");
+  upgradeDealerContinuation(match, game);
   if (match.status !== "playing") return false;
-  if (!game.end) throw new Error("\uAD6D\uC774 \uB05D\uB09C \uB4A4 \uC815\uC0B0\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.");
   assertMatch2(match, game);
+  const retained = retainsDealer(match, game);
   const delta = game.players.map((p) => p.score);
   match.scores = match.scores.map((n, i) => n + delta[i]);
-  const retained = match.format !== "single" && match.settings.dealerContinuation === "win" && game.winners.includes(game.dealer);
   match.rounds.push({ handNumber: match.handNumber, roundIndex: match.roundIndex, repeat: match.repeat, label: label(match), dealer: game.dealer, seed: game.seed, result: game.end, winner: game.winners[0] ?? null, winners: [...game.winners], delta, totals: [...match.scores], pot: 0, retained, logId });
-  if (match.format === "single" || match.roundIndex === 7 && !retained) {
-    match.status = "complete";
-    match.next = null;
-  } else {
-    match.status = "between-rounds";
-    match.next = { roundIndex: match.roundIndex + (retained ? 0 : 1), repeat: retained ? match.repeat + 1 : 0 };
-  }
+  setNextRound(match, retained);
   assertMatch2(match, game);
   return true;
 }
@@ -2900,7 +2932,7 @@ function matchSummary2(match, game) {
   return { id: match.id, variant: "H", format: match.format, startedAt: match.startedAt, roundIndex: match.roundIndex, repeat: match.repeat, handNumber: match.handNumber, label: label(match), status: match.status, totals, pot: 0, nextLabel: match.next ? roundLabel(match.next.roundIndex, match.next.repeat) : null, settings: clone3(match.settings), startingPoints: 0, rankings, rounds: match.rounds.map(({ seed, logId, ...row }) => clone3(row)), finalTransfers: [] };
 }
 function assertMatch2(match, game) {
-  if (match.version !== 1 || match.variant !== "H" || !["single", "hanchan"].includes(match.format) || !["playing", "between-rounds", "complete"].includes(match.status) || !Number.isInteger(match.roundIndex) || match.roundIndex < 0 || match.roundIndex > 7 || !Number.isInteger(match.handNumber) || match.handNumber < match.roundIndex + 1 || !Number.isInteger(match.repeat) || match.repeat < 0 || !["none", "win"].includes(match.settings.dealerContinuation) || match.settings.dealerContinuation === "none" && (match.handNumber !== match.roundIndex + 1 || match.repeat !== 0) || match.format === "single" && (match.roundIndex !== 0 || match.repeat !== 0 || match.handNumber !== 1 || match.status === "between-rounds")) throw new Error("Invalid H match progress");
+  if (match.version !== 1 || match.variant !== "H" || !["single", "hanchan"].includes(match.format) || !["playing", "between-rounds", "complete"].includes(match.status) || !Number.isInteger(match.roundIndex) || match.roundIndex < 0 || match.roundIndex > 7 || !Number.isInteger(match.handNumber) || match.handNumber < match.roundIndex + 1 || !Number.isInteger(match.repeat) || match.repeat < 0 || !CONTINUATIONS.includes(match.settings.dealerContinuation) || match.settings.dealerContinuation === "none" && (match.handNumber !== match.roundIndex + 1 || match.repeat !== 0) || match.format === "single" && (match.roundIndex !== 0 || match.repeat !== 0 || match.handNumber !== 1 || match.status === "between-rounds")) throw new Error("Invalid H match progress");
   if (!Array.isArray(match.scores) || match.scores.length !== 4 || match.scores.some((n) => !Number.isSafeInteger(n)) || sum2(match.scores) !== 0 || match.pot !== 0 || match.finalTransfers.length) throw new Error("Match score conservation violated");
   if (game.rules.variant === "S" || game.matchContext?.id !== match.id || game.matchContext.handNumber !== match.handNumber || game.matchContext.roundIndex !== match.roundIndex || game.matchContext.repeat !== match.repeat || game.dealer !== match.roundIndex % 4 || game.rules.roundWind !== (match.roundIndex < 4 ? 27 : 28)) throw new Error("Match round mismatch");
   if (!Array.isArray(game.startingScores) || game.startingScores.length !== 4 || game.startingScores.some((n) => !Number.isSafeInteger(n))) throw new Error("Missing match starting balances");
@@ -2924,6 +2956,7 @@ var recordRound3 = (match, game, options) => engine2(match).recordRound(match, g
 var advanceMatch3 = (match, expectedHandNumber) => engine2(match).advanceMatch(match, expectedHandNumber);
 var matchSummary3 = (match, game) => engine2(match).matchSummary(match, game);
 var assertMatch3 = (match, game) => engine2(match).assertMatch(match, game);
+var upgradeDealerContinuation2 = (match, game) => matchVariant(match) === "H" ? upgradeDealerContinuation(match, game) : false;
 
 // web/match-store.mjs
 var KEY2 = "wellness-s-match-v1";
@@ -2935,7 +2968,8 @@ var roundResultName = (result) => result === "exhaustive-draw" ? "\uC720\uAD6D" 
 function matchRulesDescription(summary) {
   const variant = summaryVariant(summary), format2 = summaryFormat(summary), start2 = `${summary.startingPoints.toLocaleString()}\uC810 \uC2DC\uC791`;
   if (format2 === "single") return `${start2} \xB7 \uD55C \uAD6D \uC815\uC0B0 \uD6C4 \uC885\uB8CC\uD569\uB2C8\uB2E4.${variant === "S" ? " \uB0A8\uC740 \uACF5\uD0C1\uC740 1\uC704\uC5D0\uAC8C \uC9C0\uAE09\uD569\uB2C8\uB2E4." : ""}`;
-  return variant === "H" ? `${start2} \xB7 \uB3D91\uAD6D~\uB0A84\uAD6D \xB7 ${summary.settings?.dealerContinuation === "win" ? "\uCE5C\uC774 \uD654\uB8CC\uD558\uBA74 \uC5F0\uC7A5(\uD654\uB8CC \uC21C\uBC88 \uBB34\uAD00), \uADF8 \uC678 \uAD50\uB300" : "\uAD6C \uADDC\uCE59: \uC5F0\uC7A5 \uC5C6\uC774 \uCD1D 8\uAD6D"}. \uBCF8\uC7A5 \uAC00\uC0B0 \uC5C6\uC74C. \uB0A84\uAD6D\uC5D0\uC11C \uCE5C\uC774 \uB118\uC5B4\uAC00\uBA74 \uC885\uB8CC\uD569\uB2C8\uB2E4.` : `${start2} \xB7 \uB0A84\uAD6D\uAE4C\uC9C0 \xB7 \uCE5C \uD654\uB8CC/\uD150\uD30C\uC774 \uC2DC \uC5F0\uC7A5 \xB7 \uBCF8\uC7A5 \uAC00\uC0B0 \uC5C6\uC74C. \uB0A84\uAD6D\uC5D0\uC11C \uCE5C\uC774 \uB118\uC5B4\uAC08 \uB54C \uC885\uB8CC\uD558\uBA70, \uB0A8\uC740 \uACF5\uD0C1\uC740 1\uC704\uC5D0\uAC8C \uC9C0\uAE09\uD569\uB2C8\uB2E4.`;
+  const continuation = summary.settings?.dealerContinuation;
+  return variant === "H" ? `${start2} \xB7 \uB3D91\uAD6D~\uB0A84\uAD6D \xB7 ${continuation === "first-win" ? "\uCCAB \uD654\uB8CC\uC5D0 \uCE5C\uC774 \uD3EC\uD568\uB418\uBA74 \uC5F0\uC7A5(\uB3D9\uC2DC \uBCF5\uC218 \uB860 \uD3EC\uD568), \uC774\uD6C4 \uCE5C \uD654\uB8CC\uB294 \uAD50\uB300" : continuation === "win" ? "\uB2F9\uC2DC \uD310\uC815: \uCE5C\uC774 \uD654\uB8CC\uD558\uBA74 \uC5F0\uC7A5(\uC21C\uBC88 \uBB34\uAD00)" : "\uAD6C \uADDC\uCE59: \uC5F0\uC7A5 \uC5C6\uC774 \uCD1D 8\uAD6D"}. \uBCF8\uC7A5 \uAC00\uC0B0 \uC5C6\uC74C. \uB0A84\uAD6D\uC5D0\uC11C \uCE5C\uC774 \uB118\uC5B4\uAC00\uBA74 \uC885\uB8CC\uD569\uB2C8\uB2E4.` : `${start2} \xB7 \uB0A84\uAD6D\uAE4C\uC9C0 \xB7 \uCE5C \uD654\uB8CC/\uD150\uD30C\uC774 \uC2DC \uC5F0\uC7A5 \xB7 \uBCF8\uC7A5 \uAC00\uC0B0 \uC5C6\uC74C. \uB0A84\uAD6D\uC5D0\uC11C \uCE5C\uC774 \uB118\uC5B4\uAC08 \uB54C \uC885\uB8CC\uD558\uBA70, \uB0A8\uC740 \uACF5\uD0C1\uC740 1\uC704\uC5D0\uAC8C \uC9C0\uAE09\uD569\uB2C8\uB2E4.`;
 }
 var MatchStore = class {
   constructor(storage = null) {
@@ -3002,6 +3036,11 @@ var MatchStore = class {
       const saved = clone4(data.active), log = expandLog(saved.log);
       if (!Number.isInteger(saved.seat) || saved.seat < 0 || saved.seat > 3 || log.humanSeat !== saved.seat) throw new Error("Invalid saved seat");
       assertMatch3(saved.match, log.game);
+      if (upgradeDealerContinuation2(saved.match, log.game)) {
+        assertMatch3(saved.match, log.game);
+        data.active.match = clone4(saved.match);
+        this.write();
+      }
       saved.log = log;
       return saved;
     } catch {
@@ -9965,7 +10004,7 @@ function setVariant(variant, format2 = variant === chosenVariant ? chosenFormat 
   for (const value4 of ["single", "hanchan"]) $("format-" + value4).setAttribute("aria-pressed", String(format2 === value4));
   $("random-game").textContent = `${variant}\uB8F0 \uC0C8 ${matchFormatName(format2)} \u21BB`;
   $("create-room").textContent = `${variant}\uB8F0 ${matchFormatName(format2)} \uBC29 \uB9CC\uB4E4\uAE30`;
-  $("format-note").textContent = format2 === "single" ? "\uD55C \uAD6D \uC815\uC0B0 \uD6C4 \uC885\uB8CC\uD569\uB2C8\uB2E4. \uC120\uD0DD\uC740 \uC0C8 \uB300\uAD6D\xB7\uC0C8 \uBC29\uC5D0 \uC801\uC6A9\uB418\uBA70, \uC785\uC7A5\uD55C \uBC29\uC758 \uBC29\uC2DD\uC740 \uC720\uC9C0\uB429\uB2C8\uB2E4." : variant === "H" ? "\uB3D91\uAD6D~\uB0A84\uAD6D\uAE4C\uC9C0 \uB204\uC801\uD569\uB2C8\uB2E4. \uC0C8 H\uB8F0\uC740 \uCE5C\uC774 \uD654\uB8CC\uD558\uBA74 \uC21C\uBC88\uACFC \uAD00\uACC4\uC5C6\uC774 \uC5F0\uC7A5\uD569\uB2C8\uB2E4. \uC0C8 \uB300\uAD6D\xB7\uC0C8 \uBC29\uC5D0 \uC801\uC6A9\uB429\uB2C8\uB2E4." : "\uB3D91\uAD6D~\uB0A84\uAD6D\uAE4C\uC9C0 \uB204\uC801 \uC810\uC218\uB97C \uAE30\uB85D\uD558\uBA70 \uCE5C \uD654\uB8CC\xB7\uD150\uD30C\uC774 \uC2DC \uC5F0\uC7A5\uD569\uB2C8\uB2E4. \uC0C8 \uB300\uAD6D\xB7\uC0C8 \uBC29\uC5D0 \uC801\uC6A9\uB429\uB2C8\uB2E4.";
+  $("format-note").textContent = format2 === "single" ? "\uD55C \uAD6D \uC815\uC0B0 \uD6C4 \uC885\uB8CC\uD569\uB2C8\uB2E4. \uC120\uD0DD\uC740 \uC0C8 \uB300\uAD6D\xB7\uC0C8 \uBC29\uC5D0 \uC801\uC6A9\uB418\uBA70, \uC785\uC7A5\uD55C \uBC29\uC758 \uBC29\uC2DD\uC740 \uC720\uC9C0\uB429\uB2C8\uB2E4." : variant === "H" ? "\uB3D91\uAD6D~\uB0A84\uAD6D\uAE4C\uC9C0 \uB204\uC801\uD569\uB2C8\uB2E4. \uD604\uD589 H\uB8F0\uC740 \uCCAB \uD654\uB8CC \uC0AC\uAC74\uC5D0 \uCE5C\uC774 \uD3EC\uD568\uB420 \uB54C\uB9CC \uC5F0\uC7A5\uD569\uB2C8\uB2E4(\uCCAB \uD654\uB8CC\uAC00 \uB3D9\uC2DC \uBCF5\uC218 \uB860\uC778 \uACBD\uC6B0\uB3C4 \uD3EC\uD568). \uC6D0\uBB38\uC5D0 \uD654\uB8CC \uC21C\uBC88\uC740 \uC5C6\uC5B4 \uC571 \uC6B4\uC601 \uAE30\uC900\uC73C\uB85C \uC801\uC6A9\uD569\uB2C8\uB2E4." : "\uB3D91\uAD6D~\uB0A84\uAD6D\uAE4C\uC9C0 \uB204\uC801 \uC810\uC218\uB97C \uAE30\uB85D\uD558\uBA70 \uCE5C \uD654\uB8CC\xB7\uD150\uD30C\uC774 \uC2DC \uC5F0\uC7A5\uD569\uB2C8\uB2E4. \uC0C8 \uB300\uAD6D\xB7\uC0C8 \uBC29\uC5D0 \uC801\uC6A9\uB429\uB2C8\uB2E4.";
   persistPreferences();
 }
 function toggleRecommendations(enabled) {

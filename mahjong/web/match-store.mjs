@@ -1,5 +1,5 @@
 import {compactLog,expandLog} from './game-log.mjs';
-import {assertMatch,matchSummary} from '../game/match.mjs';
+import {assertMatch,matchSummary,upgradeDealerContinuation} from '../game/match.mjs';
 import {defaultMatchFormat,matchFormatName} from './preferences.mjs';
 const KEY='wellness-s-match-v1';
 const clone=x=>structuredClone(x);
@@ -10,7 +10,8 @@ export const roundResultName=result=>result==='exhaustive-draw'?'유국':'화료
 export function matchRulesDescription(summary){
  const variant=summaryVariant(summary),format=summaryFormat(summary),start=`${summary.startingPoints.toLocaleString()}점 시작`;
  if(format==='single')return `${start} · 한 국 정산 후 종료합니다.${variant==='S'?' 남은 공탁은 1위에게 지급합니다.':''}`;
- return variant==='H'?`${start} · 동1국~남4국 · ${summary.settings?.dealerContinuation==='win'?'친이 화료하면 연장(화료 순번 무관), 그 외 교대':'구 규칙: 연장 없이 총 8국'}. 본장 가산 없음. 남4국에서 친이 넘어가면 종료합니다.`:`${start} · 남4국까지 · 친 화료/텐파이 시 연장 · 본장 가산 없음. 남4국에서 친이 넘어갈 때 종료하며, 남은 공탁은 1위에게 지급합니다.`;
+ const continuation=summary.settings?.dealerContinuation;
+ return variant==='H'?`${start} · 동1국~남4국 · ${continuation==='first-win'?'첫 화료에 친이 포함되면 연장(동시 복수 론 포함), 이후 친 화료는 교대':continuation==='win'?'당시 판정: 친이 화료하면 연장(순번 무관)':'구 규칙: 연장 없이 총 8국'}. 본장 가산 없음. 남4국에서 친이 넘어가면 종료합니다.`:`${start} · 남4국까지 · 친 화료/텐파이 시 연장 · 본장 가산 없음. 남4국에서 친이 넘어갈 때 종료하며, 남은 공탁은 1위에게 지급합니다.`;
 }
 export class MatchStore{
  constructor(storage=null){this.storage=storage;this.persisted=false;this.error=null;this.data=null;}
@@ -34,7 +35,7 @@ export class MatchStore{
  }
  restore({force=false}={}){
   const data=this.read();if(!data?.active||!force&&!data.resume)return null;
-  try{const saved=clone(data.active),log=expandLog(saved.log);if(!Number.isInteger(saved.seat)||saved.seat<0||saved.seat>3||log.humanSeat!==saved.seat)throw new Error('Invalid saved seat');assertMatch(saved.match,log.game);saved.log=log;return saved;}
+  try{const saved=clone(data.active),log=expandLog(saved.log);if(!Number.isInteger(saved.seat)||saved.seat<0||saved.seat>3||log.humanSeat!==saved.seat)throw new Error('Invalid saved seat');assertMatch(saved.match,log.game);if(upgradeDealerContinuation(saved.match,log.game)){assertMatch(saved.match,log.game);data.active.match=clone(saved.match);this.write();}saved.log=log;return saved;}
   catch{this.error='저장된 대국의 점수 또는 패 상태가 맞지 않습니다. 기존 기록은 유지했습니다.';return null;}
  }
  list(){const data=this.read();if(!data)return [];try{const active=data.active;return [...active?[{seat:active.seat,summary:matchSummary(active.match,expandLog(active.log).game)}]:[],...data.history];}catch{this.error='저장된 점수표를 읽지 못했습니다. 기존 기록은 유지했습니다.';return [];}}
