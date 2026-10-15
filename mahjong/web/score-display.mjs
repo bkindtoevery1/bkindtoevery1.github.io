@@ -1,6 +1,7 @@
 import {typeOf,counts} from '../engine/tiles.mjs';
 import {doraAfter} from '../s-engine/score.mjs';
 import {indicators,revealedUraIndicators} from '../s-engine/game.mjs';
+import {scoreDisplayName} from '../game/win-label.mjs';
 
 export const signedPoints = value => `${value > 0 ? '+' : ''}${value}`;
 
@@ -73,7 +74,7 @@ export function winSettlement(state, seat) {
     payerCount, perPayer, receipt, expectedReceipt,
     bonusDetails:[hFanDetails(score,state.rules),hBonusDetails(score,state.rules)].filter(Boolean).join(' · '),
     net: player.score, previousNet: player.score - receipt,
-    title: `${score.name} ${win.method === 'tsumo' ? '쯔모' : '론'}${paymentMethod!==win.method?' · 명깡 공급자 단독 지불':''} · 이번 화료 +${receipt}점`,
+    title: `${scoreDisplayName(score)} ${win.method === 'tsumo' ? '쯔모' : '론'}${paymentMethod!==win.method?' · 명깡 공급자 단독 지불':''} · 이번 화료 +${receipt}점`,
     calculation: `(${parts.join(' + ')}) × ${payerCount}명 = +${expectedReceipt}점${receipt!==expectedReceipt?` · 실제 이체 +${receipt}점 (정산 확인 필요)`:''}`,
   };
 }

@@ -1,5 +1,6 @@
 import {createGame,assertInvariants} from './game.mjs';
 import {sRules} from './rules.mjs';
+import {pinfuWinners,pinfuSummary,backfillCurrentPinfu} from '../game/pinfu-count.mjs';
 
 export const MATCH_DEFAULTS=Object.freeze({dealerContinuation:'win-or-tenpai',honbaPoints:0,finalPot:'top',endOnBankrupt:false});
 const clone=x=>structuredClone(x),sum=xs=>xs.reduce((a,b)=>a+b,0);
@@ -20,12 +21,12 @@ export function createMatchGame(match){
 }
 export function recordRound(match,game,{logId=null}={}){
  if(game.matchContext?.id!==match.id||game.matchContext.handNumber!==match.handNumber)throw new Error('다른 반장 또는 국의 정산입니다.');
- if(match.status!=='playing')return false; // Idempotent across reload/poll/repeated clicks.
+ if(match.status!=='playing'){backfillCurrentPinfu(match,game);return false;} // No second settlement.
  if(!game.end)throw new Error('국이 끝난 뒤 정산할 수 있습니다.');assertMatch(match,game);
  const delta=game.players.map(p=>p.score);match.scores=match.scores.map((n,i)=>n+delta[i]);match.pot=game.pot;
  const dealerReady=game.events.find(e=>e.type==='drawSettlement')?.ready.some(r=>r.seat===game.dealer)??false;
  const retained=match.format!=='single'&&match.settings.dealerContinuation==='win-or-tenpai'&&(game.winners.includes(game.dealer)||game.end==='exhaustive-draw'&&dealerReady);
- match.rounds.push({handNumber:match.handNumber,roundIndex:match.roundIndex,repeat:match.repeat,label:match.format==='single'?'단판전':roundLabel(match.roundIndex,match.repeat),dealer:game.dealer,seed:game.seed,result:game.end,winner:game.winners[0]??null,winners:[...game.winners],delta,totals:[...match.scores],pot:match.pot,retained,logId});
+ match.rounds.push({handNumber:match.handNumber,roundIndex:match.roundIndex,repeat:match.repeat,label:match.format==='single'?'단판전':roundLabel(match.roundIndex,match.repeat),dealer:game.dealer,seed:game.seed,result:game.end,winner:game.winners[0]??null,winners:[...game.winners],pinfuWinners:pinfuWinners(game),delta,totals:[...match.scores],pot:match.pot,retained,logId});
  if(match.format==='single'||match.roundIndex===7&&!retained){
   match.status='complete';match.next=null;
   if(match.pot){const top=match.scores.reduce((best,n,i)=>n>match.scores[best]?i:best,0);match.finalTransfers.push({from:'pot',to:top,amount:match.pot,kind:'final-pot'});match.scores[top]+=match.pot;match.pot=0;}
@@ -40,7 +41,7 @@ export function matchTotals(match,game){return match.status==='playing'?match.sc
 export function matchSummary(match,game){
  const totals=matchTotals(match,game),rankings=totals.map((points,seat)=>({seat,points,rank:1+totals.filter(n=>n>points).length})).sort((a,b)=>b.points-a.points||a.seat-b.seat);
  return {id:match.id,variant:'S',format:match.format??'hanchan',startedAt:match.startedAt,roundIndex:match.roundIndex,repeat:match.repeat,handNumber:match.handNumber,label:match.format==='single'?'단판전':roundLabel(match.roundIndex,match.repeat),status:match.status,totals,pot:match.status==='playing'?game.pot:match.pot,
-  nextLabel:match.next?roundLabel(match.next.roundIndex,match.next.repeat):null,settings:clone(match.settings),startingPoints:match.rules.startingPoints,rankings,
+  nextLabel:match.next?roundLabel(match.next.roundIndex,match.next.repeat):null,settings:clone(match.settings),startingPoints:match.rules.startingPoints,rankings,pinfu:pinfuSummary(match,game),
   rounds:match.rounds.map(({seed,logId,...row})=>clone(row)),finalTransfers:clone(match.finalTransfers)};
 }
 export function assertMatch(match,game){

@@ -71,6 +71,39 @@ var DEFAULT_RULES = Object.freeze({
   passRonLock: "same-tile-until-draw"
 });
 
+// engine/score.mjs
+var YAKU = {
+  noYaku: ["\uBB34\uC5ED(\u4EBA\u548C)", 50],
+  pinfu: ["\uD551\uD6C4", 100],
+  iipeikou: ["\uC774\uD398\uCF54", 100],
+  menzen: ["\uBA58\uC820", 100],
+  tanyao: ["\uD0D5\uC57C\uC624", 100],
+  toitoi: ["\uB610\uC774\uB610\uC774", 200],
+  fiveGates: ["\uC624\uBB38(\u4E94\u95E8)", 200],
+  sanshokuTriplets: ["\uC0BC\uC0C9\uB3D9\uAC01", 200],
+  sanshokuSequences: ["\uC0BC\uC0C9\uB3D9\uC21C", 200],
+  chanta: ["\uCC2C\uD0C0", 200],
+  honitsu: ["\uD63C\uC77C\uC0C9", 200],
+  junchan: ["\uC900\uCC2C\uD0C0", 400],
+  ryanpeikou: ["\uB7C9\uD398\uCF54", 400],
+  ittsu: ["\uC77C\uAE30\uD1B5\uAD00", 400],
+  honroutou: ["\uD63C\uB178\uB450", 400],
+  chinitsu: ["\uCCAD\uC77C\uC0C9", 400],
+  sevenPairs: ["\uCE60\uB300\uC790", 400],
+  jiangdui: ["\uC7A5\uB300(2\xB75\xB78 \uB610\uC774\uB610\uC774)", 800],
+  qingdui: ["\uCCAD\uB300(\uCCAD\uC77C\uC0C9 \uB610\uC774\uB610\uC774)", 800],
+  threeKans: ["\uC0BC\uAE61\uC790", 800],
+  pureSevenPairs: ["\uCCAD\uCE60\uB300\uC790", 800],
+  sanankou: ["\uC0BC\uC554\uAC01", 800],
+  smallFourWinds: ["\uC18C\uC0AC\uD76C", 800],
+  smallThreeDragons: ["\uC18C\uC0BC\uC6D0", 800],
+  allTerminals: ["\uCCAD\uB178\uB450", 1e3],
+  allHonors: ["\uC790\uC77C\uC0C9", 1e3],
+  allGreen: ["\uB179\uC77C\uC0C9(\uC6D0\uBB38 \uD574\uC11D)", 1e3],
+  bigFourWinds: ["\uB300\uC0AC\uD76C", 1e3],
+  bigThreeDragons: ["\uB300\uC0BC\uC6D0", 1e3]
+};
+
 // s-engine/rules.mjs
 var PREVIOUS_DEFAULTS = Object.freeze({
   id: "S-2026-private-kan-v1",
@@ -108,6 +141,16 @@ var S_DEFAULTS = Object.freeze({
   invalidHandNoten: true,
   paoByYakuman: true
 });
+
+// game/win-label.mjs
+function scoreDisplayYaku(score) {
+  if (!score || score.variant === "S" || score.yaku === "pinfu") return score?.yaku;
+  const originalPoints = YAKU[score.yaku]?.[1] ?? (score.baseFan === 1 ? 100 : null);
+  return originalPoints === 100 && (score.eligibleYaku?.includes("pinfu") || score.displayYaku === "pinfu") ? "pinfu" : score.yaku;
+}
+function scoreDisplayName(score) {
+  return score?.variant !== "S" && scoreDisplayYaku(score) === "pinfu" ? "\uD551\uD6C4" : score?.name;
+}
 
 // web/score-display.mjs
 function hBonusDetails(score, rules = {}) {
@@ -222,7 +265,7 @@ function logText(log) {
     if (action.type !== "pass") lines.push(`#${entry.n + 1} ${seats2[entry.seat]} ${{ discard: "\uBC84\uB9BC", riichi: "\uB9AC\uCE58\xB7\uBC84\uB9BC", tsumo: "\uCBD4\uBAA8", ron: "\uB860", chi: "\uCE58", pon: "\uD401", ankan: "\uC548\uAE61", minkan: "\uBA85\uAE61", kakan: "\uAC00\uAE61" }[action.type] ?? action.type}${tile}`);
     for (const win of entry.wins) {
       const detail2 = variant === "S" ? scoreBreakdownText(win.score) : `${hFanDetails(win.score, game.rules) ? hFanDetails(win.score, game.rules) + " \xB7 " : ""}\uC5ED ${win.score.base}${win.score.bonus ? " + " + (hBonusDetails(win.score, game.rules) || "\uAC00\uC0B0 " + win.score.bonus) : ""}${win.tsumoBonus ? " + \uCBD4\uBAA8 " + win.tsumoBonus : ""}`;
-      lines.push(variant === "S" ? `  ${seats2[win.seat]} ${detail2}` : `  ${seats2[win.seat]} ${win.score.name} (${detail2})`);
+      lines.push(variant === "S" ? `  ${seats2[win.seat]} ${detail2}` : `  ${seats2[win.seat]} ${scoreDisplayName(win.score)} (${detail2})`);
       if (variant === "H" && game.players[win.seat].win?.payment?.method === "ron" && win.method === "tsumo") lines.push("  \uBA85\uAE61 \uACF5\uAE09\uC790 \uB2E8\uB3C5 \uC9C0\uBD88 (\uB860 \uC9C0\uAE09)");
       if (win.issues.length) lines.push(`  \uADDC\uCE59\uC0C1 ${win.expectedReceipt}, \uC2E4\uC81C \uC218\uC785 ${win.actualReceipt}`);
     }
@@ -251,7 +294,7 @@ function reviewText(input) {
       const fanDetail = hFanDetails(win.score, game.rules);
       if (fanDetail) lines.push(fanDetail);
       const extra = Object.entries(win.score.bonuses ?? {}).filter(([, value]) => typeof value === "number" && value).map(([name, value]) => `${{ kan: game.rules.fourOfAKindBonus ? "\uC0AC\uADC0\uC77C" : "\uAE61", dragon: "\uC0BC\uC6D0\uD328", roundWind: "\uC7A5\uD48D", seatWind: "\uC790\uD48D" }[name] ?? name} ${value}`);
-      lines.push(s ? `${seats2[win.seat]} ${win.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 ${scoreBreakdownText(win.score)}` : `${seats2[win.seat]} ${win.score.name} ${win.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 \uC5ED ${win.score.base}${extra.length ? " + " + extra.join(" + ") : ""}${win.tsumoBonus ? " + \uCBD4\uBAA8 " + win.tsumoBonus + " / \uC9C0\uAE09\uC790" : ""}`);
+      lines.push(s ? `${seats2[win.seat]} ${win.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 ${scoreBreakdownText(win.score)}` : `${seats2[win.seat]} ${scoreDisplayName(win.score)} ${win.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"} \xB7 \uC5ED ${win.score.base}${extra.length ? " + " + extra.join(" + ") : ""}${win.tsumoBonus ? " + \uCBD4\uBAA8 " + win.tsumoBonus + " / \uC9C0\uAE09\uC790" : ""}`);
     }
     for (const p of e.payments) lines.push(`  ${seats2[p.from] ?? "\uACF5\uD0C1"} \u2192 ${seats2[p.to] ?? "\uACF5\uD0C1"}: ${p.amount}\uC810`);
     for (const issue of e.issues) lines.push(`[\uC815\uC0B0 \uD655\uC778 \uD544\uC694] ${issue}`);

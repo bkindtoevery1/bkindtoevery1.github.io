@@ -1,6 +1,7 @@
 import {createGame,assertInvariants} from '../engine/game.mjs';
 import {ruleset} from '../engine/rules.mjs';
 import {roundLabel,roundSeed} from '../s-engine/match.mjs';
+import {pinfuWinners,pinfuSummary,backfillCurrentPinfu} from './pinfu-count.mjs';
 
 // H half-games cover East 1 through South 4. The current operational reading
 // uses the first win event, including every winner of its simultaneous ron.
@@ -56,11 +57,11 @@ export function recordRound(match,game,{logId=null}={}){
  if(game.matchContext?.id!==match.id||game.matchContext.handNumber!==match.handNumber)throw new Error('다른 대국 또는 국의 정산입니다.');
  if(match.status==='playing'&&!game.end)throw new Error('국이 끝난 뒤 정산할 수 있습니다.');
  upgradeDealerContinuation(match,game);
- if(match.status!=='playing')return false;
+ if(match.status!=='playing'){backfillCurrentPinfu(match,game);return false;}
  assertMatch(match,game);
  const retained=retainsDealer(match,game);
  const delta=game.players.map(p=>p.score);match.scores=match.scores.map((n,i)=>n+delta[i]);
- match.rounds.push({handNumber:match.handNumber,roundIndex:match.roundIndex,repeat:match.repeat,label:label(match),dealer:game.dealer,seed:game.seed,result:game.end,winner:game.winners[0]??null,winners:[...game.winners],delta,totals:[...match.scores],pot:0,retained,logId});
+ match.rounds.push({handNumber:match.handNumber,roundIndex:match.roundIndex,repeat:match.repeat,label:label(match),dealer:game.dealer,seed:game.seed,result:game.end,winner:game.winners[0]??null,winners:[...game.winners],pinfuWinners:pinfuWinners(game),delta,totals:[...match.scores],pot:0,retained,logId});
  setNextRound(match,retained);
  assertMatch(match,game);return true;
 }
@@ -71,7 +72,7 @@ export function advanceMatch(match,expectedHandNumber=match.handNumber){
 export function matchTotals(match,game){return match.status==='playing'?match.scores.map((n,i)=>n+game.players[i].score):[...match.scores];}
 export function matchSummary(match,game){
  const totals=matchTotals(match,game),rankings=totals.map((points,seat)=>({seat,points,rank:1+totals.filter(n=>n>points).length})).sort((a,b)=>b.points-a.points||a.seat-b.seat);
- return {id:match.id,variant:'H',format:match.format,startedAt:match.startedAt,roundIndex:match.roundIndex,repeat:match.repeat,handNumber:match.handNumber,label:label(match),status:match.status,totals,pot:0,nextLabel:match.next?roundLabel(match.next.roundIndex,match.next.repeat):null,settings:clone(match.settings),startingPoints:0,rankings,rounds:match.rounds.map(({seed,logId,...row})=>clone(row)),finalTransfers:[]};
+ return {id:match.id,variant:'H',format:match.format,startedAt:match.startedAt,roundIndex:match.roundIndex,repeat:match.repeat,handNumber:match.handNumber,label:label(match),status:match.status,totals,pot:0,nextLabel:match.next?roundLabel(match.next.roundIndex,match.next.repeat):null,settings:clone(match.settings),startingPoints:0,rankings,pinfu:pinfuSummary(match,game),rounds:match.rounds.map(({seed,logId,...row})=>clone(row)),finalTransfers:[]};
 }
 export function assertMatch(match,game){
  if(match.version!==1||match.variant!=='H'||!['single','hanchan'].includes(match.format)||!['playing','between-rounds','complete'].includes(match.status)||!Number.isInteger(match.roundIndex)||match.roundIndex<0||match.roundIndex>7||!Number.isInteger(match.handNumber)||match.handNumber<match.roundIndex+1||!Number.isInteger(match.repeat)||match.repeat<0||!CONTINUATIONS.includes(match.settings.dealerContinuation)||match.settings.dealerContinuation==='none'&&(match.handNumber!==match.roundIndex+1||match.repeat!==0)||match.format==='single'&&(match.roundIndex!==0||match.repeat!==0||match.handNumber!==1||match.status==='between-rounds'))throw new Error('Invalid H match progress');

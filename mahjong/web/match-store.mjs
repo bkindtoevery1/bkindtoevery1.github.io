@@ -7,6 +7,15 @@ export const summaryVariant=summary=>summary?.variant==='H'?'H':'S';
 export const summaryFormat=summary=>summary?.format??defaultMatchFormat(summaryVariant(summary));
 export const matchTitle=summary=>`${summaryVariant(summary)}룰 ${matchFormatName(summaryFormat(summary))}`;
 export const roundResultName=result=>result==='exhaustive-draw'?'유국':'화료';
+export function pinfuCountText(pinfu,seat){
+ const count=pinfu?.counts?.[seat];
+ return Number.isInteger(count)&&count>=0?`핑후 ${count}회${pinfu.unknownHands>0?'*':''}`:'핑후 집계 없음';
+}
+export function pinfuCountNote(summary){
+ if(!summary?.pinfu)return '이 점수표에는 핑후 집계 정보가 없습니다.';
+ const scope=`이번 ${matchFormatName(summaryFormat(summary))} 누적`,basis=summaryVariant(summary)==='H'?'대표 역이 핑후인 화료':'성립 역에 핑후가 포함된 화료';
+ return `${scope} · ${basis}를 1회씩 셉니다.${summary.pinfu.unknownHands>0?` * 이전 ${summary.pinfu.unknownHands}국은 역 정보가 없어 확인된 기록만 표시합니다.`:''}`;
+}
 export function matchRulesDescription(summary){
  const variant=summaryVariant(summary),format=summaryFormat(summary),start=`${summary.startingPoints.toLocaleString()}점 시작`;
  if(format==='single')return `${start} · 한 국 정산 후 종료합니다.${variant==='S'?' 남은 공탁은 1위에게 지급합니다.':''}`;
@@ -54,5 +63,6 @@ export function matchCSV(summary,names=['시작 동','시작 남','시작 서','
  for(const t of summary.finalTransfers){const delta=[0,0,0,0];delta[t.to]=t.amount;rows.push(['종료 공탁 지급',names[t.to],...delta,...summary.totals,summary.pot]);}
  rows.push([summary.status==='complete'?'최종':'현재',summary.label,'','','','',...summary.totals,summary.pot]);
  rows.push([summary.status==='complete'?'최종 순위':'현재 순위','동점 공동 순위','','','','',...[0,1,2,3].map(seat=>summary.rankings.find(r=>r.seat===seat).rank),'']);
+ if(summary.pinfu)rows.push(['핑후 화료 횟수',summary.pinfu.unknownHands>0?`확인된 기록만 · 역 정보 없는 ${summary.pinfu.unknownHands}국 제외`:'이번 대국 누적','','','','',...summary.pinfu.counts,'']);
  return '\uFEFF'+rows.map(r=>r.map(cell).join(',')).join('\r\n')+'\r\n';
 }

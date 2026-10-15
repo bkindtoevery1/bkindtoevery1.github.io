@@ -1,6 +1,7 @@
 import {step,assertInvariants} from '../game/engine.mjs';
 import {tileName,typeOf,counts} from '../engine/tiles.mjs';
 import {scoreBreakdownText,hBonusDetails,hFanDetails} from './score-display.mjs';
+import {scoreDisplayName} from '../game/win-label.mjs';
 
 export const LOG_FORMAT='h-mahjong-log/v1';
 export const COMPACT_FORMAT='wellness-mahjong-log/v2';
@@ -142,7 +143,7 @@ export function logText(log){
     recordRuleChange(index);
     const action=entry.action,tile=action.type==='ankan'&&concealedForViewer(game,entry.seat,log.humanSeat)?' (비공개)':Number.isInteger(action.tile)?` ${tileName(action.tile)}`:'';
     if(action.type!=='pass')lines.push(`#${entry.n+1} ${seats[entry.seat]} ${({discard:'버림',riichi:'리치·버림',tsumo:'쯔모',ron:'론',chi:'치',pon:'퐁',ankan:'안깡',minkan:'명깡',kakan:'가깡'})[action.type]??action.type}${tile}`);
-    for(const win of entry.wins){const detail=variant==='S'?scoreBreakdownText(win.score):`${hFanDetails(win.score,game.rules)?hFanDetails(win.score,game.rules)+' · ':''}역 ${win.score.base}${win.score.bonus?' + '+(hBonusDetails(win.score,game.rules)||'가산 '+win.score.bonus):''}${win.tsumoBonus?' + 쯔모 '+win.tsumoBonus:''}`;lines.push(variant==='S'?`  ${seats[win.seat]} ${detail}`:`  ${seats[win.seat]} ${win.score.name} (${detail})`);if(variant==='H'&&game.players[win.seat].win?.payment?.method==='ron'&&win.method==='tsumo')lines.push('  명깡 공급자 단독 지불 (론 지급)');if(win.issues.length)lines.push(`  규칙상 ${win.expectedReceipt}, 실제 수입 ${win.actualReceipt}`);}
+    for(const win of entry.wins){const detail=variant==='S'?scoreBreakdownText(win.score):`${hFanDetails(win.score,game.rules)?hFanDetails(win.score,game.rules)+' · ':''}역 ${win.score.base}${win.score.bonus?' + '+(hBonusDetails(win.score,game.rules)||'가산 '+win.score.bonus):''}${win.tsumoBonus?' + 쯔모 '+win.tsumoBonus:''}`;lines.push(variant==='S'?`  ${seats[win.seat]} ${detail}`:`  ${seats[win.seat]} ${scoreDisplayName(win.score)} (${detail})`);if(variant==='H'&&game.players[win.seat].win?.payment?.method==='ron'&&win.method==='tsumo')lines.push('  명깡 공급자 단독 지불 (론 지급)');if(win.issues.length)lines.push(`  규칙상 ${win.expectedReceipt}, 실제 수입 ${win.actualReceipt}`);}
     for(const payment of entry.payments)lines.push(`  ${seats[payment.from]??'공탁'} → ${seats[payment.to]??'공탁'}: ${payment.amount}점`);
     for(const draw of entry.draws)lines.push(`  ${seats[draw.seat]} ${draw.type==='kanDraw'?'보충패':'뽑은 패'}: ${tileName(typeOf(draw.id))}`);
     for(const issue of entry.issues)lines.push(`  [정산 확인 필요] ${issue}`);
@@ -162,7 +163,7 @@ export function reviewText(input){
  for(const e of log.actions){
   if(['ankan','minkan','kakan'].includes(e.action.type))lines.push(`${seats[e.seat]} ${e.action.type==='ankan'?'안깡':e.action.type==='minkan'?'명깡':'가깡'}${e.action.type==='ankan'&&concealedForViewer(game,e.seat,log.humanSeat)?' · 비공개':Number.isInteger(e.action.tile)?' · '+tileName(e.action.tile):''} (이때는 점수 이동 없음)`);
   for(const win of e.wins){if(!s&&game.players[win.seat].win?.payment?.method==='ron'&&win.method==='tsumo')lines.push('명깡 공급자 단독 지불 (론 지급)');const fanDetail=hFanDetails(win.score,game.rules);if(fanDetail)lines.push(fanDetail);const extra=Object.entries(win.score.bonuses??{}).filter(([,value])=>typeof value==='number'&&value).map(([name,value])=>`${({kan:game.rules.fourOfAKindBonus?'사귀일':'깡',dragon:'삼원패',roundWind:'장풍',seatWind:'자풍'})[name]??name} ${value}`);
-   lines.push(s?`${seats[win.seat]} ${win.method==='ron'?'론':'쯔모'} · ${scoreBreakdownText(win.score)}`:`${seats[win.seat]} ${win.score.name} ${win.method==='ron'?'론':'쯔모'} · 역 ${win.score.base}${extra.length?' + '+extra.join(' + '):''}${win.tsumoBonus?' + 쯔모 '+win.tsumoBonus+' / 지급자':''}`);
+   lines.push(s?`${seats[win.seat]} ${win.method==='ron'?'론':'쯔모'} · ${scoreBreakdownText(win.score)}`:`${seats[win.seat]} ${scoreDisplayName(win.score)} ${win.method==='ron'?'론':'쯔모'} · 역 ${win.score.base}${extra.length?' + '+extra.join(' + '):''}${win.tsumoBonus?' + 쯔모 '+win.tsumoBonus+' / 지급자':''}`);
   }
   for(const p of e.payments)lines.push(`  ${seats[p.from]??'공탁'} → ${seats[p.to]??'공탁'}: ${p.amount}점`);
   for(const issue of e.issues)lines.push(`[정산 확인 필요] ${issue}`);

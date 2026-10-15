@@ -2,6 +2,7 @@ import {tileName} from '../engine/tiles.mjs';
 import {legalWinScore} from '../policies/index.mjs';
 import {chooseAction, POLICIES} from '../game/policies.mjs';
 import {explainDiscards} from './recommendation-explanation.mjs';
+import {scoreDisplayName} from '../game/win-label.mjs';
 
 const focus = {
   A: '샨텐을 먼저 줄이고 유효패가 많은 쪽을 고릅니다.',
@@ -51,7 +52,7 @@ function deferredWinReason(view,action,weights){
  if(view.rules.variant==='S'||!weights?.minWinBase||['ron','tsumo'].includes(action.type)||view.wallRemaining<=(weights.minWinWall??0))return '';
  const method=view.legalActions.some(a=>a.type==='tsumo')?'tsumo':'ron',score=legalWinScore(view,method);
  if(!score||score.base>=weights.minWinBase)return '';
- return `지금 ${score.name}의 역 점수는 ${score.base}점으로 목표 ${weights.minWinBase}점보다 낮아 ${method==='ron'?'론을':'쯔모를'} 넘깁니다. 번패·사귀일·쯔모 가산은 목표 역 점수에서 제외합니다. 패산 ${weights.minWinWall??0}장 이하에서는 낮은 점수도 화료합니다.`;
+ return `지금 ${scoreDisplayName(score)}의 역 점수는 ${score.base}점으로 목표 ${weights.minWinBase}점보다 낮아 ${method==='ron'?'론을':'쯔모를'} 넘깁니다. 번패·사귀일·쯔모 가산은 목표 역 점수에서 제외합니다. 패산 ${weights.minWinWall??0}장 이하에서는 낮은 점수도 화료합니다.`;
 }
 
 // The only input is the engine's own-hand/public-information observation.
