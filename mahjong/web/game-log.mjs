@@ -13,6 +13,36 @@ const concealedForViewer=(game,seat,viewer)=>game.rules.concealedKanPrivate===tr
 const signed=value=>`${value>0?'+':''}${value}`;
 const canonical=value=>JSON.stringify(value,(_,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.entries(v).sort(([a],[b])=>a.localeCompare(b))):v);
 
+// A saved game may opt into public concealed kans once, without rewriting its
+// initial snapshot or any recorded action. Scoring rules never migrate here.
+function validatedRuleChanges(log){
+  if(log.ruleChanges===undefined)return [];
+  const changes=log.ruleChanges;
+  if(!Array.isArray(changes)||changes.length>1)throw new Error('안깡 공개 전환 기록이 잘못되었습니다.');
+  for(const change of changes){
+    if(!change||typeof change!=='object'||Array.isArray(change)||Object.keys(change).sort().join(',')!=='actionIndex,at,from,rule,to'||log.mode!=='practice'||change.rule!=='concealedKanPrivate'||change.from!==true||change.to!==false||!Number.isSafeInteger(change.actionIndex)||change.actionIndex<0||change.actionIndex>log.actions.length||typeof change.at!=='string'||!Number.isFinite(Date.parse(change.at))||new Date(change.at).toISOString()!==change.at||log.initialGame.rules.concealedKanPrivate!==true||log.game.rules.concealedKanPrivate!==false||canonical({...log.initialGame.rules,concealedKanPrivate:false})!==canonical(log.game.rules))throw new Error('안깡 공개 전환 기록이 잘못되었습니다.');
+  }
+  return changes;
+}
+
+export function upgradePracticeKanVisibility(log,match=null,{now=()=>new Date().toISOString(),newId=()=>crypto.randomUUID()}={}){
+  if(log?.format!==LOG_FORMAT||log.mode!=='practice')throw new Error('혼자 연습 원본 로그가 필요합니다.');
+  validatedRuleChanges(log);
+  let changed=false;
+  if(log.game.rules.concealedKanPrivate===true){
+    const change={actionIndex:log.actions.length,rule:'concealedKanPrivate',from:true,to:false,at:now()};
+    // Validate before mutating so a damaged history remains available as saved.
+    validatedRuleChanges({...log,ruleChanges:[change],game:{...log.game,rules:{...log.game.rules,concealedKanPrivate:false}}});
+    const id=newId();
+    // Keep a separately archived original intact, even if its action count has
+    // not changed and the uploader would otherwise consider it already saved.
+    log.previousLogId=log.id;log.id=id;
+    log.ruleChanges=[change];log.game.rules.concealedKanPrivate=false;changed=true;
+  }
+  if(match?.rules.concealedKanPrivate===true){match.rules.concealedKanPrivate=false;changed=true;}
+  return changed;
+}
+
 export function beforeAction(game){
   return {scores:scores(game),active:game.players.flatMap((p,i)=>p.won?[]:[i]),events:game.events.length,ledger:game.ledger.length,pot:game.pot??0};
 }
@@ -104,10 +134,12 @@ export class GameJournal{
 }
 
 export function logText(log){
-  log=expandLog(log);const game=log.game,seats=seatLabels(game),variant=game.rules.variant==='S'?'S':'H',lines=[`${variant}룰 마작 대국 로그`,`${log.startedAt} · ${log.mode==='practice'?'혼자 연습':'4인 대국'} · 내 자리 ${seats[log.humanSeat]}`,`배패 번호: ${game.seed??'서버 비공개'} · 화면 버전: ${log.build??'미기록'}`,
+  log=expandLog(log);const ruleChanges=validatedRuleChanges(log),game=log.game,seats=seatLabels(game),variant=game.rules.variant==='S'?'S':'H',lines=[`${variant}룰 마작 대국 로그`,`${log.startedAt} · ${log.mode==='practice'?'혼자 연습':'4인 대국'} · 내 자리 ${seats[log.humanSeat]}`,`배패 번호: ${game.seed??'서버 비공개'} · 화면 버전: ${log.build??'미기록'}`,
     `${variant==='S'||game.startingScores||game.startingScores||game.matchContext?'이번 국 증감':'최종 점수'}: ${scores(game).map((score,i)=>`${seats[i]} ${signed(score)}`).join(' / ')}`,''];
   if(game.startingScores)lines.push(`누적 점수 (종료 공탁 별도): ${game.startingScores.map((n,i)=>seats[i]+' '+(n+game.players[i].score)).join(' / ')}`,'');
-  for(const entry of log.actions){
+  const recordRuleChange=index=>{for(const change of ruleChanges)if(change.actionIndex===index)lines.push(`[안깡 공개 전환] 행동 ${index}개 완료 후 · 모든 참가자에게 패 종류 공개 · ${change.at}`);};
+  for(const [index,entry] of log.actions.entries()){
+    recordRuleChange(index);
     const action=entry.action,tile=action.type==='ankan'&&concealedForViewer(game,entry.seat,log.humanSeat)?' (비공개)':Number.isInteger(action.tile)?` ${tileName(action.tile)}`:'';
     if(action.type!=='pass')lines.push(`#${entry.n+1} ${seats[entry.seat]} ${({discard:'버림',riichi:'리치·버림',tsumo:'쯔모',ron:'론',chi:'치',pon:'퐁',ankan:'안깡',minkan:'명깡',kakan:'가깡'})[action.type]??action.type}${tile}`);
     for(const win of entry.wins){const detail=variant==='S'?scoreBreakdownText(win.score):`${hFanDetails(win.score,game.rules)?hFanDetails(win.score,game.rules)+' · ':''}역 ${win.score.base}${win.score.bonus?' + '+(hBonusDetails(win.score,game.rules)||'가산 '+win.score.bonus):''}${win.tsumoBonus?' + 쯔모 '+win.tsumoBonus:''}`;lines.push(variant==='S'?`  ${seats[win.seat]} ${detail}`:`  ${seats[win.seat]} ${win.score.name} (${detail})`);if(variant==='H'&&game.players[win.seat].win?.payment?.method==='ron'&&win.method==='tsumo')lines.push('  명깡 공급자 단독 지불 (론 지급)');if(win.issues.length)lines.push(`  규칙상 ${win.expectedReceipt}, 실제 수입 ${win.actualReceipt}`);}
@@ -116,6 +148,7 @@ export function logText(log){
     for(const issue of entry.issues)lines.push(`  [정산 확인 필요] ${issue}`);
     if(entry.error)lines.push(`  [실행 오류] ${entry.error}`);
   }
+  recordRuleChange(log.actions.length);
   for(const entry of log.observations)if(entry.delta.some(Boolean))lines.push(`수신 ${entry.revision} 점수 변동: ${entry.delta.map((v,i)=>v?seats[i]+' '+signed(v):'').filter(Boolean).join(' / ')}`);
   if(log.mode==='online'&&variant==='S')for(const seat of game.winners)lines.push(`${seats[seat]} ${scoreBreakdownText(game.players[seat].win.score)}`);
   lines.push('','현재 손패·후로 (JSON에는 원본 패 번호와 상세 기록 포함)');
@@ -142,14 +175,17 @@ export function reviewText(input){
 export function replayPracticeLog(log){
   log=expandLog(log);
   if(log?.format!==LOG_FORMAT||log.mode!=='practice')throw new Error('혼자 연습 JSON 로그가 필요합니다.');
-  const game=clone(log.initialGame);assertInvariants(game);
-  for(const entry of log.actions){
+  const ruleChanges=validatedRuleChanges(log),game=clone(log.initialGame);assertInvariants(game);
+  const applyRuleChange=index=>{for(const change of ruleChanges)if(change.actionIndex===index){if(game.rules.concealedKanPrivate!==true)throw new Error('안깡 공개 전환 전 상태가 다릅니다.');game.rules.concealedKanPrivate=false;}};
+  for(const [index,entry] of log.actions.entries()){
+    applyRuleChange(index);
     if(entry.error)throw new Error(`${entry.n+1}번째 행동에서 기록된 오류: ${entry.error}`);
     const before=beforeAction(game);
     step(game,entry.seat,entry.action);
     const actual=actionRecord(game,entry.seat,entry.action,before);
     for(const field of ['before','after','delta','payments','wins','draws','issues'])if(canonical(actual[field])!==canonical(entry[field]))throw new Error(`${entry.n+1}번째 행동의 ${field} 재현 불일치`);
   }
+  applyRuleChange(log.actions.length);
   if(canonical(game)!==canonical(log.game))throw new Error('마지막 대국 상태가 기록과 다릅니다.');
   return {actions:log.actions.length,scores:scores(game),end:game.end,issues:log.actions.flatMap(a=>a.issues)};
 }
@@ -159,6 +195,7 @@ export function replayPracticeLog(log){
 // V1 remains readable; the in-memory diagnostics stay exact for bug analysis.
 export function compactLog(input){
   const log=expandLog(input);if(!log||log.format!==LOG_FORMAT)throw new Error('지원하지 않는 대국 로그입니다.');
+  validatedRuleChanges(log);
   const game=clone(log.game),actionEvents=game.events.filter(e=>e.type==='action');
   for(const p of game.players)if(p.win){const win=game.events.find(e=>e.type==='win'&&e.seat===game.players.indexOf(p));if(win?.order)p.win={event:win.n??game.events.indexOf(win)};}
   for(const e of game.events)if(e.type==='win'&&e.payments){e.paymentIndexes=game.ledger.flatMap((p,i)=>p.to===e.seat&&['ron','tsumo','pot'].includes(p.kind)?[i]:[]);delete e.payments;}
@@ -169,6 +206,7 @@ export function compactLog(input){
 }
 export function expandLog(input){
   if(!input||input.format!==COMPACT_FORMAT)return input;
+  validatedRuleChanges(input);
   const log=clone(input),game=log.game;log.format=LOG_FORMAT;
   for(const e of game.events)if(e.paymentIndexes){e.payments=e.paymentIndexes.map(i=>clone(game.ledger[i]));delete e.paymentIndexes;}
   for(const p of game.players)if(p.win&&Object.hasOwn(p.win,'event')){const event=game.events.find((e,i)=>(e.n??i)===p.win.event);if(!event)throw new Error('화료 기록 참조가 잘못되었습니다.');const {n,type,seat,...win}=event;p.win=clone(win);}

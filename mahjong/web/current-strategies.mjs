@@ -1,5 +1,6 @@
 import {chooseAction} from '../game/policies.mjs';
-import {RULEBOOK_TRAINING,rulebookTrainingCompatible} from '../game/rulebook-training.mjs';
+import {RULEBOOK_TRAINING} from '../game/rulebook-training.mjs';
+import {rulebookTrainingApplicable} from '../game/training-runtime.mjs';
 
 // A–E are the current display/selection IDs. Keep the frozen experiment's
 // version ID and evidence intact for saved-game provenance and comparisons.
@@ -10,7 +11,7 @@ export const currentStrategy=id=>CURRENT_STRATEGIES.find(strategy=>strategy.id==
 
 const currentWeightMap=Object.freeze(Object.fromEntries(CURRENT_STRATEGIES.map(strategy=>[strategy.id,strategy.weights])));
 const baselineWeights=Object.freeze({});
-export const currentWeights=view=>rulebookTrainingCompatible(view)?currentWeightMap:baselineWeights;
+export const currentWeights=view=>rulebookTrainingApplicable(view)?currentWeightMap:baselineWeights;
 
 const profile=(name,policies)=>Object.freeze({name,policies:Object.freeze(policies)});
 export const PRACTICE_PROFILES=Object.freeze({

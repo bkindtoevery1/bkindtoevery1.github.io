@@ -150,6 +150,16 @@ var seats = ["\uB3D9", "\uB0A8", "\uC11C", "\uBD81"];
 var seatLabels = (game) => seats.map((_, i) => seats[(i - (game.dealer ?? 0) + 4) % 4]);
 var concealedForViewer = (game, seat, viewer) => game.rules.concealedKanPrivate === true && seat !== viewer;
 var signed = (value) => `${value > 0 ? "+" : ""}${value}`;
+var canonical = (value) => JSON.stringify(value, (_, v) => v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b))) : v);
+function validatedRuleChanges(log) {
+  if (log.ruleChanges === void 0) return [];
+  const changes = log.ruleChanges;
+  if (!Array.isArray(changes) || changes.length > 1) throw new Error("\uC548\uAE61 \uACF5\uAC1C \uC804\uD658 \uAE30\uB85D\uC774 \uC798\uBABB\uB418\uC5C8\uC2B5\uB2C8\uB2E4.");
+  for (const change of changes) {
+    if (!change || typeof change !== "object" || Array.isArray(change) || Object.keys(change).sort().join(",") !== "actionIndex,at,from,rule,to" || log.mode !== "practice" || change.rule !== "concealedKanPrivate" || change.from !== true || change.to !== false || !Number.isSafeInteger(change.actionIndex) || change.actionIndex < 0 || change.actionIndex > log.actions.length || typeof change.at !== "string" || !Number.isFinite(Date.parse(change.at)) || new Date(change.at).toISOString() !== change.at || log.initialGame.rules.concealedKanPrivate !== true || log.game.rules.concealedKanPrivate !== false || canonical({ ...log.initialGame.rules, concealedKanPrivate: false }) !== canonical(log.game.rules)) throw new Error("\uC548\uAE61 \uACF5\uAC1C \uC804\uD658 \uAE30\uB85D\uC774 \uC798\uBABB\uB418\uC5C8\uC2B5\uB2C8\uB2E4.");
+  }
+  return changes;
+}
 function actionRecord(game, seat, action, before, error = null) {
   const seats2 = seatLabels(game);
   const after = scores(game), payments = clone(game.ledger.slice(before.ledger)), issues = [];
@@ -195,7 +205,7 @@ function actionRecord(game, seat, action, before, error = null) {
 }
 function logText(log) {
   log = expandLog(log);
-  const game = log.game, seats2 = seatLabels(game), variant = game.rules.variant === "S" ? "S" : "H", lines = [
+  const ruleChanges = validatedRuleChanges(log), game = log.game, seats2 = seatLabels(game), variant = game.rules.variant === "S" ? "S" : "H", lines = [
     `${variant}\uB8F0 \uB9C8\uC791 \uB300\uAD6D \uB85C\uADF8`,
     `${log.startedAt} \xB7 ${log.mode === "practice" ? "\uD63C\uC790 \uC5F0\uC2B5" : "4\uC778 \uB300\uAD6D"} \xB7 \uB0B4 \uC790\uB9AC ${seats2[log.humanSeat]}`,
     `\uBC30\uD328 \uBC88\uD638: ${game.seed ?? "\uC11C\uBC84 \uBE44\uACF5\uAC1C"} \xB7 \uD654\uBA74 \uBC84\uC804: ${log.build ?? "\uBBF8\uAE30\uB85D"}`,
@@ -203,7 +213,11 @@ function logText(log) {
     ""
   ];
   if (game.startingScores) lines.push(`\uB204\uC801 \uC810\uC218 (\uC885\uB8CC \uACF5\uD0C1 \uBCC4\uB3C4): ${game.startingScores.map((n, i) => seats2[i] + " " + (n + game.players[i].score)).join(" / ")}`, "");
-  for (const entry of log.actions) {
+  const recordRuleChange = (index) => {
+    for (const change of ruleChanges) if (change.actionIndex === index) lines.push(`[\uC548\uAE61 \uACF5\uAC1C \uC804\uD658] \uD589\uB3D9 ${index}\uAC1C \uC644\uB8CC \uD6C4 \xB7 \uBAA8\uB4E0 \uCC38\uAC00\uC790\uC5D0\uAC8C \uD328 \uC885\uB958 \uACF5\uAC1C \xB7 ${change.at}`);
+  };
+  for (const [index, entry] of log.actions.entries()) {
+    recordRuleChange(index);
     const action = entry.action, tile = action.type === "ankan" && concealedForViewer(game, entry.seat, log.humanSeat) ? " (\uBE44\uACF5\uAC1C)" : Number.isInteger(action.tile) ? ` ${tileName(action.tile)}` : "";
     if (action.type !== "pass") lines.push(`#${entry.n + 1} ${seats2[entry.seat]} ${{ discard: "\uBC84\uB9BC", riichi: "\uB9AC\uCE58\xB7\uBC84\uB9BC", tsumo: "\uCBD4\uBAA8", ron: "\uB860", chi: "\uCE58", pon: "\uD401", ankan: "\uC548\uAE61", minkan: "\uBA85\uAE61", kakan: "\uAC00\uAE61" }[action.type] ?? action.type}${tile}`);
     for (const win of entry.wins) {
@@ -217,6 +231,7 @@ function logText(log) {
     for (const issue of entry.issues) lines.push(`  [\uC815\uC0B0 \uD655\uC778 \uD544\uC694] ${issue}`);
     if (entry.error) lines.push(`  [\uC2E4\uD589 \uC624\uB958] ${entry.error}`);
   }
+  recordRuleChange(log.actions.length);
   for (const entry of log.observations) if (entry.delta.some(Boolean)) lines.push(`\uC218\uC2E0 ${entry.revision} \uC810\uC218 \uBCC0\uB3D9: ${entry.delta.map((v, i) => v ? seats2[i] + " " + signed(v) : "").filter(Boolean).join(" / ")}`);
   if (log.mode === "online" && variant === "S") for (const seat of game.winners) lines.push(`${seats2[seat]} ${scoreBreakdownText(game.players[seat].win.score)}`);
   lines.push("", "\uD604\uC7AC \uC190\uD328\xB7\uD6C4\uB85C (JSON\uC5D0\uB294 \uC6D0\uBCF8 \uD328 \uBC88\uD638\uC640 \uC0C1\uC138 \uAE30\uB85D \uD3EC\uD568)");
@@ -252,6 +267,7 @@ function reviewText(input) {
 }
 function expandLog(input) {
   if (!input || input.format !== COMPACT_FORMAT) return input;
+  validatedRuleChanges(input);
   const log = clone(input), game = log.game;
   log.format = LOG_FORMAT;
   for (const e of game.events) if (e.paymentIndexes) {

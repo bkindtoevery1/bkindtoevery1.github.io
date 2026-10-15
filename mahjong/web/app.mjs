@@ -2184,25 +2184,25 @@ var RoomClient = class {
 // web/meld-view.mjs
 var SOURCES = { 1: "right", 2: "across", 3: "left" };
 var MELD_SOURCE_LABELS = { left: "\uC67C\uCABD", across: "\uB9DE\uC740\uD3B8", right: "\uC624\uB978\uCABD" };
-function meldDisplay(meld, seat, players = [], { variant = "H", concealedKanPrivate = false, viewerSeat, revealed = false } = {}) {
-  const ids = [...meld.ids];
-  if (!meld.open && meld.type === "kan" && (concealedKanPrivate === true || meld.hidden === true)) {
-    const canReveal = viewerSeat === seat && !meld.hidden && ids.length === 4 && ids.every(Number.isInteger);
-    const show = canReveal && revealed === true;
+function meldDisplay(meld, seat, players = [], { concealedKanPrivate = false, viewerSeat } = {}) {
+  const ids = Array.isArray(meld.ids) ? [...meld.ids] : [];
+  const knownKan = Number.isInteger(meld.tile) && meld.tile >= 0 && meld.tile < 34 && ids.length === 4 && ids.every((id) => Number.isInteger(id) && id >= 0 && id < 136 && typeOf(id) === meld.tile);
+  if (!meld.open && meld.type === "kan" && (concealedKanPrivate === true || meld.hidden === true || !knownKan)) {
+    const ownerVisible = viewerSeat === seat && !meld.hidden && knownKan;
     return {
       source: null,
       calledId: null,
       addedId: null,
       private: true,
-      canReveal,
-      revealed: show,
-      // Do not retain types or physical IDs in the covered view, even in solo play.
+      ownerVisible,
+      // The owner already knows these tiles. Every other viewer gets neither
+      // types nor physical IDs, including when solo state holds the real tiles.
       slots: Array.from({ length: 4 }, (_, i) => ({
-        id: show ? ids[i] : null,
-        tile: show ? typeOf(ids[i]) : null,
+        id: ownerVisible ? ids[i] : null,
+        tile: ownerVisible ? typeOf(ids[i]) : null,
         called: false,
         added: null,
-        faceDown: !show
+        faceDown: !ownerVisible
       }))
     };
   }
@@ -2210,15 +2210,9 @@ function meldDisplay(meld, seat, players = [], { variant = "H", concealedKanPriv
     source: null,
     calledId: null,
     addedId: null,
-    // S uses the conventional two-backed-tile marker; the two middle faces
-    // still disclose the tile type. H's source does not specify this marker.
-    slots: ids.map((id, index) => ({
-      id,
-      tile: typeOf(id),
-      called: false,
-      added: null,
-      faceDown: variant === "S" && meld.type === "kan" && (index === 0 || index === ids.length - 1)
-    }))
+    // Public kans show all four faces in both H and S; the explicit label keeps
+    // a concealed declaration distinct from an open kan without hiding its type.
+    slots: ids.map((id) => ({ id, tile: typeOf(id), called: false, added: null, faceDown: false }))
   };
   const source = SOURCES[(meld.from - seat + 4) % 4] ?? null;
   const river = players[meld.from]?.river ?? [];
@@ -2246,23 +2240,18 @@ function meldText(meld) {
 }
 function renderMeldElement(meld, seat, players, options = {}) {
   const display = meldDisplay(meld, seat, players, options);
-  const el = node(display.canReveal ? "button" : "div", void 0, "meld" + (display.canReveal ? " meld-peek" : ""));
+  const el = node("div", void 0, "meld");
   const source = display.source ? `${MELD_SOURCE_LABELS[display.source]}\uC5D0\uC11C \uAC00\uC838\uC628 ${tileName(typeOf(display.calledId))}` : "";
-  const label2 = display.private ? display.revealed ? `${meldText(meld)} \xB7 1.5\uCD08 \uB4A4 \uB2E4\uC2DC \uB4A4\uC9D1\uD799\uB2C8\uB2E4. \uB2E4\uC2DC \uB204\uB974\uBA74 \uBC14\uB85C \uAC00\uB9BD\uB2C8\uB2E4.` : display.canReveal ? "\uC548\uAE61 \xB7 \uB20C\uB7EC\uC11C \uC7A0\uAE50 \uD655\uC778" : "\uC548\uAE61 \xB7 \uBE44\uACF5\uAC1C" : [
+  const ownerLabel = display.ownerVisible ? `\uBCF8\uC778 \uC548\uAE61 \xB7 \uC0C1\uB300\uC5D0\uAC8C \uBE44\uACF5\uAC1C \xB7 ${tileName(display.slots[0].tile)}` : "";
+  const label2 = display.private ? ownerLabel || "\uC548\uAE61 \xB7 \uBE44\uACF5\uAC1C" : [
     meldText(meld),
     meld.type === "kan" && !meld.open ? "\uD328 \uC885\uB958 \uACF5\uAC1C" : "",
     source,
     display.addedId !== null ? "\uAC00\uAE61\uC740 \uAC00\uC838\uC628 \uD328 \uC704\uC5D0 \uACB9\uCCD0 \uD45C\uC2DC" : ""
   ].filter(Boolean).join(" \xB7 ");
-  if (display.canReveal) {
-    el.type = "button";
-    el.dataset.meldKey = options.key;
-    el.setAttribute("aria-pressed", String(display.revealed));
-    el.onclick = options.onToggle;
-  }
   el.setAttribute("aria-label", label2);
   el.title = label2;
-  el.append(node("span", display.canReveal ? display.revealed ? "\uC548\uAE61 \xB7 \uD655\uC778 \uC911" : "\uC548\uAE61 \xB7 \uD130\uCE58 \uD655\uC778" : meld.type === "kan" ? meld.open ? "\uAE61" : "\uC548\uAE61" : meld.type === "pon" ? "\uD401" : "\uCE58", "meld-label"));
+  el.append(node("span", ownerLabel || (meld.type === "kan" ? meld.open ? "\uAE61" : "\uC548\uAE61" : meld.type === "pon" ? "\uD401" : "\uCE58"), "meld-label"));
   for (const slot of display.slots) {
     const group = node("span", void 0, "meld-slot" + (slot.called ? " is-called" : "") + (slot.added ? " is-added-kan" : ""));
     const add = (tile, extra = false) => {
@@ -2282,52 +2271,6 @@ function renderMeldElement(meld, seat, players, options = {}) {
     el.append(group);
   }
   return el;
-}
-
-// web/kan-peek.mjs
-function createKanPeek({
-  durationMs = 1500,
-  now = () => Date.now(),
-  setTimeout: schedule2 = globalThis.setTimeout,
-  clearTimeout: cancel = globalThis.clearTimeout,
-  onChange = () => {
-  }
-} = {}) {
-  if (!Number.isFinite(durationMs) || durationMs <= 0) throw new RangeError("\uD655\uC778 \uC2DC\uAC04\uC740 \uC591\uC218\uC5EC\uC57C \uD569\uB2C8\uB2E4.");
-  let context2 = null, activeKey = null, deadline = 0, timer2 = null, generation = 0;
-  const clear = ({ notify = true } = {}) => {
-    const changed = activeKey !== null;
-    if (timer2 !== null) cancel(timer2);
-    timer2 = null;
-    activeKey = null;
-    deadline = 0;
-    generation++;
-    if (changed && notify) onChange();
-    return changed;
-  };
-  const isRevealed = (key3) => activeKey === key3 && now() < deadline;
-  const reveal = (key3) => {
-    if (typeof key3 !== "string" || !key3) throw new TypeError("\uC548\uAE61 \uD655\uC778 \uC704\uCE58\uAC00 \uD544\uC694\uD569\uB2C8\uB2E4.");
-    clear({ notify: false });
-    activeKey = key3;
-    deadline = now() + durationMs;
-    const current = generation;
-    const expire = () => {
-      if (current !== generation) return;
-      const remaining = deadline - now();
-      if (remaining > 0) timer2 = schedule2(expire, remaining);
-      else clear();
-    };
-    timer2 = schedule2(expire, durationMs);
-    onChange();
-  };
-  const setContext = (value4) => {
-    if (value4 === context2) return false;
-    context2 = value4;
-    clear({ notify: false });
-    return true;
-  };
-  return { setContext, reveal, isRevealed, clear };
 }
 
 // web/score-display.mjs
@@ -2427,6 +2370,36 @@ var seats = ["\uB3D9", "\uB0A8", "\uC11C", "\uBD81"];
 var seatLabels = (game) => seats.map((_, i) => seats[(i - (game.dealer ?? 0) + 4) % 4]);
 var concealedForViewer = (game, seat, viewer) => game.rules.concealedKanPrivate === true && seat !== viewer;
 var signed2 = (value4) => `${value4 > 0 ? "+" : ""}${value4}`;
+var canonical = (value4) => JSON.stringify(value4, (_, v) => v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b))) : v);
+function validatedRuleChanges(log) {
+  if (log.ruleChanges === void 0) return [];
+  const changes = log.ruleChanges;
+  if (!Array.isArray(changes) || changes.length > 1) throw new Error("\uC548\uAE61 \uACF5\uAC1C \uC804\uD658 \uAE30\uB85D\uC774 \uC798\uBABB\uB418\uC5C8\uC2B5\uB2C8\uB2E4.");
+  for (const change of changes) {
+    if (!change || typeof change !== "object" || Array.isArray(change) || Object.keys(change).sort().join(",") !== "actionIndex,at,from,rule,to" || log.mode !== "practice" || change.rule !== "concealedKanPrivate" || change.from !== true || change.to !== false || !Number.isSafeInteger(change.actionIndex) || change.actionIndex < 0 || change.actionIndex > log.actions.length || typeof change.at !== "string" || !Number.isFinite(Date.parse(change.at)) || new Date(change.at).toISOString() !== change.at || log.initialGame.rules.concealedKanPrivate !== true || log.game.rules.concealedKanPrivate !== false || canonical({ ...log.initialGame.rules, concealedKanPrivate: false }) !== canonical(log.game.rules)) throw new Error("\uC548\uAE61 \uACF5\uAC1C \uC804\uD658 \uAE30\uB85D\uC774 \uC798\uBABB\uB418\uC5C8\uC2B5\uB2C8\uB2E4.");
+  }
+  return changes;
+}
+function upgradePracticeKanVisibility(log, match = null, { now = () => (/* @__PURE__ */ new Date()).toISOString(), newId = () => crypto.randomUUID() } = {}) {
+  if (log?.format !== LOG_FORMAT || log.mode !== "practice") throw new Error("\uD63C\uC790 \uC5F0\uC2B5 \uC6D0\uBCF8 \uB85C\uADF8\uAC00 \uD544\uC694\uD569\uB2C8\uB2E4.");
+  validatedRuleChanges(log);
+  let changed = false;
+  if (log.game.rules.concealedKanPrivate === true) {
+    const change = { actionIndex: log.actions.length, rule: "concealedKanPrivate", from: true, to: false, at: now() };
+    validatedRuleChanges({ ...log, ruleChanges: [change], game: { ...log.game, rules: { ...log.game.rules, concealedKanPrivate: false } } });
+    const id = newId();
+    log.previousLogId = log.id;
+    log.id = id;
+    log.ruleChanges = [change];
+    log.game.rules.concealedKanPrivate = false;
+    changed = true;
+  }
+  if (match?.rules.concealedKanPrivate === true) {
+    match.rules.concealedKanPrivate = false;
+    changed = true;
+  }
+  return changed;
+}
 function beforeAction(game) {
   return { scores: scores(game), active: game.players.flatMap((p, i) => p.won ? [] : [i]), events: game.events.length, ledger: game.ledger.length, pot: game.pot ?? 0 };
 }
@@ -2575,7 +2548,7 @@ var GameJournal = class {
 };
 function logText(log) {
   log = expandLog(log);
-  const game = log.game, seats2 = seatLabels(game), variant = game.rules.variant === "S" ? "S" : "H", lines = [
+  const ruleChanges = validatedRuleChanges(log), game = log.game, seats2 = seatLabels(game), variant = game.rules.variant === "S" ? "S" : "H", lines = [
     `${variant}\uB8F0 \uB9C8\uC791 \uB300\uAD6D \uB85C\uADF8`,
     `${log.startedAt} \xB7 ${log.mode === "practice" ? "\uD63C\uC790 \uC5F0\uC2B5" : "4\uC778 \uB300\uAD6D"} \xB7 \uB0B4 \uC790\uB9AC ${seats2[log.humanSeat]}`,
     `\uBC30\uD328 \uBC88\uD638: ${game.seed ?? "\uC11C\uBC84 \uBE44\uACF5\uAC1C"} \xB7 \uD654\uBA74 \uBC84\uC804: ${log.build ?? "\uBBF8\uAE30\uB85D"}`,
@@ -2583,7 +2556,11 @@ function logText(log) {
     ""
   ];
   if (game.startingScores) lines.push(`\uB204\uC801 \uC810\uC218 (\uC885\uB8CC \uACF5\uD0C1 \uBCC4\uB3C4): ${game.startingScores.map((n, i) => seats2[i] + " " + (n + game.players[i].score)).join(" / ")}`, "");
-  for (const entry of log.actions) {
+  const recordRuleChange = (index) => {
+    for (const change of ruleChanges) if (change.actionIndex === index) lines.push(`[\uC548\uAE61 \uACF5\uAC1C \uC804\uD658] \uD589\uB3D9 ${index}\uAC1C \uC644\uB8CC \uD6C4 \xB7 \uBAA8\uB4E0 \uCC38\uAC00\uC790\uC5D0\uAC8C \uD328 \uC885\uB958 \uACF5\uAC1C \xB7 ${change.at}`);
+  };
+  for (const [index, entry] of log.actions.entries()) {
+    recordRuleChange(index);
     const action = entry.action, tile = action.type === "ankan" && concealedForViewer(game, entry.seat, log.humanSeat) ? " (\uBE44\uACF5\uAC1C)" : Number.isInteger(action.tile) ? ` ${tileName(action.tile)}` : "";
     if (action.type !== "pass") lines.push(`#${entry.n + 1} ${seats2[entry.seat]} ${{ discard: "\uBC84\uB9BC", riichi: "\uB9AC\uCE58\xB7\uBC84\uB9BC", tsumo: "\uCBD4\uBAA8", ron: "\uB860", chi: "\uCE58", pon: "\uD401", ankan: "\uC548\uAE61", minkan: "\uBA85\uAE61", kakan: "\uAC00\uAE61" }[action.type] ?? action.type}${tile}`);
     for (const win3 of entry.wins) {
@@ -2597,6 +2574,7 @@ function logText(log) {
     for (const issue of entry.issues) lines.push(`  [\uC815\uC0B0 \uD655\uC778 \uD544\uC694] ${issue}`);
     if (entry.error) lines.push(`  [\uC2E4\uD589 \uC624\uB958] ${entry.error}`);
   }
+  recordRuleChange(log.actions.length);
   for (const entry of log.observations) if (entry.delta.some(Boolean)) lines.push(`\uC218\uC2E0 ${entry.revision} \uC810\uC218 \uBCC0\uB3D9: ${entry.delta.map((v, i) => v ? seats2[i] + " " + signed2(v) : "").filter(Boolean).join(" / ")}`);
   if (log.mode === "online" && variant === "S") for (const seat of game.winners) lines.push(`${seats2[seat]} ${scoreBreakdownText(game.players[seat].win.score)}`);
   lines.push("", "\uD604\uC7AC \uC190\uD328\xB7\uD6C4\uB85C (JSON\uC5D0\uB294 \uC6D0\uBCF8 \uD328 \uBC88\uD638\uC640 \uC0C1\uC138 \uAE30\uB85D \uD3EC\uD568)");
@@ -2633,6 +2611,7 @@ function reviewText(input) {
 function compactLog(input) {
   const log = expandLog(input);
   if (!log || log.format !== LOG_FORMAT) throw new Error("\uC9C0\uC6D0\uD558\uC9C0 \uC54A\uB294 \uB300\uAD6D \uB85C\uADF8\uC785\uB2C8\uB2E4.");
+  validatedRuleChanges(log);
   const game = clone(log.game), actionEvents = game.events.filter((e) => e.type === "action");
   for (const p of game.players) if (p.win) {
     const win3 = game.events.find((e) => e.type === "win" && e.seat === game.players.indexOf(p));
@@ -2657,6 +2636,7 @@ function compactLog(input) {
 }
 function expandLog(input) {
   if (!input || input.format !== COMPACT_FORMAT) return input;
+  validatedRuleChanges(input);
   const log = clone(input), game = log.game;
   log.format = LOG_FORMAT;
   for (const e of game.events) if (e.paymentIndexes) {
@@ -3036,9 +3016,10 @@ var MatchStore = class {
       const saved = clone4(data.active), log = expandLog(saved.log);
       if (!Number.isInteger(saved.seat) || saved.seat < 0 || saved.seat > 3 || log.humanSeat !== saved.seat) throw new Error("Invalid saved seat");
       assertMatch3(saved.match, log.game);
-      if (upgradeDealerContinuation2(saved.match, log.game)) {
-        assertMatch3(saved.match, log.game);
-        data.active.match = clone4(saved.match);
+      const continuationChanged = upgradeDealerContinuation2(saved.match, log.game), visibilityChanged = upgradePracticeKanVisibility(log, saved.match);
+      assertMatch3(saved.match, log.game);
+      if (continuationChanged || visibilityChanged) {
+        data.active = { ...saved, match: clone4(saved.match), log: compactLog(log) };
         this.write();
       }
       saved.log = log;
@@ -8862,6 +8843,13 @@ function rulebookTrainingCompatible(view) {
   return RULEBOOK_TRAINING.status === "complete" && rules?.variant !== "S" && [27, 28].includes(rules?.roundWind) && Object.entries(RULEBOOK_TRAINING.rules).every(([k, v]) => k === "roundWind" || JSON.stringify(rules?.[k]) === JSON.stringify(v));
 }
 
+// game/training-runtime.mjs
+function rulebookTrainingApplicable(view) {
+  if (rulebookTrainingCompatible(view)) return true;
+  const rules = view?.rules ?? view;
+  return rules?.concealedKanPrivate === false && rulebookTrainingCompatible({ ...rules, concealedKanPrivate: true });
+}
+
 // web/training-profile.mjs
 var completedVersions = (training) => training.status === "complete" ? training.versions : [];
 var hybridVersions = () => [...completedVersions(HYBRID_TRAINING), ...HYBRID_TRAINING.status === "complete" ? HYBRID_TRAINING.controls.filter((v) => v.id === "Y1").map((v) => ({ ...v, description: "\uC5ED\uD328 \uC7A5\uC218\xB7\uAC00\uC0B0 \uB2E8\uAC00\xB7\uACF5\uAC1C\uB41C \uC794\uC5EC \uD328\uB97C \uBC18\uC601\uD55C \uACE0\uB4DD\uC810\uD615", improved: false })) : []];
@@ -8878,7 +8866,7 @@ function revisedTrainingApplicable(view) {
   return view?.rules?.variant !== "S" && [27, 28].includes(view?.rules?.roundWind) && Object.entries(DEFAULT_RULES).every(([key3, value4]) => key3 === "roundWind" || JSON.stringify(view?.rules?.[key3]) === JSON.stringify(value4));
 }
 function trainingVersionApplicable(view, mode) {
-  return rulebookTrainingVersion(mode) ? rulebookTrainingCompatible(view) : !!privateTrainingVersion(mode) && (privateTrainingCompatible(view) || revisedTrainingApplicable(view) && ["M1", "M2", "M3", "Y1"].includes(mode));
+  return rulebookTrainingVersion(mode) ? rulebookTrainingApplicable(view) : !!privateTrainingVersion(mode) && (privateTrainingCompatible(view) || revisedTrainingApplicable(view) && ["M1", "M2", "M3", "Y1"].includes(mode));
 }
 var KEY3 = "wellness-mahjong-training-profile-v2";
 function hasTrainedPolicies(training) {
@@ -8906,7 +8894,7 @@ function saveTrainingMode(storage, mode) {
 function trainingProvenance(view, mode, training) {
   const version = trainingVersion(mode), applicable = trainingVersionApplicable(view, mode), legacy = mode === "trained" && trainingCompatible(view, training);
   const effectiveMode = applicable || legacy ? mode : "original";
-  const validated = applicable && (!!rulebookTrainingVersion(mode) || privateTrainingCompatible(view)) || legacy;
+  const validated = applicable && (!!rulebookTrainingVersion(mode) && rulebookTrainingCompatible(view) || privateTrainingCompatible(view)) || legacy;
   return {
     mode,
     effectiveMode,
@@ -8932,7 +8920,7 @@ var CURRENT_STRATEGIES = Object.freeze(RULEBOOK_TRAINING.versions.map(
 var currentStrategy = (id) => CURRENT_STRATEGIES.find((strategy) => strategy.id === id);
 var currentWeightMap = Object.freeze(Object.fromEntries(CURRENT_STRATEGIES.map((strategy) => [strategy.id, strategy.weights])));
 var baselineWeights = Object.freeze({});
-var currentWeights = (view) => rulebookTrainingCompatible(view) ? currentWeightMap : baselineWeights;
+var currentWeights = (view) => rulebookTrainingApplicable(view) ? currentWeightMap : baselineWeights;
 var profile = (name, policies) => Object.freeze({ name, policies: Object.freeze(policies) });
 var PRACTICE_PROFILES = Object.freeze({
   mixed: profile("\uD63C\uD569\uD615 \xB7 A\xB7D\xB7E", ["A", "D", "E"]),
@@ -9055,15 +9043,6 @@ var chosenVariant = preferences.variant;
 var chosenFormat = preferences.format;
 var journal = new GameJournal({ storage: logStorage });
 var buildId = new URL(import.meta.url).searchParams.get("v") ?? "local-source";
-var kanPeek = createKanPeek({ onChange: () => {
-  if (state && (!online || remote?.state)) renderMelds();
-} });
-var coverPrivateKan = () => kanPeek.clear();
-window.addEventListener("blur", coverPrivateKan);
-window.addEventListener("pagehide", coverPrivateKan);
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "hidden") coverPrivateKan();
-});
 var archiveStatuses = /* @__PURE__ */ new Map();
 var archiveFailure = null;
 var useArchive = (action) => archiveTask(action, () => {
@@ -9185,19 +9164,15 @@ function updateSelection() {
   }
   $("selection-hint").textContent = state.end ? currentMatch()?.status === "between-rounds" ? "\uC704\uC758 \uB2E4\uC74C \uAD6D \uC2DC\uC791 \uBC84\uD2BC\uC73C\uB85C \uC810\uC218\uB97C \uC774\uC5B4\uAC11\uB2C8\uB2E4." : "\uC0C8 \uB300\uAD6D\uC73C\uB85C \uB2E4\uC2DC \uC5F0\uC2B5\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." : state.players[humanSeat].won ? "\uD654\uB8CC\uD588\uC2B5\uB2C8\uB2E4. \uB0A8\uC740 \uB300\uAD6D\uC744 \uC9C0\uCF1C\uBCF4\uC138\uC694." : auto ? "\uC120\uD0DD\uD55C \uC804\uB7B5\uC73C\uB85C \uC790\uB3D9 \uB300\uAD6D \uC911\uC785\uB2C8\uB2E4." : actor4(state) !== humanSeat ? "\uC0C1\uB300\uAC00 \uC9C4\uD589 \uC911\uC785\uB2C8\uB2E4." : state.phase === "reaction" ? "\uAC00\uB2A5\uD55C \uD589\uB3D9\uC744 \uC120\uD0DD\uD558\uC138\uC694." : selectedTileId === null ? "\uD328\uB97C \uC120\uD0DD \u2192 \uB2E4\uC2DC \uB204\uB974\uAC70\uB098 \u2018\uBC84\uB9AC\uAE30\u2019\uB85C \uD655\uC815" : `${tileName(typeOf(selectedTileId))} \uC120\uD0DD \xB7 \uB2E4\uC2DC \uB204\uB974\uAC70\uB098 \u2018\uBC84\uB9AC\uAE30\u2019\uB85C \uD655\uC815`;
 }
-function renderMeld(m, seat, index) {
-  const key3 = `${seat}:${index}`;
-  return renderMeldElement(m, seat, state.players, { key: key3, variant: state.rules.variant ?? "H", concealedKanPrivate: state.rules.concealedKanPrivate, viewerSeat: humanSeat, revealed: kanPeek.isRevealed(key3), onToggle: () => {
-    if (kanPeek.isRevealed(key3)) kanPeek.clear();
-    else kanPeek.reveal(key3);
-  } });
+function renderMeld(m, seat) {
+  return renderMeldElement(m, seat, state.players, { variant: state.rules.variant ?? "H", concealedKanPrivate: state.rules.concealedKanPrivate, viewerSeat: humanSeat });
 }
 function renderMeldZone(player, position, seat) {
   if (!player.melds.length) return;
   const zone = node2("div", void 0, `meld-zone meld-zone-${position}`), rack = node2("div", void 0, "meld-rack");
   zone.setAttribute("aria-label", `${seatName(seat)} \uBAB8\uD1B5 \xB7 \uC790\uAE30 \uAE30\uC900 \uC67C\uCABD`);
   for (const [index, m] of player.melds.entries()) {
-    const group = renderMeld(m, seat, index);
+    const group = renderMeld(m, seat);
     group.dataset.meldOrder = String(index + 1);
     rack.append(group);
   }
@@ -9205,13 +9180,8 @@ function renderMeldZone(player, position, seat) {
   $("melds").append(zone);
 }
 function renderMelds() {
-  kanPeek.setContext(JSON.stringify([online ? "online" : "practice", humanSeat, journal.current?.id, remote?.code, remote?.gameNumber]));
-  const focused = document.hasFocus() ? document.activeElement?.dataset.meldKey : null;
   $("melds").replaceChildren();
   for (const [position, seat] of Object.entries(seatPositions(humanSeat))) renderMeldZone(state.players[seat], position, seat);
-  if (focused) {
-    for (const button of $("melds").querySelectorAll("button[data-meld-key]")) if (button.dataset.meldKey === focused) button.focus({ preventScroll: true });
-  }
   updateTableLayout();
 }
 function renderRiver(parent, player) {
@@ -9326,7 +9296,7 @@ function renderRecommendations() {
   }
   const view = observation4(state, humanSeat);
   currentRecommendations = strategyRecommendations(view, currentWeights(view));
-  if (rulebookTrainingCompatible(view)) for (const rec of currentRecommendations) rec.name = currentStrategy(rec.policy).name;
+  if (rulebookTrainingApplicable(view)) for (const rec of currentRecommendations) rec.name = currentStrategy(rec.policy).name;
   status.textContent = "\uBC84\uD2BC\uC744 \uB204\uB974\uBA74 \uD574\uB2F9 \uC804\uB7B5\uC758 \uC120\uD0DD\uC744 \uD55C \uBC88 \uC2E4\uD589\uD569\uB2C8\uB2E4.";
   for (const rec of currentRecommendations) {
     const card = node2("article", void 0, "recommendation-card"), title = node2("h4");
@@ -9534,7 +9504,7 @@ function aiAction(view) {
 }
 function recordPracticeTraining() {
   trainingMode = effectiveTrainingMode(state);
-  recordTrainingSelection(journal.current, state, trainingMode, TRAINING, { policy: $("policy").value, profile: $("profile").value, opponentTrainingId: rulebookTrainingCompatible(state) ? RULEBOOK_TRAINING.id : null });
+  recordTrainingSelection(journal.current, state, trainingMode, TRAINING, { policy: $("policy").value, profile: $("profile").value, opponentTrainingId: rulebookTrainingApplicable(state) ? RULEBOOK_TRAINING.id : null });
 }
 function loggedStep(game, seat, action) {
   recordPracticeTraining();
@@ -9650,7 +9620,6 @@ function practiceInfo() {
   $("practice-info").textContent = `\uB0B4 \uC790\uB9AC\uB294 ${seatName(humanSeat)}\uC785\uB2C8\uB2E4. ${match ? matchTitle(match) + (summaryFormat(match) === "hanchan" ? " \xB7 " + match.label : "") + " \xB7 \uC810\uC218\uC640 \uC9C4\uD589 \uC0C1\uD0DC\uB97C \uC790\uB3D9 \uC800\uC7A5\uD569\uB2C8\uB2E4." : "\uC0C1\uB300 3\uBA85\uC740 AI\uC785\uB2C8\uB2E4."} \uD328\uB97C \uC120\uD0DD\uD55C \uB4A4 \uB2E4\uC2DC \uB204\uB974\uAC70\uB098 \uBC84\uB9AC\uAE30\uB85C \uD655\uC815\uD558\uC138\uC694. \uAC00\uB2A5\uD55C \uD6C4\uB85C\uAC00 \uC5C6\uC73C\uBA74 0.7\uCD08 \uB4A4 \uB118\uAE41\uB2C8\uB2E4.`;
 }
 function beginPracticeHand() {
-  kanPeek.clear({ notify: false });
   journal.begin(state, { mode: "practice", seat: humanSeat, policy: $("policy").value, profile: $("profile").value, build: buildId });
   savePractice();
   $("seed").value = String(practiceMatch?.seed ?? state.seed);
@@ -9671,7 +9640,7 @@ function start(seed, variant = chosenVariant, format2 = variant === chosenVarian
   auto = false;
   updateAuto();
   humanSeat = practiceSeat(seed);
-  practiceMatch = createMatch3({ seed, variant, format: format2 });
+  practiceMatch = createMatch3({ seed, variant, format: format2, rules: { concealedKanPrivate: false } });
   state = createMatchGame3(practiceMatch);
   beginPracticeHand();
   return { seed, variant, format: format2, seat: humanSeat, remaining: state.wall.length, match: currentMatch() };
@@ -9760,7 +9729,6 @@ function downloadMatch(format2 = "json", summary = currentMatch()) {
   return { filename: a.download, completedRounds: summary.rounds.length };
 }
 function showPractice() {
-  kanPeek.clear({ notify: false });
   online = false;
   remote = null;
   networkBusy = false;
@@ -9772,7 +9740,6 @@ function showPractice() {
   document.querySelector(".play-layout").hidden = false;
 }
 function showOnline() {
-  kanPeek.clear({ notify: false });
   if (state && !online) savePractice();
   if (timer) clearTimeout(timer);
   timer = null;
@@ -9798,7 +9765,7 @@ function renderRoomStart() {
   button.hidden = !allowed;
   button.disabled = roomMutationBusy || !roomClient.connected;
   button.textContent = roomMutationBusy ? "AI\uB97C \uCC44\uC6B0\uACE0 \uC2DC\uC791\uD558\uB294 \uC911\u2026" : `\uBE48\uC790\uB9AC ${4 - (remote?.members.length ?? 0)}\uAC1C\uB97C AI\uB85C \uCC44\uC6B0\uACE0 \uC2DC\uC791`;
-  const compatible = rulebookTrainingCompatible(remote?.rules), selector = $("room-ai-policy");
+  const compatible = rulebookTrainingApplicable(remote?.rules), selector = $("room-ai-policy");
   $("room-ai-settings").hidden = !allowed;
   if (selector.dataset.rules !== (compatible ? "current" : "baseline")) {
     selector.replaceChildren();
@@ -9845,7 +9812,7 @@ function receiveRoom(snapshot) {
     state = snapshot.state;
     humanSeat = snapshot.seat;
     if (journal.current?.mode !== "online" || journal.current.room !== snapshot.code || journal.current.gameNumber !== snapshot.gameNumber) journal.begin(state, { mode: "online", seat: humanSeat, room: snapshot.code, gameNumber: snapshot.gameNumber, build: buildId });
-    const roomAI = snapshot.members.filter((member) => member.kind === "ai").map((member) => ({ seat: member.seat, policy: member.policy, ...member.trainingVersion ? { trainingVersion: member.trainingVersion, trainingId: member.trainingId } : {} }));
+    const roomAI = snapshot.members.filter((member) => member.kind === "ai").map((member) => ({ seat: member.seat, policy: member.policy, ...member.trainingVersion ? { trainingVersion: member.trainingVersion, trainingId: member.trainingId, validationStatus: rulebookTrainingCompatible(state) ? "validated-for-rules" : "not-validated-for-rules" } : {} }));
     if (roomAI.length) journal.current.roomAI = roomAI;
     journal.observe(state, snapshot.revision);
     $("practice-info").textContent = `${roomTitle} \xB7 \uBC29 ${snapshot.code} \xB7 \uB098\uB294 ${seatName(humanSeat)}. \uD328\uB97C \uC120\uD0DD\uD55C \uB4A4 \uB2E4\uC2DC \uB204\uB974\uAC70\uB098 \uBC84\uB9AC\uAE30\uB85C \uD655\uC815\uD558\uC138\uC694.`;
@@ -9967,13 +9934,14 @@ function randomGame() {
   return start(crypto.getRandomValues(new Uint32Array(1))[0], chosenVariant);
 }
 function effectiveTrainingMode(view) {
-  return rulebookTrainingCompatible(view) ? currentStrategy($("policy").value).versionId : "original";
+  return rulebookTrainingApplicable(view) ? currentStrategy($("policy").value).versionId : "original";
 }
 function renderTrainingMode(variant = chosenVariant) {
-  const view = online ? remote?.state ?? { rules: remote?.rules } : state, newCompatible = rulebookTrainingCompatible(view), isS = view?.rules?.variant === "S" || !view?.rules && variant === "S";
+  const view = online ? remote?.state ?? { rules: remote?.rules } : state, newCompatible = rulebookTrainingApplicable(view), isS = view?.rules?.variant === "S" || !view?.rules && variant === "S";
   for (const option of $("policy").options) option.textContent = `${option.value} \xB7 ${newCompatible ? currentStrategy(option.value).name : POLICIES2[option.value].name}`;
   for (const button of document.querySelectorAll("[data-rulebook-version]")) button.disabled = !newCompatible;
-  $("training-note").textContent = isS ? "S\uB8F0 \uC804\uC6A9 A\u2013E \uC804\uB7B5\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4." : newCompatible ? online ? "\uB0B4 \uC804\uB7B5\uBCC4 \uCD94\uCC9C\uC740 \uC774\uBC88 \uADDC\uCE59\uC758 A\u2013E\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4. \uC0C1\uB300 AI\uB294 \uBC29\uC5D0 \uC800\uC7A5\uB41C \uC124\uC815\uC744 \uB530\uB974\uBA70, \uBC29\uC7A5\uC774 \uC2DC\uC791 \uC804\uC5D0 \uBE48\uC790\uB9AC AI \uC804\uB7B5\uC744 \uC120\uD0DD\uD569\uB2C8\uB2E4." : "\uC774\uBC88 \uADDC\uCE59\uC73C\uB85C \uD559\uC2B5\uD55C A\u2013E\uB97C \uCD94\uCC9C\xB7\uB0B4 \uC790\uB3D9 \uB300\uAD6D\xB7\uC0C1\uB300 AI\uC5D0 \uC801\uC6A9\uD569\uB2C8\uB2E4. \uC0C1\uB300 \uC131\uD5A5\uC740 \uC544\uB798\uC5D0\uC11C \uC120\uD0DD\uD558\uC138\uC694." : "\uC800\uC7A5 \uB2F9\uC2DC \uADDC\uCE59\uC744 \uC720\uC9C0\uD558\uBA70 \uD574\uB2F9 \uADDC\uCE59\uC758 \uAE30\uBCF8 A\u2013E\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4. \uC0C8 H\uB8F0 \uB300\uAD6D\uC5D0\uC11C\uB294 \uC774\uBC88 \uD559\uC2B5 \uC804\uB7B5\uC744 \uC801\uC6A9\uD569\uB2C8\uB2E4.";
+  $("training-note").textContent = isS ? "S\uB8F0 \uC804\uC6A9 A\u2013E \uC804\uB7B5\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4." : newCompatible ? online ? "\uB0B4 \uC804\uB7B5\uBCC4 \uCD94\uCC9C\uC740 \uC774\uBC88 \uADDC\uCE59\uC758 A\u2013E\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4. \uC0C1\uB300 AI\uB294 \uBC29\uC5D0 \uC800\uC7A5\uB41C \uC124\uC815\uC744 \uB530\uB974\uBA70, \uBC29\uC7A5\uC774 \uC2DC\uC791 \uC804\uC5D0 \uBE48\uC790\uB9AC AI \uC804\uB7B5\uC744 \uC120\uD0DD\uD569\uB2C8\uB2E4." : "A\u2013E \uAC00\uC911\uCE58\uB97C \uCD94\uCC9C\xB7\uB0B4 \uC790\uB3D9 \uB300\uAD6D\xB7\uC0C1\uB300 AI\uC5D0 \uC801\uC6A9\uD569\uB2C8\uB2E4. \uC0C1\uB300 \uC131\uD5A5\uC740 \uC544\uB798\uC5D0\uC11C \uC120\uD0DD\uD558\uC138\uC694." : "\uC800\uC7A5 \uB2F9\uC2DC \uADDC\uCE59\uC744 \uC720\uC9C0\uD558\uBA70 \uD574\uB2F9 \uADDC\uCE59\uC758 \uAE30\uBCF8 A\u2013E\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4. \uC0C8 H\uB8F0 \uB300\uAD6D\uC5D0\uC11C\uB294 \uC774\uBC88 \uD559\uC2B5 \uC804\uB7B5\uC744 \uC801\uC6A9\uD569\uB2C8\uB2E4.";
+  if (newCompatible && !rulebookTrainingCompatible(view)) $("training-note").textContent += " \uC548\uAE61 \uACF5\uAC1C \uC870\uAC74\uC5D0\uC11C\uB294 \uAE30\uC874 \uAC00\uC911\uCE58\uB97C \uC7AC\uC0AC\uC6A9\uD558\uBA70, \uC131\uB2A5\uC740 \uC544\uC9C1 \uC7AC\uAC80\uC99D\uD558\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.";
   $("policy-note").hidden = online;
   $("policy-note").textContent = newCompatible && $("policy").value === "D" ? "D\uB294 \uACE0\uB4DD\uC810\uC744 \uC704\uD574 \uD654\uB8CC \uAE30\uD68C\uB97C \uC77C\uBD80 \uD3EC\uAE30\uD569\uB2C8\uB2E4. \uAC80\uC99D\uC5D0\uC11C \uD654\uB8CC\uC728\uACFC \uD3C9\uADE0 \uC21C\uC218\uC775\uC774 \uB0AE\uC544\uC84C\uC2B5\uB2C8\uB2E4." : "";
 }
@@ -10094,7 +10062,7 @@ fetch(new URL("../results/baseline/analysis.json", import.meta.url)).then((r) =>
   $("conclusion").textContent = "\uC644\uB8CC\uB41C \uACB0\uACFC \uD30C\uC77C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4. headless \uC2E4\uD5D8 \uD6C4 \uBCF4\uACE0\uC11C\uB97C \uC0DD\uC131\uD558\uBA74 \uC5EC\uAE30\uC5D0 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
 });
 void renderTrainingResults($, TRAINING);
-renderRulebookResults($, { onSelect: setTrainingMode, canSelect: () => rulebookTrainingCompatible(state) });
+renderRulebookResults($, { onSelect: setTrainingMode, canSelect: () => rulebookTrainingApplicable(state) });
 function readGame() {
   if (online && !remote?.state) return { mode: "online", phase: "waiting", room: remote ? { code: remote.code, members: remote.members, variant: remote.variant, format: remote.format ?? defaultMatchFormat(remote.variant) } : null, legalActions: [], recommendations: [] };
   return { match: currentMatch(), variant: state.rules.variant === "S" ? "S" : "H", trainingMode: effectiveTrainingMode(state), trainingId: trainingProvenance(state, effectiveTrainingMode(state), TRAINING).trainingId, validationStatus: trainingProvenance(state, effectiveTrainingMode(state), TRAINING).validationStatus, recommendationsEnabled, selectedVariant: chosenVariant, selectedFormat: chosenFormat, format: currentMatch() ? summaryFormat(currentMatch()) : remote?.format ?? defaultMatchFormat(state.rules.variant), mode: online ? "online" : "practice", room: online && remote ? { code: remote.code, members: remote.members, gameNumber: remote.gameNumber } : null, seat: humanSeat, phase: online && !remote?.state ? "waiting" : state.phase, turn: actor4(state), ownHand: state.players[humanSeat].hand.map(typeOf), drawnTile: handDisplay(state, humanSeat).drawn === null ? null : typeOf(handDisplay(state, humanSeat).drawn), scores: state.players.map((p) => p.score), winners: [...state.winners], legalActions: actor4(state) === humanSeat ? legalActions4(state) : [], recommendationRevision, recommendations: structuredClone(currentRecommendations) };

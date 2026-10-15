@@ -1,4 +1,4 @@
-import {compactLog,expandLog} from './game-log.mjs';
+import {compactLog,expandLog,upgradePracticeKanVisibility} from './game-log.mjs';
 import {assertMatch,matchSummary,upgradeDealerContinuation} from '../game/match.mjs';
 import {defaultMatchFormat,matchFormatName} from './preferences.mjs';
 const KEY='wellness-s-match-v1';
@@ -35,7 +35,15 @@ export class MatchStore{
  }
  restore({force=false}={}){
   const data=this.read();if(!data?.active||!force&&!data.resume)return null;
-  try{const saved=clone(data.active),log=expandLog(saved.log);if(!Number.isInteger(saved.seat)||saved.seat<0||saved.seat>3||log.humanSeat!==saved.seat)throw new Error('Invalid saved seat');assertMatch(saved.match,log.game);if(upgradeDealerContinuation(saved.match,log.game)){assertMatch(saved.match,log.game);data.active.match=clone(saved.match);this.write();}saved.log=log;return saved;}
+  try{
+   const saved=clone(data.active),log=expandLog(saved.log);
+   if(!Number.isInteger(saved.seat)||saved.seat<0||saved.seat>3||log.humanSeat!==saved.seat)throw new Error('Invalid saved seat');
+   assertMatch(saved.match,log.game);
+   const continuationChanged=upgradeDealerContinuation(saved.match,log.game),visibilityChanged=upgradePracticeKanVisibility(log,saved.match);
+   assertMatch(saved.match,log.game);
+   if(continuationChanged||visibilityChanged){data.active={...saved,match:clone(saved.match),log:compactLog(log)};this.write();}
+   saved.log=log;return saved;
+  }
   catch{this.error='저장된 대국의 점수 또는 패 상태가 맞지 않습니다. 기존 기록은 유지했습니다.';return null;}
  }
  list(){const data=this.read();if(!data)return [];try{const active=data.active;return [...active?[{seat:active.seat,summary:matchSummary(active.match,expandLog(active.log).game)}]:[],...data.history];}catch{this.error='저장된 점수표를 읽지 못했습니다. 기존 기록은 유지했습니다.';return [];}}
