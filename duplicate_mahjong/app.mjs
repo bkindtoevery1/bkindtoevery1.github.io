@@ -1281,12 +1281,16 @@ function renderMelds(container, melds = []) {
     if (meld.hidden || meld.tile === null) {
       for (let n = 0; n < 4; n++) box.append(textNode("span", "", "hidden-kan"));
     } else {
-      const types = meld.type === "chi" ? [meld.tile, meld.tile + 1, meld.tile + 2] : Array(meld.type === "kan" ? 4 : 3).fill(meld.tile);
+      const types = meld.type === "chi" ? [meld.tile, meld.tile + 1, meld.tile + 2] : Array(meld.type === "kan" ? 4 : 3).fill(meld.tile), reds = /* @__PURE__ */ new Map();
+      for (const t of meld.tiles ?? []) if (t.red) reds.set(t.type, (reds.get(t.type) ?? 0) + 1);
       for (const [i, type] of types.entries()) {
         if (meld.type === "kan" && !meld.open && (i === 0 || i === 3)) box.append(textNode("span", "", "hidden-kan"));
         else {
           const tile = tileFace(type, { small: true });
-          if (meld.redIds?.length && i === 0) tile.classList.add("red");
+          if (reds.get(type) > 0) {
+            tile.classList.add("red");
+            reds.set(type, reds.get(type) - 1);
+          }
           if (meld.open && i === 0) tile.classList.add("called");
           box.append(tile);
         }
