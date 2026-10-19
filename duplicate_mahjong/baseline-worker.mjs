@@ -753,6 +753,74 @@ function step(s, seat, action, { validate = true } = {}) {
 }
 var tileView = (id, s, drawn = null) => ({ id, type: typeOf(id), tile: typeOf(id), red: red(id, s.rules), drawn: id === drawn });
 var meldView = (m, s) => ({ ...structuredClone(m), tiles: m.ids.map((id) => tileView(id, s)) });
+function publicEvents(s) {
+  const out = [], discards = Array(4).fill(null), pendingKan = Array(4).fill(null), melds = Array.from({ length: 4 }, () => []);
+  const physical = (id) => Number.isInteger(id) && id >= 0 && id < 136 ? id : null;
+  const preview = (seat, index, tile, callType) => {
+    const count = ["ankan", "kakan", "minkan"].includes(callType) ? 4 : 3;
+    const ids = s.players[seat]?.melds[index]?.ids?.slice(0, count);
+    if (ids?.length === count) return ids.map((id) => ({ type: typeOf(id), red: red(id, s.rules) })).sort((a, b) => a.type - b.type);
+    const types = callType === "chi" ? [tile, tile + 1, tile + 2] : Array(count).fill(tile);
+    return types.filter((type) => Number.isInteger(type) && type >= 0 && type < 34).map((type) => ({ type, red: false }));
+  };
+  const emit = (raw, kind, { tile = null, tileId = null, source = null, callType = null, method = null, tiles } = {}) => {
+    const id = physical(tileId), type = id === null ? tile : typeOf(id);
+    const item = {
+      id: raw.n,
+      kind,
+      seat: raw.seat,
+      tile: Number.isInteger(type) && type >= 0 && type < 34 ? type : null,
+      tileId: id,
+      red: id !== null && red(id, s.rules),
+      source: Number.isInteger(source) && source >= 0 && source < 4 ? source : null,
+      callType,
+      method: ["ron", "tsumo"].includes(method) ? method : null
+    };
+    if (tiles?.length) item.tiles = tiles;
+    out.push(item);
+    return item;
+  };
+  for (const raw of s.events ?? []) {
+    if (!Number.isSafeInteger(raw.n) || raw.n < 0 || !Number.isInteger(raw.seat) || raw.seat < 0 || raw.seat > 3) continue;
+    const seat = raw.seat, a = raw.action;
+    if (raw.type === "action") {
+      if (a?.type === "discard" || a?.type === "riichi") discards[seat] = emit(raw, "discard", { tile: a.tile, tileId: a.id });
+      else if (a?.type === "ankan") pendingKan[seat] = { tile: a.tile, callType: "ankan", index: melds[seat].length };
+      else if (a?.type === "kakan") pendingKan[seat] = { tile: melds[seat][a.meld]?.tile ?? null, callType: "kakan", index: a.meld };
+    } else if (raw.type === "call" && ["chi", "pon", "minkan"].includes(a?.type)) {
+      const source = Number.isInteger(raw.from) && raw.from >= 0 && raw.from < 4 ? raw.from : null;
+      const discard = source === null ? null : discards[source], index = melds[seat].length;
+      melds[seat].push({ tile: a.tile, type: a.type });
+      if (a.type === "minkan") pendingKan[seat] = { tile: a.tile, tileId: discard?.tileId ?? null, source, callType: "minkan", index };
+      else emit(raw, "call", {
+        tile: discard?.tile ?? a.tile,
+        tileId: discard?.tileId ?? null,
+        source,
+        callType: a.type,
+        tiles: preview(seat, index, a.tile, a.type)
+      });
+    } else if (raw.type === "kan") {
+      const accepted = pendingKan[seat];
+      if (!accepted) continue;
+      const { tile, source = null, callType, index } = accepted, ids = s.players[seat]?.melds[index]?.ids ?? [];
+      let tileId = accepted.tileId ?? null;
+      if (callType === "kakan") tileId = ids[3] ?? null;
+      else if (callType === "ankan") tileId = ids.find((id) => red(id, s.rules)) ?? ids[0] ?? null;
+      emit(raw, "kan", { tile, tileId, source, callType, tiles: preview(seat, index, tile, callType) });
+      if (callType === "ankan") melds[seat].push({ tile, type: "ankan" });
+      else if (melds[seat][index]) melds[seat][index].type = callType;
+      pendingKan[seat] = null;
+    } else if (raw.type === "riichi") {
+      const discard = discards[seat];
+      emit(raw, "riichi", { tile: discard?.tile ?? null, tileId: discard?.tileId ?? null });
+    } else if (raw.type === "win") emit(raw, "win", {
+      tileId: raw.tile,
+      source: raw.method === "ron" ? raw.source : null,
+      method: raw.method
+    });
+  }
+  return out.slice(-32);
+}
 function snapshot(s, seat) {
   if (!Number.isInteger(seat) || seat < 0 || seat > 3) throw new Error("Invalid seat");
   const p = s.players[seat];
@@ -796,6 +864,7 @@ function snapshot(s, seat) {
     winners: [...s.winners],
     riichi: p.riichi,
     visible: visibleCounts(s, seat),
+    publicEvents: publicEvents(s),
     lastDiscard: s.reaction ? { seat: s.reaction.source, ...tileView(s.reaction.id, s), kind: s.reaction.kind, final: s.reaction.final } : null,
     readySeats: s.phase === "end" ? s.events.findLast((e) => e.type === "drawSettlement")?.ready.map((p2) => p2.seat) ?? [] : []
   };

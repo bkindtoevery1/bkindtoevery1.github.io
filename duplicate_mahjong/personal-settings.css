@@ -1,0 +1,13 @@
+.personal-settings-group{min-width:0;margin:0 0 20px;padding:0;border:0}
+.personal-settings-title{width:100%;padding:0 0 8px;border-bottom:1px solid var(--line);color:var(--text);font-size:12px;font-weight:700}
+.personal-settings .personal-setting-switch{gap:12px;padding:12px 0}
+.personal-settings .personal-setting-switch>span{min-width:0}
+.personal-settings .personal-setting-switch small{line-height:1.65}
+.personal-settings .personal-setting-switch input{flex-shrink:0}
+.personal-settings .personal-settings-note{margin-top:9px}
+.personal-settings-volume{margin:15px 0 12px}
+.personal-settings-volume-heading{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.personal-settings-volume output{color:var(--accent);font-variant-numeric:tabular-nums}
+.personal-settings .personal-settings-volume input[type=range]{min-height:36px;margin-top:5px;padding:0;border:0;background:transparent;accent-color:var(--accent);cursor:pointer}
+.personal-settings button{font-size:11px}
+.personal-settings-reset{margin-top:2px}

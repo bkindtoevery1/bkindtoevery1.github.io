@@ -754,6 +754,74 @@ function step(s, seat, action, { validate = true } = {}) {
 }
 var tileView = (id, s, drawn = null) => ({ id, type: typeOf(id), tile: typeOf(id), red: red(id, s.rules), drawn: id === drawn });
 var meldView = (m, s) => ({ ...structuredClone(m), tiles: m.ids.map((id) => tileView(id, s)) });
+function publicEvents(s) {
+  const out = [], discards = Array(4).fill(null), pendingKan = Array(4).fill(null), melds = Array.from({ length: 4 }, () => []);
+  const physical = (id) => Number.isInteger(id) && id >= 0 && id < 136 ? id : null;
+  const preview = (seat, index, tile, callType) => {
+    const count = ["ankan", "kakan", "minkan"].includes(callType) ? 4 : 3;
+    const ids = s.players[seat]?.melds[index]?.ids?.slice(0, count);
+    if (ids?.length === count) return ids.map((id) => ({ type: typeOf(id), red: red(id, s.rules) })).sort((a, b) => a.type - b.type);
+    const types = callType === "chi" ? [tile, tile + 1, tile + 2] : Array(count).fill(tile);
+    return types.filter((type) => Number.isInteger(type) && type >= 0 && type < 34).map((type) => ({ type, red: false }));
+  };
+  const emit = (raw, kind, { tile = null, tileId = null, source = null, callType = null, method = null, tiles } = {}) => {
+    const id = physical(tileId), type = id === null ? tile : typeOf(id);
+    const item = {
+      id: raw.n,
+      kind,
+      seat: raw.seat,
+      tile: Number.isInteger(type) && type >= 0 && type < 34 ? type : null,
+      tileId: id,
+      red: id !== null && red(id, s.rules),
+      source: Number.isInteger(source) && source >= 0 && source < 4 ? source : null,
+      callType,
+      method: ["ron", "tsumo"].includes(method) ? method : null
+    };
+    if (tiles?.length) item.tiles = tiles;
+    out.push(item);
+    return item;
+  };
+  for (const raw of s.events ?? []) {
+    if (!Number.isSafeInteger(raw.n) || raw.n < 0 || !Number.isInteger(raw.seat) || raw.seat < 0 || raw.seat > 3) continue;
+    const seat = raw.seat, a = raw.action;
+    if (raw.type === "action") {
+      if (a?.type === "discard" || a?.type === "riichi") discards[seat] = emit(raw, "discard", { tile: a.tile, tileId: a.id });
+      else if (a?.type === "ankan") pendingKan[seat] = { tile: a.tile, callType: "ankan", index: melds[seat].length };
+      else if (a?.type === "kakan") pendingKan[seat] = { tile: melds[seat][a.meld]?.tile ?? null, callType: "kakan", index: a.meld };
+    } else if (raw.type === "call" && ["chi", "pon", "minkan"].includes(a?.type)) {
+      const source = Number.isInteger(raw.from) && raw.from >= 0 && raw.from < 4 ? raw.from : null;
+      const discard = source === null ? null : discards[source], index = melds[seat].length;
+      melds[seat].push({ tile: a.tile, type: a.type });
+      if (a.type === "minkan") pendingKan[seat] = { tile: a.tile, tileId: discard?.tileId ?? null, source, callType: "minkan", index };
+      else emit(raw, "call", {
+        tile: discard?.tile ?? a.tile,
+        tileId: discard?.tileId ?? null,
+        source,
+        callType: a.type,
+        tiles: preview(seat, index, a.tile, a.type)
+      });
+    } else if (raw.type === "kan") {
+      const accepted = pendingKan[seat];
+      if (!accepted) continue;
+      const { tile, source = null, callType, index } = accepted, ids = s.players[seat]?.melds[index]?.ids ?? [];
+      let tileId = accepted.tileId ?? null;
+      if (callType === "kakan") tileId = ids[3] ?? null;
+      else if (callType === "ankan") tileId = ids.find((id) => red(id, s.rules)) ?? ids[0] ?? null;
+      emit(raw, "kan", { tile, tileId, source, callType, tiles: preview(seat, index, tile, callType) });
+      if (callType === "ankan") melds[seat].push({ tile, type: "ankan" });
+      else if (melds[seat][index]) melds[seat][index].type = callType;
+      pendingKan[seat] = null;
+    } else if (raw.type === "riichi") {
+      const discard = discards[seat];
+      emit(raw, "riichi", { tile: discard?.tile ?? null, tileId: discard?.tileId ?? null });
+    } else if (raw.type === "win") emit(raw, "win", {
+      tileId: raw.tile,
+      source: raw.method === "ron" ? raw.source : null,
+      method: raw.method
+    });
+  }
+  return out.slice(-32);
+}
 function snapshot(s, seat) {
   if (!Number.isInteger(seat) || seat < 0 || seat > 3) throw new Error("Invalid seat");
   const p = s.players[seat];
@@ -797,6 +865,7 @@ function snapshot(s, seat) {
     winners: [...s.winners],
     riichi: p.riichi,
     visible: visibleCounts(s, seat),
+    publicEvents: publicEvents(s),
     lastDiscard: s.reaction ? { seat: s.reaction.source, ...tileView(s.reaction.id, s), kind: s.reaction.kind, final: s.reaction.final } : null,
     readySeats: s.phase === "end" ? s.events.findLast((e) => e.type === "drawSettlement")?.ready.map((p2) => p2.seat) ?? [] : []
   };
@@ -1020,6 +1089,662 @@ function tileFace(type, { button = false, small = false } = {}) {
   return tile;
 }
 
+// duplicate/preferences.mjs
+var PREFERENCES_STORAGE_KEY = "duplicate.preferences.v1";
+var DEFAULT_PREFERENCES = Object.freeze({
+  lastDiscard: true,
+  actionBubbles: true,
+  animations: true,
+  turnHighlight: true,
+  recentActions: true,
+  callPreview: true,
+  sound: false,
+  vibration: false,
+  reducedMotion: false,
+  autoWin: true,
+  autoPass: true,
+  volume: 0.35
+});
+function normalizePreferences(value = {}) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const preferences = { ...DEFAULT_PREFERENCES };
+  for (const [key, fallback] of Object.entries(DEFAULT_PREFERENCES)) {
+    if (typeof fallback === "boolean" && typeof source[key] === "boolean") preferences[key] = source[key];
+  }
+  if (typeof source.volume === "number" && Number.isFinite(source.volume)) {
+    preferences.volume = Math.max(0, Math.min(1, source.volume));
+  }
+  return preferences;
+}
+function loadPreferences(storage) {
+  try {
+    return normalizePreferences(JSON.parse(storage.getItem(PREFERENCES_STORAGE_KEY) ?? "null"));
+  } catch {
+    return normalizePreferences();
+  }
+}
+function savePreferences(storage, value) {
+  try {
+    storage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(normalizePreferences(value)));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// duplicate/personal-settings.mjs
+var DISPLAY_OPTIONS = [
+  ["lastDiscard", "\uB9C8\uC9C0\uB9C9 \uBC84\uB9BC\uD328 \uD45C\uC2DC", "\uBC29\uAE08 \uBC84\uB9B0 \uD328\uB97C \uD14C\uB450\uB9AC\uB85C \uD45C\uC2DC\uD569\uB2C8\uB2E4."],
+  ["actionBubbles", "\uD589\uB3D9 \uB9D0\uD48D\uC120", "\uCE58\xB7\uD401\xB7\uAE61\xB7\uB9AC\uCE58\xB7\uB860\xB7\uCBD4\uBAA8\uB97C \uB9D0\uD48D\uC120\uC73C\uB85C \uD45C\uC2DC\uD569\uB2C8\uB2E4."],
+  ["animations", "\uC560\uB2C8\uBA54\uC774\uC158", "\uD328\uC640 \uD589\uB3D9 \uD45C\uC2DC\uC758 \uC6C0\uC9C1\uC784\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4."],
+  ["turnHighlight", "\uD604\uC7AC \uCC28\uB840 \uAC15\uC870", "\uC9C0\uAE08 \uD589\uB3D9\uD560 \uCC28\uB840\uC778 \uC790\uB9AC\uB97C \uAC15\uC870\uD569\uB2C8\uB2E4."],
+  ["recentActions", "\uCD5C\uADFC \uD589\uB3D9 \uAE30\uB85D", "\uCD5C\uADFC \uCF5C\uACFC \uD654\uB8CC\uB97C \uAE30\uB85D\uC73C\uB85C \uBCF4\uC5EC \uC90D\uB2C8\uB2E4."],
+  ["callPreview", "\uCF5C \uBBF8\uB9AC \uBCF4\uAE30", "\uCE58\xB7\uD401\xB7\uAE61\uC73C\uB85C \uB9CC\uB4E4 \uD328\uB97C \uC120\uD0DD \uC804\uC5D0 \uBCF4\uC5EC \uC90D\uB2C8\uB2E4."],
+  ["reducedMotion", "\uB3D9\uC791 \uC904\uC774\uAE30", "\uC6C0\uC9C1\uC784\uC744 \uC904\uC774\uACE0 \uD589\uB3D9\uC744 \uAC04\uACB0\uD558\uAC8C \uD45C\uC2DC\uD569\uB2C8\uB2E4."]
+];
+var NOTIFICATION_OPTIONS = [
+  ["sound", "\uC54C\uB9BC \uC18C\uB9AC", "\uB0B4 \uCC28\uB840\uC640 \uD589\uB3D9 \uC54C\uB9BC\uC5D0 \uC18C\uB9AC\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4."],
+  ["vibration", "\uC9C4\uB3D9 \uC54C\uB9BC", "\uC9C0\uC6D0\uD558\uB294 \uAE30\uAE30\uC5D0\uC11C \uC9E7\uC740 \uC9C4\uB3D9\uC73C\uB85C \uC54C\uB9BD\uB2C8\uB2E4."]
+];
+var CONTROL_OPTIONS = [
+  ["autoWin", "\uC790\uB3D9 \uD654\uB8CC", "\uB860\xB7\uCBD4\uBAA8\uAC00 \uAC00\uB2A5\uD558\uBA74 \uC790\uB3D9\uC73C\uB85C \uD654\uB8CC\uD569\uB2C8\uB2E4."],
+  ["autoPass", "\uCF5C \uC5C6\uC73C\uBA74 \uC790\uB3D9 \uB118\uAE40", "\uC120\uD0DD\uD560 \uCF5C\uC774 \uC5C6\uC73C\uBA74 \uC790\uB3D9\uC73C\uB85C \uB118\uAE41\uB2C8\uB2E4."]
+];
+function element2(document2, tag, className, text) {
+  const node = document2.createElement(tag);
+  if (className) node.className = className;
+  if (text !== void 0) node.textContent = text;
+  return node;
+}
+function mountPersonalSettings(container, { value, onChange, onPreview } = {}) {
+  if (!container?.ownerDocument) throw new TypeError("A settings container is required");
+  const document2 = container.ownerDocument, controls = /* @__PURE__ */ new Map();
+  let current = normalizePreferences(value);
+  const root = element2(document2, "div", "personal-settings");
+  const heading = element2(document2, "div", "panel-heading");
+  heading.append(element2(document2, "span", "eyebrow", "PERSONAL SETTINGS"), element2(document2, "h1", "", "\uB0B4 \uD654\uBA74\uC5D0 \uB9DE\uAC8C."));
+  root.append(heading, element2(document2, "p", "intro", "\uAC1C\uC778 \uC124\uC815\uC740 \uC774 \uBE0C\uB77C\uC6B0\uC800\uC5D0 \uC800\uC7A5\uB418\uACE0 \uBC14\uB85C \uC801\uC6A9\uB429\uB2C8\uB2E4."));
+  function update(patch) {
+    current = normalizePreferences({ ...current, ...patch });
+    refresh();
+    onChange?.({ ...current });
+  }
+  function group(title, definitions) {
+    const fieldset = element2(document2, "fieldset", "personal-settings-group");
+    fieldset.append(element2(document2, "legend", "personal-settings-title", title));
+    for (const [key, title2, description] of definitions) {
+      const label = element2(document2, "label", "switch-row personal-setting-switch");
+      const words = element2(document2, "span", "");
+      words.append(element2(document2, "strong", "", title2), element2(document2, "small", "", description));
+      const input = element2(document2, "input", "");
+      input.type = "checkbox";
+      input.name = key;
+      input.dataset.preference = key;
+      input.setAttribute("role", "switch");
+      input.setAttribute("aria-label", title2);
+      input.addEventListener("change", () => update({ [key]: input.checked }));
+      controls.set(key, input);
+      label.append(words, input);
+      fieldset.append(label);
+    }
+    root.append(fieldset);
+    return fieldset;
+  }
+  const displayGroup = group("\uD589\uB3D9 \uD45C\uC2DC", DISPLAY_OPTIONS);
+  displayGroup.append(element2(document2, "p", "hint personal-settings-note", "\uAE30\uAE30\uC758 \u2018\uB3D9\uC791 \uC904\uC774\uAE30\u2019\uAC00 \uCF1C\uC838 \uC788\uC73C\uBA74 \uC774 \uC124\uC815\uACFC \uAD00\uACC4\uC5C6\uC774 \uC560\uB2C8\uBA54\uC774\uC158\uC744 \uC904\uC785\uB2C8\uB2E4."));
+  const notificationGroup = group("\uC54C\uB9BC", NOTIFICATION_OPTIONS);
+  const volumeLabel = element2(document2, "label", "field personal-settings-volume");
+  const volumeHeading = element2(document2, "span", "personal-settings-volume-heading");
+  const volumeOutput = element2(document2, "output", "", "");
+  volumeHeading.append(element2(document2, "span", "", "\uC54C\uB9BC \uC74C\uB7C9"), volumeOutput);
+  const volume = element2(document2, "input", "");
+  volume.type = "range";
+  volume.name = "volume";
+  volume.min = "0";
+  volume.max = "1";
+  volume.step = "0.05";
+  volume.dataset.preference = "volume";
+  volume.setAttribute("aria-label", "\uC54C\uB9BC \uC74C\uB7C9");
+  volume.addEventListener("input", () => update({ volume: Number(volume.value) }));
+  controls.set("volume", volume);
+  volumeLabel.append(volumeHeading, volume);
+  const preview = element2(document2, "button", "secondary full", "\uD45C\uC2DC\xB7\uC54C\uB9BC \uBBF8\uB9AC\uBCF4\uAE30");
+  preview.type = "button";
+  preview.dataset.action = "preview-sound";
+  preview.addEventListener("click", () => onPreview?.({ ...current }));
+  notificationGroup.append(volumeLabel, preview, element2(document2, "p", "hint personal-settings-note", "\uC18C\uB9AC\uB294 \uD654\uBA74\uC744 \uB204\uB978 \uB4A4 \uC7AC\uC0DD\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4. \uC9C4\uB3D9\uC740 \uC9C0\uC6D0\uD558\uB294 \uAE30\uAE30\uC640 \uBE0C\uB77C\uC6B0\uC800\uC5D0\uC11C\uB9CC \uC791\uB3D9\uD569\uB2C8\uB2E4."));
+  group("\uC870\uC791", CONTROL_OPTIONS);
+  const reset = element2(document2, "button", "secondary full personal-settings-reset", "\uB0B4 \uC124\uC815 \uCD08\uAE30\uD654");
+  reset.type = "button";
+  reset.dataset.action = "reset-preferences";
+  reset.addEventListener("click", () => update(DEFAULT_PREFERENCES));
+  root.append(reset, element2(document2, "p", "hint", "\uC774 \uBE0C\uB77C\uC6B0\uC800\uC758 \uAC1C\uC778 \uC124\uC815\uC744 \uAE30\uBCF8\uAC12\uC73C\uB85C \uB418\uB3CC\uB9BD\uB2C8\uB2E4."));
+  function refresh() {
+    for (const [key, control] of controls) {
+      if (key === "volume") {
+        control.value = String(current.volume);
+        const percent = `${Math.round(current.volume * 100)}%`;
+        control.setAttribute("aria-valuetext", percent);
+        volumeOutput.textContent = percent;
+      } else control.checked = current[key];
+    }
+  }
+  container.replaceChildren(root);
+  refresh();
+  return {
+    setValue(value2) {
+      current = normalizePreferences(value2);
+      refresh();
+    }
+  };
+}
+
+// duplicate/feedback-model.mjs
+var KINDS = /* @__PURE__ */ new Set(["discard", "call", "kan", "riichi", "win"]);
+var copy = (value) => structuredClone(value);
+var acceptedEvents = (view) => {
+  const byId = /* @__PURE__ */ new Map();
+  for (const event2 of view.publicEvents ?? []) if (Number.isSafeInteger(event2?.id) && event2.id >= 0 && KINDS.has(event2.kind)) byId.set(event2.id, event2);
+  return [...byId.values()].sort((a, b) => a.id - b.id).map(copy);
+};
+function createFeedbackTracker() {
+  let mounted = false, board = null, cursor = -1, history = [], lastDiscard = null;
+  const result = (events = [], newBoard = false) => ({ events: copy(events), history: copy(history), lastDiscard: copy(lastDiscard), newBoard });
+  return { update(view, boardKey) {
+    if (!view) {
+      mounted = false;
+      board = null;
+      cursor = -1;
+      history = [];
+      lastDiscard = null;
+      return result();
+    }
+    const incoming = acceptedEvents(view), latest = incoming.at(-1)?.id ?? -1;
+    if (!mounted || boardKey !== board) {
+      mounted = true;
+      board = boardKey;
+      cursor = latest;
+      history = incoming.slice(-6);
+      lastDiscard = incoming.findLast((event2) => event2.kind === "discard") ?? null;
+      return result([], true);
+    }
+    if (latest <= cursor) return result();
+    const events = incoming.filter((event2) => event2.id > cursor), merged = new Map(history.map((event2) => [event2.id, event2]));
+    for (const event2 of incoming) merged.set(event2.id, event2);
+    history = [...merged.values()].sort((a, b) => a.id - b.id).slice(-6);
+    lastDiscard = incoming.findLast((event2) => event2.kind === "discard") ?? lastDiscard;
+    cursor = latest;
+    return result(events);
+  } };
+}
+
+// duplicate/feedback-view.mjs
+var POSITIONS = ["bottom", "right", "top", "left"];
+var ACTIONS = { discard: "\uBC84\uB9BC", riichi: "\uB9AC\uCE58", chi: "\uCE58", pon: "\uD401", minkan: "\uBA85\uAE61", ankan: "\uC548\uAE61", kakan: "\uAC00\uAE61", kan: "\uAE61", ron: "\uB860", tsumo: "\uCBD4\uBAA8" };
+var FLAGS = ["lastDiscard", "actionBubbles", "animations", "turnHighlight", "recentActions", "callPreview", "sound", "vibration", "reducedMotion"];
+var validSeat = (seat) => Number.isInteger(seat) && seat >= 0 && seat < 4;
+var validTile = (tile) => Number.isInteger(tile) && tile >= 0 && tile < 34;
+var actionName = (event2) => ACTIONS[event2.kind === "win" ? event2.method : event2.kind === "call" || event2.kind === "kan" ? event2.callType ?? event2.kind : event2.kind] ?? "\uC120\uD0DD";
+var sourceSeat = (event2) => validSeat(event2?.source) ? event2.source : validSeat(event2?.sourceSeat) ? event2.sourceSeat : validSeat(event2?.source?.seat) ? event2.source.seat : null;
+function createFeedbackPresenter({ table, handArea, historyContainer, getPreferences, getPlayerName }) {
+  if (!table || !handArea) throw new Error("Feedback needs the table and hand area");
+  const document2 = table.ownerDocument, window2 = document2.defaultView;
+  const media = window2?.matchMedia?.("(prefers-reduced-motion: reduce)");
+  const timers = /* @__PURE__ */ new Map(), ghosts = /* @__PURE__ */ new Set(), transientMarks = /* @__PURE__ */ new Set(), voices = /* @__PURE__ */ new Set(), seen = /* @__PURE__ */ new Set();
+  let view = null, lastDiscard = null, preferences = {}, logItems = [], initialized = false, destroyed = false, delay = 0, audio = null;
+  const node = (tag, className, text) => {
+    const el = document2.createElement(tag);
+    el.className = className;
+    if (text !== void 0) el.textContent = text;
+    return el;
+  };
+  const layer = node("div", "feedback-layer");
+  layer.setAttribute("aria-hidden", "true");
+  const callouts = POSITIONS.map((position) => {
+    const el = node("div", `feedback-callout feedback-${position}`);
+    el.hidden = true;
+    layer.append(el);
+    return el;
+  });
+  const riichiMarkers = POSITIONS.map((position) => {
+    const el = node("div", `feedback-riichi-marker feedback-riichi-${position}`);
+    el.hidden = true;
+    el.append(node("span", "feedback-riichi-stick"), node("span", "feedback-riichi-label", "\u7ACB\u76F4"));
+    layer.append(el);
+    return el;
+  });
+  const winner = node("div", "feedback-win-banner");
+  winner.hidden = true;
+  layer.append(winner);
+  const announcement = node("div", "feedback-announcement");
+  announcement.setAttribute("role", "status");
+  announcement.setAttribute("aria-live", "polite");
+  announcement.setAttribute("aria-atomic", "true");
+  table.append(layer, announcement);
+  historyContainer?.classList.add("feedback-history");
+  const name = (seat) => {
+    try {
+      const result = getPlayerName?.(seat);
+      if (typeof result === "string" && result.trim()) return result;
+    } catch {
+    }
+    return validSeat(seat) ? ["\u6771", "\u5357", "\u897F", "\u5317"][(seat - (view?.dealer ?? 0) + 4) % 4] : "\uD50C\uB808\uC774\uC5B4";
+  };
+  const relative = (seat) => (seat - (view?.seat ?? 0) + 4) % 4;
+  const later = (key, callback, ms) => {
+    clearTimeout(timers.get(key));
+    timers.set(key, setTimeout(() => {
+      timers.delete(key);
+      if (!destroyed) callback();
+    }, ms));
+  };
+  function stopGhosts() {
+    for (const ghost of ghosts) {
+      ghost.getAnimations?.().forEach((animation) => animation.cancel());
+      ghost.remove();
+    }
+    ghosts.clear();
+  }
+  function stopSound() {
+    for (const voice of voices) {
+      try {
+        voice.oscillator.stop();
+      } catch {
+      }
+      voice.oscillator.disconnect();
+      voice.gain.disconnect();
+    }
+    voices.clear();
+  }
+  function stopVibration() {
+    try {
+      window2?.navigator?.vibrate?.(0);
+    } catch {
+    }
+  }
+  function clearMarks() {
+    for (const [element3, cls] of transientMarks) element3.classList.remove(cls);
+    transientMarks.clear();
+  }
+  function resetEffects() {
+    for (const timer of timers.values()) clearTimeout(timer);
+    timers.clear();
+    stopGhosts();
+    stopSound();
+    stopVibration();
+    clearMarks();
+    for (const el of callouts) {
+      el.hidden = true;
+      el.replaceChildren();
+      el.classList.remove("feedback-enter");
+    }
+    for (const el of riichiMarkers) el.hidden = true;
+    winner.hidden = true;
+    winner.replaceChildren();
+    announcement.textContent = "";
+    delay = 0;
+    table.querySelectorAll(".feedback-last-discard").forEach((el) => el.classList.remove("feedback-last-discard"));
+  }
+  function readPreferences() {
+    let input = {};
+    try {
+      input = getPreferences?.() ?? {};
+    } catch {
+    }
+    const next = Object.fromEntries(FLAGS.map((key) => [key, input[key] === true]));
+    const volume = Number(input.volume);
+    next.volume = Number.isFinite(volume) ? Math.max(0, Math.min(1, volume)) : 0.35;
+    next.motion = next.animations && !next.reducedMotion && !media?.matches;
+    return next;
+  }
+  function syncPreferences() {
+    const before = preferences;
+    preferences = readPreferences();
+    table.classList.toggle("feedback-no-motion", !preferences.motion);
+    table.classList.toggle("feedback-turn-muted", !preferences.turnHighlight);
+    if (!preferences.motion) {
+      stopGhosts();
+      for (const el of callouts) el.classList.remove("feedback-enter");
+      winner.classList.remove("feedback-enter");
+    }
+    if (!preferences.actionBubbles) {
+      for (const el of callouts) el.hidden = true;
+      winner.hidden = true;
+      delay = 0;
+    }
+    if (!preferences.actionBubbles && !preferences.animations) clearMarks();
+    if (!preferences.actionBubbles && !preferences.recentActions) announcement.textContent = "";
+    if (!preferences.lastDiscard) table.querySelectorAll(".feedback-last-discard").forEach((el) => el.classList.remove("feedback-last-discard"));
+    if (!preferences.recentActions) {
+      logItems = [];
+      if (historyContainer) {
+        historyContainer.replaceChildren();
+        historyContainer.hidden = true;
+      }
+    }
+    if (!preferences.sound || preferences.volume === 0) stopSound();
+    if (before.vibration && !preferences.vibration) stopVibration();
+    return before;
+  }
+  function mark(element3, cls, key, ms = 1100) {
+    if (!element3) return;
+    element3.classList.add(cls);
+    const entry = [element3, cls];
+    transientMarks.add(entry);
+    later(`mark-${key}`, () => {
+      element3.classList.remove(cls);
+      transientMarks.delete(entry);
+    }, ms);
+  }
+  function riverTile(discard, seat = discard?.seat) {
+    if (!discard) return null;
+    const candidates = Array.from(table.querySelectorAll(".river [data-discard-id]")).filter((el) => !validSeat(seat) || Number(el.dataset.seat) === seat);
+    const physical = discard.tileId ?? (Number.isInteger(discard.tile?.id) ? discard.tile.id : null);
+    if (physical !== null && physical !== void 0) {
+      const exact = candidates.find((el) => el.dataset.tileId === String(physical) || el.dataset.id === String(physical) || el.dataset.discardId === String(physical));
+      if (exact) return exact;
+    }
+    const discardId = discard.discardId ?? (physical === null || physical === void 0 ? discard.id : null);
+    if (discardId !== null && discardId !== void 0) {
+      const exact = candidates.find((el) => el.dataset.discardId === String(discardId));
+      if (exact) return exact;
+    }
+    const type = validTile(discard.tile) ? discard.tile : discard.type;
+    const matches = validTile(type) ? candidates.filter((el) => Number(el.dataset.type) === type) : candidates;
+    return matches.at(-1) ?? null;
+  }
+  function renderLastDiscard() {
+    table.querySelectorAll(".feedback-last-discard").forEach((el) => el.classList.remove("feedback-last-discard"));
+    if (preferences.lastDiscard && view) riverTile(lastDiscard)?.classList.add("feedback-last-discard");
+  }
+  function renderTurn() {
+    const myTurn = !!view && view.phase !== "end" && view.phase !== "ended" && view.actor === view.seat;
+    table.classList.toggle("feedback-my-turn", preferences.turnHighlight && myTurn);
+    handArea.classList.toggle("feedback-my-turn", preferences.turnHighlight && myTurn);
+  }
+  function renderRiichi() {
+    for (let index = 0; index < 4; index++) {
+      const seat = ((view?.seat ?? 0) + index) % 4, player = view?.players?.[seat], marker = riichiMarkers[index];
+      marker.hidden = !view || !preferences.actionBubbles || !player?.riichi;
+      marker.dataset.seat = String(seat);
+      marker.title = marker.hidden ? "" : `${name(seat)} \xB7 \uB9AC\uCE58`;
+    }
+  }
+  function textFor(event2) {
+    const tile = validTile(event2.tile) ? ` ${event2.red ? "\uC801 " : ""}${tileName(event2.tile)}` : "";
+    const source = sourceSeat(event2), from = source !== null && source !== event2.seat ? ` \u2190 ${name(source)}` : "";
+    return `${name(event2.seat)} \xB7 ${actionName(event2)}${tile}${from}`;
+  }
+  function renderHistory() {
+    if (!historyContainer) return;
+    historyContainer.hidden = !preferences.recentActions || !logItems.length;
+    historyContainer.replaceChildren();
+    if (historyContainer.hidden) return;
+    const heading = node("div", "feedback-history-heading", "\uCD5C\uADFC \uC120\uD0DD");
+    const list = node("ol", "feedback-history-list");
+    for (const event2 of logItems.slice(-6)) {
+      const item = node("li", `feedback-history-item feedback-history-${event2.kind}`);
+      item.append(node("span", "feedback-history-player", name(event2.seat)), node("b", "feedback-history-action", actionName(event2)));
+      if (validTile(event2.tile)) item.append(node("span", "feedback-history-tile", `${event2.red ? "\uC801 " : ""}${tileName(event2.tile)}`));
+      const source = sourceSeat(event2);
+      if (source !== null && source !== event2.seat) item.append(node("span", "feedback-history-source", `\u2190 ${name(source)}`));
+      list.append(item);
+    }
+    historyContainer.append(heading, list);
+  }
+  function showCallout(event2, preview2 = false) {
+    if (!preferences.actionBubbles || !validSeat(event2.seat)) return;
+    const index = relative(event2.seat), box = callouts[index];
+    box.replaceChildren();
+    box.dataset.kind = event2.kind;
+    box.dataset.seat = String(event2.seat);
+    box.append(node("div", "feedback-callout-player", `${preview2 ? "\uBBF8\uB9AC\uBCF4\uAE30 \xB7 " : ""}${name(event2.seat)}`));
+    const line = node("div", "feedback-callout-main");
+    line.append(node("strong", "feedback-callout-action", actionName(event2)));
+    if (validTile(event2.tile)) {
+      const tile = tileFace(event2.tile, { small: true });
+      tile.classList.toggle("red", !!event2.red);
+      line.append(tile);
+    }
+    box.append(line);
+    const source = sourceSeat(event2);
+    if (source !== null && source !== event2.seat) box.append(node("div", "feedback-callout-source", `\u2190 ${name(source)}`));
+    box.hidden = false;
+    box.classList.remove("feedback-enter");
+    if (preferences.motion) {
+      void box.offsetWidth;
+      box.classList.add("feedback-enter");
+    }
+    later(`callout-${index}`, () => {
+      box.hidden = true;
+      box.classList.remove("feedback-enter");
+    }, event2.kind === "discard" ? 950 : 1700);
+  }
+  function animateDiscard(event2) {
+    if (!preferences.motion || !validTile(event2.tile) || !validSeat(event2.seat)) return;
+    const target = riverTile(event2);
+    if (!target || typeof target.animate !== "function") return;
+    const destination = target.getBoundingClientRect(), bounds = layer.getBoundingClientRect();
+    if (!destination.width || !bounds.width) return;
+    const position = POSITIONS[relative(event2.seat)], source = position === "bottom" ? handArea : table.querySelector(`#opponent-${position}`);
+    const origin = source?.getBoundingClientRect();
+    if (!origin?.width) return;
+    const ghost = tileFace(event2.tile, { small: true });
+    ghost.classList.add("feedback-ghost");
+    ghost.classList.toggle("red", !!event2.red);
+    ghost.setAttribute("aria-hidden", "true");
+    const x = destination.left - bounds.left, y = destination.top - bounds.top;
+    Object.assign(ghost.style, { left: `${x}px`, top: `${y}px`, width: `${destination.width}px`, height: `${destination.height}px` });
+    layer.append(ghost);
+    ghosts.add(ghost);
+    const dx = origin.left + origin.width / 2 - destination.left - destination.width / 2, dy = origin.top + origin.height / 2 - destination.top - destination.height / 2;
+    ghost.animate([{ transform: `translate(${dx}px,${dy}px) scale(.9)`, opacity: 0.7 }, { transform: "translate(0,0) scale(1)", opacity: 1 }], { duration: 175, easing: "cubic-bezier(.2,.7,.2,1)" });
+    later(`ghost-${event2.id ?? event2.seat}`, () => {
+      ghost.remove();
+      ghosts.delete(ghost);
+    }, 210);
+  }
+  function highlightCall(event2) {
+    if (!preferences.actionBubbles && !preferences.animations) return;
+    const source = sourceSeat(event2);
+    if (source !== null && source !== event2.seat) mark(riverTile({ ...event2, id: event2.sourceDiscardId ?? null }, source), "feedback-claimed-source", `source-${event2.seat}`, 1e3);
+    const position = POSITIONS[relative(event2.seat)], container = position === "bottom" ? handArea.querySelector("#self-melds") : table.querySelector(`#meld-${position}`);
+    const melds = Array.from(container?.querySelectorAll(".meld") ?? []);
+    const matches = melds.filter((meld) => Array.from(meld.querySelectorAll("[data-type]")).some((tile) => Number(tile.dataset.type) === event2.tile));
+    mark((event2.callType === "kakan" ? matches.at(-1) : melds.at(-1)) ?? melds.at(-1), "feedback-meld-hit", `meld-${event2.seat}`, 1200);
+  }
+  async function unlock() {
+    if (destroyed) return;
+    const current = readPreferences();
+    if (!current.sound || current.volume === 0) return;
+    try {
+      if (!audio) {
+        const Context = window2?.AudioContext ?? window2?.webkitAudioContext;
+        if (!Context) return;
+        audio = new Context();
+      }
+      if (audio.state === "suspended") await audio.resume();
+    } catch {
+    }
+  }
+  function sound(kind) {
+    if (!preferences.sound || preferences.volume === 0 || document2.hidden || !audio || audio.state !== "running") return;
+    const tones = kind === "win" ? [[523, 0.15, 0], [659, 0.18, 0.07], [784, 0.24, 0.14]] : kind === "riichi" ? [[523, 0.1, 0], [784, 0.16, 0.1]] : kind === "turn" ? [[659, 0.07, 0], [880, 0.1, 0.08]] : kind === "call" || kind === "kan" ? [[587, 0.1, 0], [698, 0.13, 0.08]] : [[880, 0.045, 0]];
+    for (const [frequency, duration, offset] of tones) {
+      const oscillator = audio.createOscillator(), gain = audio.createGain(), start = audio.currentTime + offset;
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(frequency, start);
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(preferences.volume * (kind === "discard" ? 0.035 : 0.07), start + 8e-3);
+      gain.gain.exponentialRampToValueAtTime(1e-4, start + duration);
+      oscillator.connect(gain);
+      gain.connect(audio.destination);
+      const voice = { oscillator, gain };
+      voices.add(voice);
+      oscillator.onended = () => {
+        voices.delete(voice);
+        oscillator.disconnect();
+        gain.disconnect();
+      };
+      oscillator.start(start);
+      oscillator.stop(start + duration + 0.015);
+    }
+  }
+  function vibrate(kind) {
+    if (!preferences.vibration || document2.hidden) return;
+    try {
+      window2?.navigator?.vibrate?.(kind === "win" ? [35, 35, 55] : kind === "riichi" ? [20, 25, 35] : kind === "discard" ? 10 : kind === "turn" ? 25 : 20);
+    } catch {
+    }
+  }
+  function announceWins(events) {
+    if (!events.length || !preferences.actionBubbles) return;
+    winner.replaceChildren(node("span", "feedback-win-eyebrow", events.length > 1 ? `${events.length}\uBA85 \uB3D9\uC2DC \uD654\uB8CC` : "\uD654\uB8CC"));
+    const line = node("div", "feedback-win-names");
+    for (const event2 of events) line.append(node("strong", "", `${name(event2.seat)} \xB7 ${actionName(event2)}`));
+    winner.append(line);
+    winner.hidden = false;
+    winner.classList.toggle("feedback-enter", preferences.motion);
+    delay = preferences.motion ? 720 : 520;
+    later("win-banner", () => {
+      winner.hidden = true;
+      winner.classList.remove("feedback-enter");
+      delay = 0;
+    }, 1600);
+  }
+  function update({ view: nextView, events = [], history = [], lastDiscard: nextDiscard = null, newBoard = false } = {}) {
+    if (destroyed) return { winDelayMs: 0 };
+    const firstUpdate = !initialized, previousView = view, before = syncPreferences();
+    view = nextView ?? null;
+    lastDiscard = nextDiscard;
+    delay = 0;
+    const becameMyTurn = !firstUpdate && !newBoard && previousView && previousView.actor !== previousView.seat && view?.actor === view?.seat && view?.phase !== "end" && view?.phase !== "ended";
+    if (newBoard || !view) {
+      resetEffects();
+      seen.clear();
+      logItems = [];
+    }
+    if (!view) {
+      initialized = true;
+      renderLastDiscard();
+      renderTurn();
+      renderRiichi();
+      renderHistory();
+      return { winDelayMs: 0 };
+    }
+    if ((!initialized || newBoard) && preferences.recentActions) logItems = history.filter((event2) => validSeat(event2.seat)).slice(-6);
+    if (!initialized || newBoard) initialized = true;
+    const fresh = [];
+    for (const event2 of events) {
+      if (!validSeat(event2?.seat) || !["discard", "call", "kan", "riichi", "win"].includes(event2.kind)) continue;
+      const id = String(event2.id ?? `${event2.kind}:${event2.seat}:${event2.tileId ?? event2.tile}:${sourceSeat(event2)}`);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      fresh.push(event2);
+    }
+    while (seen.size > 256) seen.delete(seen.values().next().value);
+    if (!before.recentActions && preferences.recentActions && !firstUpdate && !newBoard) logItems = history.filter((event2) => validSeat(event2.seat)).slice(-6);
+    if (preferences.recentActions) {
+      const existing = new Set(logItems.map((event2) => event2.id));
+      for (const event2 of fresh) if (!existing.has(event2.id)) {
+        logItems.push(event2);
+        existing.add(event2.id);
+      }
+      logItems = logItems.slice(-6);
+    }
+    renderLastDiscard();
+    renderTurn();
+    renderRiichi();
+    renderHistory();
+    for (const event2 of fresh) {
+      showCallout(event2);
+      if (event2.kind === "discard") animateDiscard(event2);
+      if (event2.kind === "call" || event2.kind === "kan") highlightCall(event2);
+    }
+    const wins = fresh.filter((event2) => event2.kind === "win");
+    announceWins(wins);
+    if (fresh.length) {
+      const priority = { discard: 0, call: 1, kan: 2, riichi: 3, win: 4 };
+      const strongest = fresh.reduce((a, b) => priority[b.kind] > priority[a.kind] ? b : a);
+      if (preferences.actionBubbles || preferences.recentActions) announcement.textContent = wins.length ? wins.map(textFor).join(" / ") : textFor(strongest);
+      const cue = becameMyTurn && strongest.kind === "discard" ? "turn" : strongest.kind;
+      sound(cue);
+      vibrate(cue);
+    } else if (becameMyTurn) {
+      sound("turn");
+      vibrate("turn");
+    }
+    return { winDelayMs: delay };
+  }
+  function preview(nextView) {
+    if (destroyed) return;
+    syncPreferences();
+    if (nextView) view = nextView;
+    if (!view) return;
+    const tile = view.handTiles?.find((item) => validTile(item.type)) ?? (validTile(lastDiscard?.tile) ? lastDiscard : null);
+    const event2 = { id: "feedback-preview", kind: "riichi", seat: view.seat, tile: tile?.type ?? tile?.tile ?? null, red: !!tile?.red };
+    showCallout(event2, true);
+    renderTurn();
+    if (preferences.turnHighlight) {
+      table.classList.add("feedback-my-turn");
+      handArea.classList.add("feedback-my-turn");
+      later("preview-turn", renderTurn, 1600);
+    }
+    if (preferences.lastDiscard) {
+      const target = riverTile(lastDiscard);
+      mark(target, "feedback-preview-discard", "preview-discard", 1600);
+    }
+    if (preferences.animations && lastDiscard) animateDiscard({ ...lastDiscard, kind: "discard", tile: lastDiscard.tile ?? lastDiscard.type });
+    if (preferences.recentActions && historyContainer) {
+      renderHistory();
+      historyContainer.hidden = false;
+      const demo = node("div", "feedback-history-preview", `\uBBF8\uB9AC\uBCF4\uAE30 \xB7 ${textFor(event2)}`);
+      historyContainer.prepend(demo);
+      later("preview-history", renderHistory, 1600);
+    }
+    void unlock().then(() => {
+      if (!destroyed) {
+        preferences = readPreferences();
+        sound("riichi");
+      }
+    });
+    vibrate("riichi");
+  }
+  const motionChanged = () => {
+    if (destroyed) return;
+    syncPreferences();
+    renderTurn();
+    renderRiichi();
+    renderLastDiscard();
+  };
+  media?.addEventListener?.("change", motionChanged);
+  return {
+    update,
+    preview,
+    unlock,
+    get winDelayMs() {
+      return delay;
+    },
+    destroy() {
+      if (destroyed) return;
+      resetEffects();
+      destroyed = true;
+      media?.removeEventListener?.("change", motionChanged);
+      layer.remove();
+      announcement.remove();
+      historyContainer?.replaceChildren();
+      if (historyContainer) historyContainer.hidden = true;
+      table.classList.remove("feedback-my-turn", "feedback-no-motion", "feedback-turn-muted");
+      handArea.classList.remove("feedback-my-turn");
+      if (audio) {
+        void audio.close().catch(() => {
+        });
+        audio = null;
+      }
+    }
+  };
+}
+
 // duplicate/app.mjs
 var DEFAULT_SERVER = "https://wellness-mahjong-h-lab.chayhyeon.chatgpt.site";
 var $ = (id) => document.getElementById(id);
@@ -1028,7 +1753,17 @@ var signed = (n) => n === null || n === void 0 ? "\u2014" : `${n > 0 ? "+" : ""}
 var winds = ["\u6771", "\u5357", "\u897F", "\u5317"];
 var positions = ["bottom", "right", "top", "left"];
 var switchDefinitions = [["dora", "\uB3C4\uB77C", "\uCCAB \uBC88\uC9F8 \uB3C4\uB77C \uD45C\uC2DC\uD328"], ["kanDora", "\uAE61\uB3C4\uB77C", "\uAE61\uB9C8\uB2E4 \uCD94\uAC00 \uB3C4\uB77C \uD45C\uC2DC\uD328"], ["uraDora", "\uC6B0\uB77C\uB3C4\uB77C", "\uB9AC\uCE58 \uD654\uB8CC \uC2DC \uACF5\uAC1C\uD558\uB294 \uB4B7 \uD45C\uC2DC\uD328"], ["redDora", "\uC801\uB3C4\uB77C", "\uB9CC\xB7\uD1B5\xB7\uC0AD\uC758 \uC8015 \uAC01 1\uC7A5"], ["deadWall", "\uC655\uD328", "\uD328\uC0B0\uC5D0\uC11C 14\uC7A5 \uC81C\uC678"], ["kuitan", "\uCFE0\uC774\uD0D5", "\uBD80\uB978 \uC190\uD328\uC758 \uD0D5\uC57C\uC624 \uD5C8\uC6A9"], ["abortFourKans", "\uC0AC\uAE61\uC0B0\uB8CC", "2\uBA85 \uC774\uC0C1\uC774 \uD569\uACC4 4\uAE61\uC774\uBA74 \uC720\uAD6D"]];
-var S = { mode: "practice", practice: null, online: null, credentials: null, view: null, selected: null, riichiSelecting: false, busy: false, timer: null, poll: null, worker: null, endHidden: false, endKey: null, toastTimer: null, settings: null, boardCount: 8, autoWin: true, autoPass: true, server: DEFAULT_SERVER };
+var S = { mode: "practice", panel: "practice", practice: null, online: null, credentials: null, view: null, selected: null, riichiSelecting: false, busy: false, timer: null, poll: null, worker: null, endHidden: false, endKey: null, endRevealAt: 0, resultTimer: null, toastTimer: null, settings: null, roomRules: null, ruleContext: "practice", ruleReadOnly: false, creatingRoom: false, boardCount: 8, preferences: { ...DEFAULT_PREFERENCES }, autoWin: true, autoPass: true, server: DEFAULT_SERVER, gameEpoch: 0 };
+var personalSettingsUI;
+var feedbackTracker = createFeedbackTracker();
+var feedback = createFeedbackPresenter({ table: $("table"), handArea: $("hand-area"), historyContainer: $("recent-actions"), getPreferences: () => S.preferences, getPlayerName: (seat) => playerName(seat) });
+function playerName(seat, view = S.view) {
+  if (!view) return winds[seat] ?? "\uD50C\uB808\uC774\uC5B4";
+  const wind = winds[(seat - view.dealer + 4) % 4];
+  const member = S.mode === "online" ? S.online?.members?.find((p) => p.seat === seat) : null;
+  const name = member?.name ?? (seat === view.seat ? "\uB098" : `AI ${(seat - view.seat + 4) % 4}`);
+  return `${wind} \xB7 ${name}`;
+}
 function readStorage(storage, key) {
   try {
     return JSON.parse(storage.getItem(key) || "null");
@@ -1068,7 +1803,7 @@ function savePractice() {
   if (S.practice) writeStorage(localStorage, "duplicate.practice.v1", S.practice);
 }
 function currentRules() {
-  return S.mode === "online" ? S.online?.rules ?? S.settings : S.practice?.game.rules ?? S.settings;
+  return S.mode === "online" ? S.online?.rules ?? S.roomRules : S.practice?.game.rules ?? S.settings;
 }
 function ruleSummary() {
   const r = currentRules(), box = $("rule-chips");
@@ -1078,31 +1813,55 @@ function ruleSummary() {
     box.append(textNode("span", `${name} ${r[key] ? "ON" : "OFF"}`, `chip ${r[key] ? "" : "off"}`));
   }
   box.append(textNode("span", `${r.exhaustLimit}\uBA85 \uC18C\uC9C4 \uC720\uAD6D`, "chip"));
+  $("rules-summary-title").textContent = S.mode === "online" ? S.online ? "\uC774 \uBC29\uC758 \uB300\uAD6D \uADDC\uCE59" : "\uC0C8 \uB300\uD68C \uADDC\uCE59" : "\uD604\uC7AC \uC5F0\uC2B5 \uADDC\uCE59";
+  $("rules-open-second").textContent = S.mode === "online" && S.online ? "\uADDC\uCE59 \uBCF4\uAE30" : "\uADDC\uCE59 \uC124\uC815";
+  const roomRules = S.online?.rules ?? S.roomRules;
+  $("room-rules-preview").textContent = `${S.online?.boardCount ?? S.boardCount}\uAD6D \xB7 \uB3C4\uB77C ${roomRules.dora ? "\uC788\uC74C" : "\uC5C6\uC74C"} \xB7 \uC655\uD328 ${roomRules.deadWall ? "\uC788\uC74C" : "\uC5C6\uC74C"} \xB7 ${roomRules.exhaustLimit}\uBA85 \uC18C\uC9C4 \uC720\uAD6D`;
+  $("room-rules-open").textContent = S.online ? "\uBC29 \uADDC\uCE59 \uBCF4\uAE30" : "\uBC29 \uADDC\uCE59 \uC124\uC815";
+}
+function showPanel(panel) {
+  S.panel = panel;
+  for (const name of ["practice", "online", "settings"]) {
+    $(`${name}-panel`).hidden = name !== panel;
+    $(`${name}-tab`).classList.toggle("active", name === panel);
+    $(`${name}-tab`).setAttribute("aria-pressed", String(name === panel));
+  }
+  $("layout").classList.toggle("personal-settings-open", panel === "settings");
+}
+function openPersonalSettings() {
+  showPanel("settings");
+  if (matchMedia("(max-width:850px)").matches) $("settings-panel").scrollIntoView({ block: "start", behavior: "auto" });
 }
 function setMode(mode) {
   clearPlayTimer();
   S.mode = mode;
+  showPanel(mode);
   S.selected = null;
   S.riichiSelecting = false;
   S.endHidden = false;
   S.endKey = null;
-  $("practice-panel").hidden = mode !== "practice";
-  $("online-panel").hidden = mode !== "online";
-  for (const name of ["practice", "online"]) {
-    $(`${name}-tab`).classList.toggle("active", name === mode);
-    $(`${name}-tab`).setAttribute("aria-pressed", String(name === mode));
-  }
   if (mode === "online") {
+    S.view = S.credentials ? S.online?.game ?? null : null;
+    render();
     if (S.credentials) pollRoom();
-    else {
-      S.view = null;
-      render();
-    }
   } else {
     S.view = snapshot(S.practice.game, S.practice.seat);
     render();
     schedulePractice();
   }
+}
+function applyPreferences(value) {
+  S.preferences = normalizePreferences(value);
+  savePreferences(localStorage, S.preferences);
+  S.autoWin = S.preferences.autoWin;
+  S.autoPass = S.preferences.autoPass;
+  $("auto-win").checked = S.autoWin;
+  $("auto-pass").checked = S.autoPass;
+  personalSettingsUI?.setValue(S.preferences);
+  if (S.preferences.sound) feedback.unlock();
+  render();
+  if (S.mode === "practice") schedulePractice();
+  else scheduleOnlineAuto();
 }
 function newPractice() {
   const raw = $("practice-seed").value.trim();
@@ -1115,6 +1874,7 @@ function newPractice() {
   S.worker = null;
   const seed = Number(raw), seat = Number($("practice-seat").value), count = Number($("practice-count").value);
   S.practice = { seed, seat, count, index: 0, results: [], game: createGame({ seed, rules: S.settings, dealer: 0 }) };
+  S.gameEpoch++;
   S.mode = "practice";
   S.endHidden = false;
   S.endKey = null;
@@ -1165,7 +1925,7 @@ function finishPractice() {
   const job = { seed: result.seed, rules: p.game.rules, dealer: p.index % 4, seat: p.seat };
   try {
     S.worker?.terminate();
-    S.worker = new Worker(new URL("./baseline-worker.mjs?v=8ffb8c417cdeabb8", import.meta.url), { type: "module" });
+    S.worker = new Worker(new URL("./baseline-worker.mjs?v=76363baffd7faf60", import.meta.url), { type: "module" });
     S.worker.onmessage = (e) => {
       if (e.data.error) {
         result.referenceStatus = "error";
@@ -1271,6 +2031,8 @@ function renderHand() {
     el.addEventListener("click", () => selectTile(tile));
     hand.append(el);
   }
+  $("self-name").dataset.seat = String(v.seat);
+  $("self-melds").dataset.seat = String(v.seat);
   renderMelds($("self-melds"), self.melds);
 }
 function renderMelds(container, melds = []) {
@@ -1339,6 +2101,9 @@ function renderTable() {
       tile.classList.toggle("red", discarded.red);
       tile.classList.toggle("riichi", discarded.riichi);
       tile.classList.toggle("claimed", discarded.claimed);
+      tile.dataset.discardId = String(discarded.id);
+      tile.dataset.tileId = String(discarded.id);
+      tile.dataset.seat = String(seat);
       river.append(tile);
     }
     if (relative) {
@@ -1368,11 +2133,42 @@ function renderTable() {
   if (!v.doraIndicators.length) $("dora-tiles").append(textNode("span", v.rules.kanDora ? " \uAE61\u5F8C \uD45C\uC2DC" : " \uC5C6\uC74C"));
   let status = "";
   if (v.phase === "end") status = v.end === "win" ? "\uD654\uB8CC \xB7 \uAD6D \uC885\uB8CC" : "\uC720\uAD6D \xB7 \uAD6D \uC885\uB8CC";
-  else if (v.actor === v.seat) status = v.phase === "reaction" ? "\uB860\xB7\uCF5C\uC744 \uC120\uD0DD\uD558\uC138\uC694." : "\uB0B4 \uCC28\uB840\uC785\uB2C8\uB2E4.";
+  else if (v.actor === v.seat) status = v.phase === "reaction" && v.lastDiscard ? `${winds[(v.lastDiscard.seat - v.dealer + 4) % 4]}\uC758 ${tileName(v.lastDiscard.type ?? v.lastDiscard.tile)} \xB7 \uB860/\uD6C4\uB85C \uC120\uD0DD` : "\uB0B4 \uCC28\uB840\uC785\uB2C8\uB2E4.";
   else status = v.phase === "reaction" ? "\uB860\xB7\uCF5C \uD655\uC778 \uC911" : `${winds[(v.turn - v.dealer + 4) % 4]}\uC758 \uCC28\uB840`;
   $("table-status").textContent = status;
 }
 var actionNames = { tsumo: "\uCBD4\uBAA8", ron: "\uB860", pon: "\uD401", minkan: "\uBA85\uAE61", ankan: "\uC548\uAE61", kakan: "\uAC00\uAE61", chi: "\uCE58", pass: "\uB118\uAE30\uAE30" };
+function callPreview(action, view) {
+  const box = document.createElement("span");
+  box.className = "call-preview";
+  box.setAttribute("aria-hidden", "true");
+  const source = view.lastDiscard, hand = [...view.handTiles].sort((a, b) => Number(!!a.red) - Number(!!b.red));
+  let tiles = [];
+  if (action.type === "kakan") {
+    const meld = view.melds[action.meld];
+    if (!meld) return box;
+    tiles = [...meld.tiles ?? [], hand.find((t) => t.type === meld.tile)].filter(Boolean);
+  } else if (action.type === "ankan") tiles = hand.filter((t) => t.type === action.tile);
+  else {
+    const wanted = action.type === "chi" ? [action.tile, action.tile + 1, action.tile + 2] : Array(action.type === "minkan" ? 4 : 3).fill(action.tile);
+    let claimed = false;
+    tiles = wanted.map((type) => {
+      if (!claimed && type === (source?.type ?? source?.tile)) {
+        claimed = true;
+        return { type, red: !!source.red, claimed: true };
+      }
+      const index = hand.findIndex((t) => t.type === type);
+      return index < 0 ? { type } : hand.splice(index, 1)[0];
+    });
+  }
+  for (const t of tiles) {
+    const face = tileFace(t.type, { small: true });
+    face.classList.toggle("red", !!t.red);
+    face.classList.toggle("call-target", !!t.claimed);
+    box.append(face);
+  }
+  return box;
+}
 function renderActions() {
   const box = $("actions");
   box.replaceChildren();
@@ -1398,6 +2194,10 @@ function renderActions() {
   $("action-hint").textContent = S.riichiSelecting ? "\uB9AC\uCE58\uD560 \uBC84\uB9BC\uD328\uB97C \uC120\uD0DD\uD558\uC138\uC694." : v.phase === "reaction" ? "\uB860\xB7\uCE58\xB7\uD401\xB7\uAE61 \uB610\uB294 \uB118\uAE30\uAE30\uB97C \uC120\uD0DD\uD558\uC138\uC694." : S.selected !== null ? "\uC120\uD0DD\uD55C \uD328\uB97C \uB2E4\uC2DC \uB204\uB974\uBA74 \uBC84\uB9BD\uB2C8\uB2E4." : "\uD328\uB97C \uB450 \uBC88 \uB204\uB974\uAC70\uB098 \uC120\uD0DD \uD6C4 \uBC84\uB9AC\uAE30\uB97C \uB204\uB974\uC138\uC694.";
   for (const action of legal.filter((a) => !["discard", "riichi"].includes(a.type))) {
     const button = textNode("button", `${actionNames[action.type] ?? action.type}${action.type === "chi" ? ` ${tileName(action.tile)}\uBD80\uD130` : ["ankan", "minkan"].includes(action.type) ? ` ${tileName(action.tile)}` : ""}`, ["tsumo", "ron"].includes(action.type) ? "win-action" : "secondary");
+    if (S.preferences.callPreview && ["chi", "pon", "minkan", "ankan", "kakan"].includes(action.type)) {
+      button.classList.add("call-preview-button");
+      button.append(callPreview(action, v));
+    }
     button.disabled = S.busy;
     button.onclick = () => play(action);
     box.append(button);
@@ -1436,7 +2236,7 @@ function renderEnd() {
     S.endKey = key;
     S.endHidden = false;
   }
-  $("end-overlay").hidden = S.endHidden;
+  $("end-overlay").hidden = S.endHidden || Date.now() < S.endRevealAt;
   $("end-title").textContent = v.end === "win" ? "\uD654\uB8CC" : v.end === "exhaustive-draw" ? "\uD669\uD328 \uC720\uAD6D" : "\uC0AC\uAE61\uC0B0\uB8CC";
   $("end-eyebrow").textContent = `BOARD ${S.mode === "practice" ? S.practice.index + 1 : S.online.board} \xB7 RESULT`;
   const details = $("end-details");
@@ -1531,6 +2331,21 @@ function render() {
   renderTable();
   renderHand();
   renderActions();
+  const boardKey = S.view ? online ? `${S.server}:${S.online.code}:${S.online.tableId}:${S.online.board}:${S.view.seat}` : `practice:${S.practice.seed}:${S.practice.index}:${S.view.seat}:${S.gameEpoch}` : null;
+  const state = feedbackTracker.update(S.view, boardKey);
+  if (state.newBoard) {
+    clearTimeout(S.resultTimer);
+    S.endRevealAt = 0;
+  }
+  const result = feedback.update({ view: S.view, ...state });
+  if (result?.winDelayMs > 0 && S.view?.phase === "end") {
+    S.endRevealAt = Date.now() + result.winDelayMs;
+    clearTimeout(S.resultTimer);
+    S.resultTimer = setTimeout(() => {
+      S.endRevealAt = 0;
+      renderEnd();
+    }, result.winDelayMs);
+  }
   renderEnd();
   renderComparison();
   $("game-footnote").textContent = online ? "\uB300\uD68C\uB294 \uC0DD\uC131 \uD6C4 6\uC2DC\uAC04 \uC720\uC9C0\uB429\uB2C8\uB2E4. \uAC19\uC740 \uD0ED\uC5D0\uC11C \uC0C8\uB85C\uACE0\uCE68\uD558\uBA74 \uC790\uAE30 \uC790\uB9AC\uB85C \uB3CC\uC544\uC635\uB2C8\uB2E4." : "\uD328\uB97C \uB450 \uBC88 \uB204\uB974\uAC70\uB098 \uC120\uD0DD \uD6C4 \uBC84\uB9AC\uAE30\uB97C \uB204\uB974\uC138\uC694. \uD0A4\uBCF4\uB4DC \u2190 \u2192 / Enter / Esc \uC9C0\uC6D0.";
@@ -1588,7 +2403,7 @@ async function connectRoom(create) {
   S.busy = true;
   renderRoom();
   try {
-    const state = await request(create ? "" : `/${code}/join`, create ? { name, rules: S.settings, boardCount: S.boardCount } : { name }, false);
+    const state = await request(create ? "" : `/${code}/join`, create ? { name, rules: S.roomRules, boardCount: S.boardCount } : { name }, false);
     S.credentials = { code: state.code, key: state.key, seat: state.seat, tableId: state.tableId, server: S.server };
     writeStorage(sessionStorage, "duplicate.room.v1", S.credentials);
     writeStorage(localStorage, "duplicate.name", name);
@@ -1696,12 +2511,25 @@ async function advance() {
   S.riichiSelecting = false;
   afterPracticeStep();
 }
-function openRules() {
-  for (const [key] of switchDefinitions) $(`rule-${key}`).checked = S.settings[key];
-  $("rule-exhaustLimit").value = S.settings.exhaustLimit;
-  $("rule-multipleRon").value = S.settings.multipleRon;
-  $("rule-startingPoints").value = S.settings.startingPoints;
-  $("rule-boardCount").value = S.boardCount;
+function openRules(context2 = S.mode === "online" ? "room" : "practice", create = false) {
+  S.ruleContext = context2;
+  S.ruleReadOnly = context2 === "room" && !!S.online;
+  S.creatingRoom = create && !S.ruleReadOnly;
+  const rules = S.ruleReadOnly ? S.online.rules : context2 === "room" ? S.roomRules : S.settings;
+  for (const [key] of switchDefinitions) $(`rule-${key}`).checked = rules[key];
+  $("rule-exhaustLimit").value = rules.exhaustLimit;
+  $("rule-multipleRon").value = rules.multipleRon;
+  $("rule-startingPoints").value = rules.startingPoints;
+  $("rule-boardCount").value = S.ruleReadOnly ? S.online.boardCount : S.boardCount;
+  $("rules-dialog-title").textContent = S.ruleReadOnly ? "\uC774 \uBC29\uC758 \uB300\uAD6D \uADDC\uCE59" : create ? "\uB300\uD68C \uB9CC\uB4E4\uAE30" : context2 === "room" ? "\uC0C8 \uB300\uD68C \uADDC\uCE59" : "\uC5F0\uC2B5 \uADDC\uCE59";
+  $("rules-dialog-note").textContent = S.ruleReadOnly ? "\uBC29\uC744 \uB9CC\uB4E4 \uB54C \uD655\uC815\uD55C \uACF5\uD1B5 \uADDC\uCE59\uC785\uB2C8\uB2E4. \uCC38\uAC00\uC790\uB294 \uBCC0\uACBD\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4." : context2 === "room" ? "\uC774 \uB300\uD68C\uC758 \uBAA8\uB4E0 \uD14C\uC774\uBE14\uC5D0 \uAC19\uC740 \uADDC\uCE59\uC744 \uC801\uC6A9\uD569\uB2C8\uB2E4. \uAC1C\uC778 \uD654\uBA74\xB7\uC54C\uB9BC \uC124\uC815\uACFC \uBCC4\uB3C4\uB85C \uC800\uC7A5\uD569\uB2C8\uB2E4." : "\uB2E4\uC74C \uC0C8 \uC5F0\uC2B5\uBD80\uD130 \uC801\uC6A9\uB429\uB2C8\uB2E4. \uC628\uB77C\uC778 \uB300\uD68C\uC758 \uADDC\uCE59\uC740 \uB530\uB85C \uC124\uC815\uD569\uB2C8\uB2E4.";
+  $("rules-dialog").classList.toggle("rules-readonly", S.ruleReadOnly);
+  for (const input of $("rules-dialog").querySelectorAll('#rule-switches input,[id^="rule-"]')) input.disabled = S.ruleReadOnly;
+  $("rule-boardCount-field").hidden = context2 !== "room";
+  $("create-room-name-field").hidden = !S.creatingRoom;
+  $("create-room-name").value = $("online-name").value;
+  $("rules-save").hidden = S.ruleReadOnly;
+  $("rules-save").textContent = S.creatingRoom ? "\uC774 \uADDC\uCE59\uC73C\uB85C \uB300\uD68C \uB9CC\uB4E4\uAE30" : context2 === "room" ? "\uB300\uD68C \uADDC\uCE59 \uC800\uC7A5" : "\uC5F0\uC2B5 \uADDC\uCE59 \uC800\uC7A5";
   $("rules-dialog").showModal();
 }
 function fillPreset(noDora = false) {
@@ -1711,19 +2539,34 @@ function fillPreset(noDora = false) {
   $("rule-startingPoints").value = 25e3;
 }
 function saveRules() {
+  if (S.ruleReadOnly || S.busy) return;
   try {
+    if (S.creatingRoom && !$("create-room-name").value.trim()) {
+      $("create-room-name").focus();
+      toast("\uBC29\uC7A5 \uC774\uB984\uC744 \uC785\uB825\uD574 \uC8FC\uC138\uC694.");
+      return;
+    }
     const raw = { ...DEFAULT_RULES2 };
     for (const [key] of switchDefinitions) raw[key] = $(`rule-${key}`).checked;
     raw.exhaustLimit = Number($("rule-exhaustLimit").value);
     raw.multipleRon = $("rule-multipleRon").value;
     raw.startingPoints = Number($("rule-startingPoints").value);
     if (raw.startingPoints > 1e5) throw new Error("\uC2DC\uC791 \uC810\uC218\uB294 100,000\uC810 \uC774\uD558\uB85C \uC124\uC815\uD574 \uC8FC\uC138\uC694.");
-    S.settings = normalizeRules(raw);
-    S.boardCount = Number($("rule-boardCount").value);
-    writeStorage(localStorage, "duplicate.settings.v1", { rules: S.settings, boardCount: S.boardCount });
+    const rules = normalizeRules(raw);
+    if (S.ruleContext === "room") {
+      S.roomRules = rules;
+      S.boardCount = Number($("rule-boardCount").value);
+      writeStorage(localStorage, "duplicate.room-rules.v1", { rules: S.roomRules, boardCount: S.boardCount });
+    } else {
+      S.settings = rules;
+      writeStorage(localStorage, "duplicate.settings.v1", { rules: S.settings });
+    }
+    const create = S.creatingRoom;
+    if (create) $("online-name").value = $("create-room-name").value.trim();
     $("rules-dialog").close();
-    toast("\uADDC\uCE59\uC744 \uC800\uC7A5\uD588\uC2B5\uB2C8\uB2E4. \uC0C8 \uC5F0\uC2B5\xB7\uC0C8 \uB300\uD68C\uC5D0 \uC801\uC6A9\uB429\uB2C8\uB2E4.");
     ruleSummary();
+    if (create) connectRoom(true);
+    else toast(S.ruleContext === "room" ? "\uC0C8 \uB300\uD68C\uC758 \uADDC\uCE59\uC744 \uC800\uC7A5\uD588\uC2B5\uB2C8\uB2E4." : "\uB2E4\uC74C \uC0C8 \uC5F0\uC2B5\uC5D0 \uC801\uC6A9\uD560 \uADDC\uCE59\uC744 \uC800\uC7A5\uD588\uC2B5\uB2C8\uB2E4.");
   } catch (error) {
     toast(error.message);
   }
@@ -1769,15 +2612,18 @@ for (const [key, title, description] of switchDefinitions) {
 }
 $("practice-tab").onclick = () => setMode("practice");
 $("online-tab").onclick = () => setMode("online");
+$("settings-tab").onclick = openPersonalSettings;
+$("settings-open").onclick = openPersonalSettings;
 $("practice-new").onclick = newPractice;
 $("random-seed").onclick = () => $("practice-seed").value = String(randomSeed());
-$("rules-open").onclick = openRules;
-$("rules-open-second").onclick = openRules;
+$("practice-rules-open").onclick = () => openRules("practice");
+$("room-rules-open").onclick = () => openRules("room");
+$("rules-open-second").onclick = () => openRules();
 $("help-open").onclick = () => $("help-dialog").showModal();
 $("rules-save").onclick = saveRules;
 $("preset-standard").onclick = () => fillPreset(false);
 $("preset-no-dora").onclick = () => fillPreset(true);
-$("online-create").onclick = () => connectRoom(true);
+$("online-create").onclick = () => openRules("room", true);
 $("online-join").onclick = () => connectRoom(false);
 $("start-ai").onclick = () => roomOperation("start-ai");
 $("leave-room").onclick = () => leaveRoom();
@@ -1788,6 +2634,7 @@ $("dismiss-result").onclick = () => {
 };
 $("resume-result").onclick = () => {
   S.endHidden = false;
+  S.endRevealAt = 0;
   renderEnd();
 };
 $("export-result").onclick = exportResult;
@@ -1804,16 +2651,8 @@ $("copy-invite").onclick = async () => {
     toast(`\uCD08\uB300 \uCF54\uB4DC: ${S.online.code}`);
   }
 };
-$("auto-win").onchange = () => {
-  S.autoWin = $("auto-win").checked;
-  if (S.mode === "practice") schedulePractice();
-  else scheduleOnlineAuto();
-};
-$("auto-pass").onchange = () => {
-  S.autoPass = $("auto-pass").checked;
-  if (S.mode === "practice") schedulePractice();
-  else scheduleOnlineAuto();
-};
+$("auto-win").onchange = () => applyPreferences({ ...S.preferences, autoWin: $("auto-win").checked });
+$("auto-pass").onchange = () => applyPreferences({ ...S.preferences, autoPass: $("auto-pass").checked });
 $("online-code").oninput = () => {
   $("online-code").value = $("online-code").value.toUpperCase().replace(/[^A-Z2-9]/g, "");
 };
@@ -1846,13 +2685,32 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden && S.credentials) pollRoom();
 });
 window.addEventListener("beforeunload", savePractice);
+document.addEventListener("pointerdown", () => {
+  void feedback.unlock();
+}, { passive: true });
+document.addEventListener("keydown", () => {
+  void feedback.unlock();
+}, { passive: true });
 var storedSettings = readStorage(localStorage, "duplicate.settings.v1");
 try {
   S.settings = normalizeRules(storedSettings?.rules ?? {});
-  S.boardCount = [1, 4, 8, 16].includes(storedSettings?.boardCount) ? storedSettings.boardCount : 8;
 } catch {
   S.settings = normalizeRules();
 }
+var storedRoomRules = readStorage(localStorage, "duplicate.room-rules.v1");
+try {
+  S.roomRules = normalizeRules(storedRoomRules?.rules ?? storedSettings?.rules ?? {});
+  const count = storedRoomRules?.boardCount ?? storedSettings?.boardCount;
+  S.boardCount = [1, 4, 8, 16].includes(count) ? count : 8;
+} catch {
+  S.roomRules = normalizeRules();
+}
+S.preferences = loadPreferences(localStorage);
+S.autoWin = S.preferences.autoWin;
+S.autoPass = S.preferences.autoPass;
+$("auto-win").checked = S.autoWin;
+$("auto-pass").checked = S.autoPass;
+personalSettingsUI = mountPersonalSettings($("settings-panel"), { value: S.preferences, onChange: applyPreferences, onPreview: () => feedback.preview(S.view ?? snapshot(S.practice.game, S.practice.seat)) });
 var saved = readStorage(localStorage, "duplicate.practice.v1");
 try {
   if (saved?.game && saved.game.rules.id === DEFAULT_RULES2.id && Number.isInteger(saved.seat) && saved.seat >= 0 && saved.seat < 4 && Number.isInteger(saved.index) && saved.index < saved.count) {
