@@ -2138,7 +2138,7 @@ function element2(document2, tag, className, text3) {
   if (text3 !== void 0) node.textContent = text3;
   return node;
 }
-function renderRoundResults(container, rows, { seat: seat5, ai = false, document: document2 = container?.ownerDocument } = {}) {
+function renderRoundResults(container, rows, { seat: seat5, ai = false, ownTableId, document: document2 = container?.ownerDocument } = {}) {
   if (!container || !document2?.createElement) throw new TypeError("A round-results container and document are required");
   const expanded = new Set(Array.from(container.querySelectorAll?.(".round-score-card") ?? []).filter((card) => card.querySelector?.("details")?.open).map((card) => card.dataset.board));
   const root = element2(document2, "div", "round-score-content"), heading = element2(document2, "div", "round-score-heading");
@@ -2158,13 +2158,15 @@ function renderRoundResults(container, rows, { seat: seat5, ai = false, document
     const comparable = average && Number.isInteger(average.samples) && average.samples >= 2 && finite(average.mean);
     card.append(element2(document2, "strong", "round-score-mean", !complete ? "\uBE44\uAD50 \uB300\uAE30" : referenceRequested ? reference ? `AI \uAE30\uC900 ${score(row.referenceMean)}` : "AI \uAE30\uC900 \uBE44\uAD50 \uB300\uAE30" : comparable ? `\uD3C9\uADE0 \uC810\uC218 \uC99D\uAC10 ${score(average.mean)}` : "\uBE44\uAD50\uB300\uC0C1 \uBD80\uC871"));
     if (complete && validSeat(seat5)) card.append(element2(document2, "p", "round-score-cohort", `${winds[seat5]} \uC2DC\uC791 \uC790\uB9AC \xB7 ${referenceRequested ? "AI \uAE30\uC900 \uB300\uAD6D" : `${ai ? "AI" : "\uC0AC\uB78C"}${comparable ? ` ${average.samples}\uBA85` : ""}`}`));
-    const entries = complete && Array.isArray(row.entries) ? row.entries.filter((entry) => entry && typeof entry.tableId === "string" && typeof entry.name === "string" && validSeat(entry.seat) && Number.isSafeInteger(entry.score)) : [];
+    const publicEntries = complete && Array.isArray(row.entries) ? row.entries.filter((entry) => entry && typeof entry.tableId === "string" && typeof entry.name === "string" && validSeat(entry.seat) && Number.isSafeInteger(entry.score)) : [];
+    const knownTable = typeof ownTableId === "string" && ownTableId.length > 0 && publicEntries.some((entry) => entry.tableId === ownTableId);
+    const entries = knownTable ? publicEntries.filter((entry) => entry.tableId !== ownTableId) : [];
     if (entries.length) {
       const details = element2(document2, "details", "round-score-details");
       details.open = expanded.has(String(row.board));
-      details.append(element2(document2, "summary", "", "\uD0C1\uBCC4 \uC810\uC218 \uC790\uC138\uD788"));
+      details.append(element2(document2, "summary", "", "\uB2E4\uB978 \uD0C1 \uC810\uC218 \uC790\uC138\uD788"));
       const table = element2(document2, "table", "round-score-table");
-      table.append(element2(document2, "caption", "", "\uC2DC\uC791 \uC790\uB9AC \uAE30\uC900 \xB7 \uBCF8\uC7A5 \uD569\uC0B0"));
+      table.append(element2(document2, "caption", "", "\uB0B4 \uD0C1 \uC81C\uC678 \xB7 \uC2DC\uC791 \uC790\uB9AC \uAE30\uC900 \xB7 \uBCF8\uC7A5 \uD569\uC0B0"));
       const head = element2(document2, "thead", ""), header = element2(document2, "tr", "");
       for (const label of ["\uD0C1", "\uC774\uB984", "\uC790\uB9AC", "\uC810\uC218\uC99D\uAC10"]) {
         const cell = element2(document2, "th", "", label);
@@ -2185,7 +2187,7 @@ function renderRoundResults(container, rows, { seat: seat5, ai = false, document
       table.append(body);
       details.append(table);
       card.append(details);
-    }
+    } else if (complete) card.append(element2(document2, "p", "round-score-empty", knownTable ? "\uB2E4\uB978 \uCC38\uC5EC \uD0C1\uC774 \uC5C6\uC2B5\uB2C8\uB2E4." : "\uB0B4 \uD0C1 \uC815\uBCF4\uB97C \uD655\uC778\uD560 \uC218 \uC5C6\uC5B4 \uB2E4\uB978 \uD0C1\uC758 \uACB0\uACFC\uB97C \uAD6C\uBD84\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4."));
     root.append(card);
   }
   if (!seen.size) root.append(element2(document2, "p", "round-score-empty", "\uAD6D\uBCC4 \uACB0\uACFC\uB294 \uB300\uAD6D\uC774 \uB05D\uB09C \uB4A4 \uD45C\uC2DC\uB429\uB2C8\uB2E4."));
@@ -5290,7 +5292,7 @@ function renderRoundScorePanel() {
       return { board, status: complete && group.length ? "complete" : "waiting", entries, averages: [], referenceLabel: "AI \uAE30\uC900", referenceMean: complete && group.length && group.every((row) => Number.isFinite(row.reference)) ? group.reduce((sum, row) => sum + row.reference, 0) : null };
     });
   }
-  renderRoundResults(panel, rows, { seat: S.view.seat, ai: false });
+  renderRoundResults(panel, rows, { seat: S.view.seat, ownTableId: S.mode === "online" ? S.online?.tableId : "\uC5F0\uC2B5", ai: false });
 }
 function renderComparison() {
   renderRoundScorePanel();

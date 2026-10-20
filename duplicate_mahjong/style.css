@@ -154,3 +154,5 @@
 @media(min-width:1250px){body:not(.game-focus) .layout{max-width:1600px;grid-template-columns:250px minmax(0,1fr) 250px;gap:22px}body:not(.game-focus) .round-score-panel{grid-column:3;grid-row:1;position:sticky;top:16px;max-height:calc(100svh - 110px);overflow:auto}}
 
 .round-score-heading h2{font-size:14px;margin:0 0 5px}.round-score-heading p,.round-score-cohort{font-size:10px;line-height:1.6;color:var(--muted);margin:0 0 7px}.round-score-card-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}.round-score-scope,.round-score-ai{font-size:9px;color:var(--muted)}.round-score-table caption{text-align:left;font-size:9px;color:var(--muted);padding:4px 0}
+
+.round-score-empty{color:var(--muted);font-size:11px;line-height:1.7;margin:9px 0 0}
