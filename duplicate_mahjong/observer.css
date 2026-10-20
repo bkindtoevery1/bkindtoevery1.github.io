@@ -56,4 +56,12 @@
 /* Unit changes preserve canonical seconds, including fractional minutes. */
 .obs-delay-row input{min-width:0;width:110px}
 .obs-delay-row select{flex:0 0 auto;width:65px;min-height:39px}
+.obs-controls>*{min-width:0}
+.obs-delay-row button{white-space:nowrap}
+@media(max-width:720px){.obs-controls{grid-template-columns:minmax(0,1fr) auto}}
+@media(max-width:480px){
+ .obs-controls{grid-template-columns:minmax(0,1fr)}
+ .obs-board-label{grid-column:1;grid-row:3}
+ .obs-board-label select{width:100%;max-width:none}
+}
 .obs-presets{flex-wrap:wrap}
