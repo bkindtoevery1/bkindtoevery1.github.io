@@ -72,7 +72,7 @@ function tileFace(type, { button = false, small = false } = {}) {
 
 // duplicate/observer-view.mjs
 var ACTIONS = { discard: "\uBC84\uB9BC", riichi: "\uB9AC\uCE58", call: "\uD6C4\uB85C", kan: "\uAE61", chi: "\uCE58", pon: "\uD401", minkan: "\uBA85\uAE61", ankan: "\uC548\uAE61", kakan: "\uAC00\uAE61", win: "\uD654\uB8CC", ron: "\uB860", tsumo: "\uCBD4\uBAA8" };
-var PHASES = { lobby: "\uC2DC\uC791 \uB300\uAE30", playing: "\uB300\uAD6D \uC911", ended: "\uAD6D \uC885\uB8CC", complete: "\uC804\uCCB4 \uC885\uB8CC", turn: "\uB300\uAD6D \uC911", reaction: "\uC751\uB2F5 \uB300\uAE30", end: "\uAD6D \uC885\uB8CC" };
+var PHASES = { skipped: "\uC774 \uBCF8\uC7A5 \uBBF8\uC9C4\uD589", "missing-record": "\uBCF8\uC7A5 \uAE30\uB85D \uC5C6\uC74C", lobby: "\uC2DC\uC791 \uB300\uAE30", playing: "\uB300\uAD6D \uC911", ended: "\uAD6D \uC885\uB8CC", complete: "\uC804\uCCB4 \uC885\uB8CC", turn: "\uB300\uAD6D \uC911", reaction: "\uC751\uB2F5 \uB300\uAE30", end: "\uAD6D \uC885\uB8CC" };
 var validTile = (value) => Number.isInteger(value) && value >= 0 && value < 34;
 var node = (doc, tag, cls, text) => {
   const el = doc.createElement(tag);
@@ -183,7 +183,7 @@ function renderObserverTable(table, { handsVisible = false, detail = false, onDe
   }
   card.append(header);
   if (!table.game) {
-    card.append(node(doc, "div", "obs-table-wait", "\uC9C0\uC5F0 \uAE30\uC900 \uC2DC\uAC01\uC5D0 \uD45C\uC2DC\uD560 \uB300\uAD6D \uAE30\uB85D\uC744 \uAE30\uB2E4\uB9AC\uACE0 \uC788\uC2B5\uB2C8\uB2E4."));
+    card.append(node(doc, "div", "obs-table-wait", table.phase === "missing-record" ? "\uC774 \uBCF8\uC7A5\uC758 \uAE30\uB85D\uC744 \uD655\uC778\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. \uBBF8\uC9C4\uD589\uC774\uB098 0\uC810 \uACB0\uACFC\uB85C \uCC98\uB9AC\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4." : table.skipped ? "\uC774 \uD0C1\uC740 \uC774 \uBCF8\uC7A5\uC744 \uC9C4\uD589\uD558\uC9C0 \uC54A\uACE0 \uC9C0\uB098\uAC14\uC2B5\uB2C8\uB2E4. \uB300\uAD6D \uACB0\uACFC\uB97C \uB9CC\uB4E4\uC5B4 \uBE44\uAD50\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4." : table.waitingReason === "closure" ? "\uC774 \uAD6D\xB7\uBCF8\uC7A5\uC744 \uBAA8\uB4E0 \uCC38\uAC00 \uD0C1\uC774 \uB9C8\uCE58\uAC70\uB098 \uC9C0\uB098\uAC08 \uB54C\uAE4C\uC9C0 \uAE30\uB85D\uC744 \uBCF4\uD638\uD558\uACE0 \uC788\uC2B5\uB2C8\uB2E4." : "\uC9C0\uC5F0 \uAE30\uC900 \uC2DC\uAC01\uC5D0 \uD45C\uC2DC\uD560 \uB300\uAD6D \uAE30\uB85D\uC744 \uAE30\uB2E4\uB9AC\uACE0 \uC788\uC2B5\uB2C8\uB2E4."));
     return card;
   }
   const game = table.game, felt = node(doc, "div", "obs-felt"), meta = node(doc, "div", "obs-table-meta");
@@ -270,7 +270,7 @@ var notes = [
   "\uAC1C\uC778 \uCBD4\uBAA8 \uBC88\uD638\uAC00 \uAC19\uC544\uB3C4 \uD6C4\uB85C \uC774\uD6C4 \uC190\uD328\xB7\uC21C\uC11C\xB7\uC120\uD0DD \uB9E5\uB77D\uC740 \uB2EC\uB77C\uC9D1\uB2C8\uB2E4. \uAC19\uC740 \uBC88\uD638\uB294 \uB3D9\uC77C\uD55C \uC120\uD0DD\uC9C0\uB098 \uC2E4\uB825\uC744 \uB73B\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.",
   "\uD6C4\uB85C \uD589\uC758 \uC88C\uC11D\uC740 \uC6D0\uC778 \uBC84\uB9BC\uD328\uB97C \uB0B8 \uC88C\uC11D\uC785\uB2C8\uB2E4. \uAC19\uC740 \uC2E4\uBB3C \uBC84\uB9BC\uD328 \uB610\uB294 \uD655\uC778 \uAC00\uB2A5\uD55C \uBC84\uB9BC\uD328 \uC21C\uC11C\xB7\uD328\uB9CC \uBB36\uC2B5\uB2C8\uB2E4.",
   "\uD6C4\uB85C \uACB0\uACFC \uC5C6\uC74C\uC740 \uD574\uB2F9 \uBC84\uB9BC\uD328\uC758 \uBC18\uC751\uC774 \uB05D\uB09C \uB4A4 \uC218\uB77D\uB41C \uD6C4\uB85C\uAC00 \uC5C6\uB2E4\uB294 \uB73B\uC785\uB2C8\uB2E4. \uD328\uC2A4 \uC758\uB3C4\xB7\uD6C4\uB85C \uAC00\uB2A5 \uC5EC\uBD80\xB7\uD0C8\uB77D\uD55C \uC694\uCCAD\uC740 \uCD94\uCE21\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.",
-  "\uB3C4\uB2EC \uC804\xB7\uB2E4\uB978 \uAD6D\xB7\uB2E4\uB978 \uBCF8\uC7A5\xB7\uAE30\uB85D \uC5C6\uC74C\uC740 \uCC28\uC774\uB85C \uC138\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uB204\uC801 \uC810\uC218\uB294 \uC11C\uBC84\uAC00 \uC81C\uACF5\uD55C \uB204\uC801\uAC12\uB9CC \uD45C\uC2DC\uD569\uB2C8\uB2E4."
+  "\uB3C4\uB2EC \uC804\xB7\uB2E4\uB978 \uAD6D\xB7\uB2E4\uB978 \uBCF8\uC7A5\xB7\uBBF8\uC9C4\uD589 \uBCF8\uC7A5\xB7\uAE30\uB85D \uC5C6\uC74C\uC740 \uCC28\uC774\uB85C \uC138\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uB204\uC801 \uC810\uC218\uB294 \uC11C\uBC84\uAC00 \uC81C\uACF5\uD55C \uB204\uC801\uAC12\uB9CC \uD45C\uC2DC\uD569\uB2C8\uB2E4."
 ];
 function eventView(e, order) {
   if (!e || !seatOK(e.seat) || !["discard", "call", "kan", "riichi", "win"].includes(e.kind)) return null;
@@ -339,7 +339,8 @@ function pointRows(t) {
   });
 }
 function prepare(t, board, honba, alignment) {
-  const hasHistory = Array.isArray(t.game?.publicEvents);
+  const skipped = t.skipped === true || t.phase === "skipped";
+  const hasHistory = !skipped && Array.isArray(t.game?.publicEvents);
   const events = hasHistory ? t.game.publicEvents.map(eventView).filter(Boolean) : [];
   const discards = events.filter((e) => e.result.kind === "discard"), bySlot = /* @__PURE__ */ new Map(), occurrences = /* @__PURE__ */ new Map();
   for (const e of discards) {
@@ -355,6 +356,7 @@ function prepare(t, board, honba, alignment) {
     discards,
     bySlot,
     hasHistory,
+    skipped,
     sameBoard: t.board === board,
     honbaMatch: honbaOf(t) === honba,
     boardMatch: t.board === board && honbaOf(t) === honba,
@@ -374,10 +376,13 @@ function choice(tableId, status, result = null, label) {
     "other-board": "\uB2E4\uB978 \uAD6D",
     "other-deal": "\uB2E4\uB978 \uBCF8\uC7A5",
     "missing-record": "\uD574\uB2F9 \uACF5\uAC1C \uAE30\uB85D \uC5C6\uC74C",
+    skipped: "\uC774 \uBCF8\uC7A5 \uBBF8\uC9C4\uD589",
     "no-call": "\uD6C4\uB85C \uACB0\uACFC \uC5C6\uC74C"
   }[status]) };
 }
 function unavailable(p) {
+  if (p.skipped) return choice(p.t.id, "skipped");
+  if (p.t.phase === "missing-record") return choice(p.t.id, "missing-record", null, "\uC774 \uBCF8\uC7A5\uC758 \uAE30\uB85D\uC744 \uD655\uC778\uD560 \uC218 \uC5C6\uC74C");
   if (p.waiting) return choice(p.t.id, "pending", null, "\uC9C0\uC5F0\uB41C \uACF5\uAC1C \uD654\uBA74\uC744 \uAE30\uB2E4\uB9AC\uB294 \uC911");
   if (!p.sameBoard) return choice(p.t.id, "other-board");
   if (!p.honbaMatch) return choice(p.t.id, "other-deal");
@@ -543,10 +548,11 @@ function buildObserverComparison(dto = {}, options = {}) {
     honba: honbaOf(p.t),
     handContext: contextView(p.t),
     phase: typeof p.t.phase === "string" ? p.t.phase : "waiting",
+    skipped: p.skipped,
     revision: indexOK(p.t.revision) ? p.t.revision : null,
     capturedAt: number2(p.t.capturedAt),
     points: pointRows(p.t),
-    status: p.waiting ? "pending" : !p.sameBoard ? "other-board" : !p.honbaMatch ? "other-deal" : !p.t.game ? "pending" : !p.hasHistory ? "missing-record" : "available"
+    status: p.skipped ? "skipped" : p.t.phase === "missing-record" ? "missing-record" : p.waiting ? "pending" : !p.sameBoard ? "other-board" : !p.honbaMatch ? "other-deal" : !p.t.game ? "pending" : !p.hasHistory ? "missing-record" : "available"
   }));
   let all = handId === null ? [] : [
     ...type !== "call" ? discardRows(prepared, seat, alignment) : [],
@@ -580,6 +586,14 @@ function buildObserverComparison(dto = {}, options = {}) {
 
 // duplicate/observer-app.mjs
 var DEFAULT_OBSERVER_SERVER = "https://wellness-mahjong-h-lab.chayhyeon.chatgpt.site";
+function observerPublicationMessage(data) {
+  const p = data?.publication;
+  if (!p) return data?.waitingTables?.length ? `${data.waitingTables.length}\uD0C1\uC740 \uC9C0\uC5F0 \uAE30\uC900 \uC2DC\uAC01\uC5D0 \uB3C4\uB2EC\uD560 \uAE30\uB85D\uC744 \uAE30\uB2E4\uB9AC\uACE0 \uC788\uC2B5\uB2C8\uB2E4.` : "3\uCD08\uB9C8\uB2E4 \uC804\uCCB4 \uD0C1\uC758 \uC9C0\uC5F0 \uAE30\uB85D\uC744 \uD655\uC778\uD569\uB2C8\uB2E4.";
+  if (p.status === "registration") return "\uCC38\uAC00 \uB4F1\uB85D \uC911 \xB7 \uBA85\uB2E8 \uD655\uC815\uACFC \uB300\uD68C \uC2DC\uC791\uC744 \uAE30\uB2E4\uB9AC\uACE0 \uC788\uC2B5\uB2C8\uB2E4.";
+  if (p.status === "waiting") return p.reason === "tables-pending" ? `\uAE30\uB85D \uBCF4\uD638 \uC911 \xB7 ${(p.waitingTables ?? []).length}\uD0C1\uC774 \uAC19\uC740 \uAD6D\xB7\uBCF8\uC7A5\uC744 \uB05D\uB0B4\uAC70\uB098 \uC9C0\uB098\uAC00\uAE30\uB97C \uAE30\uB2E4\uB9BD\uB2C8\uB2E4.` : "\uC544\uC9C1 \uACF5\uAC1C \uAC00\uB2A5\uD55C \uAE30\uB85D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4. \uC804\uD0C1\uC758 \uAD6D\xB7\uBCF8\uC7A5 \uC885\uB8CC\uC640 \uC124\uC815 \uC9C0\uC5F0\uC744 \uD655\uC778\uD558\uACE0 \uC788\uC2B5\uB2C8\uB2E4.";
+  const deal = data.selectedDeal;
+  return `${deal ? `${deal.board}\uAD6D \xB7 ${deal.honba}\uBCF8\uC7A5 \xB7 ` : ""}\uC804\uD0C1 \uC644\uB8CC\xB7\uD1B5\uACFC\uC640 \uC124\uC815 \uC9C0\uC5F0\uC744 \uD655\uC778\uD55C \uACFC\uAC70 \uAE30\uB85D\uC785\uB2C8\uB2E4.`;
+}
 function normalizeObserverDelay(value) {
   const n = Number(value);
   return Number.isFinite(n) ? Math.min(21600, Math.max(5, Math.floor(n))) : 5;
@@ -651,11 +665,12 @@ function createObserverClient({ fetchImpl = globalThis.fetch, onState = () => {
       }
       if (generation !== epoch || !active) return false;
       if (data?.schema !== "duplicate-observer-v1" || data.code !== current.code || !["viewer", "caster"].includes(data.role) || !Array.isArray(data.tables) || !Number.isFinite(data.asOf) || !Number.isFinite(data.serverTime) || !Number.isInteger(data.delaySeconds) || data.delaySeconds < 5 || data.delaySeconds > 21600 || data.asOf > data.serverTime - data.delaySeconds * 1e3 + 1 || data.tables.some((t) => t.capturedAt !== null && t.capturedAt !== void 0 && (!Number.isFinite(t.capturedAt) || t.capturedAt > data.asOf))) throw Error("\uC11C\uBC84\uC758 \uC9C0\uC5F0 \uAD00\uC804 \uC815\uBCF4\uB97C \uD655\uC778\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+      if (data.publication && (!["registration", "waiting", "released"].includes(data.publication.status) || data.publication.status !== "released" && data.tables.length)) throw Error("\uC544\uC9C1 \uACF5\uAC1C\uB418\uC9C0 \uC54A\uC740 \uAD00\uC804 \uAE30\uB85D\uC740 \uD45C\uC2DC\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
       if (data.asOf < latestAsOf) return false;
       latestAsOf = data.asOf;
       failures = 0;
       onState(data);
-      onStatus({ kind: "ready", message: data.waitingTables?.length ? `${data.waitingTables.length}\uD0C1\uC740 \uC9C0\uC5F0 \uAE30\uC900 \uC2DC\uAC01\uC5D0 \uB3C4\uB2EC\uD560 \uAE30\uB85D\uC744 \uAE30\uB2E4\uB9AC\uACE0 \uC788\uC2B5\uB2C8\uB2E4.` : "3\uCD08\uB9C8\uB2E4 \uC804\uCCB4 \uD0C1\uC758 \uC9C0\uC5F0 \uAE30\uB85D\uC744 \uD655\uC778\uD569\uB2C8\uB2E4." });
+      onStatus({ kind: "ready", message: observerPublicationMessage(data) });
       return true;
     } catch (error) {
       if (generation !== epoch || !active) return false;
@@ -742,12 +757,13 @@ function mountObserver(doc = globalThis.document, win = globalThis.window) {
     render();
   }
   function render() {
-    const dto = ui.dto, tables = dto ? [...dto.tables, ...(dto.waitingTables ?? []).filter((id) => !dto.tables.some((t) => t.id === id)).map((id) => ({ id, board: ui.config?.board, honba: ui.config?.honba, phase: "waiting", capturedAt: null, game: null, members: [] }))] : [];
+    const dto = ui.dto, tables = dto ? [...dto.tables, ...(dto.waitingTables ?? []).filter((id) => !dto.tables.some((t) => t.id === id)).map((id) => ({ id, board: dto.selectedDeal?.board ?? ui.config?.board, honba: dto.selectedDeal?.honba ?? ui.config?.honba, phase: "waiting", waitingReason: dto.publication ? "closure" : null, capturedAt: null, game: null, members: [] }))] : [];
     const caster = dto?.role === "caster" && dto.handsVisible === true;
-    $("observer-role").textContent = dto ? caster ? "\uC911\uACC4\uC790 \xB7 \uC804\uCCB4 \uC190\uD328" : "\uAD00\uC804\uC790 \xB7 \uC190\uD328 \uBE44\uACF5\uAC1C" : "\uAD00\uC804 \uB9C1\uD06C \uD544\uC694";
+    const protectedRecord = dto?.publication && dto.publication.status !== "released";
+    $("observer-role").textContent = dto ? caster ? protectedRecord ? "\uC911\uACC4\uC790 \xB7 \uAE30\uB85D \uACF5\uAC1C \uB300\uAE30" : "\uC911\uACC4\uC790 \xB7 \uACF5\uAC1C \uAE30\uB85D\uC758 \uC190\uD328" : "\uAD00\uC804\uC790 \xB7 \uC190\uD328 \uBE44\uACF5\uAC1C" : "\uAD00\uC804 \uB9C1\uD06C \uD544\uC694";
     $("observer-role").classList.toggle("obs-caster", caster);
     $("observer-title").textContent = ui.config ? `${ui.config.code} \xB7 \uC911\uACC4\uC2E4` : "\uC5EC\uB7EC \uD0C1, \uAC19\uC740 \uBC30\uD328.";
-    $("observer-privacy").textContent = caster ? "\uC911\uACC4\uC790 \uC804\uC6A9 \xB7 \uB124 \uC0AC\uB78C\uC758 \uC190\uD328\uAC00 \uBCF4\uC785\uB2C8\uB2E4. \uC774 \uB9C1\uD06C\uB97C \uAD00\uC804\uC790\uC5D0\uAC8C \uACF5\uC720\uD558\uC9C0 \uB9C8\uC138\uC694." : "\uAD00\uC804\uC790 \uD654\uBA74 \xB7 \uBAA8\uB4E0 \uC190\uD328\uB294 \uBE44\uACF5\uAC1C\uC785\uB2C8\uB2E4. \uACF5\uAC1C\uB41C \uBC84\uB9BC\uACFC \uD6C4\uB85C\uB9CC \uD45C\uC2DC\uD569\uB2C8\uB2E4.";
+    $("observer-privacy").textContent = caster ? "\uC911\uACC4\uC790 \uC804\uC6A9 \xB7 \uD574\uC81C\uB41C \uACFC\uAC70 \uAE30\uB85D\uC758 \uC190\uD328\uB97C \uBCF4\uC5EC \uC90D\uB2C8\uB2E4. \uC774 \uB9C1\uD06C\uB97C \uAD00\uC804\uC790\uC5D0\uAC8C \uACF5\uC720\uD558\uC9C0 \uB9C8\uC138\uC694." : "\uAD00\uC804\uC790 \uD654\uBA74 \xB7 \uBAA8\uB4E0 \uC190\uD328\uB294 \uBE44\uACF5\uAC1C\uC785\uB2C8\uB2E4. \uD574\uC81C\uB41C \uAE30\uB85D\uC758 \uBC84\uB9BC\uACFC \uD6C4\uB85C\uB9CC \uD45C\uC2DC\uD569\uB2C8\uB2E4.";
     $("observer-asof").textContent = observerTime(dto?.asOf);
     $("observer-server-time").textContent = observerTime(dto?.serverTime);
     $("observer-effective-delay").textContent = dto ? `${dto.delaySeconds}\uCD08` : ui.config ? `${ui.config.delaySeconds}\uCD08 \uC694\uCCAD` : "5\uCD08 \uC774\uC0C1";
@@ -773,7 +789,7 @@ function mountObserver(doc = globalThis.document, win = globalThis.window) {
     if (!tables.length) {
       const empty = doc.createElement("div");
       empty.className = "obs-empty";
-      empty.textContent = dto ? "\uD45C\uC2DC\uD560 \uAE30\uB85D\uC774 \uC544\uC9C1 \uC5C6\uC2B5\uB2C8\uB2E4. \uC124\uC815\uD55C \uC9C0\uC5F0 \uC2DC\uAC04\uC774 \uC9C0\uB09C \uB4A4 \uB098\uD0C0\uB0A9\uB2C8\uB2E4." : "\uAD00\uC804 \uC804\uC6A9 \uB9C1\uD06C\uB97C \uC5F0\uACB0\uD574 \uC8FC\uC138\uC694.";
+      empty.textContent = dto ? observerPublicationMessage(dto) : "\uAD00\uC804 \uC804\uC6A9 \uB9C1\uD06C\uB97C \uC5F0\uACB0\uD574 \uC8FC\uC138\uC694.";
       grid.append(empty);
     }
     const select = $("observer-detail-table");
@@ -792,21 +808,27 @@ function mountObserver(doc = globalThis.document, win = globalThis.window) {
     if (selected) detail.append(renderObserverTable(selected, { ...options, handsVisible: caster, detail: true }));
     const comparison = $("observer-comparison-content");
     comparison.replaceChildren();
-    if (dto && ui.mode === "comparison") {
-      const seat = $("observer-compare-seat").value, model = buildObserverComparison(dto, { board: ui.config.board ?? void 0, honba: ui.config.honba ?? void 0, seat: seat === "" ? null : Number(seat), type: $("observer-compare-type").value, alignment: $("observer-compare-alignment").value, differencesOnly: $("observer-compare-differences").checked });
+    if (dto && ui.mode === "comparison" && protectedRecord) {
+      const empty = doc.createElement("div");
+      empty.className = "obs-empty";
+      empty.textContent = observerPublicationMessage(dto);
+      comparison.append(empty);
+    }
+    if (dto && ui.mode === "comparison" && !protectedRecord) {
+      const seat = $("observer-compare-seat").value, model = buildObserverComparison(dto, { board: ui.config.board ?? dto.selectedDeal?.board ?? void 0, honba: ui.config.honba ?? dto.selectedDeal?.honba ?? void 0, seat: seat === "" ? null : Number(seat), type: $("observer-compare-type").value, alignment: $("observer-compare-alignment").value, differencesOnly: $("observer-compare-differences").checked });
       comparison.append(renderObserverComparison(model, options));
     }
     const board = $("observer-board"), old = ui.config?.board === null || ui.config?.board === void 0 ? "" : ui.config.honba === null ? `board:${ui.config.board}` : `${ui.config.board}:${ui.config.honba}`;
     board.replaceChildren();
     const latest = doc.createElement("option");
     latest.value = "";
-    latest.textContent = "\uAC01 \uD0C1\uC758 \uCD5C\uC2E0 \uAE30\uB85D";
+    latest.textContent = dto?.publication ? "\uCD5C\uADFC \uACF5\uAC1C\uB41C \uAD6D\xB7\uBCF8\uC7A5" : "\uAC01 \uD0C1\uC758 \uCD5C\uC2E0 \uAE30\uB85D \xB7 \uC774\uC804 \uB300\uD68C";
     board.append(latest);
     const deals = dto?.availableDeals ?? (dto?.availableBoards ?? []).map((board2) => ({ board: board2, honba: 0, handId: `${board2}:0` })), known = new Map(deals.map((d) => [`${d.board}:${d.honba}`, d]));
     if (ui.config?.board !== null && ui.config?.board !== void 0 && !known.has(old)) {
       const option = doc.createElement("option");
       option.value = old;
-      option.textContent = ui.config.honba === null ? `${ui.config.board}\uAD6D \xB7 \uCD5C\uC2E0 \uBCF8\uC7A5` : `${ui.config.board}\uAD6D \xB7 ${ui.config.honba}\uBCF8\uC7A5 \xB7 \uC9C0\uC5F0 \uB300\uAE30`;
+      option.textContent = ui.config.honba === null ? `${ui.config.board}\uAD6D \xB7 \uCD5C\uADFC \uACF5\uAC1C \uBCF8\uC7A5` : `${ui.config.board}\uAD6D \xB7 ${ui.config.honba}\uBCF8\uC7A5 \xB7 \uACF5\uAC1C \uB300\uAE30`;
       board.append(option);
     }
     for (const deal of [...known.values()].sort((a, b) => a.board - b.board || a.honba - b.honba)) {
@@ -913,5 +935,6 @@ export {
   mountObserver,
   normalizeObserverDelay,
   normalizeObserverServer,
+  observerPublicationMessage,
   parseObserverLink
 };

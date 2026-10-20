@@ -1,3 +1,28 @@
+var __defProp = Object.defineProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+
+// duplicate/engine/game.mjs
+var game_exports = {};
+__export(game_exports, {
+  RED_IDS: () => RED_IDS,
+  actor: () => actor,
+  assertInvariants: () => assertInvariants,
+  createGame: () => createGame,
+  exhaustedSeats: () => exhaustedSeats,
+  indicators: () => indicators,
+  legalActions: () => legalActions,
+  observation: () => observation,
+  publicEvents: () => publicEvents,
+  revealedUraIndicators: () => revealedUraIndicators,
+  settleDraw: () => settleDraw,
+  snapshot: () => snapshot,
+  step: () => step,
+  visibleCounts: () => visibleCounts
+});
+
 // duplicate/shared/tiles.mjs
 var typeOf = (id) => Math.floor(id / 4);
 var isHonor = (t) => t >= 27;
@@ -180,20 +205,20 @@ function handFu(shape, groups, placement, closed, method, pairFu, pinfu) {
   });
   return fu === 20 ? 30 : Math.ceil(fu / 10) * 10;
 }
-function scoreRiichi(types, melds = [], context2 = {}, rules = {}) {
+function scoreRiichi(types, melds = [], context3 = {}, rules = {}) {
   const all = physicalTiles(types, melds);
   if (!all) return null;
   const ds = shapes(types, melds);
   if (!ds.length) return null;
-  const winTile = context2.winTile ?? types.at(-1);
+  const winTile = context3.winTile ?? types.at(-1);
   if (!types.includes(winTile)) return null;
-  const method = context2.method ?? "ron";
+  const method = context3.method ?? "ron";
   if (!["ron", "tsumo"].includes(method)) return null;
   const c = counts(all), closed = melds.every((m) => !m.open);
   const suits = new Set(all.filter((t) => t < 27).map((t) => Math.floor(t / 9))), honors = all.some(isHonor);
-  const seatWind = context2.seatWind ?? 27, roundWind = rules.roundWind ?? 27;
-  const riichi = closed && !!(context2.riichi || context2.doubleRiichi);
-  const dealer = context2.dealer ?? seatWind === 27;
+  const seatWind = context3.seatWind ?? 27, roundWind = rules.roundWind ?? 27;
+  const riichi = closed && !!(context3.riichi || context3.doubleRiichi);
+  const dealer = context3.dealer ?? seatWind === 27;
   let best = null;
   for (const shape of ds) for (const placement of placements(shape, winTile)) {
     const groups = [...shape.groups, ...melds], seq = groups.filter((g) => g.type === "chi"), trip = groups.filter((g) => g.type !== "chi");
@@ -221,19 +246,19 @@ function scoreRiichi(types, melds = [], context2 = {}, rules = {}) {
       const offset = [...suits][0] * 9;
       limit("nineGates", "\uAD6C\uB828\uBCF4\uB4F1", c[offset] >= 3 && c[offset + 8] >= 3 && Array.from({ length: 7 }, (_, n) => offset + n + 1).every((t) => c[t] >= 1));
     }
-    limit("tenhou", "\uCC9C\uD654", context2.tenhou && dealer && method === "tsumo" && !melds.length);
-    limit("chiihou", "\uC9C0\uD654", context2.chiihou && !dealer && method === "tsumo" && !melds.length);
-    add("doubleRiichi", "\uB354\uBE14 \uB9AC\uCE58", 2, riichi && context2.doubleRiichi);
-    add("riichi", "\uB9AC\uCE58", 1, riichi && !context2.doubleRiichi);
-    add("ippatsu", "\uC77C\uBC1C", 1, riichi && context2.ippatsu && !context2.rinshan);
+    limit("tenhou", "\uCC9C\uD654", context3.tenhou && dealer && method === "tsumo" && !melds.length);
+    limit("chiihou", "\uC9C0\uD654", context3.chiihou && !dealer && method === "tsumo" && !melds.length);
+    add("doubleRiichi", "\uB354\uBE14 \uB9AC\uCE58", 2, riichi && context3.doubleRiichi);
+    add("riichi", "\uB9AC\uCE58", 1, riichi && !context3.doubleRiichi);
+    add("ippatsu", "\uC77C\uBC1C", 1, riichi && context3.ippatsu && !context3.rinshan);
     add("menzenTsumo", "\uBA58\uC820 \uCBD4\uBAA8", 1, closed && method === "tsumo");
     add("tanyao", "\uD0D5\uC57C\uC624", 1, (closed || rules.kuitan !== false) && all.every((t) => !isYao(t)));
     add("pinfu", "\uD551\uD6C4", 1, pinfu);
     add("sevenPairs", "\uCE60\uB300\uC790", 2, shape.kind === "sevenPairs");
-    add("rinshan", "\uC601\uC0C1\uAC1C\uD654", 1, context2.rinshan && method === "tsumo");
-    add("haitei", "\uD574\uC800\uB85C\uC6D4", 1, context2.lastTile && method === "tsumo" && !context2.rinshan);
-    add("houtei", "\uD558\uC800\uB85C\uC5B4", 1, context2.lastTile && method === "ron" && !context2.chankan);
-    add("chankan", "\uCC3D\uAE61", 1, context2.chankan && method === "ron");
+    add("rinshan", "\uC601\uC0C1\uAC1C\uD654", 1, context3.rinshan && method === "tsumo");
+    add("haitei", "\uD574\uC800\uB85C\uC6D4", 1, context3.lastTile && method === "tsumo" && !context3.rinshan);
+    add("houtei", "\uD558\uC800\uB85C\uC5B4", 1, context3.lastTile && method === "ron" && !context3.chankan);
+    add("chankan", "\uCC3D\uAE61", 1, context3.chankan && method === "ron");
     add("honroutou", "\uD63C\uB178\uB450", 2, all.every(isYao));
     add("honitsu", "\uD63C\uC77C\uC0C9", closed ? 3 : 2, suits.size === 1 && honors);
     add("chinitsu", "\uCCAD\uC77C\uC0C9", closed ? 6 : 5, suits.size === 1 && !honors);
@@ -280,13 +305,13 @@ function scoreRiichi(types, melds = [], context2 = {}, rules = {}) {
     const bonus = (id, name, han2) => {
       if (han2) bonuses.push({ id, name, han: han2 });
     };
-    const indicatorHan = (indicators2) => indicators2.reduce((n, t) => n + c[doraAfter(t)], 0);
-    const visible = context2.doraIndicators ?? [], ura = context2.uraIndicators ?? [];
-    const enabledIndicators = (indicators2) => context2.indicatorsFiltered ? indicators2 : indicators2.filter((_, i) => i === 0 ? rules.dora !== false : rules.kanDora !== false);
+    const indicatorHan = (indicators3) => indicators3.reduce((n, t) => n + c[doraAfter(t)], 0);
+    const visible = context3.doraIndicators ?? [], ura = context3.uraIndicators ?? [];
+    const enabledIndicators = (indicators3) => context3.indicatorsFiltered ? indicators3 : indicators3.filter((_, i) => i === 0 ? rules.dora !== false : rules.kanDora !== false);
     bonus("dora", "\uB3C4\uB77C", indicatorHan(enabledIndicators(visible)));
-    const enabledUra = context2.indicatorsFiltered ? ura : ura.filter((_, i) => i === 0 || rules.kanDora !== false);
+    const enabledUra = context3.indicatorsFiltered ? ura : ura.filter((_, i) => i === 0 || rules.kanDora !== false);
     bonus("uraDora", "\uC6B0\uB77C\uB3C4\uB77C", riichi && rules.uraDora !== false ? indicatorHan(enabledUra) : 0);
-    bonus("redDora", "\uC801\uB3C4\uB77C", rules.redDora !== false ? Math.max(0, Math.floor(context2.redCount ?? 0)) : 0);
+    bonus("redDora", "\uC801\uB3C4\uB77C", rules.redDora !== false ? Math.max(0, Math.floor(context3.redCount ?? 0)) : 0);
     const yakumanCount = limits.length, yakuman = yakumanCount > 0;
     const hanYaku = yakuman ? 0 : entries.reduce((n, e) => n + e.han, 0);
     const bonusHan = yakuman ? 0 : bonuses.reduce((n, e) => n + e.han, 0);
@@ -872,6 +897,10 @@ function snapshot(s, seat) {
     readySeats: s.phase === "end" ? s.events.findLast((e) => e.type === "drawSettlement")?.ready.map((p2) => p2.seat) ?? [] : []
   };
 }
+function observation(s, seat = actor(s)) {
+  if (seat !== actor(s)) throw new Error("Not this player\u2019s decision");
+  return snapshot(s, seat);
+}
 function assertInvariants(s) {
   const all = [...s.walls.flat(), ...s.dead];
   for (const p of s.players) {
@@ -887,6 +916,633 @@ function assertInvariants(s) {
     for (const m of p.melds) {
       const wanted = m.type === "chi" ? [m.tile, m.tile + 1, m.tile + 2] : Array(m.type === "kan" ? 4 : 3).fill(m.tile);
       if (!same(m.ids.map(typeOf).sort((a, b) => a - b), wanted)) throw new Error("Illegal meld");
+    }
+    const st = p.stats;
+    if (p.score !== st.winReceipt + st.drawGain - st.dealInLoss - st.tsumoPaid - st.drawLoss - st.riichiPaid) throw new Error("Ledger attribution violated");
+  }
+  if (s.dead.length !== reservedTileCount(s.rules) || s.kans > s.rules.maxKans || s.winners.length > (s.rules.multipleRon === "all" ? 3 : 1) || s.winners.length !== s.players.filter((p) => p.won).length || new Set(s.winners).size !== s.winners.length) throw new Error("Round invariant violated");
+  if (s.winners.length > 1 && s.winners.some((seat) => {
+    const w = s.players[seat].win, f = s.players[s.winners[0]].win;
+    return w.method !== "ron" || w.source !== f.source || w.tile !== f.tile;
+  })) throw new Error("Multiple ron invariant violated");
+  return true;
+}
+
+// duplicate/engine/mil-core-game.mjs
+var mil_core_game_exports = {};
+__export(mil_core_game_exports, {
+  RED_IDS: () => RED_IDS2,
+  actor: () => actor2,
+  assertInvariants: () => assertInvariants2,
+  createGame: () => createGame2,
+  exhaustedSeats: () => exhaustedSeats2,
+  indicators: () => indicators2,
+  legalActions: () => legalActions2,
+  observation: () => observation2,
+  publicEvents: () => publicEvents2,
+  revealedUraIndicators: () => revealedUraIndicators2,
+  settleDraw: () => settleDraw2,
+  snapshot: () => snapshot2,
+  step: () => step2,
+  visibleCounts: () => visibleCounts2
+});
+
+// duplicate/engine/duplicate-profile.mjs
+function normalizeDuplicateProfile(value = "custom") {
+  if (value !== "custom" && value !== "mil") throw new Error("Unknown duplicate profile");
+  return value;
+}
+var milRules = Object.freeze({
+  dora: false,
+  kanDora: false,
+  uraDora: false,
+  redDora: false,
+  deadWall: false,
+  exhaustLimit: 1,
+  multipleRon: "all",
+  abortFourKans: false
+});
+function normalizeProfileRules(raw = {}, profile = "custom") {
+  const selected = normalizeDuplicateProfile(profile);
+  if (selected === "custom") return normalizeRules(raw);
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Invalid rules");
+  for (const [key, value] of Object.entries(milRules)) if (Object.hasOwn(raw, key) && raw[key] !== value) throw new Error(`MIL duplicate profile requires ${key}=${value}`);
+  return normalizeRules({ ...raw, ...milRules });
+}
+
+// duplicate/engine/mil-core-game.mjs
+var RED_IDS2 = /* @__PURE__ */ new Set([16, 52, 88]);
+var red2 = (id, rules) => rules.redDora && RED_IDS2.has(id);
+var handTypes2 = (p) => p.hand.map(typeOf);
+var same2 = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+var event2 = (s, e) => s.events.push({ n: s.events.length, ...e });
+var remaining2 = (s) => s.walls.reduce((n, w) => n + w.length, 0);
+var actor2 = (s) => s.phase === "turn" ? s.turn : s.phase === "reaction" ? s.reaction.pending[0] : null;
+var exhaustedSeats2 = (s) => s.walls.flatMap((w, seat) => w.length ? [] : [seat]);
+function indicators2(s, ura = false) {
+  if (ura && !s.rules.uraDora) return [];
+  const offset = s.rules.deadWall ? 4 : 0;
+  const indices = [];
+  if (ura || s.rules.dora) indices.push(0);
+  if (s.rules.kanDora) for (let i = 1; i <= s.kans; i++) indices.push(i);
+  return indices.map((i) => typeOf(s.dead[offset + 2 * i + (ura ? 1 : 0)]));
+}
+var revealedUraIndicators2 = (s) => s.end === "win" && s.winners.some((seat) => s.players[seat].riichi) ? indicators2(s, true) : [];
+function context2(s, seat, method, id) {
+  const p = s.players[seat], ids = [...p.hand, ...p.melds.flatMap((m) => m.ids)];
+  if (method === "ron") ids.push(id);
+  return {
+    method,
+    winTile: typeOf(id),
+    seatWind: 27 + (seat - s.dealer + 4) % 4,
+    dealer: seat === s.dealer,
+    riichi: p.riichi,
+    doubleRiichi: p.doubleRiichi,
+    ippatsu: p.ippatsu,
+    rinshan: p.drawSource === "kan" && method === "tsumo",
+    tenhou: method === "tsumo" && seat === s.dealer && s.draws === 1 && s.calls === 0,
+    chiihou: method === "tsumo" && seat !== s.dealer && p.river.length === 0 && s.calls === 0 && p.drawSource === "wall",
+    lastTile: method === "ron" ? !!s.reaction?.final : !!s.milLastTurn,
+    chankan: method === "ron" && s.reaction?.kind === "kakan",
+    doraIndicators: indicators2(s),
+    uraIndicators: indicators2(s, true),
+    indicatorsFiltered: true,
+    redCount: ids.filter((id2) => red2(id2, s.rules)).length
+  };
+}
+function createGame2({ seed = 1, rules = {}, dealer = 0, wall = null, pot = 0, startingScores = null } = {}) {
+  if (!Number.isInteger(seed) || seed < 0 || seed > 4294967295 || !Number.isInteger(dealer) || dealer < 0 || dealer > 3 || !Number.isSafeInteger(pot) || pot < 0 || pot % 1e3) throw new Error("Invalid seed, dealer or pot");
+  if (startingScores !== null && (!Array.isArray(startingScores) || startingScores.length !== 4 || startingScores.some((n) => !Number.isSafeInteger(n)))) throw new Error("Invalid starting scores");
+  const r = normalizeProfileRules(rules, "mil"), w = wall ? [...wall] : shuffledWall(seed);
+  if (w.length !== 136 || new Set(w).size !== 136 || w.some((id) => !Number.isInteger(id) || id < 0 || id >= 136)) throw new Error("Invalid wall");
+  const reserve = reservedTileCount(r), dead = reserve ? w.splice(136 - reserve) : [];
+  const s = {
+    version: 1,
+    duplicateProfile: "mil",
+    milLastTurn: null,
+    seed,
+    rules: r,
+    dealer,
+    dead,
+    walls: Array.from({ length: 4 }, () => []),
+    startingScores: startingScores ? [...startingScores] : Array(4).fill(r.startingPoints),
+    pot,
+    initialPot: pot,
+    players: Array.from({ length: 4 }, () => ({
+      hand: [],
+      melds: [],
+      river: [],
+      score: 0,
+      won: false,
+      win: null,
+      drawn: null,
+      drawSource: null,
+      passLock: false,
+      forbidden: [],
+      riichi: false,
+      riichiFuriten: false,
+      riichiWaits: [],
+      doubleRiichi: false,
+      ippatsu: false,
+      pao: null,
+      stats: { winReceipt: 0, dealInLoss: 0, tsumoPaid: 0, drawLoss: 0, drawGain: 0, riichiPaid: 0, ronDeclined: 0, closedKans: 0 }
+    })),
+    phase: "init",
+    turn: dealer,
+    draws: 0,
+    kans: 0,
+    calls: 0,
+    winners: [],
+    reaction: null,
+    events: [],
+    ledger: [],
+    end: null,
+    pendingAbort: null
+  };
+  for (let n = 0; n < 13; n++) for (let seat = 0; seat < 4; seat++) s.players[seat].hand.push(w.shift());
+  s.initialHands = s.players.map((p) => [...p.hand]);
+  for (let i = 0; i < w.length; i++) s.walls[i % 4].push(w[i]);
+  for (const p of s.players) p.hand.sort((a, b) => a - b);
+  draw2(s, dealer);
+  assertInvariants2(s);
+  return s;
+}
+function transfer2(s, from, to, amount, kind) {
+  if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error("Invalid transfer");
+  if (from === "pot") s.pot -= amount;
+  else s.players[from].score -= amount;
+  if (to === "pot") s.pot += amount;
+  else s.players[to].score += amount;
+  s.ledger.push({ from, to, amount, kind });
+  if (kind === "riichi") s.players[from].stats.riichiPaid += amount;
+  else if (kind === "pot") s.players[to].stats.winReceipt += amount;
+  else if (kind === "draw") {
+    s.players[from].stats.drawLoss += amount;
+    s.players[to].stats.drawGain += amount;
+  } else {
+    s.players[from].stats[kind === "ron" ? "dealInLoss" : "tsumoPaid"] += amount;
+    s.players[to].stats.winReceipt += amount;
+  }
+}
+function receiveTurn(s, seat, via) {
+  s.turn = seat;
+  s.phase = "turn";
+  s.reaction = null;
+  if (!s.milLastTurn && !s.walls[(seat + 1) % 4].length) s.milLastTurn = { seat, via };
+}
+function draw2(s, seat, kan = false) {
+  if (!s.walls[seat].length) throw new Error("Cannot draw from exhausted personal wall");
+  const p = s.players[seat], id = s.walls[seat].shift();
+  p.hand.push(id);
+  p.hand.sort((a, b) => a - b);
+  p.drawn = id;
+  p.drawSource = kan ? "kan" : "wall";
+  p.passLock = false;
+  p.forbidden = [];
+  receiveTurn(s, seat, kan ? "kan" : "draw");
+  s.draws++;
+  event2(s, { type: kan ? "kanDraw" : "draw", seat, id });
+}
+function nextDraw2(s, source) {
+  const seat = (source + 1) % 4;
+  if (!s.walls[seat].length) {
+    settleDraw2(s);
+    return;
+  }
+  draw2(s, seat);
+}
+function end2(s, reason) {
+  s.end = reason;
+  s.phase = "end";
+  s.reaction = null;
+  event2(s, { type: "end", reason });
+}
+function win2(s, seat, method, source, id, { finish = true } = {}) {
+  const p = s.players[seat], tiles = handTypes2(p);
+  if (method === "ron") tiles.push(typeOf(id));
+  const score = scoreRiichi(tiles, p.melds, context2(s, seat, method, id), s.rules);
+  if (!score) throw new Error("Illegal riichi win");
+  const first = s.ledger.length;
+  const pao = p.pao && score.yakuman && score.yakuEntries.some((y) => y.id === p.pao.yaku) ? p.pao : null;
+  if (pao) {
+    const count = score.yakumanCount ?? 1, portion = score.points.ron / count;
+    if (method === "tsumo") {
+      transfer2(s, pao.seat, seat, portion, method);
+      if (count > 1) {
+        for (let from = 0; from < 4; from++) if (from !== seat) {
+          const amount = (from === s.dealer ? score.points.tsumoDealer : score.points.tsumoOther) * (count - 1) / count;
+          transfer2(s, from, seat, amount, method);
+        }
+      }
+    } else if (source === pao.seat) transfer2(s, source, seat, score.points.ron, method);
+    else {
+      transfer2(s, pao.seat, seat, portion / 2, method);
+      transfer2(s, source, seat, score.points.ron - portion / 2, method);
+    }
+  } else if (method === "ron") transfer2(s, source, seat, score.points.ron, method);
+  else for (let from = 0; from < 4; from++) if (from !== seat) transfer2(s, from, seat, from === s.dealer ? score.points.tsumoDealer : score.points.tsumoOther, method);
+  if (s.pot) transfer2(s, "pot", seat, s.pot, "pot");
+  const payments2 = structuredClone(s.ledger.slice(first));
+  p.won = true;
+  p.win = {
+    method,
+    source,
+    tile: id,
+    order: s.winners.length + 1,
+    drawNumber: s.draws,
+    score,
+    payments: payments2,
+    receipt: payments2.reduce((n, e) => n + e.amount, 0),
+    ...pao ? { pao } : {}
+  };
+  p.drawn = null;
+  s.winners.push(seat);
+  event2(s, { type: "win", seat, ...p.win });
+  if (finish) end2(s, "win");
+}
+function visibleCounts2(s, seat) {
+  const out = Array(34).fill(0), add = (id) => out[typeOf(id)]++;
+  for (let i = 0; i < 4; i++) {
+    const p = s.players[i];
+    for (const m of p.melds) for (const id of m.ids) add(id);
+    for (const d of p.river) if (!d.claimed) add(d.id);
+    if (i === seat || s.phase === "end" && p.won) for (const id of p.hand) add(id);
+  }
+  for (const t of indicators2(s)) out[t]++;
+  return out;
+}
+function settleDraw2(s) {
+  const r = s.reaction;
+  if (s.phase !== "reaction" || !s.milLastTurn || !r || r.kind !== "discard" || !r.final || r.source !== s.milLastTurn.seat || r.pending.length || r.answers.length !== 3 || r.answers.some((answer) => answer.action.type === "ron")) throw new Error("Cannot settle this board");
+  const ready = s.players.flatMap((p, seat) => {
+    const waits = shapeWaits(handTypes2(p), p.melds, s.rules);
+    return waits.length ? [{ seat, waits }] : [];
+  });
+  if (ready.length && ready.length < 4) {
+    const due = ready.map((p) => ({ seat: p.seat, amount: 3e3 / ready.length }));
+    for (let from = 0; from < 4; from++) if (!ready.some((p) => p.seat === from)) {
+      let debt = 3e3 / (4 - ready.length);
+      for (const to of due) {
+        const amount = Math.min(debt, to.amount);
+        if (amount) {
+          transfer2(s, from, to.seat, amount, "draw");
+          debt -= amount;
+          to.amount -= amount;
+        }
+      }
+    }
+  }
+  event2(s, { type: "drawSettlement", ready, exhaustedSeats: exhaustedSeats2(s) });
+  end2(s, "exhaustive-draw");
+}
+function canRon2(s, seat) {
+  const p = s.players[seat], r = s.reaction;
+  if (!r || seat === r.source || p.passLock || p.riichiFuriten) return null;
+  const waits = shapeWaits(handTypes2(p), p.melds, s.rules);
+  if (p.river.some((d) => waits.includes(typeOf(d.id)))) return null;
+  return scoreRiichi([...handTypes2(p), typeOf(r.id)], p.melds, context2(s, seat, "ron", r.id), s.rules);
+}
+function riichiAnkanAllowed2(p, t, rules) {
+  if (typeOf(p.drawn) !== t) return false;
+  const tiles = handTypes2(p), next = tiles.filter((x) => x !== t), melds = [...p.melds, { type: "kan", tile: t, open: false }];
+  if (!same2(shapeWaits(next, melds, rules), p.riichiWaits)) return false;
+  const before = [...tiles];
+  before.splice(before.indexOf(t), 1);
+  return p.riichiWaits.every((wait) => {
+    const shapes2 = decompositions([...before, wait], p.melds, { sevenPairsQuadAsTwo: false });
+    return shapes2.length && shapes2.every((shape) => shape.kind === "standard" && shape.groups.some((g) => g.type === "pon" && g.tile === t) && !shape.groups.some((g) => g.type === "chi" && g.tile <= t && t <= g.tile + 2));
+  });
+}
+function forbiddenForCall2(a, t) {
+  const out = [t];
+  if (a.type === "chi") {
+    if (t === a.tile && t % 9 <= 5) out.push(t + 3);
+    if (t === a.tile + 2 && t % 9 >= 3) out.push(t - 3);
+  }
+  return out;
+}
+function legalActions2(s, seat = actor2(s)) {
+  if (seat === null || seat !== actor2(s)) return [];
+  const p = s.players[seat], tiles = handTypes2(p), c = counts(tiles), out = [];
+  if (s.phase === "turn") {
+    if (p.drawn !== null && scoreRiichi(tiles, p.melds, context2(s, seat, "tsumo", p.drawn), s.rules)) out.push({ type: "tsumo" });
+    if (!s.milLastTurn && p.drawn !== null && s.walls[seat].length && s.kans < s.rules.maxKans) {
+      for (let t = 0; t < 34; t++) if (c[t] === 4 && (!p.riichi || riichiAnkanAllowed2(p, t, s.rules))) out.push({ type: "ankan", tile: t });
+      if (!p.riichi) p.melds.forEach((m, i) => {
+        if (m.type === "pon" && c[m.tile]) out.push({ type: "kakan", meld: i });
+      });
+    }
+    for (const id of p.hand) if (!p.forbidden.includes(typeOf(id)) && (!p.riichi || id === p.drawn)) {
+      const tile = typeOf(id);
+      out.push({ type: "discard", tile, id });
+      if (!p.riichi && p.melds.every((m) => !m.open) && s.startingScores[seat] + p.score >= 1e3 && remaining2(s) >= 4 && s.walls[seat].length && !s.milLastTurn) {
+        const next = [...tiles];
+        next.splice(next.indexOf(tile), 1);
+        if (shapeWaits(next, p.melds, s.rules).length) out.push({ type: "riichi", tile, id });
+      }
+    }
+  } else {
+    const r = s.reaction, t = typeOf(r.id);
+    if (canRon2(s, seat)) out.push({ type: "ron" });
+    out.push({ type: "pass" });
+    if (!p.riichi && r.kind === "discard" && !r.final && !s.pendingAbort) {
+      const candidates = [];
+      if (c[t] >= 2) candidates.push({ type: "pon", tile: t });
+      if (c[t] >= 3 && s.walls[seat].length && s.kans < s.rules.maxKans) candidates.push({ type: "minkan", tile: t });
+      if (seat === (r.source + 1) % 4 && t < 27) for (let start = Math.max(Math.floor(t / 9) * 9, t - 2); start <= Math.min(Math.floor(t / 9) * 9 + 6, t); start++) {
+        if ([start, start + 1, start + 2].filter((x) => x !== t).every((x) => c[x])) candidates.push({ type: "chi", tile: start });
+      }
+      for (const a of candidates) {
+        if (a.type === "minkan") {
+          out.push(a);
+          continue;
+        }
+        const cc = [...c];
+        for (const x of a.type === "chi" ? [a.tile, a.tile + 1, a.tile + 2].filter((x2) => x2 !== t) : [t, t]) cc[x]--;
+        if (cc.some((n, tile) => n && !forbiddenForCall2(a, t).includes(tile))) out.push(a);
+      }
+    }
+  }
+  return out;
+}
+function remove2(p, types) {
+  const ids = [];
+  for (const t of types) {
+    let i = p.hand.findIndex((id) => typeOf(id) === t && !RED_IDS2.has(id));
+    if (i < 0) i = p.hand.findIndex((id) => typeOf(id) === t);
+    if (i < 0) throw new Error("Missing tile");
+    ids.push(...p.hand.splice(i, 1));
+  }
+  return ids;
+}
+function reaction2(s, source, id, kind, extra = {}) {
+  s.phase = "reaction";
+  s.reaction = {
+    source,
+    id,
+    kind,
+    final: kind === "discard" && !!s.milLastTurn,
+    pending: [1, 2, 3].map((n) => (source + n) % 4),
+    answers: [],
+    ...extra
+  };
+}
+function cancelIppatsu2(s) {
+  for (const p of s.players) p.ippatsu = false;
+}
+function completeKan2(s, seat, details = {}) {
+  cancelIppatsu2(s);
+  s.kans++;
+  s.calls++;
+  event2(s, { type: "kan", seat, ...details });
+  if (s.rules.abortFourKans && s.kans === 4 && s.players.filter((p) => p.melds.some((m) => m.type === "kan")).length > 1) s.pendingAbort = "four-kans";
+  draw2(s, seat, true);
+}
+function acceptRiichi2(s, r) {
+  if (!r.riichi) return;
+  const p = s.players[r.source];
+  p.riichi = true;
+  p.ippatsu = true;
+  p.doubleRiichi = p.river.length === 1 && s.calls === 0;
+  p.riichiWaits = shapeWaits(handTypes2(p), p.melds, s.rules);
+  transfer2(s, r.source, "pot", 1e3, "riichi");
+  event2(s, { type: "riichi", seat: r.source });
+}
+function resolve2(s) {
+  const r = s.reaction, rons = r.answers.filter((x) => x.action.type === "ron");
+  if (rons.length) {
+    if (r.kind === "kakan") {
+      const p2 = s.players[r.source];
+      p2.hand.splice(p2.hand.indexOf(r.id), 1);
+      p2.river.push({ id: r.id, claimed: false, robbedKan: true });
+    }
+    for (const ron of s.rules.multipleRon === "all" ? rons : rons.slice(0, 1)) win2(s, ron.seat, "ron", r.source, r.id, { finish: false });
+    end2(s, "win");
+    return;
+  }
+  if (r.kind === "kakan") {
+    const p2 = s.players[r.source], m = p2.melds[r.meld], added = remove2(p2, [m.tile]);
+    m.ids.push(...added);
+    m.type = "kan";
+    completeKan2(s, r.source, { callType: "kakan", tileId: added[0], ids: [...m.ids], meld: r.meld });
+    return;
+  }
+  acceptRiichi2(s, r);
+  if (r.final) {
+    settleDraw2(s);
+    return;
+  }
+  if (s.pendingAbort) {
+    end2(s, s.pendingAbort);
+    return;
+  }
+  const calls = r.answers.filter((x) => ["pon", "minkan", "chi"].includes(x.action.type)).sort((a2, b) => (a2.action.type === "chi") - (b.action.type === "chi"));
+  if (!calls.length) {
+    nextDraw2(s, r.source);
+    return;
+  }
+  cancelIppatsu2(s);
+  s.calls++;
+  const { seat, action: a } = calls[0], p = s.players[seat], t = typeOf(r.id);
+  const ids = [...remove2(p, a.type === "chi" ? [a.tile, a.tile + 1, a.tile + 2].filter((x) => x !== t) : Array(a.type === "minkan" ? 3 : 2).fill(t)), r.id];
+  s.players[r.source].river.at(-1).claimed = true;
+  p.melds.push({ type: a.type === "chi" ? "chi" : a.type === "minkan" ? "kan" : "pon", tile: a.tile, open: true, from: r.source, ids });
+  const open = p.melds.filter((m) => m.open && m.type !== "chi");
+  const paoYaku = a.type !== "chi" && (t >= 31 && open.filter((m) => m.tile >= 31).length === 3 ? "bigThreeDragons" : t >= 27 && t < 31 && open.filter((m) => m.tile >= 27 && m.tile < 31).length === 4 ? "bigFourWinds" : null);
+  if (paoYaku) p.pao = { seat: r.source, yaku: paoYaku };
+  p.drawn = null;
+  p.drawSource = null;
+  p.forbidden = forbiddenForCall2(a, t);
+  receiveTurn(s, seat, a.type);
+  event2(s, { type: "call", seat, action: a, from: r.source, tileId: r.id, ids: [...ids] });
+  if (a.type === "minkan") completeKan2(s, seat, { callType: "minkan", tileId: r.id, ids: [...ids], from: r.source });
+}
+function canonicalAction2(s, seat, action) {
+  if (!action || typeof action !== "object") return null;
+  const legal = legalActions2(s, seat);
+  if (["discard", "riichi"].includes(action.type)) {
+    const matching = legal.filter((a) => a.type === action.type && (action.tile === void 0 || a.tile === action.tile) && (action.id === void 0 || a.id === action.id));
+    if (action.tile === void 0 && action.id === void 0) return null;
+    return matching.find((a) => !RED_IDS2.has(a.id)) ?? matching[0];
+  }
+  return legal.find((a) => same2(a, action));
+}
+function step2(s, seat, action, { validate = true } = {}) {
+  const a = canonicalAction2(s, seat, action);
+  if (!a) throw new Error(`Illegal action by ${seat}`);
+  const p = s.players[seat];
+  const kakanId = a.type === "kakan" ? p.hand.find((id) => typeOf(id) === p.melds[a.meld].tile && !RED_IDS2.has(id)) ?? p.hand.find((id) => typeOf(id) === p.melds[a.meld].tile) : null;
+  event2(s, { type: "action", seat, action: { ...a }, ...a.type === "kakan" ? { tileId: kakanId, meldIds: [...p.melds[a.meld].ids] } : {} });
+  if (s.phase === "reaction") {
+    const r = s.reaction;
+    if (a.type !== "ron" && canRon2(s, seat)) {
+      p.passLock = true;
+      p.stats.ronDeclined++;
+      if (p.riichi) p.riichiFuriten = true;
+    }
+    r.answers.push({ seat, action: { ...a } });
+    r.pending.shift();
+    if (!r.pending.length) resolve2(s);
+  } else if (a.type === "tsumo") win2(s, seat, "tsumo", seat, p.drawn);
+  else if (a.type === "discard" || a.type === "riichi") {
+    p.hand.splice(p.hand.indexOf(a.id), 1);
+    if (p.riichi) p.ippatsu = false;
+    p.river.push({ id: a.id, claimed: false, riichi: a.type === "riichi" });
+    p.drawn = null;
+    p.drawSource = null;
+    p.forbidden = [];
+    reaction2(s, seat, a.id, "discard", { riichi: a.type === "riichi" });
+  } else if (a.type === "ankan") {
+    const ids = remove2(p, Array(4).fill(a.tile));
+    p.melds.push({ type: "kan", tile: a.tile, open: false, from: seat, ids });
+    p.stats.closedKans++;
+    completeKan2(s, seat, { callType: "ankan", ids: [...ids] });
+  } else if (a.type === "kakan") {
+    cancelIppatsu2(s);
+    reaction2(s, seat, kakanId, "kakan", { meld: a.meld });
+  }
+  if (validate) assertInvariants2(s);
+  return s;
+}
+var tileView2 = (id, s, drawn = null) => ({ id, type: typeOf(id), tile: typeOf(id), red: red2(id, s.rules), drawn: id === drawn });
+var meldView2 = (m, s) => ({ ...structuredClone(m), tiles: m.ids.map((id) => tileView2(id, s)) });
+function publicEvents2(s) {
+  const out = [], discards = Array(4).fill(null), pendingKan = Array(4).fill(null), melds = Array.from({ length: 4 }, () => []);
+  const physical = (id) => Number.isInteger(id) && id >= 0 && id < 136 ? id : null;
+  const preview = (seat, index, tile, callType) => {
+    const count = ["ankan", "kakan", "minkan"].includes(callType) ? 4 : 3;
+    const ids = s.players[seat]?.melds[index]?.ids?.slice(0, count);
+    if (ids?.length === count) return ids.map((id) => ({ type: typeOf(id), red: red2(id, s.rules) })).sort((a, b) => a.type - b.type);
+    const types = callType === "chi" ? [tile, tile + 1, tile + 2] : Array(count).fill(tile);
+    return types.filter((type) => Number.isInteger(type) && type >= 0 && type < 34).map((type) => ({ type, red: false }));
+  };
+  const emit = (raw, kind, { tile = null, tileId = null, source = null, callType = null, method = null, tiles } = {}) => {
+    const id = physical(tileId), type = id === null ? tile : typeOf(id);
+    const item = {
+      id: raw.n,
+      kind,
+      seat: raw.seat,
+      tile: Number.isInteger(type) && type >= 0 && type < 34 ? type : null,
+      tileId: id,
+      red: id !== null && red2(id, s.rules),
+      source: Number.isInteger(source) && source >= 0 && source < 4 ? source : null,
+      callType,
+      method: ["ron", "tsumo"].includes(method) ? method : null
+    };
+    if (tiles?.length) item.tiles = tiles;
+    out.push(item);
+    return item;
+  };
+  for (const raw of s.events ?? []) {
+    if (!Number.isSafeInteger(raw.n) || raw.n < 0 || !Number.isInteger(raw.seat) || raw.seat < 0 || raw.seat > 3) continue;
+    const seat = raw.seat, a = raw.action;
+    if (raw.type === "action") {
+      if (a?.type === "discard" || a?.type === "riichi") discards[seat] = emit(raw, "discard", { tile: a.tile, tileId: a.id });
+      else if (a?.type === "ankan") pendingKan[seat] = { tile: a.tile, callType: "ankan", index: melds[seat].length };
+      else if (a?.type === "kakan") pendingKan[seat] = { tile: melds[seat][a.meld]?.tile ?? null, callType: "kakan", index: a.meld };
+    } else if (raw.type === "call" && ["chi", "pon", "minkan"].includes(a?.type)) {
+      const source = Number.isInteger(raw.from) && raw.from >= 0 && raw.from < 4 ? raw.from : null;
+      const discard = source === null ? null : discards[source], index = melds[seat].length;
+      melds[seat].push({ tile: a.tile, type: a.type });
+      if (a.type === "minkan") pendingKan[seat] = { tile: a.tile, tileId: discard?.tileId ?? null, source, callType: "minkan", index };
+      else emit(raw, "call", {
+        tile: discard?.tile ?? a.tile,
+        tileId: discard?.tileId ?? null,
+        source,
+        callType: a.type,
+        tiles: preview(seat, index, a.tile, a.type)
+      });
+    } else if (raw.type === "kan") {
+      const accepted = pendingKan[seat];
+      if (!accepted) continue;
+      const { tile, source = null, callType, index } = accepted, ids = s.players[seat]?.melds[index]?.ids ?? [];
+      let tileId = accepted.tileId ?? null;
+      if (callType === "kakan") tileId = ids[3] ?? null;
+      else if (callType === "ankan") tileId = ids.find((id) => red2(id, s.rules)) ?? ids[0] ?? null;
+      emit(raw, "kan", { tile, tileId, source, callType, tiles: preview(seat, index, tile, callType) });
+      if (callType === "ankan") melds[seat].push({ tile, type: "ankan" });
+      else if (melds[seat][index]) melds[seat][index].type = callType;
+      pendingKan[seat] = null;
+    } else if (raw.type === "riichi") {
+      const discard = discards[seat];
+      emit(raw, "riichi", { tile: discard?.tile ?? null, tileId: discard?.tileId ?? null });
+    } else if (raw.type === "win") emit(raw, "win", {
+      tileId: raw.tile,
+      source: raw.method === "ron" ? raw.source : null,
+      method: raw.method
+    });
+  }
+  return out.slice(-32);
+}
+function snapshot2(s, seat) {
+  if (!Number.isInteger(seat) || seat < 0 || seat > 3) throw new Error("Invalid seat");
+  const p = s.players[seat];
+  const players = s.players.map((q, i) => ({
+    seat: i,
+    handSize: q.hand.length,
+    score: q.score,
+    points: s.startingScores[i] + q.score,
+    riichi: q.riichi,
+    won: q.won,
+    melds: q.melds.map((m) => meldView2(m, s)),
+    river: q.river.map((d) => ({ ...tileView2(d.id, s), claimed: d.claimed, riichi: !!d.riichi, robbedKan: !!d.robbedKan })),
+    discards: q.river.map((d) => ({ tile: typeOf(d.id), red: red2(d.id, s.rules), claimed: d.claimed, riichi: !!d.riichi })),
+    wallRemaining: s.walls[i].length,
+    exhausted: s.walls[i].length === 0,
+    win: q.win ? structuredClone(q.win) : null,
+    revealed: s.phase === "end" && q.won ? q.hand.map((id) => tileView2(id, s)) : []
+  }));
+  return {
+    variant: "D",
+    duplicateProfile: "mil",
+    lastTileTurn: !!s.milLastTurn,
+    seat,
+    dealer: s.dealer,
+    rules: { ...s.rules },
+    phase: s.phase,
+    turn: s.turn,
+    end: s.end,
+    actor: actor2(s),
+    hand: handTypes2(p),
+    handTiles: p.hand.map((id) => tileView2(id, s, p.drawn)),
+    melds: p.melds.map((m) => meldView2(m, s)),
+    players,
+    legalActions: legalActions2(s, seat),
+    doraIndicators: indicators2(s),
+    uraIndicators: revealedUraIndicators2(s),
+    wallRemaining: remaining2(s),
+    ownWallRemaining: s.walls[seat].length,
+    exhaustedSeats: exhaustedSeats2(s),
+    draws: s.draws,
+    kans: s.kans,
+    pot: s.pot,
+    winners: [...s.winners],
+    riichi: p.riichi,
+    visible: visibleCounts2(s, seat),
+    publicEvents: publicEvents2(s),
+    lastDiscard: s.reaction ? { seat: s.reaction.source, ...tileView2(s.reaction.id, s), kind: s.reaction.kind, final: s.reaction.final } : null,
+    readySeats: s.phase === "end" ? s.events.findLast((e) => e.type === "drawSettlement")?.ready.map((p2) => p2.seat) ?? [] : []
+  };
+}
+function observation2(s, seat = actor2(s)) {
+  if (seat !== actor2(s)) throw new Error("Not this player\u2019s decision");
+  return snapshot2(s, seat);
+}
+function assertInvariants2(s) {
+  const all = [...s.walls.flat(), ...s.dead];
+  for (const p of s.players) {
+    all.push(...p.hand);
+    for (const m of p.melds) all.push(...m.ids);
+    for (const d of p.river) if (!d.claimed) all.push(d.id);
+  }
+  if (all.length !== 136 || new Set(all).size !== 136 || all.some((id) => !Number.isInteger(id) || id < 0 || id >= 136)) throw new Error("Tile conservation violated");
+  if (s.players.reduce((n, p) => n + p.score, 0) + s.pot !== s.initialPot || s.pot < 0) throw new Error("Score conservation violated");
+  for (let seat = 0; seat < 4; seat++) {
+    const p = s.players[seat], extra = s.phase === "turn" && s.turn === seat || s.phase === "reaction" && s.reaction.kind === "kakan" && s.reaction.source === seat || p.win?.method === "tsumo";
+    if (p.hand.length + 3 * p.melds.length !== (extra ? 14 : 13)) throw new Error(`Hand size violated seat ${seat}`);
+    for (const m of p.melds) {
+      const wanted = m.type === "chi" ? [m.tile, m.tile + 1, m.tile + 2] : Array(m.type === "kan" ? 4 : 3).fill(m.tile);
+      if (!same2(m.ids.map(typeOf).sort((a, b) => a - b), wanted)) throw new Error("Illegal meld");
     }
     const st = p.stats;
     if (p.score !== st.winReceipt + st.drawGain - st.dealInLoss - st.tsumoPaid - st.drawLoss - st.riichiPaid) throw new Error("Ledger attribution violated");
@@ -975,8 +1631,8 @@ function chooseAction(view) {
   const legal = view.legalActions;
   if (!legal?.length) throw new Error("No legal action");
   for (const type of ["tsumo", "ron"]) {
-    const win2 = legal.find((a) => a.type === type);
-    if (win2) return win2;
+    const win3 = legal.find((a) => a.type === type);
+    if (win3) return win3;
   }
   if (view.phase === "reaction") return legal.find((a) => a.type === "pass") ?? legal[0];
   const c = counts(view.hand), melds = view.melds.length, rows = [];
@@ -995,8 +1651,8 @@ function chooseAction(view) {
       if (!p.river.some((t) => t.type === a.tile)) danger += a.tile >= 27 ? 0.7 : 1.5;
     }
     const dora = (view.doraIndicators ?? []).filter((t) => doraAfter(t) === a.tile).length;
-    const red2 = view.handTiles?.find((t) => t.id === a.id)?.red ? 1 : 0;
-    rows.push({ a, d, score: -100 * d + ukeire - 12 * danger - 2 * dora - 2 * red2, danger });
+    const red3 = view.handTiles?.find((t) => t.id === a.id)?.red ? 1 : 0;
+    rows.push({ a, d, score: -100 * d + ukeire - 12 * danger - 2 * dora - 2 * red3, danger });
   }
   rows.sort((a, b) => b.score - a.score || a.a.id - b.a.id);
   if (!rows.length) return legal[0];
@@ -1017,18 +1673,22 @@ var honbaOf = (game) => {
   if (!Number.isSafeInteger(honba) || honba < 0) throw new Error("Invalid honba");
   return honba;
 };
-function createGame2({ honba = 0, ...options } = {}) {
+var engineFor = (game) => normalizeDuplicateProfile(game.duplicateProfile) === "mil" ? mil_core_game_exports : game_exports;
+function createGame3({ honba = 0, duplicateProfile = "custom", ...options } = {}) {
+  const profile = normalizeDuplicateProfile(duplicateProfile);
   honbaOf({ honba });
-  const game = createGame(options);
+  const game = (profile === "mil" ? mil_core_game_exports : game_exports).createGame(options);
   game.honba = honba;
+  game.duplicateProfile = profile;
   return game;
 }
+var actor3 = (game) => engineFor(game).actor(game);
 function addHonba(game) {
   const honba = honbaOf(game), seat = game.winners[0];
   if (!honba || seat === void 0) return;
-  const winner = game.players[seat], win2 = winner.win, amount = honba * 300;
+  const winner = game.players[seat], win3 = winner.win, amount = honba * 300;
   if (!Number.isSafeInteger(amount)) throw new Error("Honba payment exceeds the supported range");
-  const moves = win2.pao ? [{ from: win2.pao.seat, to: seat, amount, kind: win2.method, honba: true }] : win2.method === "ron" ? [{ from: win2.source, to: seat, amount, kind: "ron", honba: true }] : [0, 1, 2, 3].filter((from) => from !== seat).map((from) => ({ from, to: seat, amount: honba * 100, kind: "tsumo", honba: true }));
+  const moves = win3.pao ? [{ from: win3.pao.seat, to: seat, amount, kind: win3.method, honba: true }] : win3.method === "ron" ? [{ from: win3.source, to: seat, amount, kind: "ron", honba: true }] : [0, 1, 2, 3].filter((from) => from !== seat).map((from) => ({ from, to: seat, amount: honba * 100, kind: "tsumo", honba: true }));
   const scores = game.players.map((p) => p.score), stats = game.players.map((p) => ({ ...p.stats }));
   for (const move of moves) {
     scores[move.from] -= move.amount;
@@ -1036,54 +1696,55 @@ function addHonba(game) {
     stats[move.from][move.kind === "ron" ? "dealInLoss" : "tsumoPaid"] += move.amount;
     stats[seat].winReceipt += move.amount;
   }
-  if (scores.some((n) => !Number.isSafeInteger(n)) || stats.some((s) => Object.values(s).some((n) => !Number.isSafeInteger(n))) || !Number.isSafeInteger(win2.receipt + amount)) throw new Error("Honba settlement exceeds the supported range");
+  if (scores.some((n) => !Number.isSafeInteger(n)) || stats.some((s) => Object.values(s).some((n) => !Number.isSafeInteger(n))) || !Number.isSafeInteger(win3.receipt + amount)) throw new Error("Honba settlement exceeds the supported range");
   for (let i = 0; i < 4; i++) {
     game.players[i].score = scores[i];
     Object.assign(game.players[i].stats, stats[i]);
   }
   game.ledger.push(...moves);
-  win2.payments.push(...structuredClone(moves));
-  win2.receipt += amount;
-  win2.honba = honba;
-  win2.honbaReceipt = amount;
-  const event2 = game.events.findLast((event3) => event3.type === "win" && event3.seat === seat);
-  if (event2) Object.assign(event2, { payments: structuredClone(win2.payments), receipt: win2.receipt, honba, honbaReceipt: amount });
+  win3.payments.push(...structuredClone(moves));
+  win3.receipt += amount;
+  win3.honba = honba;
+  win3.honbaReceipt = amount;
+  const event3 = game.events.findLast((event4) => event4.type === "win" && event4.seat === seat);
+  if (event3) Object.assign(event3, { payments: structuredClone(win3.payments), receipt: win3.receipt, honba, honbaReceipt: amount });
 }
-function step2(game, seat, action, options = {}) {
+function step3(game, seat, action, options = {}) {
+  const engine = engineFor(game);
   const honba = honbaOf(game);
   if (!Number.isSafeInteger(honba * 300)) throw new Error("Honba payment exceeds the supported range");
   const prior = game.winners.length;
   const couldWin = honba > 0 && (game.phase === "turn" && action?.type === "tsumo" || game.phase === "reaction" && game.reaction.pending.length === 1 && (action?.type === "ron" || game.reaction.answers.some((answer) => answer.action.type === "ron")));
   if (couldWin) {
     const next = structuredClone(game);
-    step(next, seat, action, options);
+    engine.step(next, seat, action, options);
     if (prior === 0 && next.winners.length) addHonba(next);
-    if (options.validate !== false) assertInvariants(next);
+    if (options.validate !== false) engine.assertInvariants(next);
     Object.assign(game, next);
     return game;
   }
-  step(game, seat, action, options);
+  engine.step(game, seat, action, options);
   return game;
 }
-function snapshot2(game, seat) {
-  return { ...snapshot(game, seat), honba: honbaOf(game) };
+function snapshot3(game, seat) {
+  return { ...engineFor(game).snapshot(game, seat), honba: honbaOf(game), duplicateProfile: normalizeDuplicateProfile(game.duplicateProfile) };
 }
 function driveAI(game, humanSeats = [], maxSteps = 500) {
   if (!Array.isArray(humanSeats) || humanSeats.some((seat) => !Number.isInteger(seat) || seat < 0 || seat > 3) || !Number.isInteger(maxSteps) || maxSteps < 0 || maxSteps > 1e4) throw new Error("Invalid AI drive options");
   let steps = 0;
   while (game.phase !== "end" && steps < maxSteps) {
-    const seat = actor(game);
+    const seat = actor3(game);
     if (humanSeats.includes(seat)) break;
-    step2(game, seat, chooseAction(snapshot2(game, seat)));
+    step3(game, seat, chooseAction(snapshot3(game, seat)));
     steps++;
   }
-  return { state: game, steps, finished: game.phase === "end", waitingForHuman: humanSeats.includes(actor(game)) };
+  return { state: game, steps, finished: game.phase === "end", waitingForHuman: humanSeats.includes(actor3(game)) };
 }
 
 // duplicate/baseline-worker.mjs
-self.onmessage = (event2) => {
+self.onmessage = (event3) => {
   try {
-    const options = event2.data, game = createGame2(options);
+    const options = event3.data, game = createGame3(options);
     driveAI(game, [], 2e3);
     if (game.phase !== "end") throw new Error("AI \uAE30\uC900 \uB300\uAD6D\uC758 \uC9C4\uD589 \uD55C\uB3C4\uB97C \uCD08\uACFC\uD588\uC2B5\uB2C8\uB2E4.");
     self.postMessage({ score: game.players[options.seat].score });

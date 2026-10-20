@@ -1,3 +1,28 @@
+var __defProp = Object.defineProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+
+// duplicate/engine/game.mjs
+var game_exports = {};
+__export(game_exports, {
+  RED_IDS: () => RED_IDS,
+  actor: () => actor,
+  assertInvariants: () => assertInvariants,
+  createGame: () => createGame,
+  exhaustedSeats: () => exhaustedSeats,
+  indicators: () => indicators,
+  legalActions: () => legalActions,
+  observation: () => observation,
+  publicEvents: () => publicEvents,
+  revealedUraIndicators: () => revealedUraIndicators,
+  settleDraw: () => settleDraw,
+  snapshot: () => snapshot,
+  step: () => step,
+  visibleCounts: () => visibleCounts
+});
+
 // duplicate/shared/tiles.mjs
 var typeOf = (id) => Math.floor(id / 4);
 var isHonor = (t) => t >= 27;
@@ -181,20 +206,20 @@ function handFu(shape, groups, placement, closed, method, pairFu, pinfu) {
   });
   return fu === 20 ? 30 : Math.ceil(fu / 10) * 10;
 }
-function scoreRiichi(types, melds = [], context2 = {}, rules = {}) {
+function scoreRiichi(types, melds = [], context3 = {}, rules = {}) {
   const all = physicalTiles(types, melds);
   if (!all) return null;
   const ds = shapes(types, melds);
   if (!ds.length) return null;
-  const winTile = context2.winTile ?? types.at(-1);
+  const winTile = context3.winTile ?? types.at(-1);
   if (!types.includes(winTile)) return null;
-  const method = context2.method ?? "ron";
+  const method = context3.method ?? "ron";
   if (!["ron", "tsumo"].includes(method)) return null;
   const c = counts(all), closed = melds.every((m) => !m.open);
   const suits = new Set(all.filter((t) => t < 27).map((t) => Math.floor(t / 9))), honors = all.some(isHonor);
-  const seatWind = context2.seatWind ?? 27, roundWind = rules.roundWind ?? 27;
-  const riichi = closed && !!(context2.riichi || context2.doubleRiichi);
-  const dealer = context2.dealer ?? seatWind === 27;
+  const seatWind = context3.seatWind ?? 27, roundWind = rules.roundWind ?? 27;
+  const riichi = closed && !!(context3.riichi || context3.doubleRiichi);
+  const dealer = context3.dealer ?? seatWind === 27;
   let best = null;
   for (const shape of ds) for (const placement of placements(shape, winTile)) {
     const groups = [...shape.groups, ...melds], seq = groups.filter((g) => g.type === "chi"), trip = groups.filter((g) => g.type !== "chi");
@@ -222,19 +247,19 @@ function scoreRiichi(types, melds = [], context2 = {}, rules = {}) {
       const offset = [...suits][0] * 9;
       limit("nineGates", "\uAD6C\uB828\uBCF4\uB4F1", c[offset] >= 3 && c[offset + 8] >= 3 && Array.from({ length: 7 }, (_, n) => offset + n + 1).every((t) => c[t] >= 1));
     }
-    limit("tenhou", "\uCC9C\uD654", context2.tenhou && dealer && method === "tsumo" && !melds.length);
-    limit("chiihou", "\uC9C0\uD654", context2.chiihou && !dealer && method === "tsumo" && !melds.length);
-    add("doubleRiichi", "\uB354\uBE14 \uB9AC\uCE58", 2, riichi && context2.doubleRiichi);
-    add("riichi", "\uB9AC\uCE58", 1, riichi && !context2.doubleRiichi);
-    add("ippatsu", "\uC77C\uBC1C", 1, riichi && context2.ippatsu && !context2.rinshan);
+    limit("tenhou", "\uCC9C\uD654", context3.tenhou && dealer && method === "tsumo" && !melds.length);
+    limit("chiihou", "\uC9C0\uD654", context3.chiihou && !dealer && method === "tsumo" && !melds.length);
+    add("doubleRiichi", "\uB354\uBE14 \uB9AC\uCE58", 2, riichi && context3.doubleRiichi);
+    add("riichi", "\uB9AC\uCE58", 1, riichi && !context3.doubleRiichi);
+    add("ippatsu", "\uC77C\uBC1C", 1, riichi && context3.ippatsu && !context3.rinshan);
     add("menzenTsumo", "\uBA58\uC820 \uCBD4\uBAA8", 1, closed && method === "tsumo");
     add("tanyao", "\uD0D5\uC57C\uC624", 1, (closed || rules.kuitan !== false) && all.every((t) => !isYao(t)));
     add("pinfu", "\uD551\uD6C4", 1, pinfu);
     add("sevenPairs", "\uCE60\uB300\uC790", 2, shape.kind === "sevenPairs");
-    add("rinshan", "\uC601\uC0C1\uAC1C\uD654", 1, context2.rinshan && method === "tsumo");
-    add("haitei", "\uD574\uC800\uB85C\uC6D4", 1, context2.lastTile && method === "tsumo" && !context2.rinshan);
-    add("houtei", "\uD558\uC800\uB85C\uC5B4", 1, context2.lastTile && method === "ron" && !context2.chankan);
-    add("chankan", "\uCC3D\uAE61", 1, context2.chankan && method === "ron");
+    add("rinshan", "\uC601\uC0C1\uAC1C\uD654", 1, context3.rinshan && method === "tsumo");
+    add("haitei", "\uD574\uC800\uB85C\uC6D4", 1, context3.lastTile && method === "tsumo" && !context3.rinshan);
+    add("houtei", "\uD558\uC800\uB85C\uC5B4", 1, context3.lastTile && method === "ron" && !context3.chankan);
+    add("chankan", "\uCC3D\uAE61", 1, context3.chankan && method === "ron");
     add("honroutou", "\uD63C\uB178\uB450", 2, all.every(isYao));
     add("honitsu", "\uD63C\uC77C\uC0C9", closed ? 3 : 2, suits.size === 1 && honors);
     add("chinitsu", "\uCCAD\uC77C\uC0C9", closed ? 6 : 5, suits.size === 1 && !honors);
@@ -281,13 +306,13 @@ function scoreRiichi(types, melds = [], context2 = {}, rules = {}) {
     const bonus = (id, name, han2) => {
       if (han2) bonuses.push({ id, name, han: han2 });
     };
-    const indicatorHan = (indicators2) => indicators2.reduce((n, t) => n + c[doraAfter(t)], 0);
-    const visible = context2.doraIndicators ?? [], ura = context2.uraIndicators ?? [];
-    const enabledIndicators = (indicators2) => context2.indicatorsFiltered ? indicators2 : indicators2.filter((_, i) => i === 0 ? rules.dora !== false : rules.kanDora !== false);
+    const indicatorHan = (indicators3) => indicators3.reduce((n, t) => n + c[doraAfter(t)], 0);
+    const visible = context3.doraIndicators ?? [], ura = context3.uraIndicators ?? [];
+    const enabledIndicators = (indicators3) => context3.indicatorsFiltered ? indicators3 : indicators3.filter((_, i) => i === 0 ? rules.dora !== false : rules.kanDora !== false);
     bonus("dora", "\uB3C4\uB77C", indicatorHan(enabledIndicators(visible)));
-    const enabledUra = context2.indicatorsFiltered ? ura : ura.filter((_, i) => i === 0 || rules.kanDora !== false);
+    const enabledUra = context3.indicatorsFiltered ? ura : ura.filter((_, i) => i === 0 || rules.kanDora !== false);
     bonus("uraDora", "\uC6B0\uB77C\uB3C4\uB77C", riichi && rules.uraDora !== false ? indicatorHan(enabledUra) : 0);
-    bonus("redDora", "\uC801\uB3C4\uB77C", rules.redDora !== false ? Math.max(0, Math.floor(context2.redCount ?? 0)) : 0);
+    bonus("redDora", "\uC801\uB3C4\uB77C", rules.redDora !== false ? Math.max(0, Math.floor(context3.redCount ?? 0)) : 0);
     const yakumanCount = limits.length, yakuman = yakumanCount > 0;
     const hanYaku = yakuman ? 0 : entries.reduce((n, e) => n + e.han, 0);
     const bonusHan = yakuman ? 0 : bonuses.reduce((n, e) => n + e.han, 0);
@@ -873,6 +898,10 @@ function snapshot(s, seat) {
     readySeats: s.phase === "end" ? s.events.findLast((e) => e.type === "drawSettlement")?.ready.map((p2) => p2.seat) ?? [] : []
   };
 }
+function observation(s, seat = actor(s)) {
+  if (seat !== actor(s)) throw new Error("Not this player\u2019s decision");
+  return snapshot(s, seat);
+}
 function assertInvariants(s) {
   const all = [...s.walls.flat(), ...s.dead];
   for (const p of s.players) {
@@ -888,6 +917,633 @@ function assertInvariants(s) {
     for (const m of p.melds) {
       const wanted = m.type === "chi" ? [m.tile, m.tile + 1, m.tile + 2] : Array(m.type === "kan" ? 4 : 3).fill(m.tile);
       if (!same(m.ids.map(typeOf).sort((a, b) => a - b), wanted)) throw new Error("Illegal meld");
+    }
+    const st = p.stats;
+    if (p.score !== st.winReceipt + st.drawGain - st.dealInLoss - st.tsumoPaid - st.drawLoss - st.riichiPaid) throw new Error("Ledger attribution violated");
+  }
+  if (s.dead.length !== reservedTileCount(s.rules) || s.kans > s.rules.maxKans || s.winners.length > (s.rules.multipleRon === "all" ? 3 : 1) || s.winners.length !== s.players.filter((p) => p.won).length || new Set(s.winners).size !== s.winners.length) throw new Error("Round invariant violated");
+  if (s.winners.length > 1 && s.winners.some((seat) => {
+    const w = s.players[seat].win, f = s.players[s.winners[0]].win;
+    return w.method !== "ron" || w.source !== f.source || w.tile !== f.tile;
+  })) throw new Error("Multiple ron invariant violated");
+  return true;
+}
+
+// duplicate/engine/mil-core-game.mjs
+var mil_core_game_exports = {};
+__export(mil_core_game_exports, {
+  RED_IDS: () => RED_IDS2,
+  actor: () => actor2,
+  assertInvariants: () => assertInvariants2,
+  createGame: () => createGame2,
+  exhaustedSeats: () => exhaustedSeats2,
+  indicators: () => indicators2,
+  legalActions: () => legalActions2,
+  observation: () => observation2,
+  publicEvents: () => publicEvents2,
+  revealedUraIndicators: () => revealedUraIndicators2,
+  settleDraw: () => settleDraw2,
+  snapshot: () => snapshot2,
+  step: () => step2,
+  visibleCounts: () => visibleCounts2
+});
+
+// duplicate/engine/duplicate-profile.mjs
+function normalizeDuplicateProfile(value = "custom") {
+  if (value !== "custom" && value !== "mil") throw new Error("Unknown duplicate profile");
+  return value;
+}
+var milRules = Object.freeze({
+  dora: false,
+  kanDora: false,
+  uraDora: false,
+  redDora: false,
+  deadWall: false,
+  exhaustLimit: 1,
+  multipleRon: "all",
+  abortFourKans: false
+});
+function normalizeProfileRules(raw = {}, profile = "custom") {
+  const selected = normalizeDuplicateProfile(profile);
+  if (selected === "custom") return normalizeRules(raw);
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Invalid rules");
+  for (const [key, value] of Object.entries(milRules)) if (Object.hasOwn(raw, key) && raw[key] !== value) throw new Error(`MIL duplicate profile requires ${key}=${value}`);
+  return normalizeRules({ ...raw, ...milRules });
+}
+
+// duplicate/engine/mil-core-game.mjs
+var RED_IDS2 = /* @__PURE__ */ new Set([16, 52, 88]);
+var red2 = (id, rules) => rules.redDora && RED_IDS2.has(id);
+var handTypes2 = (p) => p.hand.map(typeOf);
+var same2 = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+var event2 = (s, e) => s.events.push({ n: s.events.length, ...e });
+var remaining2 = (s) => s.walls.reduce((n, w) => n + w.length, 0);
+var actor2 = (s) => s.phase === "turn" ? s.turn : s.phase === "reaction" ? s.reaction.pending[0] : null;
+var exhaustedSeats2 = (s) => s.walls.flatMap((w, seat) => w.length ? [] : [seat]);
+function indicators2(s, ura = false) {
+  if (ura && !s.rules.uraDora) return [];
+  const offset = s.rules.deadWall ? 4 : 0;
+  const indices = [];
+  if (ura || s.rules.dora) indices.push(0);
+  if (s.rules.kanDora) for (let i = 1; i <= s.kans; i++) indices.push(i);
+  return indices.map((i) => typeOf(s.dead[offset + 2 * i + (ura ? 1 : 0)]));
+}
+var revealedUraIndicators2 = (s) => s.end === "win" && s.winners.some((seat) => s.players[seat].riichi) ? indicators2(s, true) : [];
+function context2(s, seat, method, id) {
+  const p = s.players[seat], ids = [...p.hand, ...p.melds.flatMap((m) => m.ids)];
+  if (method === "ron") ids.push(id);
+  return {
+    method,
+    winTile: typeOf(id),
+    seatWind: 27 + (seat - s.dealer + 4) % 4,
+    dealer: seat === s.dealer,
+    riichi: p.riichi,
+    doubleRiichi: p.doubleRiichi,
+    ippatsu: p.ippatsu,
+    rinshan: p.drawSource === "kan" && method === "tsumo",
+    tenhou: method === "tsumo" && seat === s.dealer && s.draws === 1 && s.calls === 0,
+    chiihou: method === "tsumo" && seat !== s.dealer && p.river.length === 0 && s.calls === 0 && p.drawSource === "wall",
+    lastTile: method === "ron" ? !!s.reaction?.final : !!s.milLastTurn,
+    chankan: method === "ron" && s.reaction?.kind === "kakan",
+    doraIndicators: indicators2(s),
+    uraIndicators: indicators2(s, true),
+    indicatorsFiltered: true,
+    redCount: ids.filter((id2) => red2(id2, s.rules)).length
+  };
+}
+function createGame2({ seed = 1, rules = {}, dealer = 0, wall = null, pot = 0, startingScores = null } = {}) {
+  if (!Number.isInteger(seed) || seed < 0 || seed > 4294967295 || !Number.isInteger(dealer) || dealer < 0 || dealer > 3 || !Number.isSafeInteger(pot) || pot < 0 || pot % 1e3) throw new Error("Invalid seed, dealer or pot");
+  if (startingScores !== null && (!Array.isArray(startingScores) || startingScores.length !== 4 || startingScores.some((n) => !Number.isSafeInteger(n)))) throw new Error("Invalid starting scores");
+  const r = normalizeProfileRules(rules, "mil"), w = wall ? [...wall] : shuffledWall(seed);
+  if (w.length !== 136 || new Set(w).size !== 136 || w.some((id) => !Number.isInteger(id) || id < 0 || id >= 136)) throw new Error("Invalid wall");
+  const reserve = reservedTileCount(r), dead = reserve ? w.splice(136 - reserve) : [];
+  const s = {
+    version: 1,
+    duplicateProfile: "mil",
+    milLastTurn: null,
+    seed,
+    rules: r,
+    dealer,
+    dead,
+    walls: Array.from({ length: 4 }, () => []),
+    startingScores: startingScores ? [...startingScores] : Array(4).fill(r.startingPoints),
+    pot,
+    initialPot: pot,
+    players: Array.from({ length: 4 }, () => ({
+      hand: [],
+      melds: [],
+      river: [],
+      score: 0,
+      won: false,
+      win: null,
+      drawn: null,
+      drawSource: null,
+      passLock: false,
+      forbidden: [],
+      riichi: false,
+      riichiFuriten: false,
+      riichiWaits: [],
+      doubleRiichi: false,
+      ippatsu: false,
+      pao: null,
+      stats: { winReceipt: 0, dealInLoss: 0, tsumoPaid: 0, drawLoss: 0, drawGain: 0, riichiPaid: 0, ronDeclined: 0, closedKans: 0 }
+    })),
+    phase: "init",
+    turn: dealer,
+    draws: 0,
+    kans: 0,
+    calls: 0,
+    winners: [],
+    reaction: null,
+    events: [],
+    ledger: [],
+    end: null,
+    pendingAbort: null
+  };
+  for (let n = 0; n < 13; n++) for (let seat = 0; seat < 4; seat++) s.players[seat].hand.push(w.shift());
+  s.initialHands = s.players.map((p) => [...p.hand]);
+  for (let i = 0; i < w.length; i++) s.walls[i % 4].push(w[i]);
+  for (const p of s.players) p.hand.sort((a, b) => a - b);
+  draw2(s, dealer);
+  assertInvariants2(s);
+  return s;
+}
+function transfer2(s, from, to, amount, kind) {
+  if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error("Invalid transfer");
+  if (from === "pot") s.pot -= amount;
+  else s.players[from].score -= amount;
+  if (to === "pot") s.pot += amount;
+  else s.players[to].score += amount;
+  s.ledger.push({ from, to, amount, kind });
+  if (kind === "riichi") s.players[from].stats.riichiPaid += amount;
+  else if (kind === "pot") s.players[to].stats.winReceipt += amount;
+  else if (kind === "draw") {
+    s.players[from].stats.drawLoss += amount;
+    s.players[to].stats.drawGain += amount;
+  } else {
+    s.players[from].stats[kind === "ron" ? "dealInLoss" : "tsumoPaid"] += amount;
+    s.players[to].stats.winReceipt += amount;
+  }
+}
+function receiveTurn(s, seat, via) {
+  s.turn = seat;
+  s.phase = "turn";
+  s.reaction = null;
+  if (!s.milLastTurn && !s.walls[(seat + 1) % 4].length) s.milLastTurn = { seat, via };
+}
+function draw2(s, seat, kan = false) {
+  if (!s.walls[seat].length) throw new Error("Cannot draw from exhausted personal wall");
+  const p = s.players[seat], id = s.walls[seat].shift();
+  p.hand.push(id);
+  p.hand.sort((a, b) => a - b);
+  p.drawn = id;
+  p.drawSource = kan ? "kan" : "wall";
+  p.passLock = false;
+  p.forbidden = [];
+  receiveTurn(s, seat, kan ? "kan" : "draw");
+  s.draws++;
+  event2(s, { type: kan ? "kanDraw" : "draw", seat, id });
+}
+function nextDraw2(s, source) {
+  const seat = (source + 1) % 4;
+  if (!s.walls[seat].length) {
+    settleDraw2(s);
+    return;
+  }
+  draw2(s, seat);
+}
+function end2(s, reason) {
+  s.end = reason;
+  s.phase = "end";
+  s.reaction = null;
+  event2(s, { type: "end", reason });
+}
+function win2(s, seat, method, source, id, { finish = true } = {}) {
+  const p = s.players[seat], tiles = handTypes2(p);
+  if (method === "ron") tiles.push(typeOf(id));
+  const score = scoreRiichi(tiles, p.melds, context2(s, seat, method, id), s.rules);
+  if (!score) throw new Error("Illegal riichi win");
+  const first = s.ledger.length;
+  const pao = p.pao && score.yakuman && score.yakuEntries.some((y) => y.id === p.pao.yaku) ? p.pao : null;
+  if (pao) {
+    const count = score.yakumanCount ?? 1, portion = score.points.ron / count;
+    if (method === "tsumo") {
+      transfer2(s, pao.seat, seat, portion, method);
+      if (count > 1) {
+        for (let from = 0; from < 4; from++) if (from !== seat) {
+          const amount = (from === s.dealer ? score.points.tsumoDealer : score.points.tsumoOther) * (count - 1) / count;
+          transfer2(s, from, seat, amount, method);
+        }
+      }
+    } else if (source === pao.seat) transfer2(s, source, seat, score.points.ron, method);
+    else {
+      transfer2(s, pao.seat, seat, portion / 2, method);
+      transfer2(s, source, seat, score.points.ron - portion / 2, method);
+    }
+  } else if (method === "ron") transfer2(s, source, seat, score.points.ron, method);
+  else for (let from = 0; from < 4; from++) if (from !== seat) transfer2(s, from, seat, from === s.dealer ? score.points.tsumoDealer : score.points.tsumoOther, method);
+  if (s.pot) transfer2(s, "pot", seat, s.pot, "pot");
+  const payments2 = structuredClone(s.ledger.slice(first));
+  p.won = true;
+  p.win = {
+    method,
+    source,
+    tile: id,
+    order: s.winners.length + 1,
+    drawNumber: s.draws,
+    score,
+    payments: payments2,
+    receipt: payments2.reduce((n, e) => n + e.amount, 0),
+    ...pao ? { pao } : {}
+  };
+  p.drawn = null;
+  s.winners.push(seat);
+  event2(s, { type: "win", seat, ...p.win });
+  if (finish) end2(s, "win");
+}
+function visibleCounts2(s, seat) {
+  const out = Array(34).fill(0), add = (id) => out[typeOf(id)]++;
+  for (let i = 0; i < 4; i++) {
+    const p = s.players[i];
+    for (const m of p.melds) for (const id of m.ids) add(id);
+    for (const d of p.river) if (!d.claimed) add(d.id);
+    if (i === seat || s.phase === "end" && p.won) for (const id of p.hand) add(id);
+  }
+  for (const t of indicators2(s)) out[t]++;
+  return out;
+}
+function settleDraw2(s) {
+  const r = s.reaction;
+  if (s.phase !== "reaction" || !s.milLastTurn || !r || r.kind !== "discard" || !r.final || r.source !== s.milLastTurn.seat || r.pending.length || r.answers.length !== 3 || r.answers.some((answer) => answer.action.type === "ron")) throw new Error("Cannot settle this board");
+  const ready = s.players.flatMap((p, seat) => {
+    const waits = shapeWaits(handTypes2(p), p.melds, s.rules);
+    return waits.length ? [{ seat, waits }] : [];
+  });
+  if (ready.length && ready.length < 4) {
+    const due = ready.map((p) => ({ seat: p.seat, amount: 3e3 / ready.length }));
+    for (let from = 0; from < 4; from++) if (!ready.some((p) => p.seat === from)) {
+      let debt = 3e3 / (4 - ready.length);
+      for (const to of due) {
+        const amount = Math.min(debt, to.amount);
+        if (amount) {
+          transfer2(s, from, to.seat, amount, "draw");
+          debt -= amount;
+          to.amount -= amount;
+        }
+      }
+    }
+  }
+  event2(s, { type: "drawSettlement", ready, exhaustedSeats: exhaustedSeats2(s) });
+  end2(s, "exhaustive-draw");
+}
+function canRon2(s, seat) {
+  const p = s.players[seat], r = s.reaction;
+  if (!r || seat === r.source || p.passLock || p.riichiFuriten) return null;
+  const waits = shapeWaits(handTypes2(p), p.melds, s.rules);
+  if (p.river.some((d) => waits.includes(typeOf(d.id)))) return null;
+  return scoreRiichi([...handTypes2(p), typeOf(r.id)], p.melds, context2(s, seat, "ron", r.id), s.rules);
+}
+function riichiAnkanAllowed2(p, t, rules) {
+  if (typeOf(p.drawn) !== t) return false;
+  const tiles = handTypes2(p), next = tiles.filter((x) => x !== t), melds = [...p.melds, { type: "kan", tile: t, open: false }];
+  if (!same2(shapeWaits(next, melds, rules), p.riichiWaits)) return false;
+  const before = [...tiles];
+  before.splice(before.indexOf(t), 1);
+  return p.riichiWaits.every((wait) => {
+    const shapes2 = decompositions([...before, wait], p.melds, { sevenPairsQuadAsTwo: false });
+    return shapes2.length && shapes2.every((shape) => shape.kind === "standard" && shape.groups.some((g) => g.type === "pon" && g.tile === t) && !shape.groups.some((g) => g.type === "chi" && g.tile <= t && t <= g.tile + 2));
+  });
+}
+function forbiddenForCall2(a, t) {
+  const out = [t];
+  if (a.type === "chi") {
+    if (t === a.tile && t % 9 <= 5) out.push(t + 3);
+    if (t === a.tile + 2 && t % 9 >= 3) out.push(t - 3);
+  }
+  return out;
+}
+function legalActions2(s, seat = actor2(s)) {
+  if (seat === null || seat !== actor2(s)) return [];
+  const p = s.players[seat], tiles = handTypes2(p), c = counts(tiles), out = [];
+  if (s.phase === "turn") {
+    if (p.drawn !== null && scoreRiichi(tiles, p.melds, context2(s, seat, "tsumo", p.drawn), s.rules)) out.push({ type: "tsumo" });
+    if (!s.milLastTurn && p.drawn !== null && s.walls[seat].length && s.kans < s.rules.maxKans) {
+      for (let t = 0; t < 34; t++) if (c[t] === 4 && (!p.riichi || riichiAnkanAllowed2(p, t, s.rules))) out.push({ type: "ankan", tile: t });
+      if (!p.riichi) p.melds.forEach((m, i) => {
+        if (m.type === "pon" && c[m.tile]) out.push({ type: "kakan", meld: i });
+      });
+    }
+    for (const id of p.hand) if (!p.forbidden.includes(typeOf(id)) && (!p.riichi || id === p.drawn)) {
+      const tile = typeOf(id);
+      out.push({ type: "discard", tile, id });
+      if (!p.riichi && p.melds.every((m) => !m.open) && s.startingScores[seat] + p.score >= 1e3 && remaining2(s) >= 4 && s.walls[seat].length && !s.milLastTurn) {
+        const next = [...tiles];
+        next.splice(next.indexOf(tile), 1);
+        if (shapeWaits(next, p.melds, s.rules).length) out.push({ type: "riichi", tile, id });
+      }
+    }
+  } else {
+    const r = s.reaction, t = typeOf(r.id);
+    if (canRon2(s, seat)) out.push({ type: "ron" });
+    out.push({ type: "pass" });
+    if (!p.riichi && r.kind === "discard" && !r.final && !s.pendingAbort) {
+      const candidates = [];
+      if (c[t] >= 2) candidates.push({ type: "pon", tile: t });
+      if (c[t] >= 3 && s.walls[seat].length && s.kans < s.rules.maxKans) candidates.push({ type: "minkan", tile: t });
+      if (seat === (r.source + 1) % 4 && t < 27) for (let start = Math.max(Math.floor(t / 9) * 9, t - 2); start <= Math.min(Math.floor(t / 9) * 9 + 6, t); start++) {
+        if ([start, start + 1, start + 2].filter((x) => x !== t).every((x) => c[x])) candidates.push({ type: "chi", tile: start });
+      }
+      for (const a of candidates) {
+        if (a.type === "minkan") {
+          out.push(a);
+          continue;
+        }
+        const cc = [...c];
+        for (const x of a.type === "chi" ? [a.tile, a.tile + 1, a.tile + 2].filter((x2) => x2 !== t) : [t, t]) cc[x]--;
+        if (cc.some((n, tile) => n && !forbiddenForCall2(a, t).includes(tile))) out.push(a);
+      }
+    }
+  }
+  return out;
+}
+function remove2(p, types) {
+  const ids = [];
+  for (const t of types) {
+    let i = p.hand.findIndex((id) => typeOf(id) === t && !RED_IDS2.has(id));
+    if (i < 0) i = p.hand.findIndex((id) => typeOf(id) === t);
+    if (i < 0) throw new Error("Missing tile");
+    ids.push(...p.hand.splice(i, 1));
+  }
+  return ids;
+}
+function reaction2(s, source, id, kind, extra = {}) {
+  s.phase = "reaction";
+  s.reaction = {
+    source,
+    id,
+    kind,
+    final: kind === "discard" && !!s.milLastTurn,
+    pending: [1, 2, 3].map((n) => (source + n) % 4),
+    answers: [],
+    ...extra
+  };
+}
+function cancelIppatsu2(s) {
+  for (const p of s.players) p.ippatsu = false;
+}
+function completeKan2(s, seat, details = {}) {
+  cancelIppatsu2(s);
+  s.kans++;
+  s.calls++;
+  event2(s, { type: "kan", seat, ...details });
+  if (s.rules.abortFourKans && s.kans === 4 && s.players.filter((p) => p.melds.some((m) => m.type === "kan")).length > 1) s.pendingAbort = "four-kans";
+  draw2(s, seat, true);
+}
+function acceptRiichi2(s, r) {
+  if (!r.riichi) return;
+  const p = s.players[r.source];
+  p.riichi = true;
+  p.ippatsu = true;
+  p.doubleRiichi = p.river.length === 1 && s.calls === 0;
+  p.riichiWaits = shapeWaits(handTypes2(p), p.melds, s.rules);
+  transfer2(s, r.source, "pot", 1e3, "riichi");
+  event2(s, { type: "riichi", seat: r.source });
+}
+function resolve2(s) {
+  const r = s.reaction, rons = r.answers.filter((x) => x.action.type === "ron");
+  if (rons.length) {
+    if (r.kind === "kakan") {
+      const p2 = s.players[r.source];
+      p2.hand.splice(p2.hand.indexOf(r.id), 1);
+      p2.river.push({ id: r.id, claimed: false, robbedKan: true });
+    }
+    for (const ron of s.rules.multipleRon === "all" ? rons : rons.slice(0, 1)) win2(s, ron.seat, "ron", r.source, r.id, { finish: false });
+    end2(s, "win");
+    return;
+  }
+  if (r.kind === "kakan") {
+    const p2 = s.players[r.source], m = p2.melds[r.meld], added = remove2(p2, [m.tile]);
+    m.ids.push(...added);
+    m.type = "kan";
+    completeKan2(s, r.source, { callType: "kakan", tileId: added[0], ids: [...m.ids], meld: r.meld });
+    return;
+  }
+  acceptRiichi2(s, r);
+  if (r.final) {
+    settleDraw2(s);
+    return;
+  }
+  if (s.pendingAbort) {
+    end2(s, s.pendingAbort);
+    return;
+  }
+  const calls = r.answers.filter((x) => ["pon", "minkan", "chi"].includes(x.action.type)).sort((a2, b) => (a2.action.type === "chi") - (b.action.type === "chi"));
+  if (!calls.length) {
+    nextDraw2(s, r.source);
+    return;
+  }
+  cancelIppatsu2(s);
+  s.calls++;
+  const { seat, action: a } = calls[0], p = s.players[seat], t = typeOf(r.id);
+  const ids = [...remove2(p, a.type === "chi" ? [a.tile, a.tile + 1, a.tile + 2].filter((x) => x !== t) : Array(a.type === "minkan" ? 3 : 2).fill(t)), r.id];
+  s.players[r.source].river.at(-1).claimed = true;
+  p.melds.push({ type: a.type === "chi" ? "chi" : a.type === "minkan" ? "kan" : "pon", tile: a.tile, open: true, from: r.source, ids });
+  const open = p.melds.filter((m) => m.open && m.type !== "chi");
+  const paoYaku = a.type !== "chi" && (t >= 31 && open.filter((m) => m.tile >= 31).length === 3 ? "bigThreeDragons" : t >= 27 && t < 31 && open.filter((m) => m.tile >= 27 && m.tile < 31).length === 4 ? "bigFourWinds" : null);
+  if (paoYaku) p.pao = { seat: r.source, yaku: paoYaku };
+  p.drawn = null;
+  p.drawSource = null;
+  p.forbidden = forbiddenForCall2(a, t);
+  receiveTurn(s, seat, a.type);
+  event2(s, { type: "call", seat, action: a, from: r.source, tileId: r.id, ids: [...ids] });
+  if (a.type === "minkan") completeKan2(s, seat, { callType: "minkan", tileId: r.id, ids: [...ids], from: r.source });
+}
+function canonicalAction2(s, seat, action) {
+  if (!action || typeof action !== "object") return null;
+  const legal = legalActions2(s, seat);
+  if (["discard", "riichi"].includes(action.type)) {
+    const matching = legal.filter((a) => a.type === action.type && (action.tile === void 0 || a.tile === action.tile) && (action.id === void 0 || a.id === action.id));
+    if (action.tile === void 0 && action.id === void 0) return null;
+    return matching.find((a) => !RED_IDS2.has(a.id)) ?? matching[0];
+  }
+  return legal.find((a) => same2(a, action));
+}
+function step2(s, seat, action, { validate = true } = {}) {
+  const a = canonicalAction2(s, seat, action);
+  if (!a) throw new Error(`Illegal action by ${seat}`);
+  const p = s.players[seat];
+  const kakanId = a.type === "kakan" ? p.hand.find((id) => typeOf(id) === p.melds[a.meld].tile && !RED_IDS2.has(id)) ?? p.hand.find((id) => typeOf(id) === p.melds[a.meld].tile) : null;
+  event2(s, { type: "action", seat, action: { ...a }, ...a.type === "kakan" ? { tileId: kakanId, meldIds: [...p.melds[a.meld].ids] } : {} });
+  if (s.phase === "reaction") {
+    const r = s.reaction;
+    if (a.type !== "ron" && canRon2(s, seat)) {
+      p.passLock = true;
+      p.stats.ronDeclined++;
+      if (p.riichi) p.riichiFuriten = true;
+    }
+    r.answers.push({ seat, action: { ...a } });
+    r.pending.shift();
+    if (!r.pending.length) resolve2(s);
+  } else if (a.type === "tsumo") win2(s, seat, "tsumo", seat, p.drawn);
+  else if (a.type === "discard" || a.type === "riichi") {
+    p.hand.splice(p.hand.indexOf(a.id), 1);
+    if (p.riichi) p.ippatsu = false;
+    p.river.push({ id: a.id, claimed: false, riichi: a.type === "riichi" });
+    p.drawn = null;
+    p.drawSource = null;
+    p.forbidden = [];
+    reaction2(s, seat, a.id, "discard", { riichi: a.type === "riichi" });
+  } else if (a.type === "ankan") {
+    const ids = remove2(p, Array(4).fill(a.tile));
+    p.melds.push({ type: "kan", tile: a.tile, open: false, from: seat, ids });
+    p.stats.closedKans++;
+    completeKan2(s, seat, { callType: "ankan", ids: [...ids] });
+  } else if (a.type === "kakan") {
+    cancelIppatsu2(s);
+    reaction2(s, seat, kakanId, "kakan", { meld: a.meld });
+  }
+  if (validate) assertInvariants2(s);
+  return s;
+}
+var tileView2 = (id, s, drawn = null) => ({ id, type: typeOf(id), tile: typeOf(id), red: red2(id, s.rules), drawn: id === drawn });
+var meldView2 = (m, s) => ({ ...structuredClone(m), tiles: m.ids.map((id) => tileView2(id, s)) });
+function publicEvents2(s) {
+  const out = [], discards = Array(4).fill(null), pendingKan = Array(4).fill(null), melds = Array.from({ length: 4 }, () => []);
+  const physical = (id) => Number.isInteger(id) && id >= 0 && id < 136 ? id : null;
+  const preview = (seat, index, tile, callType) => {
+    const count = ["ankan", "kakan", "minkan"].includes(callType) ? 4 : 3;
+    const ids = s.players[seat]?.melds[index]?.ids?.slice(0, count);
+    if (ids?.length === count) return ids.map((id) => ({ type: typeOf(id), red: red2(id, s.rules) })).sort((a, b) => a.type - b.type);
+    const types = callType === "chi" ? [tile, tile + 1, tile + 2] : Array(count).fill(tile);
+    return types.filter((type) => Number.isInteger(type) && type >= 0 && type < 34).map((type) => ({ type, red: false }));
+  };
+  const emit = (raw, kind, { tile = null, tileId = null, source = null, callType = null, method = null, tiles } = {}) => {
+    const id = physical(tileId), type = id === null ? tile : typeOf(id);
+    const item = {
+      id: raw.n,
+      kind,
+      seat: raw.seat,
+      tile: Number.isInteger(type) && type >= 0 && type < 34 ? type : null,
+      tileId: id,
+      red: id !== null && red2(id, s.rules),
+      source: Number.isInteger(source) && source >= 0 && source < 4 ? source : null,
+      callType,
+      method: ["ron", "tsumo"].includes(method) ? method : null
+    };
+    if (tiles?.length) item.tiles = tiles;
+    out.push(item);
+    return item;
+  };
+  for (const raw of s.events ?? []) {
+    if (!Number.isSafeInteger(raw.n) || raw.n < 0 || !Number.isInteger(raw.seat) || raw.seat < 0 || raw.seat > 3) continue;
+    const seat = raw.seat, a = raw.action;
+    if (raw.type === "action") {
+      if (a?.type === "discard" || a?.type === "riichi") discards[seat] = emit(raw, "discard", { tile: a.tile, tileId: a.id });
+      else if (a?.type === "ankan") pendingKan[seat] = { tile: a.tile, callType: "ankan", index: melds[seat].length };
+      else if (a?.type === "kakan") pendingKan[seat] = { tile: melds[seat][a.meld]?.tile ?? null, callType: "kakan", index: a.meld };
+    } else if (raw.type === "call" && ["chi", "pon", "minkan"].includes(a?.type)) {
+      const source = Number.isInteger(raw.from) && raw.from >= 0 && raw.from < 4 ? raw.from : null;
+      const discard = source === null ? null : discards[source], index = melds[seat].length;
+      melds[seat].push({ tile: a.tile, type: a.type });
+      if (a.type === "minkan") pendingKan[seat] = { tile: a.tile, tileId: discard?.tileId ?? null, source, callType: "minkan", index };
+      else emit(raw, "call", {
+        tile: discard?.tile ?? a.tile,
+        tileId: discard?.tileId ?? null,
+        source,
+        callType: a.type,
+        tiles: preview(seat, index, a.tile, a.type)
+      });
+    } else if (raw.type === "kan") {
+      const accepted = pendingKan[seat];
+      if (!accepted) continue;
+      const { tile, source = null, callType, index } = accepted, ids = s.players[seat]?.melds[index]?.ids ?? [];
+      let tileId = accepted.tileId ?? null;
+      if (callType === "kakan") tileId = ids[3] ?? null;
+      else if (callType === "ankan") tileId = ids.find((id) => red2(id, s.rules)) ?? ids[0] ?? null;
+      emit(raw, "kan", { tile, tileId, source, callType, tiles: preview(seat, index, tile, callType) });
+      if (callType === "ankan") melds[seat].push({ tile, type: "ankan" });
+      else if (melds[seat][index]) melds[seat][index].type = callType;
+      pendingKan[seat] = null;
+    } else if (raw.type === "riichi") {
+      const discard = discards[seat];
+      emit(raw, "riichi", { tile: discard?.tile ?? null, tileId: discard?.tileId ?? null });
+    } else if (raw.type === "win") emit(raw, "win", {
+      tileId: raw.tile,
+      source: raw.method === "ron" ? raw.source : null,
+      method: raw.method
+    });
+  }
+  return out.slice(-32);
+}
+function snapshot2(s, seat) {
+  if (!Number.isInteger(seat) || seat < 0 || seat > 3) throw new Error("Invalid seat");
+  const p = s.players[seat];
+  const players = s.players.map((q, i) => ({
+    seat: i,
+    handSize: q.hand.length,
+    score: q.score,
+    points: s.startingScores[i] + q.score,
+    riichi: q.riichi,
+    won: q.won,
+    melds: q.melds.map((m) => meldView2(m, s)),
+    river: q.river.map((d) => ({ ...tileView2(d.id, s), claimed: d.claimed, riichi: !!d.riichi, robbedKan: !!d.robbedKan })),
+    discards: q.river.map((d) => ({ tile: typeOf(d.id), red: red2(d.id, s.rules), claimed: d.claimed, riichi: !!d.riichi })),
+    wallRemaining: s.walls[i].length,
+    exhausted: s.walls[i].length === 0,
+    win: q.win ? structuredClone(q.win) : null,
+    revealed: s.phase === "end" && q.won ? q.hand.map((id) => tileView2(id, s)) : []
+  }));
+  return {
+    variant: "D",
+    duplicateProfile: "mil",
+    lastTileTurn: !!s.milLastTurn,
+    seat,
+    dealer: s.dealer,
+    rules: { ...s.rules },
+    phase: s.phase,
+    turn: s.turn,
+    end: s.end,
+    actor: actor2(s),
+    hand: handTypes2(p),
+    handTiles: p.hand.map((id) => tileView2(id, s, p.drawn)),
+    melds: p.melds.map((m) => meldView2(m, s)),
+    players,
+    legalActions: legalActions2(s, seat),
+    doraIndicators: indicators2(s),
+    uraIndicators: revealedUraIndicators2(s),
+    wallRemaining: remaining2(s),
+    ownWallRemaining: s.walls[seat].length,
+    exhaustedSeats: exhaustedSeats2(s),
+    draws: s.draws,
+    kans: s.kans,
+    pot: s.pot,
+    winners: [...s.winners],
+    riichi: p.riichi,
+    visible: visibleCounts2(s, seat),
+    publicEvents: publicEvents2(s),
+    lastDiscard: s.reaction ? { seat: s.reaction.source, ...tileView2(s.reaction.id, s), kind: s.reaction.kind, final: s.reaction.final } : null,
+    readySeats: s.phase === "end" ? s.events.findLast((e) => e.type === "drawSettlement")?.ready.map((p2) => p2.seat) ?? [] : []
+  };
+}
+function observation2(s, seat = actor2(s)) {
+  if (seat !== actor2(s)) throw new Error("Not this player\u2019s decision");
+  return snapshot2(s, seat);
+}
+function assertInvariants2(s) {
+  const all = [...s.walls.flat(), ...s.dead];
+  for (const p of s.players) {
+    all.push(...p.hand);
+    for (const m of p.melds) all.push(...m.ids);
+    for (const d of p.river) if (!d.claimed) all.push(d.id);
+  }
+  if (all.length !== 136 || new Set(all).size !== 136 || all.some((id) => !Number.isInteger(id) || id < 0 || id >= 136)) throw new Error("Tile conservation violated");
+  if (s.players.reduce((n, p) => n + p.score, 0) + s.pot !== s.initialPot || s.pot < 0) throw new Error("Score conservation violated");
+  for (let seat = 0; seat < 4; seat++) {
+    const p = s.players[seat], extra = s.phase === "turn" && s.turn === seat || s.phase === "reaction" && s.reaction.kind === "kakan" && s.reaction.source === seat || p.win?.method === "tsumo";
+    if (p.hand.length + 3 * p.melds.length !== (extra ? 14 : 13)) throw new Error(`Hand size violated seat ${seat}`);
+    for (const m of p.melds) {
+      const wanted = m.type === "chi" ? [m.tile, m.tile + 1, m.tile + 2] : Array(m.type === "kan" ? 4 : 3).fill(m.tile);
+      if (!same2(m.ids.map(typeOf).sort((a, b) => a - b), wanted)) throw new Error("Illegal meld");
     }
     const st = p.stats;
     if (p.score !== st.winReceipt + st.drawGain - st.dealInLoss - st.tsumoPaid - st.drawLoss - st.riichiPaid) throw new Error("Ledger attribution violated");
@@ -976,8 +1632,8 @@ function chooseAction(view) {
   const legal = view.legalActions;
   if (!legal?.length) throw new Error("No legal action");
   for (const type of ["tsumo", "ron"]) {
-    const win2 = legal.find((a) => a.type === type);
-    if (win2) return win2;
+    const win3 = legal.find((a) => a.type === type);
+    if (win3) return win3;
   }
   if (view.phase === "reaction") return legal.find((a) => a.type === "pass") ?? legal[0];
   const c = counts(view.hand), melds = view.melds.length, rows = [];
@@ -996,8 +1652,8 @@ function chooseAction(view) {
       if (!p.river.some((t) => t.type === a.tile)) danger += a.tile >= 27 ? 0.7 : 1.5;
     }
     const dora = (view.doraIndicators ?? []).filter((t) => doraAfter(t) === a.tile).length;
-    const red2 = view.handTiles?.find((t) => t.id === a.id)?.red ? 1 : 0;
-    rows.push({ a, d, score: -100 * d + ukeire - 12 * danger - 2 * dora - 2 * red2, danger });
+    const red3 = view.handTiles?.find((t) => t.id === a.id)?.red ? 1 : 0;
+    rows.push({ a, d, score: -100 * d + ukeire - 12 * danger - 2 * dora - 2 * red3, danger });
   }
   rows.sort((a, b) => b.score - a.score || a.a.id - b.a.id);
   if (!rows.length) return legal[0];
@@ -1018,18 +1674,23 @@ var honbaOf = (game) => {
   if (!Number.isSafeInteger(honba) || honba < 0) throw new Error("Invalid honba");
   return honba;
 };
-function createGame2({ honba = 0, ...options } = {}) {
+var engineFor = (game) => normalizeDuplicateProfile(game.duplicateProfile) === "mil" ? mil_core_game_exports : game_exports;
+function createGame3({ honba = 0, duplicateProfile = "custom", ...options } = {}) {
+  const profile = normalizeDuplicateProfile(duplicateProfile);
   honbaOf({ honba });
-  const game = createGame(options);
+  const game = (profile === "mil" ? mil_core_game_exports : game_exports).createGame(options);
   game.honba = honba;
+  game.duplicateProfile = profile;
   return game;
 }
+var actor3 = (game) => engineFor(game).actor(game);
+var assertInvariants3 = (game) => engineFor(game).assertInvariants(game);
 function addHonba(game) {
   const honba = honbaOf(game), seat = game.winners[0];
   if (!honba || seat === void 0) return;
-  const winner = game.players[seat], win2 = winner.win, amount = honba * 300;
+  const winner = game.players[seat], win3 = winner.win, amount = honba * 300;
   if (!Number.isSafeInteger(amount)) throw new Error("Honba payment exceeds the supported range");
-  const moves = win2.pao ? [{ from: win2.pao.seat, to: seat, amount, kind: win2.method, honba: true }] : win2.method === "ron" ? [{ from: win2.source, to: seat, amount, kind: "ron", honba: true }] : [0, 1, 2, 3].filter((from) => from !== seat).map((from) => ({ from, to: seat, amount: honba * 100, kind: "tsumo", honba: true }));
+  const moves = win3.pao ? [{ from: win3.pao.seat, to: seat, amount, kind: win3.method, honba: true }] : win3.method === "ron" ? [{ from: win3.source, to: seat, amount, kind: "ron", honba: true }] : [0, 1, 2, 3].filter((from) => from !== seat).map((from) => ({ from, to: seat, amount: honba * 100, kind: "tsumo", honba: true }));
   const scores = game.players.map((p) => p.score), stats = game.players.map((p) => ({ ...p.stats }));
   for (const move of moves) {
     scores[move.from] -= move.amount;
@@ -1037,48 +1698,49 @@ function addHonba(game) {
     stats[move.from][move.kind === "ron" ? "dealInLoss" : "tsumoPaid"] += move.amount;
     stats[seat].winReceipt += move.amount;
   }
-  if (scores.some((n) => !Number.isSafeInteger(n)) || stats.some((s) => Object.values(s).some((n) => !Number.isSafeInteger(n))) || !Number.isSafeInteger(win2.receipt + amount)) throw new Error("Honba settlement exceeds the supported range");
+  if (scores.some((n) => !Number.isSafeInteger(n)) || stats.some((s) => Object.values(s).some((n) => !Number.isSafeInteger(n))) || !Number.isSafeInteger(win3.receipt + amount)) throw new Error("Honba settlement exceeds the supported range");
   for (let i = 0; i < 4; i++) {
     game.players[i].score = scores[i];
     Object.assign(game.players[i].stats, stats[i]);
   }
   game.ledger.push(...moves);
-  win2.payments.push(...structuredClone(moves));
-  win2.receipt += amount;
-  win2.honba = honba;
-  win2.honbaReceipt = amount;
-  const event2 = game.events.findLast((event3) => event3.type === "win" && event3.seat === seat);
-  if (event2) Object.assign(event2, { payments: structuredClone(win2.payments), receipt: win2.receipt, honba, honbaReceipt: amount });
+  win3.payments.push(...structuredClone(moves));
+  win3.receipt += amount;
+  win3.honba = honba;
+  win3.honbaReceipt = amount;
+  const event3 = game.events.findLast((event4) => event4.type === "win" && event4.seat === seat);
+  if (event3) Object.assign(event3, { payments: structuredClone(win3.payments), receipt: win3.receipt, honba, honbaReceipt: amount });
 }
-function step2(game, seat, action, options = {}) {
+function step3(game, seat, action, options = {}) {
+  const engine = engineFor(game);
   const honba = honbaOf(game);
   if (!Number.isSafeInteger(honba * 300)) throw new Error("Honba payment exceeds the supported range");
   const prior = game.winners.length;
   const couldWin = honba > 0 && (game.phase === "turn" && action?.type === "tsumo" || game.phase === "reaction" && game.reaction.pending.length === 1 && (action?.type === "ron" || game.reaction.answers.some((answer) => answer.action.type === "ron")));
   if (couldWin) {
     const next = structuredClone(game);
-    step(next, seat, action, options);
+    engine.step(next, seat, action, options);
     if (prior === 0 && next.winners.length) addHonba(next);
-    if (options.validate !== false) assertInvariants(next);
+    if (options.validate !== false) engine.assertInvariants(next);
     Object.assign(game, next);
     return game;
   }
-  step(game, seat, action, options);
+  engine.step(game, seat, action, options);
   return game;
 }
-function snapshot2(game, seat) {
-  return { ...snapshot(game, seat), honba: honbaOf(game) };
+function snapshot3(game, seat) {
+  return { ...engineFor(game).snapshot(game, seat), honba: honbaOf(game), duplicateProfile: normalizeDuplicateProfile(game.duplicateProfile) };
 }
 function driveAI(game, humanSeats = [], maxSteps = 500) {
   if (!Array.isArray(humanSeats) || humanSeats.some((seat) => !Number.isInteger(seat) || seat < 0 || seat > 3) || !Number.isInteger(maxSteps) || maxSteps < 0 || maxSteps > 1e4) throw new Error("Invalid AI drive options");
   let steps = 0;
   while (game.phase !== "end" && steps < maxSteps) {
-    const seat = actor(game);
+    const seat = actor3(game);
     if (humanSeats.includes(seat)) break;
-    step2(game, seat, chooseAction(snapshot2(game, seat)));
+    step3(game, seat, chooseAction(snapshot3(game, seat)));
     steps++;
   }
-  return { state: game, steps, finished: game.phase === "end", waitingForHuman: humanSeats.includes(actor(game)) };
+  return { state: game, steps, finished: game.phase === "end", waitingForHuman: humanSeats.includes(actor3(game)) };
 }
 
 // duplicate/match.mjs
@@ -1122,7 +1784,7 @@ function pointsAtEnd(game) {
 }
 function dealerReady(game) {
   if (Array.isArray(game.readySeats)) return game.readySeats.includes(game.dealer);
-  const settlement = game.events?.findLast((event2) => event2.type === "drawSettlement");
+  const settlement = game.events?.findLast((event3) => event3.type === "drawSettlement");
   if (!Array.isArray(settlement?.ready)) throw new Error("Missing exhaustive-draw tenpai result");
   return settlement.ready.some((player) => player.seat === game.dealer);
 }
@@ -1205,11 +1867,11 @@ function handLabel(value) {
 }
 function gameOptions(practice, progress2) {
   const rules = practice.matchRules ? { ...practice.rules ?? practice.game.rules, roundWind: 27 + Math.floor((progress2.board - 1) / 4) } : { ...practice.rules ?? practice.game.rules };
-  return { seed: seedForHonba(seedForPracticeBoard(practice.seed, progress2.board - 1), progress2.honba), rules, dealer: (progress2.board - 1) % 4, honba: progress2.honba, pot: progress2.pot ?? 0, startingScores: progress2.startingScores ?? null };
+  return { seed: seedForHonba(seedForPracticeBoard(practice.seed, progress2.board - 1), progress2.honba), rules, duplicateProfile: normalizeDuplicateProfile(practice.duplicateProfile), dealer: (progress2.board - 1) % 4, honba: progress2.honba, pot: progress2.pot ?? 0, startingScores: progress2.startingScores ?? null };
 }
-function createPracticeSeries({ seed, seat = 0, matchRules = {}, rules = {}, aiPolicy = "simple" }) {
-  const config = normalizeMatchRules(matchRules), practice = { seed, seat, count: matchBoardCount(config), index: 0, board: 1, repeat: 0, honba: 0, handNumber: 1, handId: "1:0", results: [], matchRules: config, rules, aiPolicy };
-  practice.game = createGame2(gameOptions(practice, practice));
+function createPracticeSeries({ seed, seat = 0, matchRules = {}, rules = {}, duplicateProfile = "custom", aiPolicy = "simple" }) {
+  const config = normalizeMatchRules(matchRules), profile = normalizeDuplicateProfile(duplicateProfile), practice = { seed, seat, count: matchBoardCount(config), index: 0, board: 1, repeat: 0, honba: 0, handNumber: 1, handId: "1:0", results: [], matchRules: config, rules: normalizeProfileRules(rules, profile), duplicateProfile: profile, aiPolicy };
+  practice.game = createGame3(gameOptions(practice, practice));
   return practice;
 }
 function localNextPlan(practice) {
@@ -1219,19 +1881,23 @@ function advancePracticeSeries(practice) {
   const next = localNextPlan(practice);
   if (next.complete) return false;
   Object.assign(practice, { board: next.board, index: next.board - 1, repeat: next.repeat, honba: next.honba, handNumber: next.handNumber, handId: handId(next) });
-  practice.game = createGame2(gameOptions(practice, next));
+  practice.game = createGame3(gameOptions(practice, next));
   return true;
 }
-function practiceBaselineOptions(practice, view = null, context2 = null) {
+function practiceBaselineOptions(practice, view = null, context3 = null) {
   const p = seriesProgress(practice), game = view ?? practice.game, rules = game.rules ?? practice.rules ?? practice.game.rules;
-  const startingScores = context2?.startingScores ?? game.startingScores ?? game.players?.map((player) => player.points - player.score), pot = context2?.pot ?? game.initialPot ?? (practice.matchRules ? null : 0);
+  const startingScores = context3?.startingScores ?? game.startingScores ?? game.players?.map((player) => player.points - player.score), pot = context3?.pot ?? game.initialPot ?? (practice.matchRules ? null : 0);
   if (!Array.isArray(startingScores) || startingScores.length !== 4 || startingScores.some((n) => !Number.isSafeInteger(n)) || !Number.isSafeInteger(pot)) throw Error("\uAE30\uC900 \uB300\uAD6D\uC758 \uC2DC\uC791 \uC810\uC218\uC640 \uACF5\uD0C1 \uC815\uBCF4\uB97C \uD655\uC778\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
-  return { seed: seedForHonba(seedForPracticeBoard(practice.seed, p.board - 1), p.honba), rules: { ...rules }, dealer: game.dealer, honba: game.honba ?? p.honba, pot, startingScores: [...startingScores], seat: practice.seat };
+  return { seed: seedForHonba(seedForPracticeBoard(practice.seed, p.board - 1), p.honba), rules: { ...rules }, duplicateProfile: normalizeDuplicateProfile(practice.duplicateProfile ?? game.duplicateProfile), dealer: game.dealer, honba: game.honba ?? p.honba, pot, startingScores: [...startingScores], seat: practice.seat };
 }
 function restorePracticeSeries(saved2) {
   if (!saved2?.game || !Number.isInteger(saved2.seat) || saved2.seat < 0 || saved2.seat > 3 || !Number.isInteger(saved2.index) || saved2.index < 0 || !Number.isInteger(saved2.count) || saved2.index >= saved2.count) throw Error("Invalid saved practice");
   const practice = structuredClone(saved2);
-  assertInvariants(practice.game);
+  assertInvariants3(practice.game);
+  practice.duplicateProfile = normalizeDuplicateProfile(practice.duplicateProfile ?? practice.game.duplicateProfile);
+  if (practice.duplicateProfile !== normalizeDuplicateProfile(practice.game.duplicateProfile)) throw Error("Saved duplicate profile differs");
+  normalizeProfileRules(practice.game.rules, practice.duplicateProfile);
+  practice.rules = normalizeProfileRules(practice.rules ?? practice.game.rules, practice.duplicateProfile);
   if (practice.matchRules) {
     practice.matchRules = normalizeMatchRules(practice.matchRules);
     if (practice.count !== matchBoardCount(practice.matchRules)) throw Error("Saved format differs");
@@ -1240,6 +1906,16 @@ function restorePracticeSeries(saved2) {
   if (p.board !== practice.index + 1 || saved2.handId && saved2.handId !== p.handId || !Number.isSafeInteger(p.repeat) || p.repeat < 0 || !Number.isSafeInteger(p.honba) || p.honba < 0 || !Number.isSafeInteger(p.handNumber) || p.handNumber < 1) throw Error("Invalid saved progress");
   Object.assign(practice, p);
   return practice;
+}
+
+// duplicate/competition-scoring.mjs
+var IMP_SCALE_SOURCE_URL = "https://www.mahjong.ru/index.php/mahjong/mahjong-rules/490-mahjong-rules-duplicate";
+var IMP_THRESHOLDS = Object.freeze([2, 6, 10, 16, 24, 32, 40, 48, 56, 64, 72, 84, 96, 108, 132, 156, 180, 212, 244, 296]);
+function normalizeScoring(options = {}) {
+  if (!options || typeof options !== "object" || Array.isArray(options) || Object.keys(options).some((k) => !["method", "impUnit"].includes(k))) throw Error("Invalid competition scoring");
+  const result = { method: "raw", impUnit: 100, ...options };
+  if (!["raw", "imp"].includes(result.method) || ![100, 1e3].includes(result.impUnit)) throw Error("Invalid competition scoring");
+  return result;
 }
 
 // duplicate/tile-view.mjs
@@ -1466,7 +2142,7 @@ var KINDS = /* @__PURE__ */ new Set(["discard", "call", "kan", "riichi", "win"])
 var copy = (value) => structuredClone(value);
 var acceptedEvents = (view) => {
   const byId = /* @__PURE__ */ new Map();
-  for (const event2 of view.publicEvents ?? []) if (Number.isSafeInteger(event2?.id) && event2.id >= 0 && KINDS.has(event2.kind)) byId.set(event2.id, event2);
+  for (const event3 of view.publicEvents ?? []) if (Number.isSafeInteger(event3?.id) && event3.id >= 0 && KINDS.has(event3.kind)) byId.set(event3.id, event3);
   return [...byId.values()].sort((a, b) => a.id - b.id).map(copy);
 };
 function createFeedbackTracker() {
@@ -1487,14 +2163,14 @@ function createFeedbackTracker() {
       board = boardKey;
       cursor = latest;
       history = incoming.slice(-6);
-      lastDiscard = incoming.findLast((event2) => event2.kind === "discard") ?? null;
+      lastDiscard = incoming.findLast((event3) => event3.kind === "discard") ?? null;
       return result([], true);
     }
     if (latest <= cursor) return result();
-    const events = incoming.filter((event2) => event2.id > cursor), merged = new Map(history.map((event2) => [event2.id, event2]));
-    for (const event2 of incoming) merged.set(event2.id, event2);
+    const events = incoming.filter((event3) => event3.id > cursor), merged = new Map(history.map((event3) => [event3.id, event3]));
+    for (const event3 of incoming) merged.set(event3.id, event3);
     history = [...merged.values()].sort((a, b) => a.id - b.id).slice(-6);
-    lastDiscard = incoming.findLast((event2) => event2.kind === "discard") ?? lastDiscard;
+    lastDiscard = incoming.findLast((event3) => event3.kind === "discard") ?? lastDiscard;
     cursor = latest;
     return result(events);
   } };
@@ -1506,8 +2182,8 @@ var ACTIONS = { discard: "\uBC84\uB9BC", riichi: "\uB9AC\uCE58", chi: "\uCE58", 
 var FLAGS = ["lastDiscard", "actionBubbles", "animations", "turnHighlight", "recentActions", "callPreview", "sound", "vibration", "reducedMotion"];
 var validSeat = (seat) => Number.isInteger(seat) && seat >= 0 && seat < 4;
 var validTile = (tile) => Number.isInteger(tile) && tile >= 0 && tile < 34;
-var actionName = (event2) => ACTIONS[event2.kind === "win" ? event2.method : event2.kind === "call" || event2.kind === "kan" ? event2.callType ?? event2.kind : event2.kind] ?? "\uC120\uD0DD";
-var sourceSeat = (event2) => validSeat(event2?.source) ? event2.source : validSeat(event2?.sourceSeat) ? event2.sourceSeat : validSeat(event2?.source?.seat) ? event2.source.seat : null;
+var actionName = (event3) => ACTIONS[event3.kind === "win" ? event3.method : event3.kind === "call" || event3.kind === "kan" ? event3.callType ?? event3.kind : event3.kind] ?? "\uC120\uD0DD";
+var sourceSeat = (event3) => validSeat(event3?.source) ? event3.source : validSeat(event3?.sourceSeat) ? event3.sourceSeat : validSeat(event3?.source?.seat) ? event3.source.seat : null;
 function createFeedbackPresenter({ table, handArea, historyContainer, getPreferences, getPlayerName }) {
   if (!table || !handArea) throw new Error("Feedback needs the table and hand area");
   const document2 = table.ownerDocument, window2 = document2.defaultView;
@@ -1692,10 +2368,10 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
       marker.title = marker.hidden ? "" : `${name(seat)} \xB7 \uB9AC\uCE58`;
     }
   }
-  function textFor(event2) {
-    const tile = validTile(event2.tile) ? ` ${event2.red ? "\uC801 " : ""}${tileName(event2.tile)}` : "";
-    const source = sourceSeat(event2), from = source !== null && source !== event2.seat ? ` \u2190 ${name(source)}` : "";
-    return `${name(event2.seat)} \xB7 ${actionName(event2)}${tile}${from}`;
+  function textFor(event3) {
+    const tile = validTile(event3.tile) ? ` ${event3.red ? "\uC801 " : ""}${tileName(event3.tile)}` : "";
+    const source = sourceSeat(event3), from = source !== null && source !== event3.seat ? ` \u2190 ${name(source)}` : "";
+    return `${name(event3.seat)} \xB7 ${actionName(event3)}${tile}${from}`;
   }
   function renderHistory() {
     if (!historyContainer) return;
@@ -1704,33 +2380,33 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
     if (historyContainer.hidden) return;
     const heading = node("div", "feedback-history-heading", "\uCD5C\uADFC \uC120\uD0DD");
     const list = node("ol", "feedback-history-list");
-    for (const event2 of logItems.slice(-6)) {
-      const item = node("li", `feedback-history-item feedback-history-${event2.kind}`);
-      item.append(node("span", "feedback-history-player", name(event2.seat)), node("b", "feedback-history-action", actionName(event2)));
-      if (validTile(event2.tile)) item.append(node("span", "feedback-history-tile", `${event2.red ? "\uC801 " : ""}${tileName(event2.tile)}`));
-      const source = sourceSeat(event2);
-      if (source !== null && source !== event2.seat) item.append(node("span", "feedback-history-source", `\u2190 ${name(source)}`));
+    for (const event3 of logItems.slice(-6)) {
+      const item = node("li", `feedback-history-item feedback-history-${event3.kind}`);
+      item.append(node("span", "feedback-history-player", name(event3.seat)), node("b", "feedback-history-action", actionName(event3)));
+      if (validTile(event3.tile)) item.append(node("span", "feedback-history-tile", `${event3.red ? "\uC801 " : ""}${tileName(event3.tile)}`));
+      const source = sourceSeat(event3);
+      if (source !== null && source !== event3.seat) item.append(node("span", "feedback-history-source", `\u2190 ${name(source)}`));
       list.append(item);
     }
     historyContainer.append(heading, list);
   }
-  function showCallout(event2, preview2 = false) {
-    if (!preferences.actionBubbles || !validSeat(event2.seat)) return;
-    const index = relative(event2.seat), box = callouts[index];
+  function showCallout(event3, preview2 = false) {
+    if (!preferences.actionBubbles || !validSeat(event3.seat)) return;
+    const index = relative(event3.seat), box = callouts[index];
     box.replaceChildren();
-    box.dataset.kind = event2.kind;
-    box.dataset.seat = String(event2.seat);
-    box.append(node("div", "feedback-callout-player", `${preview2 ? "\uBBF8\uB9AC\uBCF4\uAE30 \xB7 " : ""}${name(event2.seat)}`));
+    box.dataset.kind = event3.kind;
+    box.dataset.seat = String(event3.seat);
+    box.append(node("div", "feedback-callout-player", `${preview2 ? "\uBBF8\uB9AC\uBCF4\uAE30 \xB7 " : ""}${name(event3.seat)}`));
     const line = node("div", "feedback-callout-main");
-    line.append(node("strong", "feedback-callout-action", actionName(event2)));
-    if (validTile(event2.tile)) {
-      const tile = tileFace(event2.tile, { small: true });
-      tile.classList.toggle("red", !!event2.red);
+    line.append(node("strong", "feedback-callout-action", actionName(event3)));
+    if (validTile(event3.tile)) {
+      const tile = tileFace(event3.tile, { small: true });
+      tile.classList.toggle("red", !!event3.red);
       line.append(tile);
     }
     box.append(line);
-    const source = sourceSeat(event2);
-    if (source !== null && source !== event2.seat) box.append(node("div", "feedback-callout-source", `\u2190 ${name(source)}`));
+    const source = sourceSeat(event3);
+    if (source !== null && source !== event3.seat) box.append(node("div", "feedback-callout-source", `\u2190 ${name(source)}`));
     box.hidden = false;
     box.classList.remove("feedback-enter");
     if (preferences.motion) {
@@ -1740,20 +2416,20 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
     later(`callout-${index}`, () => {
       box.hidden = true;
       box.classList.remove("feedback-enter");
-    }, event2.kind === "discard" ? 950 : 1700);
+    }, event3.kind === "discard" ? 950 : 1700);
   }
-  function animateDiscard(event2) {
-    if (!preferences.motion || !validTile(event2.tile) || !validSeat(event2.seat)) return;
-    const target = riverTile(event2);
+  function animateDiscard(event3) {
+    if (!preferences.motion || !validTile(event3.tile) || !validSeat(event3.seat)) return;
+    const target = riverTile(event3);
     if (!target || typeof target.animate !== "function") return;
     const destination = target.getBoundingClientRect(), bounds = layer.getBoundingClientRect();
     if (!destination.width || !bounds.width) return;
-    const position = POSITIONS[relative(event2.seat)], source = position === "bottom" ? handArea : table.querySelector(`#opponent-${position}`);
+    const position = POSITIONS[relative(event3.seat)], source = position === "bottom" ? handArea : table.querySelector(`#opponent-${position}`);
     const origin = source?.getBoundingClientRect();
     if (!origin?.width) return;
-    const ghost = tileFace(event2.tile, { small: true });
+    const ghost = tileFace(event3.tile, { small: true });
     ghost.classList.add("feedback-ghost");
-    ghost.classList.toggle("red", !!event2.red);
+    ghost.classList.toggle("red", !!event3.red);
     ghost.setAttribute("aria-hidden", "true");
     const x = destination.left - bounds.left, y = destination.top - bounds.top;
     Object.assign(ghost.style, { left: `${x}px`, top: `${y}px`, width: `${destination.width}px`, height: `${destination.height}px` });
@@ -1761,19 +2437,19 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
     ghosts.add(ghost);
     const dx = origin.left + origin.width / 2 - destination.left - destination.width / 2, dy = origin.top + origin.height / 2 - destination.top - destination.height / 2;
     ghost.animate([{ transform: `translate(${dx}px,${dy}px) scale(.9)`, opacity: 0.7 }, { transform: "translate(0,0) scale(1)", opacity: 1 }], { duration: 175, easing: "cubic-bezier(.2,.7,.2,1)" });
-    later(`ghost-${event2.id ?? event2.seat}`, () => {
+    later(`ghost-${event3.id ?? event3.seat}`, () => {
       ghost.remove();
       ghosts.delete(ghost);
     }, 210);
   }
-  function highlightCall(event2) {
+  function highlightCall(event3) {
     if (!preferences.actionBubbles && !preferences.animations) return;
-    const source = sourceSeat(event2);
-    if (source !== null && source !== event2.seat) mark(riverTile({ ...event2, id: event2.sourceDiscardId ?? null }, source), "feedback-claimed-source", `source-${event2.seat}`, 1e3);
-    const position = POSITIONS[relative(event2.seat)], container = position === "bottom" ? handArea.querySelector("#self-melds") : table.querySelector(`#meld-${position}`);
+    const source = sourceSeat(event3);
+    if (source !== null && source !== event3.seat) mark(riverTile({ ...event3, id: event3.sourceDiscardId ?? null }, source), "feedback-claimed-source", `source-${event3.seat}`, 1e3);
+    const position = POSITIONS[relative(event3.seat)], container = position === "bottom" ? handArea.querySelector("#self-melds") : table.querySelector(`#meld-${position}`);
     const melds = Array.from(container?.querySelectorAll(".meld") ?? []);
-    const matches = melds.filter((meld) => Array.from(meld.querySelectorAll("[data-type]")).some((tile) => Number(tile.dataset.type) === event2.tile));
-    mark((event2.callType === "kakan" ? matches.at(-1) : melds.at(-1)) ?? melds.at(-1), "feedback-meld-hit", `meld-${event2.seat}`, 1200);
+    const matches = melds.filter((meld) => Array.from(meld.querySelectorAll("[data-type]")).some((tile) => Number(tile.dataset.type) === event3.tile));
+    mark((event3.callType === "kakan" ? matches.at(-1) : melds.at(-1)) ?? melds.at(-1), "feedback-meld-hit", `meld-${event3.seat}`, 1200);
   }
   async function unlock() {
     if (destroyed) return;
@@ -1823,7 +2499,7 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
     if (!events.length || !preferences.actionBubbles) return;
     winner.replaceChildren(node("span", "feedback-win-eyebrow", events.length > 1 ? `${events.length}\uBA85 \uB3D9\uC2DC \uD654\uB8CC` : "\uD654\uB8CC"));
     const line = node("div", "feedback-win-names");
-    for (const event2 of events) line.append(node("strong", "", `${name(event2.seat)} \xB7 ${actionName(event2)}`));
+    for (const event3 of events) line.append(node("strong", "", `${name(event3.seat)} \xB7 ${actionName(event3)}`));
     winner.append(line);
     winner.hidden = false;
     winner.classList.toggle("feedback-enter", preferences.motion);
@@ -1854,23 +2530,23 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
       renderHistory();
       return { winDelayMs: 0 };
     }
-    if ((!initialized || newBoard) && preferences.recentActions) logItems = history.filter((event2) => validSeat(event2.seat)).slice(-6);
+    if ((!initialized || newBoard) && preferences.recentActions) logItems = history.filter((event3) => validSeat(event3.seat)).slice(-6);
     if (!initialized || newBoard) initialized = true;
     const fresh = [];
-    for (const event2 of events) {
-      if (!validSeat(event2?.seat) || !["discard", "call", "kan", "riichi", "win"].includes(event2.kind)) continue;
-      const id = String(event2.id ?? `${event2.kind}:${event2.seat}:${event2.tileId ?? event2.tile}:${sourceSeat(event2)}`);
+    for (const event3 of events) {
+      if (!validSeat(event3?.seat) || !["discard", "call", "kan", "riichi", "win"].includes(event3.kind)) continue;
+      const id = String(event3.id ?? `${event3.kind}:${event3.seat}:${event3.tileId ?? event3.tile}:${sourceSeat(event3)}`);
       if (seen.has(id)) continue;
       seen.add(id);
-      fresh.push(event2);
+      fresh.push(event3);
     }
     while (seen.size > 256) seen.delete(seen.values().next().value);
-    if (!before.recentActions && preferences.recentActions && !firstUpdate && !newBoard) logItems = history.filter((event2) => validSeat(event2.seat)).slice(-6);
+    if (!before.recentActions && preferences.recentActions && !firstUpdate && !newBoard) logItems = history.filter((event3) => validSeat(event3.seat)).slice(-6);
     if (preferences.recentActions) {
-      const existing = new Set(logItems.map((event2) => event2.id));
-      for (const event2 of fresh) if (!existing.has(event2.id)) {
-        logItems.push(event2);
-        existing.add(event2.id);
+      const existing = new Set(logItems.map((event3) => event3.id));
+      for (const event3 of fresh) if (!existing.has(event3.id)) {
+        logItems.push(event3);
+        existing.add(event3.id);
       }
       logItems = logItems.slice(-6);
     }
@@ -1878,12 +2554,12 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
     renderTurn();
     renderRiichi();
     renderHistory();
-    for (const event2 of fresh) {
-      showCallout(event2);
-      if (event2.kind === "discard") animateDiscard(event2);
-      if (event2.kind === "call" || event2.kind === "kan") highlightCall(event2);
+    for (const event3 of fresh) {
+      showCallout(event3);
+      if (event3.kind === "discard") animateDiscard(event3);
+      if (event3.kind === "call" || event3.kind === "kan") highlightCall(event3);
     }
-    const wins = fresh.filter((event2) => event2.kind === "win");
+    const wins = fresh.filter((event3) => event3.kind === "win");
     announceWins(wins);
     if (fresh.length) {
       const priority = { discard: 0, call: 1, kan: 2, riichi: 3, win: 4 };
@@ -1904,8 +2580,8 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
     if (nextView) view = nextView;
     if (!view) return;
     const tile = view.handTiles?.find((item) => validTile(item.type)) ?? (validTile(lastDiscard?.tile) ? lastDiscard : null);
-    const event2 = { id: "feedback-preview", kind: "riichi", seat: view.seat, tile: tile?.type ?? tile?.tile ?? null, red: !!tile?.red };
-    showCallout(event2, true);
+    const event3 = { id: "feedback-preview", kind: "riichi", seat: view.seat, tile: tile?.type ?? tile?.tile ?? null, red: !!tile?.red };
+    showCallout(event3, true);
     renderTurn();
     if (preferences.turnHighlight) {
       table.classList.add("feedback-my-turn");
@@ -1920,7 +2596,7 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
     if (preferences.recentActions && historyContainer) {
       renderHistory();
       historyContainer.hidden = false;
-      const demo = node("div", "feedback-history-preview", `\uBBF8\uB9AC\uBCF4\uAE30 \xB7 ${textFor(event2)}`);
+      const demo = node("div", "feedback-history-preview", `\uBBF8\uB9AC\uBCF4\uAE30 \xB7 ${textFor(event3)}`);
       historyContainer.prepend(demo);
       later("preview-history", renderHistory, 1600);
     }
@@ -1972,10 +2648,10 @@ var STORAGE_KEY = "duplicate.mortal-practice.v1";
 var sameMatch = (a, b) => JSON.stringify(a ? normalizeMatchRules(a) : null) === JSON.stringify(b ? normalizeMatchRules(b) : null);
 function createRemotePractice({ getServer, onState, onError = () => {
 }, storage = globalThis.sessionStorage, fetchImpl = globalThis.fetch, pollMs = 1200 } = {}) {
-  let credentials = null, context2 = null, state = null, timer = null, active = false, epoch = 0, loading = false, lastError = "";
+  let credentials = null, context3 = null, state = null, timer = null, active = false, epoch = 0, loading = false, lastError = "";
   const persist = () => {
     try {
-      if (credentials) storage.setItem(STORAGE_KEY, JSON.stringify({ credentials, context: context2 }));
+      if (credentials) storage.setItem(STORAGE_KEY, JSON.stringify({ credentials, context: context3 }));
       else storage.removeItem(STORAGE_KEY);
     } catch {
     }
@@ -2000,7 +2676,7 @@ function createRemotePractice({ getServer, onState, onError = () => {
   }
   function apply(value, generation) {
     if (generation !== epoch || !credentials || value.code !== credentials.code) return false;
-    if (value.practice !== true || value.seat !== context2.seat || value.boardCount !== context2.count || !sameMatch(value.matchRules, context2.matchRules)) throw new Error("\uC5F0\uC2B5 \uC5F0\uACB0 \uC815\uBCF4\uAC00 \uC77C\uCE58\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uC0C8 \uC5F0\uC2B5\uC744 \uC2DC\uC791\uD574 \uC8FC\uC138\uC694.");
+    if (value.practice !== true || value.seat !== context3.seat || value.boardCount !== context3.count || !sameMatch(value.matchRules, context3.matchRules) || normalizeDuplicateProfile(value.duplicateProfile) !== normalizeDuplicateProfile(context3.duplicateProfile)) throw new Error("\uC5F0\uC2B5 \uC5F0\uACB0 \uC815\uBCF4\uAC00 \uC77C\uCE58\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uC0C8 \uC5F0\uC2B5\uC744 \uC2DC\uC791\uD574 \uC8FC\uC138\uC694.");
     if (state && value.revision < state.revision) return false;
     state = value;
     lastError = "";
@@ -2035,11 +2711,11 @@ function createRemotePractice({ getServer, onState, onError = () => {
     restore(expected) {
       try {
         const saved2 = JSON.parse(storage.getItem(STORAGE_KEY) || "null"), c = saved2?.credentials, p = saved2?.context;
-        if (!c || !p || p.seed !== expected.seed || p.seat !== expected.seat || p.count !== expected.count || !sameMatch(p.matchRules, expected.matchRules) || typeof c.key !== "string" || !/^[a-f0-9]{64}$/.test(c.key) || !/^[A-Z2-9]{8}$/.test(c.code) || c.seat !== p.seat || typeof c.server !== "string") return false;
+        if (!c || !p || p.seed !== expected.seed || p.seat !== expected.seat || p.count !== expected.count || !sameMatch(p.matchRules, expected.matchRules) || normalizeDuplicateProfile(p.duplicateProfile) !== normalizeDuplicateProfile(expected.duplicateProfile) || typeof c.key !== "string" || !/^[a-f0-9]{64}$/.test(c.key) || !/^[A-Z2-9]{8}$/.test(c.code) || c.seat !== p.seat || typeof c.server !== "string") return false;
         const server = new URL(c.server);
         if (!["https:", "http:"].includes(server.protocol) || server.username || server.password || server.origin !== c.server) return false;
         credentials = c;
-        context2 = p;
+        context3 = p;
         return true;
       } catch {
         return false;
@@ -2047,13 +2723,13 @@ function createRemotePractice({ getServer, onState, onError = () => {
     },
     async start(options) {
       const config = options.matchRules ? normalizeMatchRules(options.matchRules) : null, count = config ? matchBoardCount(config) : options.count;
-      const generation = ++epoch;
+      const duplicateProfile = normalizeDuplicateProfile(options.duplicateProfile), generation = ++epoch;
       clearTimeout(timer);
       credentials = null;
-      context2 = { seed: options.seed, seat: options.seat, count, matchRules: config };
+      context3 = { seed: options.seed, seat: options.seat, count, matchRules: config, duplicateProfile };
       state = null;
       persist();
-      const server = getServer(), value = await request2(server, "", { name: options.name ?? "\uB098", boardCount: count, rules: options.rules, ...config ? { matchRules: config } : {}, aiPolicy: "mortal", practice: { seed: options.seed, seat: options.seat } }, null);
+      const server = getServer(), value = await request2(server, "", { name: options.name ?? "\uB098", boardCount: count, rules: options.rules, duplicateProfile, ...config ? { matchRules: config } : {}, aiPolicy: "mortal", practice: { seed: options.seed, seat: options.seat } }, null);
       if (generation !== epoch) return null;
       if (typeof value.key !== "string" || !/^[a-f0-9]{64}$/.test(value.key)) throw new Error("Mortal \uC5F0\uC2B5 \uC811\uC18D \uC815\uBCF4\uB97C \uD655\uC778\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.");
       credentials = { code: value.code, key: value.key, seat: value.seat, tableId: value.tableId, server };
@@ -2091,7 +2767,7 @@ function createRemotePractice({ getServer, onState, onError = () => {
       active = false;
       clearTimeout(timer);
       credentials = null;
-      context2 = null;
+      context3 = null;
       state = null;
       persist();
     },
@@ -2172,7 +2848,7 @@ function mountObserverLinks({ document: document2, getRoom, getServer, request: 
         $2(`observer-${role}-open`).href = url;
       }
       $2("observer-issued-links").hidden = false;
-      $2("observer-link-status").textContent = `\uCD5C\uC18C ${result.delaySeconds}\uCD08 \uC9C0\uC5F0 \xB7 \uAE30\uC874 \uB9C1\uD06C\uB294 \uC885\uB8CC\uB418\uC5C8\uC2B5\uB2C8\uB2E4. \uAD00\uC804 \uCC3D\uC5D0\uC11C \uB354 \uAE34 \uC9C0\uC5F0\uC744 \uC124\uC815\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.`;
+      $2("observer-link-status").textContent = `\uCD5C\uC18C ${result.delaySeconds}\uCD08 \uC9C0\uC5F0${room.tournament ? " \xB7 \uC804\uD0C1\uC758 \uAC19\uC740 \uAD6D\xB7\uBCF8\uC7A5 \uC885\uB8CC\xB7\uD1B5\uACFC \uD6C4 \uAE30\uB85D \uACF5\uAC1C" : ""} \xB7 \uAE30\uC874 \uB9C1\uD06C\uB294 \uC885\uB8CC\uB418\uC5C8\uC2B5\uB2C8\uB2E4. \uAD00\uC804 \uCC3D\uC5D0\uC11C \uB354 \uAE34 \uC9C0\uC5F0\uC744 \uC124\uC815\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.`;
       toast2("\uAD00\uC804\xB7\uC911\uACC4 \uB9C1\uD06C\uB97C \uB9CC\uB4E4\uC5C8\uC2B5\uB2C8\uB2E4.");
     } catch (error) {
       toast2(error.message);
@@ -2205,8 +2881,15 @@ var number = (n) => Number(n).toLocaleString("ko-KR");
 var signed = (n) => n === null || n === void 0 ? "\u2014" : `${n > 0 ? "+" : ""}${number(n)}`;
 var winds = ["\u6771", "\u5357", "\u897F", "\u5317"];
 var positions = ["bottom", "right", "top", "left"];
+var milFixed = ["dora", "kanDora", "uraDora", "redDora", "deadWall", "exhaustLimit", "multipleRon", "abortFourKans"];
+var profileName = (value) => value === "mil" ? "MIL \uBC30\uD328\xB7\uC9C4\uD589" : "\uC0AC\uC6A9\uC790 \uADDC\uCE59";
+function setupRules(raw = {}, profile = "mil") {
+  const value = { ...raw };
+  if (profile === "mil") for (const key of milFixed) delete value[key];
+  return normalizeProfileRules(value, profile);
+}
 var switchDefinitions = [["dora", "\uB3C4\uB77C", "\uCCAB \uBC88\uC9F8 \uB3C4\uB77C \uD45C\uC2DC\uD328"], ["kanDora", "\uAE61\uB3C4\uB77C", "\uAE61\uB9C8\uB2E4 \uCD94\uAC00 \uB3C4\uB77C \uD45C\uC2DC\uD328"], ["uraDora", "\uC6B0\uB77C\uB3C4\uB77C", "\uB9AC\uCE58 \uD654\uB8CC \uC2DC \uACF5\uAC1C\uD558\uB294 \uB4B7 \uD45C\uC2DC\uD328"], ["redDora", "\uC801\uB3C4\uB77C", "\uB9CC\xB7\uD1B5\xB7\uC0AD\uC758 \uC8015 \uAC01 1\uC7A5"], ["deadWall", "\uC655\uD328", "\uD328\uC0B0\uC5D0\uC11C 14\uC7A5 \uC81C\uC678"], ["kuitan", "\uCFE0\uC774\uD0D5", "\uBD80\uB978 \uC190\uD328\uC758 \uD0D5\uC57C\uC624 \uD5C8\uC6A9"], ["abortFourKans", "\uC0AC\uAE61\uC0B0\uB8CC", "2\uBA85 \uC774\uC0C1\uC774 \uD569\uACC4 4\uAE61\uC774\uBA74 \uC720\uAD6D"]];
-var S = { mode: "practice", panel: "practice", practice: null, practiceRemote: null, practiceError: "", online: null, credentials: null, view: null, selected: null, riichiSelecting: false, busy: false, timer: null, poll: null, worker: null, endHidden: false, endKey: null, endRevealAt: 0, resultTimer: null, toastTimer: null, settings: null, roomRules: null, roomAI: "simple", aiCapabilities: null, ruleContext: "practice", ruleReadOnly: false, creatingRoom: false, boardCount: 8, practiceMatchRules: null, roomMatchRules: null, preferences: { ...DEFAULT_PREFERENCES }, autoWin: true, autoPass: true, server: DEFAULT_SERVER, gameEpoch: 0 };
+var S = { mode: "practice", panel: "practice", practice: null, practiceRemote: null, practiceError: "", online: null, credentials: null, view: null, selected: null, riichiSelecting: false, busy: false, timer: null, poll: null, worker: null, endHidden: false, endKey: null, endRevealAt: 0, resultTimer: null, toastTimer: null, settings: null, roomRules: null, roomAI: "simple", aiCapabilities: null, ruleContext: "practice", ruleReadOnly: false, creatingRoom: false, boardCount: 8, practiceMatchRules: null, roomMatchRules: null, practiceDuplicateProfile: "mil", roomDuplicateProfile: "mil", roomScoring: { method: "raw", impUnit: 100 }, preferences: { ...DEFAULT_PREFERENCES }, autoWin: true, autoPass: true, server: DEFAULT_SERVER, gameEpoch: 0 };
 var personalSettingsUI;
 var observerLinks = mountObserverLinks({ document, getRoom: () => S.online, getServer: () => S.server, request: (...args) => request(...args), toast });
 var feedbackTracker = createFeedbackTracker();
@@ -2299,6 +2982,9 @@ function clearPlayTimer() {
 function savePractice() {
   if (S.practice) writeStorage(localStorage, "duplicate.practice.v1", S.practice);
 }
+function currentDuplicateProfile() {
+  return normalizeDuplicateProfile(S.mode === "online" ? S.online?.duplicateProfile ?? (S.online ? "custom" : S.roomDuplicateProfile) : S.practice?.duplicateProfile ?? S.practice?.game?.duplicateProfile);
+}
 function currentRules() {
   return S.mode === "online" ? S.online?.rules ?? S.roomRules : S.practice?.game.rules ?? S.settings;
 }
@@ -2306,8 +2992,9 @@ function ruleSummary() {
   const r = currentRules(), box = $("rule-chips");
   box.replaceChildren();
   box.className = "rule-chips";
+  box.append(textNode("span", profileName(currentDuplicateProfile()), "chip"));
   for (const [key, name] of switchDefinitions.slice(0, 6)) box.append(textNode("span", `${name} ${r[key] ? "ON" : "OFF"}`, `chip ${r[key] ? "" : "off"}`));
-  box.append(textNode("span", `${r.exhaustLimit}\uBA85 \uC18C\uC9C4 \uC720\uAD6D`, "chip"));
+  box.append(textNode("span", currentDuplicateProfile() === "mil" ? "\uD558\uAC00 \uC0B0 \uC18C\uC9C4 \xB7 \uB9C8\uC9C0\uB9C9 \uCC28\uB840" : `${r.exhaustLimit}\uBA85 \uC18C\uC9C4 \uC720\uAD6D`, "chip"));
   const match = currentMatchRules(), count = S.mode === "online" ? S.online?.boardCount ?? S.boardCount : S.practice?.count;
   box.append(textNode("span", formatName(match, count), "chip"));
   box.append(textNode("span", `\uCE5C \uC5F0\uC7A5 ${match?.dealerContinuation ? "ON" : "OFF"}`, "chip"));
@@ -2315,7 +3002,7 @@ function ruleSummary() {
   $("rules-summary-title").textContent = S.mode === "online" ? S.online ? "\uC774 \uBC29\uC758 \uB300\uAD6D \uADDC\uCE59" : "\uC0C8 \uB300\uD68C \uADDC\uCE59" : "\uD604\uC7AC \uC5F0\uC2B5 \uADDC\uCE59";
   $("rules-open-second").textContent = S.mode === "online" && S.online ? "\uADDC\uCE59 \uBCF4\uAE30" : "\uADDC\uCE59 \uC124\uC815";
   const roomRules = S.online?.rules ?? S.roomRules, roomMatch = S.online ? S.online.matchRules : S.roomMatchRules;
-  $("room-rules-preview").textContent = `${formatName(roomMatch, S.online?.boardCount ?? S.boardCount)} \xB7 \uCE5C \uC5F0\uC7A5 ${roomMatch?.dealerContinuation ? "ON" : "OFF"} \xB7 \uC544\uAC00\uB9AC\uC57C\uBA54 ${roomMatch?.agariYame ? "ON" : "OFF"} \xB7 \uB3C4\uB77C ${roomRules.dora ? "\uC788\uC74C" : "\uC5C6\uC74C"} \xB7 ${(S.online?.aiPolicy ?? S.roomAI) === "mortal" ? "Mortal" : "\uAE30\uBCF8 AI"}`;
+  $("room-rules-preview").textContent = `${profileName(S.online?.duplicateProfile ?? (S.online ? "custom" : S.roomDuplicateProfile))} \xB7 ${formatName(roomMatch, S.online?.boardCount ?? S.boardCount)} \xB7 \uCE5C \uC5F0\uC7A5 ${roomMatch?.dealerContinuation ? "ON" : "OFF"} \xB7 \uC544\uAC00\uB9AC\uC57C\uBA54 ${roomMatch?.agariYame ? "ON" : "OFF"} \xB7 \uB3C4\uB77C ${roomRules.dora ? "\uC788\uC74C" : "\uC5C6\uC74C"} \xB7 \uC131\uC801 ${(S.online?.scoring ?? S.roomScoring).method === "imp" ? "IMP" : "\uC6D0\uC810\uC218"} \xB7 ${(S.online?.aiPolicy ?? S.roomAI) === "mortal" ? "Mortal" : "\uAE30\uBCF8 AI"}`;
   $("room-rules-open").textContent = S.online ? "\uBC29 \uADDC\uCE59 \uBCF4\uAE30" : "\uBC29 \uADDC\uCE59 \uC124\uC815";
 }
 function showPanel(panel) {
@@ -2345,7 +3032,7 @@ function setMode(mode) {
     render();
     if (S.credentials) pollRoom();
   } else {
-    S.view = S.practice.aiPolicy === "mortal" ? S.practiceRemote?.game ?? null : snapshot2(S.practice.game, S.practice.seat);
+    S.view = S.practice.aiPolicy === "mortal" ? S.practiceRemote?.game ?? null : snapshot3(S.practice.game, S.practice.seat);
     render();
     if (S.practice.aiPolicy === "mortal") remotePractice.activate();
     schedulePractice();
@@ -2390,7 +3077,7 @@ async function newPractice() {
   remotePractice.clear();
   S.practiceRemote = null;
   S.practiceError = "";
-  S.practice = createPracticeSeries({ seed, seat, matchRules, rules: S.settings, aiPolicy });
+  S.practice = createPracticeSeries({ seed, seat, matchRules, rules: S.settings, duplicateProfile: S.practiceDuplicateProfile, aiPolicy });
   S.gameEpoch++;
   S.mode = "practice";
   S.endHidden = false;
@@ -2403,7 +3090,7 @@ async function newPractice() {
     S.busy = true;
     render();
     try {
-      await remotePractice.start({ seed, seat, count, matchRules, rules: S.settings, name: readStorage(localStorage, "duplicate.name") ?? "\uB098" });
+      await remotePractice.start({ seed, seat, count, matchRules, rules: S.settings, duplicateProfile: S.practiceDuplicateProfile, name: readStorage(localStorage, "duplicate.name") ?? "\uB098" });
       if (S.mode === "practice") remotePractice.activate();
     } catch (error) {
       S.practiceError = "Mortal \uC5F0\uC2B5\uC744 \uC0C8\uB85C \uC2DC\uC791\uD574 \uC8FC\uC138\uC694.";
@@ -2420,13 +3107,13 @@ function schedulePractice() {
     clearPlayTimer();
     const v = S.view;
     if (S.mode !== "practice" || !v || v.phase === "end" || v.actor !== v.seat || S.busy) return;
-    const win2 = S.autoWin && v.legalActions.find((a) => ["ron", "tsumo"].includes(a.type)), pass = S.autoPass && v.legalActions.length === 1 && v.legalActions[0].type === "pass";
-    if (win2 || pass) S.timer = setTimeout(() => play(win2 || v.legalActions[0]), 450);
+    const win3 = S.autoWin && v.legalActions.find((a) => ["ron", "tsumo"].includes(a.type)), pass = S.autoPass && v.legalActions.length === 1 && v.legalActions[0].type === "pass";
+    if (win3 || pass) S.timer = setTimeout(() => play(win3 || v.legalActions[0]), 450);
     return;
   }
   clearPlayTimer();
   if (S.mode !== "practice" || !S.practice || S.practice.game.phase === "end") return;
-  const game = S.practice.game, seat = actor(game), view = snapshot2(game, S.practice.seat), human = seat === S.practice.seat;
+  const game = S.practice.game, seat = actor3(game), view = snapshot3(game, S.practice.seat), human = seat === S.practice.seat;
   if (!human) {
     S.timer = setTimeout(() => {
       try {
@@ -2450,7 +3137,7 @@ function showGameError(error) {
 function afterPracticeStep() {
   S.selected = null;
   S.riichiSelecting = false;
-  S.view = snapshot2(S.practice.game, S.practice.seat);
+  S.view = snapshot3(S.practice.game, S.practice.seat);
   savePractice();
   if (S.practice.game.phase === "end") finishPractice();
   render();
@@ -2461,7 +3148,7 @@ function applyPrivatePractice(state) {
   const changed = !S.practiceRemote || S.practiceRemote.revision !== state.revision || S.practiceRemote.handId !== state.handId || S.practiceRemote.board !== state.board;
   S.practiceRemote = state;
   S.practiceError = "";
-  Object.assign(S.practice, seriesProgress(state), { index: state.board - 1, count: state.boardCount, matchRules: state.matchRules ?? null });
+  Object.assign(S.practice, seriesProgress(state), { index: state.board - 1, count: state.boardCount, matchRules: state.matchRules ?? null, duplicateProfile: normalizeDuplicateProfile(state.duplicateProfile) });
   savePractice();
   if (state.game?.phase === "end") finishPractice(state.game);
   if (S.mode === "practice") {
@@ -2508,7 +3195,7 @@ function finishPractice(view = null) {
   }
   try {
     S.worker?.terminate();
-    S.worker = new Worker(new URL("./baseline-worker.mjs?v=fb2e9d8ade90d622", import.meta.url), { type: "module" });
+    S.worker = new Worker(new URL("./baseline-worker.mjs?v=24ae06bd10a5f5f7", import.meta.url), { type: "module" });
     S.worker.onmessage = (e) => {
       if (e.data.error) {
         result.referenceStatus = "error";
@@ -2531,7 +3218,7 @@ function finishPractice(view = null) {
   } catch {
     setTimeout(() => {
       try {
-        const game = createGame2(job);
+        const game = createGame3(job);
         driveAI(game, [], 2e3);
         if (game.phase !== "end") throw Error("AI limit");
         result.reference = game.players[job.seat].score;
@@ -2553,7 +3240,7 @@ async function play(action) {
       return;
     }
     try {
-      step2(S.practice.game, S.practice.seat, action);
+      step3(S.practice.game, S.practice.seat, action);
       afterPracticeStep();
     } catch (error) {
       showGameError(error);
@@ -2667,19 +3354,19 @@ function renderTable() {
     $("exhausted-label").textContent = "";
     $("turn-compass").replaceChildren();
     $("dora-tiles").replaceChildren();
-    $("table-status").textContent = privateGame ? S.practiceError || "Mortal \uC5F0\uC2B5\uC5D0 \uC5F0\uACB0\uD558\uACE0 \uC788\uC2B5\uB2C8\uB2E4." : S.online?.phase === "lobby" ? "\uCC38\uAC00\uC790\uB97C \uAE30\uB2E4\uB9AC\uACE0 \uC788\uC2B5\uB2C8\uB2E4." : "\uB300\uD68C\uB97C \uB9CC\uB4E4\uAC70\uB098 \uCF54\uB4DC\uB85C \uCC38\uAC00\uD558\uC138\uC694.";
+    $("table-status").textContent = privateGame ? S.practiceError || "Mortal \uC5F0\uC2B5\uC5D0 \uC5F0\uACB0\uD558\uACE0 \uC788\uC2B5\uB2C8\uB2E4." : S.online?.tournament?.status === "registration" ? "\uCC38\uAC00 \uB4F1\uB85D \uC911 \xB7 \uBA85\uB2E8 \uD655\uC815 \uB4A4 \uBAA8\uB4E0 \uD0C1\uC774 \uC2DC\uC791\uD569\uB2C8\uB2E4." : S.online?.phase === "lobby" ? "\uCC38\uAC00\uC790\uB97C \uAE30\uB2E4\uB9AC\uACE0 \uC788\uC2B5\uB2C8\uB2E4." : "\uB300\uD68C\uB97C \uB9CC\uB4E4\uAC70\uB098 \uCF54\uB4DC\uB85C \uCC38\uAC00\uD558\uC138\uC694.";
     $("board-label").textContent = privateGame ? "Mortal \uC5F0\uC2B5 \uC900\uBE44" : S.online ? `\uC628\uB77C\uC778 \xB7 \uB300\uAE30\uC2E4 ${S.online.tableId ?? ""}` : "\uC628\uB77C\uC778 \uB300\uC804";
     $("seat-label").textContent = "";
     return;
   }
-  const context2 = progress(), board = context2.board, count = S.mode === "practice" ? S.practice.count : S.online.boardCount;
-  $("board-label").textContent = `${S.mode === "practice" ? "\uC5F0\uC2B5" : "\uC628\uB77C\uC778"} \xB7 ${board}/${count}\uAE30\uBCF8\uAD6D \xB7 \uB300\uAD6D ${context2.handNumber}`;
+  const context3 = progress(), board = context3.board, count = S.mode === "practice" ? S.practice.count : S.online.boardCount;
+  $("board-label").textContent = `${S.mode === "practice" ? "\uC5F0\uC2B5" : "\uC628\uB77C\uC778"} \xB7 ${board}/${count}\uAE30\uBCF8\uAD6D \xB7 \uB300\uAD6D ${context3.handNumber}`;
   $("seat-label").textContent = `\uB0B4 \uC790\uB9AC ${winds[(v.seat - v.dealer + 4) % 4]}`;
-  $("round-name").textContent = handLabel({ ...context2, game: v });
-  $("board-number").textContent = `DEAL ${context2.handId}`;
+  $("round-name").textContent = handLabel({ ...context3, game: v });
+  $("board-number").textContent = `DEAL ${context3.handId}`;
   $("wall-count").textContent = String(v.ownWallRemaining);
   $("pot-label").textContent = `\uB9AC\uCE58\uBD09 ${v.pot / 1e3}`;
-  $("exhausted-label").textContent = `\uC18C\uC9C4 ${v.exhaustedSeats.length} / ${v.rules.exhaustLimit}`;
+  $("exhausted-label").textContent = v.duplicateProfile === "mil" ? v.lastTileTurn ? "MIL \uB9C8\uC9C0\uB9C9 \uCC28\uB840" : "MIL \uAC1C\uC778 \uD328\uC0B0" : `\uC18C\uC9C4 ${v.exhaustedSeats.length} / ${v.rules.exhaustLimit}`;
   const shownActor = v.phase === "reaction" ? v.lastDiscard?.seat : v.turn;
   for (let relative = 0; relative < 4; relative++) {
     const seat = (v.seat + relative) % 4, player = v.players[seat], position = positions[relative], river = $(`river-${position}`);
@@ -2721,6 +3408,7 @@ function renderTable() {
   if (!v.doraIndicators.length) $("dora-tiles").append(textNode("span", v.rules.kanDora ? " \uAE61\u5F8C \uD45C\uC2DC" : " \uC5C6\uC74C"));
   let status = "";
   if (v.phase === "end") status = v.end === "win" ? "\uD654\uB8CC \xB7 \uAD6D \uC885\uB8CC" : "\uC720\uAD6D \xB7 \uAD6D \uC885\uB8CC";
+  else if (v.actor === v.seat && v.lastTileTurn && v.phase === "turn") status = "MIL \uB9C8\uC9C0\uB9C9 \uCC28\uB840 \xB7 \uD654\uB8CC \uB610\uB294 \uBC84\uB9BC\uB9CC \uAC00\uB2A5\uD569\uB2C8\uB2E4.";
   else if (v.actor === v.seat) status = v.phase === "reaction" && v.lastDiscard ? `${winds[(v.lastDiscard.seat - v.dealer + 4) % 4]}\uC758 ${tileName(v.lastDiscard.type ?? v.lastDiscard.tile)} \xB7 \uB860/\uD6C4\uB85C \uC120\uD0DD` : "\uB0B4 \uCC28\uB840\uC785\uB2C8\uB2E4.";
   else if (activeRoom()?.aiWaiting) status = "Mortal \uC120\uD0DD\uC744 \uAE30\uB2E4\uB9AC\uACE0 \uC788\uC2B5\uB2C8\uB2E4.";
   else status = v.phase === "reaction" ? "\uB860\xB7\uCF5C \uD655\uC778 \uC911" : `${winds[(v.turn - v.dealer + 4) % 4]}\uC758 \uCC28\uB840`;
@@ -2833,12 +3521,12 @@ function renderEnd() {
   const details = $("end-details");
   details.replaceChildren();
   for (const seat of v.winners ?? []) {
-    const p = v.players[seat], win2 = p.win;
-    if (!win2) continue;
+    const p = v.players[seat], win3 = p.win;
+    if (!win3) continue;
     const box = document.createElement("div");
     box.className = "winner-block";
-    box.append(textNode("strong", `${winds[(seat - v.dealer + 4) % 4]} \xB7 ${win2.method === "tsumo" ? "\uCBD4\uBAA8" : "\uB860"} \xB7 ${win2.score.yakuman ? "\uC5ED\uB9CC" : `${win2.score.han}\uD310 ${win2.score.fu}\uBD80`}`), textNode("div", win2.score.name ?? ""));
-    const bonuses = win2.score.bonuses;
+    box.append(textNode("strong", `${winds[(seat - v.dealer + 4) % 4]} \xB7 ${win3.method === "tsumo" ? "\uCBD4\uBAA8" : "\uB860"} \xB7 ${win3.score.yakuman ? "\uC5ED\uB9CC" : `${win3.score.han}\uD310 ${win3.score.fu}\uBD80`}`), textNode("div", win3.score.name ?? ""));
+    const bonuses = win3.score.bonuses;
     if (Array.isArray(bonuses) && bonuses.length) box.append(textNode("div", bonuses.map((b) => `${b.name} ${b.han}`).join(" \xB7 ")));
     else if (bonuses && Object.values(bonuses).some(Boolean)) box.append(textNode("div", [bonuses.dora ? `\uB3C4\uB77C ${bonuses.dora}` : "", bonuses.uraDora ? `\uC6B0\uB77C ${bonuses.uraDora}` : "", bonuses.redDora ? `\uC801\uB3C4\uB77C ${bonuses.redDora}` : ""].filter(Boolean).join(" \xB7 ")));
     details.append(box);
@@ -2872,26 +3560,32 @@ function setMetric(id, value) {
   el.classList.toggle("positive", value > 0);
   el.classList.toggle("negative", value < 0);
 }
+function finalRows(room) {
+  return room?.tournament?.finalResults?.standings ?? [];
+}
 function renderComparison() {
-  const online = S.mode === "online", record = online ? S.online?.comparison : S.practice?.results.find((r) => handId({ board: r.board ?? r.index + 1, honba: r.honba ?? 0 }) === progress().handId);
-  $("result-caption").textContent = online ? "\uAC19\uC740 \uC790\uB9AC \xB7 \uC0AC\uB78C" : "\uAE30\uBCF8 AI \uAE30\uC900";
-  $("my-result-label").textContent = online ? "\uC644\uB8CC \uAD6D \uC810\uC218 \uD569\uACC4" : "\uB0B4 \uC810\uC218 \uBCC0\uD654";
+  const online = S.mode === "online", tournament = online && S.online?.tournament?.version === 1, final = tournament && S.online.tournament.status === "final", scoring = normalizeScoring(S.online?.scoring ?? {}), record = tournament ? final ? S.online.finalStanding ?? finalRows(S.online).find((row) => row.tableId === S.online.tableId && row.seat === S.online.seat) : null : online ? S.online?.comparison : S.practice?.results.find((r) => handId({ board: r.board ?? r.index + 1, honba: r.honba ?? 0 }) === progress().handId);
+  $("result-caption").textContent = tournament ? final ? "\uCD5C\uC885 \uD655\uC815 \xB7 \uAC19\uC740 \uCD5C\uCD08 \uC790\uB9AC" : "\uB300\uD68C \uC131\uC801 \uD655\uC815 \uB300\uAE30" : online ? "\uAC19\uC740 \uC790\uB9AC \xB7 \uC0AC\uB78C" : "\uAE30\uBCF8 AI \uAE30\uC900";
+  $("my-result-label").textContent = online ? "\uC810\uC218 \uC99D\uAC10 \uD569\uACC4" : "\uB0B4 \uC810\uC218 \uBCC0\uD654";
   $("reference-label").textContent = online ? "\uAC19\uC740 \uC790\uB9AC \uD3C9\uADE0 \uD569\uACC4" : "\uAE30\uBCF8 AI \uAE30\uC900 \uB300\uAD6D";
+  $("difference-label").textContent = tournament && scoring.method === "imp" ? "IMP \uD569\uACC4" : "\uAE30\uC900 \uB300\uBE44";
   setMetric("my-result", record?.score ?? null);
   setMetric("reference-result", online ? record?.mean : record?.reference);
-  setMetric("difference-result", online ? record?.difference : record?.reference !== null && record?.reference !== void 0 ? record.score - record.reference : null);
-  $("comparison-note").textContent = online ? record?.boards?.some((row) => row.contextMismatch) ? "\uBCF8\uC7A5\xB7\uACF5\uD0C1\xB7\uC2DC\uC791 \uC810\uC218\uAC00 \uB2E4\uB978 \uD0C1\uC740 \uC810\uC218 \uBE44\uAD50\uC5D0\uC11C \uC81C\uC678\uD569\uB2C8\uB2E4. \uAC19\uC740 \uC870\uAC74\uC758 \uC644\uB8CC \uB300\uAD6D\uC774 2\uAC1C \uC774\uC0C1\uC77C \uB54C \uD3C9\uADE0\uC744 \uD45C\uC2DC\uD569\uB2C8\uB2E4." : record?.samples >= 2 ? `\uC644\uB8CC\uB41C \uC0AC\uB78C \uCC38\uAC00\uC790 ${record.samples}\uBA85 \xB7 \uAC19\uC740 \uBC30\uD328\xB7\uC790\uB9AC\xB7\uBCF8\uC7A5\xB7\uC2DC\uC791 \uC810\uC218\xB7\uACF5\uD0C1 \uC870\uAC74\uC758 \uBE44\uAD50\uC785\uB2C8\uB2E4.` : "\uAC19\uC740 \uBC30\uD328\xB7\uC790\uB9AC\xB7\uBCF8\uC7A5\xB7\uC2DC\uC791 \uC810\uC218\xB7\uACF5\uD0C1 \uC870\uAC74\uC5D0\uC11C \uC644\uB8CC\uD55C \uC0AC\uB78C\uC774 2\uBA85 \uC774\uC0C1\uC774\uBA74 \uD3C9\uADE0\uC744 \uD45C\uC2DC\uD569\uB2C8\uB2E4." : record?.referenceStatus === "loading" ? "\uAC19\uC740 \uBC30\uD328\uC758 AI \uAE30\uC900 \uB300\uAD6D\uC744 \uACC4\uC0B0 \uC911\uC785\uB2C8\uB2E4." : record?.referenceStatus === "done" ? "\uAC19\uC740 \uBC30\uD328\xB7\uBCF8\uC7A5\xB7\uC2DC\uC791 \uC810\uC218\xB7\uACF5\uD0C1\uC758 \uAE30\uBCF8 AI \uAE30\uC900\uC785\uB2C8\uB2E4. \uC774\uD6C4 \uC9C4\uD589 \uACBD\uB85C\uB294 \uB530\uB85C \uBE44\uAD50\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4." : record?.referenceStatus === "error" ? "AI \uAE30\uC900 \uB300\uAD6D \uACC4\uC0B0\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4." : "\uAD6D\uC774 \uB05D\uB098\uBA74 \uAC19\uC740 \uC790\uB9AC\uC758 \uACB0\uACFC\uB97C \uBE44\uAD50\uD569\uB2C8\uB2E4.";
+  setMetric("difference-result", online ? tournament && scoring.method === "imp" ? record?.imp : record?.difference : record?.reference !== null && record?.reference !== void 0 ? record.score - record.reference : null);
+  $("scoring-result-details").hidden = !tournament || !final;
+  $("scoring-result-details").textContent = tournament && final ? `\uC6D0\uC810\uC218 \uD3C9\uADE0 \uB300\uBE44 ${signed(record?.difference)}\uC810 \xB7 IMP ${signed(record?.imp)} \xB7 ${scoring.impUnit.toLocaleString("ko-KR")}\uC810 \uB2E8\uC704 \xB7 \uAC19\uC740 \uCD5C\uCD08 \uC790\uB9AC ${record?.samples ?? 0}\uBA85 (${record?.ai ? "AI" : "\uC0AC\uB78C"})` : "";
+  $("comparison-note").textContent = tournament ? !final ? "\uBAA8\uB4E0 \uCC38\uAC00 \uD0C1\uC774 \uB300\uD68C\uB97C \uB9C8\uCE58\uBA74 \uC131\uC801\uC744 \uC790\uB3D9 \uD655\uC815\uD569\uB2C8\uB2E4. \uBCF8\uC7A5\uC744 \uD3EC\uD568\uD55C \uAD6D\uBCC4 \uC810\uC218 \uC99D\uAC10\uC744 \uAC19\uC740 \uCD5C\uCD08 \uC790\uB9AC\uB07C\uB9AC \uBE44\uAD50\uD569\uB2C8\uB2E4." : record?.samples >= 2 ? "\uD655\uC815 \uC131\uC801 \xB7 \uBCF8\uC7A5\uC744 \uD3EC\uD568\uD55C \uAD6D\uBCC4 \uBE44\uAD50\uC785\uB2C8\uB2E4. \uC6D0\uC810\uC218\uC640 IMP\uB97C \uD568\uAED8 \uD45C\uC2DC\uD558\uBA70 \uC0AC\uB78C\uACFC AI\uB294 \uB530\uB85C \uBE44\uAD50\uD569\uB2C8\uB2E4." : "\uAC19\uC740 \uCD5C\uCD08 \uC790\uB9AC\uC758 \uAC19\uC740 \uAD6C\uBD84 \uCC38\uAC00\uC790\uAC00 2\uBA85 \uBBF8\uB9CC\uC774\uBBC0\uB85C \uD3C9\uADE0 \uB300\uBE44\xB7IMP\xB7\uC21C\uC704\uB97C \uD45C\uC2DC\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4." : online ? record?.boards?.some((row) => row.contextMismatch) ? "\uBCF8\uC7A5\xB7\uACF5\uD0C1\xB7\uC2DC\uC791 \uC810\uC218\uAC00 \uB2E4\uB978 \uD0C1\uC740 \uC810\uC218 \uBE44\uAD50\uC5D0\uC11C \uC81C\uC678\uD569\uB2C8\uB2E4. \uAC19\uC740 \uC870\uAC74\uC758 \uC644\uB8CC \uB300\uAD6D\uC774 2\uAC1C \uC774\uC0C1\uC77C \uB54C \uD3C9\uADE0\uC744 \uD45C\uC2DC\uD569\uB2C8\uB2E4." : record?.samples >= 2 ? `\uC644\uB8CC\uB41C \uC0AC\uB78C \uCC38\uAC00\uC790 ${record.samples}\uBA85 \xB7 \uAC19\uC740 \uBC30\uD328\xB7\uC790\uB9AC\xB7\uBCF8\uC7A5\xB7\uC2DC\uC791 \uC810\uC218\xB7\uACF5\uD0C1 \uC870\uAC74\uC758 \uBE44\uAD50\uC785\uB2C8\uB2E4.` : "\uAC19\uC740 \uBC30\uD328\xB7\uC790\uB9AC\xB7\uBCF8\uC7A5\xB7\uC2DC\uC791 \uC810\uC218\xB7\uACF5\uD0C1 \uC870\uAC74\uC5D0\uC11C \uC644\uB8CC\uD55C \uC0AC\uB78C\uC774 2\uBA85 \uC774\uC0C1\uC774\uBA74 \uD3C9\uADE0\uC744 \uD45C\uC2DC\uD569\uB2C8\uB2E4." : record?.referenceStatus === "loading" ? "\uAC19\uC740 \uBC30\uD328\uC758 AI \uAE30\uC900 \uB300\uAD6D\uC744 \uACC4\uC0B0 \uC911\uC785\uB2C8\uB2E4." : record?.referenceStatus === "done" ? "\uAC19\uC740 \uBC30\uD328\xB7\uBCF8\uC7A5\xB7\uC2DC\uC791 \uC810\uC218\xB7\uACF5\uD0C1\uC758 \uAE30\uBCF8 AI \uAE30\uC900\uC785\uB2C8\uB2E4. \uC774\uD6C4 \uC9C4\uD589 \uACBD\uB85C\uB294 \uB530\uB85C \uBE44\uAD50\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4." : record?.referenceStatus === "error" ? "AI \uAE30\uC900 \uB300\uAD6D \uACC4\uC0B0\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4." : "\uAD6D\uC774 \uB05D\uB098\uBA74 \uAC19\uC740 \uC790\uB9AC\uC758 \uACB0\uACFC\uB97C \uBE44\uAD50\uD569\uB2C8\uB2E4.";
   const history = $("result-history");
   history.replaceChildren();
-  const rows = online ? record?.boards ?? [] : S.practice?.results ?? [];
+  const rows = tournament ? record?.rounds ?? [] : online ? record?.boards ?? [] : S.practice?.results ?? [];
   for (const r of rows.slice(-8)) {
     const row = document.createElement("div");
     row.className = "result-history-row";
-    const difference = online ? r.difference : r.reference === null ? null : r.score - r.reference;
-    row.append(textNode("span", `${r.board}\uAD6D \xB7 ${r.honba ?? 0}\uBCF8\uC7A5`), textNode("span", signed(r.score)), textNode("span", difference === null ? "\uBE44\uAD50 \uB300\uAE30" : signed(difference), difference > 0 ? "positive" : difference < 0 ? "negative" : ""));
+    const difference = online ? tournament && scoring.method === "imp" ? r.imp : r.difference : r.reference === null ? null : r.score - r.reference;
+    row.append(textNode("span", tournament ? `${r.board}\uAD6D \xB7 \uBCF8\uC7A5 \uD3EC\uD568` : `${r.board}\uAD6D \xB7 ${r.honba ?? 0}\uBCF8\uC7A5`), textNode("span", signed(r.score)), textNode("span", difference === null ? "\uBE44\uAD50 \uB300\uAE30" : `${signed(difference)}${tournament && scoring.method === "imp" ? " IMP" : ""}`, difference > 0 ? "positive" : difference < 0 ? "negative" : ""));
     history.append(row);
   }
-  $("standings-open").hidden = !online || !S.online?.standings?.length;
+  $("standings-open").hidden = !online || tournament && !final || !S.online?.standings?.length;
 }
 function renderRoom() {
   observerLinks.update();
@@ -2911,8 +3605,13 @@ function renderRoom() {
     row.append(textNode("span", `${winds[seat]} \xB7 ${p?.name ?? "\uBE48\uC790\uB9AC"}`), textNode("small", p ? p.ai ? "AI" : seat === room.seat ? "\uB098" : "\uCC38\uAC00\uC790" : "\uB300\uAE30"));
     members.append(row);
   }
-  $("start-ai").hidden = room.phase !== "lobby" || !room.host;
+  const t = room.tournament, registration = t?.status === "registration";
+  $("start-ai").hidden = t ? !(registration && room.host && room.members.length < 4) : room.phase !== "lobby" || !room.host;
+  $("start-ai").textContent = t ? "\uB0B4 \uD0C1\uC758 \uBE48\uC790\uB9AC\uB97C AI\uB85C \uCC44\uC6B0\uAE30" : "\uBE48\uC790\uB9AC\uB97C AI\uB85C \uCC44\uC6B0\uACE0 \uC2DC\uC791";
   $("start-ai").disabled = S.busy;
+  $("start-tournament").hidden = !registration || !room.organizer;
+  $("start-tournament").disabled = S.busy || !t?.canStart;
+  $("tournament-status").textContent = t ? registration ? `\uCC38\uAC00 \uB4F1\uB85D \uC911 \xB7 ${t.tableCount}\uD0C1 ${t.participantCount}\uBA85. ${t.blockedReason ?? (room.organizer ? "\uBA85\uB2E8\uC744 \uD655\uC815\uD558\uBA74 \uBAA8\uB4E0 \uD0C1\uC774 \uC2DC\uC791\uD558\uBA70 \uCD94\uAC00 \uCC38\uAC00\uAC00 \uB9C8\uAC10\uB429\uB2C8\uB2E4." : "\uCD5C\uCD08 \uBC29\uC7A5\uC758 \uB300\uD68C \uC2DC\uC791\uC744 \uAE30\uB2E4\uB9AC\uACE0 \uC788\uC2B5\uB2C8\uB2E4.")}` : t.status === "final" ? "\uC804\uD0C1 \uB300\uD68C \uC885\uB8CC \xB7 \uCD5C\uC885 \uC131\uC801\uC774 \uD655\uC815\uB418\uC5C8\uC2B5\uB2C8\uB2E4." : "\uB300\uD68C \uC9C4\uD589 \uC911 \xB7 \uCC38\uAC00 \uB4F1\uB85D \uB9C8\uAC10. \uC804\uD0C1 \uC885\uB8CC \uD6C4 \uC131\uC801\uC744 \uC790\uB3D9 \uD655\uC815\uD569\uB2C8\uB2E4." : "\uC774\uC804 \uB300\uD68C \xB7 \uAE30\uC874 \uD14C\uC774\uBE14\uBCC4 \uC2DC\uC791 \uBC29\uC2DD\uC744 \uC720\uC9C0\uD569\uB2C8\uB2E4.";
 }
 function render() {
   const online = S.mode === "online";
@@ -2996,7 +3695,7 @@ async function connectRoom(create) {
   S.busy = true;
   renderRoom();
   try {
-    const state = await request(create ? "" : `/${code}/join`, create ? { name, rules: S.roomRules, matchRules: S.roomMatchRules, boardCount: matchBoardCount(S.roomMatchRules), aiPolicy: S.roomAI } : { name }, false);
+    const state = await request(create ? "" : `/${code}/join`, create ? { name, rules: S.roomRules, duplicateProfile: S.roomDuplicateProfile, scoring: S.roomScoring, matchRules: S.roomMatchRules, boardCount: matchBoardCount(S.roomMatchRules), aiPolicy: S.roomAI } : { name }, false);
     S.credentials = { code: state.code, key: state.key, seat: state.seat, tableId: state.tableId, server: S.server };
     writeStorage(sessionStorage, "duplicate.room.v1", S.credentials);
     writeStorage(localStorage, "duplicate.name", name);
@@ -3107,16 +3806,17 @@ async function advance() {
   S.riichiSelecting = false;
   afterPracticeStep();
 }
-function openRules(context2 = S.mode === "online" ? "room" : "practice", create = false) {
-  S.ruleContext = context2;
-  S.ruleReadOnly = context2 === "room" && !!S.online;
+function openRules(context3 = S.mode === "online" ? "room" : "practice", create = false) {
+  S.ruleContext = context3;
+  S.ruleReadOnly = context3 === "room" && !!S.online;
   S.creatingRoom = create && !S.ruleReadOnly;
-  const rules = S.ruleReadOnly ? S.online.rules : context2 === "room" ? S.roomRules : S.settings;
+  const rules = S.ruleReadOnly ? S.online.rules : context3 === "room" ? S.roomRules : S.settings;
+  $("rule-duplicateProfile").value = S.ruleReadOnly ? S.online.duplicateProfile ?? "custom" : context3 === "room" ? S.roomDuplicateProfile : S.practiceDuplicateProfile;
   for (const [key] of switchDefinitions) $(`rule-${key}`).checked = rules[key];
   $("rule-exhaustLimit").value = rules.exhaustLimit;
   $("rule-multipleRon").value = rules.multipleRon;
   $("rule-startingPoints").value = rules.startingPoints;
-  const match = S.ruleReadOnly ? S.online.matchRules : context2 === "room" ? S.roomMatchRules : { ...S.practiceMatchRules, format: $("practice-count").value };
+  const match = S.ruleReadOnly ? S.online.matchRules : context3 === "room" ? S.roomMatchRules : { ...S.practiceMatchRules, format: $("practice-count").value };
   const format = $("rule-format");
   format.querySelector("option[value=legacy]")?.remove();
   if (S.ruleReadOnly && !match) {
@@ -3128,26 +3828,54 @@ function openRules(context2 = S.mode === "online" ? "room" : "practice", create 
   $("rule-dealerContinuation").checked = match?.dealerContinuation ?? false;
   $("rule-agariYame").checked = match?.agariYame ?? false;
   $("rule-match-note").textContent = S.ruleReadOnly && !match ? "\uC774 \uB300\uD68C\uB294 \uC774\uC804 \uB3C5\uB9BD \uB300\uAD6D \uBC29\uC2DD\uC73C\uB85C \uACC4\uC18D \uC9C4\uD589\uD569\uB2C8\uB2E4." : "\uAE30\uBCF8\uAD6D\uC740 \uB3D9\uD48D\uC804 4\uAD6D, \uBC18\uC7A5\uC804 8\uAD6D\uC785\uB2C8\uB2E4. \uB9C8\uC9C0\uB9C9 \uAD6D\uB3C4 \uCE5C \uC5F0\uC7A5 \uC870\uAC74\uC744 \uD655\uC778\uD569\uB2C8\uB2E4.";
+  const scoring = normalizeScoring((S.ruleReadOnly ? S.online.scoring : S.roomScoring) ?? {});
+  $("rule-scoring-method").value = scoring.method;
+  $("rule-scoring-unit").value = String(scoring.impUnit);
+  $("rule-scoring-fields").hidden = context3 !== "room";
   $("rule-aiPolicy").value = S.ruleReadOnly ? S.online.aiPolicy ?? "simple" : S.roomAI;
-  $("rule-aiPolicy-field").hidden = context2 !== "room";
-  $("rules-dialog-title").textContent = S.ruleReadOnly ? "\uC774 \uBC29\uC758 \uB300\uAD6D \uADDC\uCE59" : create ? "\uB300\uD68C \uB9CC\uB4E4\uAE30" : context2 === "room" ? "\uC0C8 \uB300\uD68C \uADDC\uCE59" : "\uC5F0\uC2B5 \uADDC\uCE59";
-  $("rules-dialog-note").textContent = S.ruleReadOnly ? "\uBC29\uC744 \uB9CC\uB4E4 \uB54C \uD655\uC815\uD55C \uACF5\uD1B5 \uADDC\uCE59\uC785\uB2C8\uB2E4. \uCC38\uAC00\uC790\uB294 \uBCC0\uACBD\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4." : context2 === "room" ? "\uC774 \uB300\uD68C\uC758 \uBAA8\uB4E0 \uD14C\uC774\uBE14\uC5D0 \uAC19\uC740 \uADDC\uCE59\uC744 \uC801\uC6A9\uD569\uB2C8\uB2E4. \uAC1C\uC778 \uD654\uBA74\xB7\uC54C\uB9BC \uC124\uC815\uACFC \uBCC4\uB3C4\uB85C \uC800\uC7A5\uD569\uB2C8\uB2E4." : "\uB2E4\uC74C \uC0C8 \uC5F0\uC2B5\uBD80\uD130 \uC801\uC6A9\uB429\uB2C8\uB2E4. \uC628\uB77C\uC778 \uB300\uD68C\uC758 \uADDC\uCE59\uC740 \uB530\uB85C \uC124\uC815\uD569\uB2C8\uB2E4.";
+  $("rule-aiPolicy-field").hidden = context3 !== "room";
+  $("rules-dialog-title").textContent = S.ruleReadOnly ? "\uC774 \uBC29\uC758 \uB300\uAD6D \uADDC\uCE59" : create ? "\uB300\uD68C \uB9CC\uB4E4\uAE30" : context3 === "room" ? "\uC0C8 \uB300\uD68C \uADDC\uCE59" : "\uC5F0\uC2B5 \uADDC\uCE59";
+  $("rules-dialog-note").textContent = S.ruleReadOnly ? "\uBC29\uC744 \uB9CC\uB4E4 \uB54C \uD655\uC815\uD55C \uACF5\uD1B5 \uADDC\uCE59\uC785\uB2C8\uB2E4. \uCC38\uAC00\uC790\uB294 \uBCC0\uACBD\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4." : context3 === "room" ? "\uC774 \uB300\uD68C\uC758 \uBAA8\uB4E0 \uD14C\uC774\uBE14\uC5D0 \uAC19\uC740 \uADDC\uCE59\uC744 \uC801\uC6A9\uD569\uB2C8\uB2E4. \uAC1C\uC778 \uD654\uBA74\xB7\uC54C\uB9BC \uC124\uC815\uACFC \uBCC4\uB3C4\uB85C \uC800\uC7A5\uD569\uB2C8\uB2E4." : "\uB2E4\uC74C \uC0C8 \uC5F0\uC2B5\uBD80\uD130 \uC801\uC6A9\uB429\uB2C8\uB2E4. \uC628\uB77C\uC778 \uB300\uD68C\uC758 \uADDC\uCE59\uC740 \uB530\uB85C \uC124\uC815\uD569\uB2C8\uB2E4.";
   $("rules-dialog").classList.toggle("rules-readonly", S.ruleReadOnly);
   for (const input of $("rules-dialog").querySelectorAll('#rule-switches input,[id^="rule-"]')) input.disabled = S.ruleReadOnly;
+  updateProfileControls();
+  for (const id of ["preset-standard", "preset-no-dora"]) $(id).disabled = S.ruleReadOnly;
   $("rule-format-field").hidden = false;
   $("create-room-name-field").hidden = !S.creatingRoom;
   $("create-room-name").value = $("online-name").value;
   $("rules-save").hidden = S.ruleReadOnly;
-  $("rules-save").textContent = S.creatingRoom ? "\uC774 \uADDC\uCE59\uC73C\uB85C \uB300\uD68C \uB9CC\uB4E4\uAE30" : context2 === "room" ? "\uB300\uD68C \uADDC\uCE59 \uC800\uC7A5" : "\uC5F0\uC2B5 \uADDC\uCE59 \uC800\uC7A5";
+  $("rules-save").textContent = S.creatingRoom ? "\uC774 \uADDC\uCE59\uC73C\uB85C \uB300\uD68C \uB9CC\uB4E4\uAE30" : context3 === "room" ? "\uB300\uD68C \uADDC\uCE59 \uC800\uC7A5" : "\uC5F0\uC2B5 \uADDC\uCE59 \uC800\uC7A5";
   $("rules-dialog").showModal();
 }
-function fillPreset(noDora = false) {
-  for (const [key] of switchDefinitions) $(`rule-${key}`).checked = noDora ? ["kuitan", "abortFourKans"].includes(key) : DEFAULT_RULES2[key];
+function updateWallQuota() {
+  const rules = {};
+  for (const key of ["dora", "kanDora", "uraDora", "deadWall"]) rules[key] = $(`rule-${key}`).checked;
+  const left = 84 - reservedTileCount(rules), quotas = Array.from({ length: 4 }, (_, seat) => Math.floor(left / 4) + (seat < left % 4 ? 1 : 0));
+  $("rule-wall-quota").textContent = `\uBC30\uD328 \uAC01 13\uC7A5 + \uAC1C\uC778 \uD328\uC0B0 ${quotas.join(" / ")}\uC7A5 \xB7 \uCD5C\uCD08 \uC790\uB9AC 1\xB72\xB73\xB74 \uC21C\uC11C, \uCE5C \uCCAB \uCBD4\uBAA8 \uD3EC\uD568`;
+}
+function updateProfileControls() {
+  const mil = $("rule-duplicateProfile").value === "mil";
+  $("rule-exhaustLimit").querySelector('option[value="1"]').textContent = mil ? "\uD558\uAC00 \uC18C\uC9C4 \uD6C4 \uB9C8\uC9C0\uB9C9 \uCC28\uB840 \xB7 MIL" : "1\uBA85 \uC18C\uC9C4";
+  if (mil) {
+    for (const key of ["dora", "kanDora", "uraDora", "redDora", "deadWall", "abortFourKans"]) $(`rule-${key}`).checked = false;
+    $("rule-exhaustLimit").value = 1;
+    $("rule-multipleRon").value = "all";
+  }
+  for (const key of milFixed) $(`rule-${key}`).disabled = S.ruleReadOnly || mil;
+  $("rule-duplicateProfile").disabled = S.ruleReadOnly;
+  $("rule-profile-custom").hidden = !mil || S.ruleReadOnly;
+  updateWallQuota();
+  $("rule-profile-note").textContent = mil ? "136\uC7A5 \xB7 \uAF43 \uC5C6\uC74C \xB7 \uAC01\uC790 \uBC30\uD328 13\uC7A5\uACFC \uAC1C\uC778 \uD328\uC0B0 21\uC7A5. \uD558\uAC00\uC758 \uD328\uC0B0\uC774 \uBE44\uC5B4 \uC788\uC744 \uB54C \uC5BB\uC740 \uB9C8\uC9C0\uB9C9 \uCC28\uB840\uB294 \uD654\uB8CC\uC640 \uBC84\uB9BC\uB9CC \uD5C8\uC6A9\uD558\uACE0, \uB860 \uD655\uC778 \uB4A4 \uC720\uAD6D\uD569\uB2C8\uB2E4. \uB3C4\uB77C\xB7\uC655\uD328\xB7\uC0AC\uAE61\uC0B0\uB8CC\xB7\uBCF5\uC218 \uB860 \uC124\uC815\uC740 \uC774 \uD504\uB85C\uD544\uC5D0 \uACE0\uC815\uB429\uB2C8\uB2E4." : "\uC655\uD328\xB7\uB3C4\uB77C\uC640 n\uBA85 \uD328\uC0B0 \uC18C\uC9C4 \uC720\uAD6D\uC744 \uC9C1\uC811 \uC124\uC815\uD569\uB2C8\uB2E4. MIL\uC758 13+21 \uBC30\uD328\uC640 \uD558\uAC00 \uD328\uC0B0 \uAE30\uC900 \uC885\uB8CC \uC870\uAC74\uACFC \uAD6C\uBD84\uB429\uB2C8\uB2E4.";
+}
+function fillPreset(mil = false) {
+  $("rule-duplicateProfile").value = mil ? "mil" : "custom";
+  for (const [key] of switchDefinitions) $(`rule-${key}`).checked = DEFAULT_RULES2[key];
   $("rule-exhaustLimit").value = 1;
   $("rule-multipleRon").value = "all";
   $("rule-startingPoints").value = 25e3;
   $("rule-dealerContinuation").checked = true;
   $("rule-agariYame").checked = false;
+  updateProfileControls();
 }
 function saveRules() {
   if (S.ruleReadOnly || S.busy) return;
@@ -3163,19 +3891,22 @@ function saveRules() {
     raw.multipleRon = $("rule-multipleRon").value;
     raw.startingPoints = Number($("rule-startingPoints").value);
     if (raw.startingPoints > 1e5) throw new Error("\uC2DC\uC791 \uC810\uC218\uB294 100,000\uC810 \uC774\uD558\uB85C \uC124\uC815\uD574 \uC8FC\uC138\uC694.");
-    const rules = normalizeRules(raw), matchRules = normalizeMatchRules({ format: $("rule-format").value, dealerContinuation: $("rule-dealerContinuation").checked, agariYame: $("rule-agariYame").checked });
+    const duplicateProfile = normalizeDuplicateProfile($("rule-duplicateProfile").value), rules = normalizeProfileRules(raw, duplicateProfile), matchRules = normalizeMatchRules({ format: $("rule-format").value, dealerContinuation: $("rule-dealerContinuation").checked, agariYame: $("rule-agariYame").checked });
     if (S.ruleContext === "room") {
+      S.roomScoring = normalizeScoring({ method: $("rule-scoring-method").value, impUnit: Number($("rule-scoring-unit").value) });
       S.roomRules = rules;
+      S.roomDuplicateProfile = duplicateProfile;
       S.roomMatchRules = matchRules;
       S.boardCount = matchBoardCount(matchRules);
       S.roomAI = $("rule-aiPolicy").value;
       if (S.creatingRoom && S.roomAI === "mortal" && !S.aiCapabilities?.policies?.find((p) => p.id === "mortal")?.available) throw new Error("Mortal \uC5F0\uACB0\uC744 \uD655\uC778\uD55C \uB4A4 \uB300\uD68C\uB97C \uB9CC\uB4E4\uC5B4 \uC8FC\uC138\uC694.");
-      writeStorage(localStorage, "duplicate.room-rules.v1", { rules: S.roomRules, matchRules: S.roomMatchRules, boardCount: S.boardCount, aiPolicy: S.roomAI });
+      writeStorage(localStorage, "duplicate.room-rules.v1", { rules: S.roomRules, duplicateProfile: S.roomDuplicateProfile, scoring: S.roomScoring, matchRules: S.roomMatchRules, boardCount: S.boardCount, aiPolicy: S.roomAI });
     } else {
       S.settings = rules;
+      S.practiceDuplicateProfile = duplicateProfile;
       S.practiceMatchRules = matchRules;
       $("practice-count").value = matchRules.format;
-      writeStorage(localStorage, "duplicate.settings.v1", { rules: S.settings, matchRules });
+      writeStorage(localStorage, "duplicate.settings.v1", { rules: S.settings, duplicateProfile: S.practiceDuplicateProfile, matchRules });
     }
     const create = S.creatingRoom;
     if (create) $("online-name").value = $("create-room-name").value.trim();
@@ -3190,30 +3921,52 @@ function saveRules() {
 function showStandings() {
   const box = $("standings-table");
   box.replaceChildren();
+  const modern = S.online?.tournament?.version === 1, rows = modern ? finalRows(S.online) : S.online?.standings ?? [];
+  if (modern && S.online.tournament.status !== "final") {
+    box.append(textNode("p", "\uBAA8\uB4E0 \uD0C1\uC758 \uC885\uB8CC\uC640 \uC131\uC801 \uD655\uC815\uC744 \uAE30\uB2E4\uB9AC\uACE0 \uC788\uC2B5\uB2C8\uB2E4."));
+    $("standings-dialog").showModal();
+    return;
+  }
+  $("standings-note").textContent = modern ? "\uD655\uC815 \uC131\uC801 \xB7 \uAC19\uC740 \uCD5C\uCD08 \uC790\uB9AC\uB07C\uB9AC \uBCF8\uC7A5\uC744 \uD3EC\uD568\uD55C \uAD6D\uBCC4 \uC810\uC218 \uC99D\uAC10\uC744 \uBE44\uAD50\uD569\uB2C8\uB2E4. \uC0AC\uB78C\uACFC AI\uB294 \uBCC4\uB3C4 \uC21C\uC704\uC774\uBA70 \uD45C\uBCF8 2\uBA85 \uBBF8\uB9CC\uC740 \uD3C9\uADE0 \uB300\uBE44\xB7IMP\xB7\uC21C\uC704 \uC5C6\uC74C\uC785\uB2C8\uB2E4. IMP\uB294 \uC774 \uC571\uC758 \uB9AC\uCE58\uC6A9 \uD658\uC0B0\uC785\uB2C8\uB2E4." : "\uC774\uC804 \uB300\uD68C \xB7 \uAC19\uC740 \uBC30\uD328\xB7\uC810\uC218 \uB9E5\uB77D\uC758 \uC644\uB8CC \uACB0\uACFC\uB97C \uBE44\uAD50\uD569\uB2C8\uB2E4.";
   const table = document.createElement("table");
   table.className = "standings";
   const head = document.createElement("thead"), row = document.createElement("tr");
-  for (const label of ["\uC774\uB984", "\uAD6C\uBD84", "\uC644\uB8CC", "\uC810\uC218 \uD569\uACC4", "\uD3C9\uADE0 \uB300\uBE44"]) row.append(textNode("th", label));
+  for (const label of modern ? ["\uC21C\uC704", "\uC774\uB984", "\uAD6C\uBD84", "\uCD5C\uCD08 \uC790\uB9AC", "\uC810\uC218 \uC99D\uAC10", "\uC6D0\uC810\uC218 \uD3C9\uADE0 \uB300\uBE44", "IMP", "\uD45C\uBCF8"] : ["\uC774\uB984", "\uAD6C\uBD84", "\uC644\uB8CC", "\uC810\uC218 \uD569\uACC4", "\uD3C9\uADE0 \uB300\uBE44"]) row.append(textNode("th", label));
   head.append(row);
   table.append(head);
   const body = document.createElement("tbody");
-  for (const p of S.online?.standings ?? []) {
-    const r = document.createElement("tr");
-    r.append(textNode("td", p.name), textNode("td", p.ai ? "AI" : "\uC0AC\uB78C"), textNode("td", `${p.completedBoards}\uB300\uAD6D`), textNode("td", signed(p.score)), textNode("td", signed(p.difference)));
+  for (const p of rows) {
+    const r = document.createElement("tr"), values = modern ? [p.rank ?? "\u2014", p.name, p.ai ? "AI" : "\uC0AC\uB78C", winds[p.seat], signed(p.score), signed(p.difference), signed(p.imp), p.samples] : [p.name, p.ai ? "AI" : "\uC0AC\uB78C", `${p.completedBoards}\uAD6D`, signed(p.score), signed(p.difference)];
+    for (const value of values) r.append(textNode("td", value));
     body.append(r);
   }
   table.append(body);
   box.append(table);
   $("standings-dialog").showModal();
 }
+function mountIMPTable() {
+  const table = $("imp-scale-table"), head = document.createElement("thead"), tr = document.createElement("tr");
+  for (const label of ["\uD658\uC0B0\xB7\uBC18\uC62C\uB9BC\uD55C \uCC28\uC774\uC758 \uC808\uB313\uAC12", "IMP"]) tr.append(textNode("th", label));
+  head.append(tr);
+  table.append(head);
+  const body = document.createElement("tbody");
+  for (let imp = 0; imp <= IMP_THRESHOLDS.length; imp++) {
+    const from = imp === 0 ? 0 : IMP_THRESHOLDS[imp - 1], to = IMP_THRESHOLDS[imp] - 1, row = document.createElement("tr");
+    row.append(textNode("td", Number.isFinite(to) ? `${from}\u2013${to}` : `${from} \uC774\uC0C1`), textNode("td", String(imp)));
+    body.append(row);
+  }
+  table.append(body);
+  $("imp-scale-source").href = IMP_SCALE_SOURCE_URL;
+}
 function exportResult() {
-  const record = S.mode === "practice" ? { format: "duplicate-practice-v1", createdAt: (/* @__PURE__ */ new Date()).toISOString(), seed: S.practice.seed, seat: S.practice.seat, rules: S.practice.game.rules, matchRules: S.practice.matchRules, progress: progress(), aiPolicy: S.practice.aiPolicy ?? "simple", modelSha256: S.practiceRemote?.aiModelSha256 ?? null, results: S.practice.results, game: S.practice.aiPolicy === "mortal" ? S.practiceRemote?.game ?? null : S.practice.game } : { format: "duplicate-online-result-v1", createdAt: (/* @__PURE__ */ new Date()).toISOString(), code: S.online?.code, tableId: S.online?.tableId, seat: S.online?.seat, rules: S.online?.rules, matchRules: S.online?.matchRules, progress: progress(), comparison: S.online?.comparison, standings: S.online?.standings, game: S.view };
+  const record = S.mode === "practice" ? { format: "duplicate-practice-v1", createdAt: (/* @__PURE__ */ new Date()).toISOString(), seed: S.practice.seed, seat: S.practice.seat, rules: S.practice.game.rules, duplicateProfile: S.practice.duplicateProfile, matchRules: S.practice.matchRules, progress: progress(), aiPolicy: S.practice.aiPolicy ?? "simple", modelSha256: S.practiceRemote?.aiModelSha256 ?? null, results: S.practice.results, game: S.practice.aiPolicy === "mortal" ? S.practiceRemote?.game ?? null : S.practice.game } : { format: "duplicate-online-result-v1", createdAt: (/* @__PURE__ */ new Date()).toISOString(), code: S.online?.code, tableId: S.online?.tableId, seat: S.online?.seat, rules: S.online?.rules, duplicateProfile: S.online?.duplicateProfile, scoring: S.online?.scoring, tournament: S.online?.tournament, matchRules: S.online?.matchRules, progress: progress(), comparison: S.online?.comparison, standings: S.online?.standings, game: S.view };
   const url = URL.createObjectURL(new Blob([JSON.stringify(record, null, 2)], { type: "application/json" })), a = document.createElement("a");
   a.href = url;
   a.download = `duplicate-${S.mode}-${Date.now()}.json`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1e3);
 }
+mountIMPTable();
 for (const [key, title, description] of switchDefinitions) {
   const row = document.createElement("label");
   row.className = "switch-row";
@@ -3237,11 +3990,18 @@ $("room-rules-open").onclick = () => openRules("room");
 $("rules-open-second").onclick = () => openRules();
 $("help-open").onclick = () => $("help-dialog").showModal();
 $("rules-save").onclick = saveRules;
+$("rule-duplicateProfile").onchange = updateProfileControls;
+$("rule-profile-custom").onclick = () => {
+  $("rule-duplicateProfile").value = "custom";
+  updateProfileControls();
+};
+for (const key of ["dora", "kanDora", "uraDora", "deadWall"]) $(`rule-${key}`).onchange = updateWallQuota;
 $("preset-standard").onclick = () => fillPreset(false);
 $("preset-no-dora").onclick = () => fillPreset(true);
 $("online-create").onclick = () => openRules("room", true);
 $("online-join").onclick = () => connectRoom(false);
 $("start-ai").onclick = () => roomOperation("start-ai");
+$("start-tournament").onclick = () => roomOperation("start");
 $("leave-room").onclick = () => leaveRoom();
 $("next-board").onclick = advance;
 $("dismiss-result").onclick = () => {
@@ -3284,9 +4044,9 @@ $("practice-disconnect").onclick = () => {
 $("online-code").oninput = () => {
   $("online-code").value = $("online-code").value.toUpperCase().replace(/[^A-Z2-9]/g, "");
 };
-document.addEventListener("keydown", (event2) => {
+document.addEventListener("keydown", (event3) => {
   if (document.querySelector("dialog[open]") || ["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
-  if (event2.key === "Escape") {
+  if (event3.key === "Escape") {
     S.selected = null;
     S.riichiSelecting = false;
     renderHand();
@@ -3295,16 +4055,16 @@ document.addEventListener("keydown", (event2) => {
   }
   const legal = S.view?.legalActions.filter((a) => a.type === (S.riichiSelecting ? "riichi" : "discard")) ?? [];
   if (!legal.length) return;
-  if (["ArrowLeft", "ArrowRight"].includes(event2.key)) {
-    event2.preventDefault();
-    const index = legal.findIndex((a) => a.id === S.selected), next = index < 0 ? 0 : (index + (event2.key === "ArrowRight" ? 1 : -1) + legal.length) % legal.length;
+  if (["ArrowLeft", "ArrowRight"].includes(event3.key)) {
+    event3.preventDefault();
+    const index = legal.findIndex((a) => a.id === S.selected), next = index < 0 ? 0 : (index + (event3.key === "ArrowRight" ? 1 : -1) + legal.length) % legal.length;
     S.selected = legal[next].id;
     renderHand();
     renderActions();
     $("hand").querySelector(`[data-id="${S.selected}"]`)?.focus();
   }
-  if (event2.key === "Enter" && document.activeElement.tagName !== "BUTTON") {
-    event2.preventDefault();
+  if (event3.key === "Enter" && document.activeElement.tagName !== "BUTTON") {
+    event3.preventDefault();
     const action = legal.find((a) => a.id === S.selected);
     if (action) play(action);
   }
@@ -3325,9 +4085,11 @@ document.addEventListener("keydown", () => {
 }, { passive: true });
 var storedSettings = readStorage(localStorage, "duplicate.settings.v1");
 try {
-  S.settings = normalizeRules(storedSettings?.rules ?? {});
+  S.practiceDuplicateProfile = normalizeDuplicateProfile(storedSettings?.duplicateProfile ?? "mil");
+  S.settings = setupRules(storedSettings?.rules ?? {}, S.practiceDuplicateProfile);
 } catch {
-  S.settings = normalizeRules();
+  S.practiceDuplicateProfile = "mil";
+  S.settings = setupRules();
 }
 try {
   S.practiceMatchRules = normalizeMatchRules(storedSettings?.matchRules ?? {});
@@ -3336,13 +4098,20 @@ try {
 }
 var storedRoomRules = readStorage(localStorage, "duplicate.room-rules.v1");
 try {
-  S.roomRules = normalizeRules(storedRoomRules?.rules ?? storedSettings?.rules ?? {});
+  S.roomDuplicateProfile = normalizeDuplicateProfile(storedRoomRules?.duplicateProfile ?? "mil");
+  S.roomRules = setupRules(storedRoomRules?.rules ?? storedSettings?.rules ?? {}, S.roomDuplicateProfile);
   S.roomMatchRules = normalizeMatchRules(storedRoomRules?.matchRules ?? {});
   S.boardCount = matchBoardCount(S.roomMatchRules);
 } catch {
-  S.roomRules = normalizeRules();
+  S.roomDuplicateProfile = "mil";
+  S.roomRules = setupRules();
   S.roomMatchRules = normalizeMatchRules();
   S.boardCount = 8;
+}
+try {
+  S.roomScoring = normalizeScoring(storedRoomRules?.scoring);
+} catch {
+  S.roomScoring = normalizeScoring();
 }
 S.roomAI = storedRoomRules?.aiPolicy === "mortal" ? "mortal" : "simple";
 S.preferences = loadPreferences(localStorage);
@@ -3350,21 +4119,21 @@ S.autoWin = S.preferences.autoWin;
 S.autoPass = S.preferences.autoPass;
 $("auto-win").checked = S.autoWin;
 $("auto-pass").checked = S.autoPass;
-personalSettingsUI = mountPersonalSettings($("settings-panel"), { value: S.preferences, onChange: applyPreferences, onPreview: () => feedback.preview(S.view ?? snapshot2(S.practice.game, S.practice.seat)) });
+personalSettingsUI = mountPersonalSettings($("settings-panel"), { value: S.preferences, onChange: applyPreferences, onPreview: () => feedback.preview(S.view ?? snapshot3(S.practice.game, S.practice.seat)) });
 var saved = readStorage(localStorage, "duplicate.practice.v1");
 try {
   S.practice = restorePracticeSeries(saved);
 } catch {
   S.practice = null;
 }
-if (!S.practice) S.practice = createPracticeSeries({ seed: randomSeed(), seat: 0, matchRules: S.practiceMatchRules, rules: S.settings });
+if (!S.practice) S.practice = createPracticeSeries({ seed: randomSeed(), seat: 0, matchRules: S.practiceMatchRules, rules: S.settings, duplicateProfile: S.practiceDuplicateProfile });
 $("practice-seed").value = S.practice.seed;
 $("practice-seat").value = S.practice.seat;
 $("practice-count").value = S.practice.matchRules?.format ?? S.practiceMatchRules.format;
 $("online-name").value = readStorage(localStorage, "duplicate.name") ?? "";
 $("practice-count").onchange = () => {
   S.practiceMatchRules = normalizeMatchRules({ ...S.practiceMatchRules, format: $("practice-count").value });
-  writeStorage(localStorage, "duplicate.settings.v1", { rules: S.settings, matchRules: S.practiceMatchRules });
+  writeStorage(localStorage, "duplicate.settings.v1", { rules: S.settings, duplicateProfile: S.practiceDuplicateProfile, matchRules: S.practiceMatchRules });
 };
 $("practice-ai").value = readStorage(localStorage, "duplicate.practice-ai.v1") ?? S.practice.aiPolicy ?? "simple";
 function normalizeServer(value) {
@@ -3406,7 +4175,7 @@ if (invite && /^[A-Z2-9]{8}$/.test(invite)) {
   S.mode = "online";
 }
 if (S.credentials) S.mode = "online";
-S.view = S.mode === "practice" ? snapshot2(S.practice.game, S.practice.seat) : null;
+S.view = S.mode === "practice" ? snapshot3(S.practice.game, S.practice.seat) : null;
 setMode(S.mode);
 if (S.credentials) schedulePoll();
 if (S.practice.game.phase === "end" && !S.practice.results.some((r) => handId({ board: r.board ?? r.index + 1, honba: r.honba ?? 0 }) === seriesProgress(S.practice).handId)) finishPractice();
