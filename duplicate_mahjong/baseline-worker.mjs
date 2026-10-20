@@ -1010,22 +1010,80 @@ function chooseAction(view) {
   }
   return best.a;
 }
-function driveAI(s, humanSeats = [], maxSteps = 500) {
+
+// duplicate/engine/live-game.mjs
+var honbaOf = (game) => {
+  const honba = game.honba ?? 0;
+  if (!Number.isSafeInteger(honba) || honba < 0) throw new Error("Invalid honba");
+  return honba;
+};
+function createGame2({ honba = 0, ...options } = {}) {
+  honbaOf({ honba });
+  const game = createGame(options);
+  game.honba = honba;
+  return game;
+}
+function addHonba(game) {
+  const honba = honbaOf(game), seat = game.winners[0];
+  if (!honba || seat === void 0) return;
+  const winner = game.players[seat], win2 = winner.win, amount = honba * 300;
+  if (!Number.isSafeInteger(amount)) throw new Error("Honba payment exceeds the supported range");
+  const moves = win2.pao ? [{ from: win2.pao.seat, to: seat, amount, kind: win2.method, honba: true }] : win2.method === "ron" ? [{ from: win2.source, to: seat, amount, kind: "ron", honba: true }] : [0, 1, 2, 3].filter((from) => from !== seat).map((from) => ({ from, to: seat, amount: honba * 100, kind: "tsumo", honba: true }));
+  const scores = game.players.map((p) => p.score), stats = game.players.map((p) => ({ ...p.stats }));
+  for (const move of moves) {
+    scores[move.from] -= move.amount;
+    scores[seat] += move.amount;
+    stats[move.from][move.kind === "ron" ? "dealInLoss" : "tsumoPaid"] += move.amount;
+    stats[seat].winReceipt += move.amount;
+  }
+  if (scores.some((n) => !Number.isSafeInteger(n)) || stats.some((s) => Object.values(s).some((n) => !Number.isSafeInteger(n))) || !Number.isSafeInteger(win2.receipt + amount)) throw new Error("Honba settlement exceeds the supported range");
+  for (let i = 0; i < 4; i++) {
+    game.players[i].score = scores[i];
+    Object.assign(game.players[i].stats, stats[i]);
+  }
+  game.ledger.push(...moves);
+  win2.payments.push(...structuredClone(moves));
+  win2.receipt += amount;
+  win2.honba = honba;
+  win2.honbaReceipt = amount;
+  const event2 = game.events.findLast((event3) => event3.type === "win" && event3.seat === seat);
+  if (event2) Object.assign(event2, { payments: structuredClone(win2.payments), receipt: win2.receipt, honba, honbaReceipt: amount });
+}
+function step2(game, seat, action, options = {}) {
+  const honba = honbaOf(game);
+  if (!Number.isSafeInteger(honba * 300)) throw new Error("Honba payment exceeds the supported range");
+  const prior = game.winners.length;
+  const couldWin = honba > 0 && (game.phase === "turn" && action?.type === "tsumo" || game.phase === "reaction" && game.reaction.pending.length === 1 && (action?.type === "ron" || game.reaction.answers.some((answer) => answer.action.type === "ron")));
+  if (couldWin) {
+    const next = structuredClone(game);
+    step(next, seat, action, options);
+    if (prior === 0 && next.winners.length) addHonba(next);
+    if (options.validate !== false) assertInvariants(next);
+    Object.assign(game, next);
+    return game;
+  }
+  step(game, seat, action, options);
+  return game;
+}
+function snapshot2(game, seat) {
+  return { ...snapshot(game, seat), honba: honbaOf(game) };
+}
+function driveAI(game, humanSeats = [], maxSteps = 500) {
   if (!Array.isArray(humanSeats) || humanSeats.some((seat) => !Number.isInteger(seat) || seat < 0 || seat > 3) || !Number.isInteger(maxSteps) || maxSteps < 0 || maxSteps > 1e4) throw new Error("Invalid AI drive options");
   let steps = 0;
-  while (s.phase !== "end" && steps < maxSteps) {
-    const seat = actor(s);
+  while (game.phase !== "end" && steps < maxSteps) {
+    const seat = actor(game);
     if (humanSeats.includes(seat)) break;
-    step(s, seat, chooseAction(snapshot(s, seat)));
+    step2(game, seat, chooseAction(snapshot2(game, seat)));
     steps++;
   }
-  return { state: s, steps, finished: s.phase === "end", waitingForHuman: humanSeats.includes(actor(s)) };
+  return { state: game, steps, finished: game.phase === "end", waitingForHuman: humanSeats.includes(actor(game)) };
 }
 
 // duplicate/baseline-worker.mjs
 self.onmessage = (event2) => {
   try {
-    const options = event2.data, game = createGame(options);
+    const options = event2.data, game = createGame2(options);
     driveAI(game, [], 2e3);
     if (game.phase !== "end") throw new Error("AI \uAE30\uC900 \uB300\uAD6D\uC758 \uC9C4\uD589 \uD55C\uB3C4\uB97C \uCD08\uACFC\uD588\uC2B5\uB2C8\uB2E4.");
     self.postMessage({ score: game.players[options.seat].score });

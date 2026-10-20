@@ -1011,16 +1011,235 @@ function chooseAction(view) {
   }
   return best.a;
 }
-function driveAI(s, humanSeats = [], maxSteps = 500) {
+
+// duplicate/engine/live-game.mjs
+var honbaOf = (game) => {
+  const honba = game.honba ?? 0;
+  if (!Number.isSafeInteger(honba) || honba < 0) throw new Error("Invalid honba");
+  return honba;
+};
+function createGame2({ honba = 0, ...options } = {}) {
+  honbaOf({ honba });
+  const game = createGame(options);
+  game.honba = honba;
+  return game;
+}
+function addHonba(game) {
+  const honba = honbaOf(game), seat = game.winners[0];
+  if (!honba || seat === void 0) return;
+  const winner = game.players[seat], win2 = winner.win, amount = honba * 300;
+  if (!Number.isSafeInteger(amount)) throw new Error("Honba payment exceeds the supported range");
+  const moves = win2.pao ? [{ from: win2.pao.seat, to: seat, amount, kind: win2.method, honba: true }] : win2.method === "ron" ? [{ from: win2.source, to: seat, amount, kind: "ron", honba: true }] : [0, 1, 2, 3].filter((from) => from !== seat).map((from) => ({ from, to: seat, amount: honba * 100, kind: "tsumo", honba: true }));
+  const scores = game.players.map((p) => p.score), stats = game.players.map((p) => ({ ...p.stats }));
+  for (const move of moves) {
+    scores[move.from] -= move.amount;
+    scores[seat] += move.amount;
+    stats[move.from][move.kind === "ron" ? "dealInLoss" : "tsumoPaid"] += move.amount;
+    stats[seat].winReceipt += move.amount;
+  }
+  if (scores.some((n) => !Number.isSafeInteger(n)) || stats.some((s) => Object.values(s).some((n) => !Number.isSafeInteger(n))) || !Number.isSafeInteger(win2.receipt + amount)) throw new Error("Honba settlement exceeds the supported range");
+  for (let i = 0; i < 4; i++) {
+    game.players[i].score = scores[i];
+    Object.assign(game.players[i].stats, stats[i]);
+  }
+  game.ledger.push(...moves);
+  win2.payments.push(...structuredClone(moves));
+  win2.receipt += amount;
+  win2.honba = honba;
+  win2.honbaReceipt = amount;
+  const event2 = game.events.findLast((event3) => event3.type === "win" && event3.seat === seat);
+  if (event2) Object.assign(event2, { payments: structuredClone(win2.payments), receipt: win2.receipt, honba, honbaReceipt: amount });
+}
+function step2(game, seat, action, options = {}) {
+  const honba = honbaOf(game);
+  if (!Number.isSafeInteger(honba * 300)) throw new Error("Honba payment exceeds the supported range");
+  const prior = game.winners.length;
+  const couldWin = honba > 0 && (game.phase === "turn" && action?.type === "tsumo" || game.phase === "reaction" && game.reaction.pending.length === 1 && (action?.type === "ron" || game.reaction.answers.some((answer) => answer.action.type === "ron")));
+  if (couldWin) {
+    const next = structuredClone(game);
+    step(next, seat, action, options);
+    if (prior === 0 && next.winners.length) addHonba(next);
+    if (options.validate !== false) assertInvariants(next);
+    Object.assign(game, next);
+    return game;
+  }
+  step(game, seat, action, options);
+  return game;
+}
+function snapshot2(game, seat) {
+  return { ...snapshot(game, seat), honba: honbaOf(game) };
+}
+function driveAI(game, humanSeats = [], maxSteps = 500) {
   if (!Array.isArray(humanSeats) || humanSeats.some((seat) => !Number.isInteger(seat) || seat < 0 || seat > 3) || !Number.isInteger(maxSteps) || maxSteps < 0 || maxSteps > 1e4) throw new Error("Invalid AI drive options");
   let steps = 0;
-  while (s.phase !== "end" && steps < maxSteps) {
-    const seat = actor(s);
+  while (game.phase !== "end" && steps < maxSteps) {
+    const seat = actor(game);
     if (humanSeats.includes(seat)) break;
-    step(s, seat, chooseAction(snapshot(s, seat)));
+    step2(game, seat, chooseAction(snapshot2(game, seat)));
     steps++;
   }
-  return { state: s, steps, finished: s.phase === "end", waitingForHuman: humanSeats.includes(actor(s)) };
+  return { state: game, steps, finished: game.phase === "end", waitingForHuman: humanSeats.includes(actor(game)) };
+}
+
+// duplicate/match.mjs
+var defaults = Object.freeze({ format: "hanchan", dealerContinuation: true, agariYame: false });
+var positive = (n) => Number.isSafeInteger(n) && n >= 1;
+var nonnegative = (n) => Number.isSafeInteger(n) && n >= 0;
+var uint32 = (n) => Number.isInteger(n) && n >= 0 && n <= 4294967295;
+function normalizeMatchRules(options = {}) {
+  if (!options || typeof options !== "object" || Array.isArray(options)) throw new Error("Invalid match rules");
+  for (const key of Object.keys(options)) if (!Object.hasOwn(defaults, key)) throw new Error(`Unknown match rule: ${key}`);
+  const rules = { ...defaults, ...options };
+  if (!["east", "hanchan"].includes(rules.format) || typeof rules.dealerContinuation !== "boolean" || typeof rules.agariYame !== "boolean") throw new Error("Invalid match rules");
+  return rules;
+}
+function matchBoardCount(config = {}) {
+  return normalizeMatchRules(config).format === "east" ? 4 : 8;
+}
+function handId({ board, honba = 0 }) {
+  if (!positive(board) || !uint32(honba)) throw new Error("Invalid hand identity");
+  return `${board}:${honba}`;
+}
+function seedForHonba(baseSeed, honba) {
+  if (!uint32(baseSeed) || !uint32(honba)) throw new Error("Invalid honba seed");
+  let mixed = honba >>> 0;
+  mixed ^= mixed >>> 16;
+  mixed = Math.imul(mixed, 2146121005);
+  mixed ^= mixed >>> 15;
+  mixed = Math.imul(mixed, 2221713035);
+  mixed ^= mixed >>> 16;
+  return (baseSeed ^ mixed) >>> 0;
+}
+function pointsAtEnd(game) {
+  if (!Array.isArray(game?.players) || game.players.length !== 4) throw new Error("Missing final players");
+  const starts = game.startingScores ?? Array(4).fill(game.rules?.startingPoints);
+  if (!Array.isArray(starts) || starts.length !== 4 || starts.some((n) => !Number.isSafeInteger(n))) throw new Error("Missing starting scores");
+  return starts.map((n, seat) => {
+    const score = game.players[seat]?.score, total = n + score;
+    if (!Number.isSafeInteger(score) || !Number.isSafeInteger(total)) throw new Error("Invalid final score");
+    return total;
+  });
+}
+function dealerReady(game) {
+  if (Array.isArray(game.readySeats)) return game.readySeats.includes(game.dealer);
+  const settlement = game.events?.findLast((event2) => event2.type === "drawSettlement");
+  if (!Array.isArray(settlement?.ready)) throw new Error("Missing exhaustive-draw tenpai result");
+  return settlement.ready.some((player) => player.seat === game.dealer);
+}
+function nextHandPlan({ board, repeat = 0, honba = 0, handNumber = 1, boardCount, game, matchRules = null } = {}) {
+  const config = matchRules === null ? null : normalizeMatchRules(matchRules);
+  const count = boardCount ?? (config ? matchBoardCount(config) : null);
+  if (!positive(board) || !positive(count) || board > count || !uint32(repeat) || !nonnegative(honba) || !positive(handNumber)) throw new Error("Invalid match position");
+  if (config && count !== matchBoardCount(config)) throw new Error("Match format and board count differ");
+  if (!game || !["end", "ended"].includes(game.phase) && !game.end) throw new Error("The current hand has not ended");
+  const pot = game.pot ?? 0;
+  if (!nonnegative(pot) || pot % 1e3) throw new Error("Invalid final pot");
+  let finalPoints = null;
+  const complete = (reason2) => ({
+    complete: true,
+    continues: false,
+    reason: reason2,
+    board,
+    repeat,
+    honba,
+    handNumber,
+    pot,
+    startingScores: finalPoints ? [...finalPoints] : null,
+    pendingPotNote: pot ? "\uB0A8\uC740 \uB9AC\uCE58 \uACF5\uD0C1\uC740 \uBBF8\uC218\uB839 \uC0C1\uD0DC\uB85C \uD45C\uC2DC\uD558\uBA70 \uC784\uC758\uB85C \uBC30\uBD84\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4." : null
+  });
+  if (config === null) {
+    if (board === count) return complete("legacy-complete");
+    if (!positive(handNumber + 1)) throw new Error("Hand number exceeds the supported range");
+    return { complete: false, continues: false, reason: "legacy-next", board: board + 1, repeat: 0, honba: 0, handNumber: handNumber + 1, pot: 0, startingScores: null, pendingPotNote: null };
+  }
+  finalPoints = pointsAtEnd(game);
+  if (!Number.isInteger(game.dealer) || game.dealer < 0 || game.dealer > 3) throw new Error("Invalid dealer");
+  let continues = false, reason, nextHonba;
+  if (game.end === "win") {
+    if (!Array.isArray(game.winners) || !game.winners.length) throw new Error("Missing winning seats");
+    const dealerWon = game.winners.includes(game.dealer);
+    continues = config.dealerContinuation && dealerWon;
+    reason = dealerWon ? "dealer-win" : "non-dealer-win";
+    nextHonba = dealerWon ? honba + 1 : 0;
+  } else if (game.end === "exhaustive-draw") {
+    const ready = dealerReady(game);
+    continues = config.dealerContinuation && ready;
+    reason = ready ? "dealer-tenpai" : "dealer-noten";
+    nextHonba = honba + 1;
+  } else if (game.end === "four-kans") {
+    continues = true;
+    reason = "four-kans";
+    nextHonba = honba + 1;
+  } else throw new Error("Unsupported match hand result");
+  const leader = [0, 1, 2, 3].sort((a, b) => finalPoints[b] - finalPoints[a] || a - b)[0];
+  if (board === count && continues && config.agariYame && leader === game.dealer && ["win", "exhaustive-draw"].includes(game.end)) return complete("all-last-leader");
+  if (!continues && board === count) return complete("match-complete");
+  const nextBoard = continues ? board : board + 1, nextRepeat = continues ? repeat + 1 : 0, nextNumber = handNumber + 1;
+  if (!uint32(nextRepeat) || !nonnegative(nextHonba) || !positive(nextNumber)) throw new Error("Match counters exceed the supported range");
+  return {
+    complete: false,
+    continues,
+    reason,
+    board: nextBoard,
+    repeat: nextRepeat,
+    honba: nextHonba,
+    handNumber: nextNumber,
+    pot,
+    startingScores: [...finalPoints],
+    pendingPotNote: null
+  };
+}
+
+// duplicate/practice-series.mjs
+var seedForPracticeBoard = (base, index) => base + Math.imul(index, 2654435769) >>> 0;
+function seriesProgress(value) {
+  const board = value?.board ?? (value?.index ?? 0) + 1, repeat = value?.repeat ?? 0, honba = value?.honba ?? value?.game?.honba ?? 0;
+  return { board, repeat, honba, handNumber: value?.handNumber ?? (value?.index ?? 0) + 1, handId: handId({ board, honba }) };
+}
+function formatName(matchRules, count) {
+  return matchRules ? matchRules.format === "east" ? "\uB3D9\uD48D\uC804" : "\uBC18\uC7A5\uC804" : `\uAE30\uC874 ${count ?? "\u2014"}\uAD6D \xB7 \uB3C5\uB9BD \uC9C4\uD589`;
+}
+function handLabel(value) {
+  const p = seriesProgress(value), game = value?.game, wind = game?.rules?.roundWind ?? value?.handContext?.roundWind ?? (value?.matchRules ? 27 + Math.floor((p.board - 1) / 4) : 27);
+  return `${["\u6771", "\u5357", "\u897F", "\u5317"][wind - 27] ?? "\u2014"}${(p.board - 1) % 4 + 1}\u5C40 ${p.honba}\uBCF8\uC7A5`;
+}
+function gameOptions(practice, progress2) {
+  const rules = practice.matchRules ? { ...practice.rules ?? practice.game.rules, roundWind: 27 + Math.floor((progress2.board - 1) / 4) } : { ...practice.rules ?? practice.game.rules };
+  return { seed: seedForHonba(seedForPracticeBoard(practice.seed, progress2.board - 1), progress2.honba), rules, dealer: (progress2.board - 1) % 4, honba: progress2.honba, pot: progress2.pot ?? 0, startingScores: progress2.startingScores ?? null };
+}
+function createPracticeSeries({ seed, seat = 0, matchRules = {}, rules = {}, aiPolicy = "simple" }) {
+  const config = normalizeMatchRules(matchRules), practice = { seed, seat, count: matchBoardCount(config), index: 0, board: 1, repeat: 0, honba: 0, handNumber: 1, handId: "1:0", results: [], matchRules: config, rules, aiPolicy };
+  practice.game = createGame2(gameOptions(practice, practice));
+  return practice;
+}
+function localNextPlan(practice) {
+  return nextHandPlan({ ...seriesProgress(practice), boardCount: practice.count, game: practice.game, matchRules: practice.matchRules ?? null });
+}
+function advancePracticeSeries(practice) {
+  const next = localNextPlan(practice);
+  if (next.complete) return false;
+  Object.assign(practice, { board: next.board, index: next.board - 1, repeat: next.repeat, honba: next.honba, handNumber: next.handNumber, handId: handId(next) });
+  practice.game = createGame2(gameOptions(practice, next));
+  return true;
+}
+function practiceBaselineOptions(practice, view = null, context2 = null) {
+  const p = seriesProgress(practice), game = view ?? practice.game, rules = game.rules ?? practice.rules ?? practice.game.rules;
+  const startingScores = context2?.startingScores ?? game.startingScores ?? game.players?.map((player) => player.points - player.score), pot = context2?.pot ?? game.initialPot ?? (practice.matchRules ? null : 0);
+  if (!Array.isArray(startingScores) || startingScores.length !== 4 || startingScores.some((n) => !Number.isSafeInteger(n)) || !Number.isSafeInteger(pot)) throw Error("\uAE30\uC900 \uB300\uAD6D\uC758 \uC2DC\uC791 \uC810\uC218\uC640 \uACF5\uD0C1 \uC815\uBCF4\uB97C \uD655\uC778\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+  return { seed: seedForHonba(seedForPracticeBoard(practice.seed, p.board - 1), p.honba), rules: { ...rules }, dealer: game.dealer, honba: game.honba ?? p.honba, pot, startingScores: [...startingScores], seat: practice.seat };
+}
+function restorePracticeSeries(saved2) {
+  if (!saved2?.game || !Number.isInteger(saved2.seat) || saved2.seat < 0 || saved2.seat > 3 || !Number.isInteger(saved2.index) || saved2.index < 0 || !Number.isInteger(saved2.count) || saved2.index >= saved2.count) throw Error("Invalid saved practice");
+  const practice = structuredClone(saved2);
+  assertInvariants(practice.game);
+  if (practice.matchRules) {
+    practice.matchRules = normalizeMatchRules(practice.matchRules);
+    if (practice.count !== matchBoardCount(practice.matchRules)) throw Error("Saved format differs");
+  } else practice.matchRules = null;
+  const p = seriesProgress(practice);
+  if (p.board !== practice.index + 1 || saved2.handId && saved2.handId !== p.handId || !Number.isSafeInteger(p.repeat) || p.repeat < 0 || !Number.isSafeInteger(p.honba) || p.honba < 0 || !Number.isSafeInteger(p.handNumber) || p.handNumber < 1) throw Error("Invalid saved progress");
+  Object.assign(practice, p);
+  return practice;
 }
 
 // duplicate/tile-view.mjs
@@ -1750,6 +1969,7 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
 
 // duplicate/remote-practice.mjs
 var STORAGE_KEY = "duplicate.mortal-practice.v1";
+var sameMatch = (a, b) => JSON.stringify(a ? normalizeMatchRules(a) : null) === JSON.stringify(b ? normalizeMatchRules(b) : null);
 function createRemotePractice({ getServer, onState, onError = () => {
 }, storage = globalThis.sessionStorage, fetchImpl = globalThis.fetch, pollMs = 1200 } = {}) {
   let credentials = null, context2 = null, state = null, timer = null, active = false, epoch = 0, loading = false, lastError = "";
@@ -1780,7 +2000,7 @@ function createRemotePractice({ getServer, onState, onError = () => {
   }
   function apply(value, generation) {
     if (generation !== epoch || !credentials || value.code !== credentials.code) return false;
-    if (value.practice !== true || value.seat !== context2.seat || value.boardCount !== context2.count) throw new Error("\uC5F0\uC2B5 \uC5F0\uACB0 \uC815\uBCF4\uAC00 \uC77C\uCE58\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uC0C8 \uC5F0\uC2B5\uC744 \uC2DC\uC791\uD574 \uC8FC\uC138\uC694.");
+    if (value.practice !== true || value.seat !== context2.seat || value.boardCount !== context2.count || !sameMatch(value.matchRules, context2.matchRules)) throw new Error("\uC5F0\uC2B5 \uC5F0\uACB0 \uC815\uBCF4\uAC00 \uC77C\uCE58\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uC0C8 \uC5F0\uC2B5\uC744 \uC2DC\uC791\uD574 \uC8FC\uC138\uC694.");
     if (state && value.revision < state.revision) return false;
     state = value;
     lastError = "";
@@ -1815,7 +2035,7 @@ function createRemotePractice({ getServer, onState, onError = () => {
     restore(expected) {
       try {
         const saved2 = JSON.parse(storage.getItem(STORAGE_KEY) || "null"), c = saved2?.credentials, p = saved2?.context;
-        if (!c || !p || p.seed !== expected.seed || p.seat !== expected.seat || p.count !== expected.count || typeof c.key !== "string" || !/^[a-f0-9]{64}$/.test(c.key) || !/^[A-Z2-9]{8}$/.test(c.code) || c.seat !== p.seat || typeof c.server !== "string") return false;
+        if (!c || !p || p.seed !== expected.seed || p.seat !== expected.seat || p.count !== expected.count || !sameMatch(p.matchRules, expected.matchRules) || typeof c.key !== "string" || !/^[a-f0-9]{64}$/.test(c.key) || !/^[A-Z2-9]{8}$/.test(c.code) || c.seat !== p.seat || typeof c.server !== "string") return false;
         const server = new URL(c.server);
         if (!["https:", "http:"].includes(server.protocol) || server.username || server.password || server.origin !== c.server) return false;
         credentials = c;
@@ -1826,13 +2046,14 @@ function createRemotePractice({ getServer, onState, onError = () => {
       }
     },
     async start(options) {
+      const config = options.matchRules ? normalizeMatchRules(options.matchRules) : null, count = config ? matchBoardCount(config) : options.count;
       const generation = ++epoch;
       clearTimeout(timer);
       credentials = null;
-      context2 = { seed: options.seed, seat: options.seat, count: options.count };
+      context2 = { seed: options.seed, seat: options.seat, count, matchRules: config };
       state = null;
       persist();
-      const server = getServer(), value = await request2(server, "", { name: options.name ?? "\uB098", boardCount: options.count, rules: options.rules, aiPolicy: "mortal", practice: { seed: options.seed, seat: options.seat } }, null);
+      const server = getServer(), value = await request2(server, "", { name: options.name ?? "\uB098", boardCount: count, rules: options.rules, ...config ? { matchRules: config } : {}, aiPolicy: "mortal", practice: { seed: options.seed, seat: options.seat } }, null);
       if (generation !== epoch) return null;
       if (typeof value.key !== "string" || !/^[a-f0-9]{64}$/.test(value.key)) throw new Error("Mortal \uC5F0\uC2B5 \uC811\uC18D \uC815\uBCF4\uB97C \uD655\uC778\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.");
       credentials = { code: value.code, key: value.key, seat: value.seat, tableId: value.tableId, server };
@@ -1985,7 +2206,7 @@ var signed = (n) => n === null || n === void 0 ? "\u2014" : `${n > 0 ? "+" : ""}
 var winds = ["\u6771", "\u5357", "\u897F", "\u5317"];
 var positions = ["bottom", "right", "top", "left"];
 var switchDefinitions = [["dora", "\uB3C4\uB77C", "\uCCAB \uBC88\uC9F8 \uB3C4\uB77C \uD45C\uC2DC\uD328"], ["kanDora", "\uAE61\uB3C4\uB77C", "\uAE61\uB9C8\uB2E4 \uCD94\uAC00 \uB3C4\uB77C \uD45C\uC2DC\uD328"], ["uraDora", "\uC6B0\uB77C\uB3C4\uB77C", "\uB9AC\uCE58 \uD654\uB8CC \uC2DC \uACF5\uAC1C\uD558\uB294 \uB4B7 \uD45C\uC2DC\uD328"], ["redDora", "\uC801\uB3C4\uB77C", "\uB9CC\xB7\uD1B5\xB7\uC0AD\uC758 \uC8015 \uAC01 1\uC7A5"], ["deadWall", "\uC655\uD328", "\uD328\uC0B0\uC5D0\uC11C 14\uC7A5 \uC81C\uC678"], ["kuitan", "\uCFE0\uC774\uD0D5", "\uBD80\uB978 \uC190\uD328\uC758 \uD0D5\uC57C\uC624 \uD5C8\uC6A9"], ["abortFourKans", "\uC0AC\uAE61\uC0B0\uB8CC", "2\uBA85 \uC774\uC0C1\uC774 \uD569\uACC4 4\uAE61\uC774\uBA74 \uC720\uAD6D"]];
-var S = { mode: "practice", panel: "practice", practice: null, practiceRemote: null, practiceError: "", online: null, credentials: null, view: null, selected: null, riichiSelecting: false, busy: false, timer: null, poll: null, worker: null, endHidden: false, endKey: null, endRevealAt: 0, resultTimer: null, toastTimer: null, settings: null, roomRules: null, roomAI: "simple", aiCapabilities: null, ruleContext: "practice", ruleReadOnly: false, creatingRoom: false, boardCount: 8, preferences: { ...DEFAULT_PREFERENCES }, autoWin: true, autoPass: true, server: DEFAULT_SERVER, gameEpoch: 0 };
+var S = { mode: "practice", panel: "practice", practice: null, practiceRemote: null, practiceError: "", online: null, credentials: null, view: null, selected: null, riichiSelecting: false, busy: false, timer: null, poll: null, worker: null, endHidden: false, endKey: null, endRevealAt: 0, resultTimer: null, toastTimer: null, settings: null, roomRules: null, roomAI: "simple", aiCapabilities: null, ruleContext: "practice", ruleReadOnly: false, creatingRoom: false, boardCount: 8, practiceMatchRules: null, roomMatchRules: null, preferences: { ...DEFAULT_PREFERENCES }, autoWin: true, autoPass: true, server: DEFAULT_SERVER, gameEpoch: 0 };
 var personalSettingsUI;
 var observerLinks = mountObserverLinks({ document, getRoom: () => S.online, getServer: () => S.server, request: (...args) => request(...args), toast });
 var feedbackTracker = createFeedbackTracker();
@@ -2050,7 +2271,15 @@ async function refreshAICapabilities() {
     renderAIOptions();
   }
 }
-var seedForBoard = (base, index) => base + Math.imul(index, 2654435769) >>> 0;
+function progress() {
+  return seriesProgress(S.mode === "online" ? S.online : S.practice?.aiPolicy === "mortal" ? S.practiceRemote ?? S.practice : S.practice);
+}
+function currentMatchRules() {
+  return S.mode === "online" ? S.online?.matchRules ?? (S.online ? null : S.roomMatchRules) : S.practice?.matchRules ?? null;
+}
+function currentNextHand() {
+  return S.mode === "online" ? S.online?.nextHand : S.practice?.aiPolicy === "mortal" ? S.practiceRemote?.nextHand : S.practice?.game.phase === "end" ? localNextPlan(S.practice) : null;
+}
 function textNode(tag, value, className = "") {
   const el = document.createElement(tag);
   el.textContent = value;
@@ -2077,14 +2306,16 @@ function ruleSummary() {
   const r = currentRules(), box = $("rule-chips");
   box.replaceChildren();
   box.className = "rule-chips";
-  for (const [key, name] of switchDefinitions.slice(0, 6)) {
-    box.append(textNode("span", `${name} ${r[key] ? "ON" : "OFF"}`, `chip ${r[key] ? "" : "off"}`));
-  }
+  for (const [key, name] of switchDefinitions.slice(0, 6)) box.append(textNode("span", `${name} ${r[key] ? "ON" : "OFF"}`, `chip ${r[key] ? "" : "off"}`));
   box.append(textNode("span", `${r.exhaustLimit}\uBA85 \uC18C\uC9C4 \uC720\uAD6D`, "chip"));
+  const match = currentMatchRules(), count = S.mode === "online" ? S.online?.boardCount ?? S.boardCount : S.practice?.count;
+  box.append(textNode("span", formatName(match, count), "chip"));
+  box.append(textNode("span", `\uCE5C \uC5F0\uC7A5 ${match?.dealerContinuation ? "ON" : "OFF"}`, "chip"));
+  $("rules-series-summary").textContent = match ? `${formatName(match)} \xB7 \uCE5C \uC5F0\uC7A5 ${match.dealerContinuation ? "\uC788\uC74C" : "\uC5C6\uC74C"} \xB7 \uC544\uAC00\uB9AC\uC57C\uBA54 ${match.agariYame ? "ON" : "OFF"}` : "\uAE30\uC874 \uB300\uAD6D \xB7 \uAC01 \uAD6D \uB3C5\uB9BD \xB7 \uCE5C \uC5F0\uC7A5 \uC5C6\uC74C";
   $("rules-summary-title").textContent = S.mode === "online" ? S.online ? "\uC774 \uBC29\uC758 \uB300\uAD6D \uADDC\uCE59" : "\uC0C8 \uB300\uD68C \uADDC\uCE59" : "\uD604\uC7AC \uC5F0\uC2B5 \uADDC\uCE59";
   $("rules-open-second").textContent = S.mode === "online" && S.online ? "\uADDC\uCE59 \uBCF4\uAE30" : "\uADDC\uCE59 \uC124\uC815";
-  const roomRules = S.online?.rules ?? S.roomRules;
-  $("room-rules-preview").textContent = `${S.online?.boardCount ?? S.boardCount}\uAD6D \xB7 \uB3C4\uB77C ${roomRules.dora ? "\uC788\uC74C" : "\uC5C6\uC74C"} \xB7 \uC655\uD328 ${roomRules.deadWall ? "\uC788\uC74C" : "\uC5C6\uC74C"} \xB7 ${roomRules.exhaustLimit}\uBA85 \uC18C\uC9C4 \uC720\uAD6D \xB7 ${(S.online?.aiPolicy ?? S.roomAI) === "mortal" ? "Mortal" : "\uAE30\uBCF8 AI"}`;
+  const roomRules = S.online?.rules ?? S.roomRules, roomMatch = S.online ? S.online.matchRules : S.roomMatchRules;
+  $("room-rules-preview").textContent = `${formatName(roomMatch, S.online?.boardCount ?? S.boardCount)} \xB7 \uCE5C \uC5F0\uC7A5 ${roomMatch?.dealerContinuation ? "ON" : "OFF"} \xB7 \uC544\uAC00\uB9AC\uC57C\uBA54 ${roomMatch?.agariYame ? "ON" : "OFF"} \xB7 \uB3C4\uB77C ${roomRules.dora ? "\uC788\uC74C" : "\uC5C6\uC74C"} \xB7 ${(S.online?.aiPolicy ?? S.roomAI) === "mortal" ? "Mortal" : "\uAE30\uBCF8 AI"}`;
   $("room-rules-open").textContent = S.online ? "\uBC29 \uADDC\uCE59 \uBCF4\uAE30" : "\uBC29 \uADDC\uCE59 \uC124\uC815";
 }
 function showPanel(panel) {
@@ -2114,7 +2345,7 @@ function setMode(mode) {
     render();
     if (S.credentials) pollRoom();
   } else {
-    S.view = S.practice.aiPolicy === "mortal" ? S.practiceRemote?.game ?? null : snapshot(S.practice.game, S.practice.seat);
+    S.view = S.practice.aiPolicy === "mortal" ? S.practiceRemote?.game ?? null : snapshot2(S.practice.game, S.practice.seat);
     render();
     if (S.practice.aiPolicy === "mortal") remotePractice.activate();
     schedulePractice();
@@ -2155,11 +2386,11 @@ async function newPractice() {
   clearPlayTimer();
   S.worker?.terminate();
   S.worker = null;
-  const seed = Number(raw), seat = Number($("practice-seat").value), count = Number($("practice-count").value);
+  const seed = Number(raw), seat = Number($("practice-seat").value), matchRules = normalizeMatchRules({ ...S.practiceMatchRules, format: $("practice-count").value }), count = matchBoardCount(matchRules);
   remotePractice.clear();
   S.practiceRemote = null;
   S.practiceError = "";
-  S.practice = { seed, seat, count, index: 0, results: [], aiPolicy, game: createGame({ seed, rules: S.settings, dealer: 0 }) };
+  S.practice = createPracticeSeries({ seed, seat, matchRules, rules: S.settings, aiPolicy });
   S.gameEpoch++;
   S.mode = "practice";
   S.endHidden = false;
@@ -2172,7 +2403,7 @@ async function newPractice() {
     S.busy = true;
     render();
     try {
-      await remotePractice.start({ seed, seat, count, rules: S.settings, name: readStorage(localStorage, "duplicate.name") ?? "\uB098" });
+      await remotePractice.start({ seed, seat, count, matchRules, rules: S.settings, name: readStorage(localStorage, "duplicate.name") ?? "\uB098" });
       if (S.mode === "practice") remotePractice.activate();
     } catch (error) {
       S.practiceError = "Mortal \uC5F0\uC2B5\uC744 \uC0C8\uB85C \uC2DC\uC791\uD574 \uC8FC\uC138\uC694.";
@@ -2195,7 +2426,7 @@ function schedulePractice() {
   }
   clearPlayTimer();
   if (S.mode !== "practice" || !S.practice || S.practice.game.phase === "end") return;
-  const game = S.practice.game, seat = actor(game), view = snapshot(game, S.practice.seat), human = seat === S.practice.seat;
+  const game = S.practice.game, seat = actor(game), view = snapshot2(game, S.practice.seat), human = seat === S.practice.seat;
   if (!human) {
     S.timer = setTimeout(() => {
       try {
@@ -2219,7 +2450,7 @@ function showGameError(error) {
 function afterPracticeStep() {
   S.selected = null;
   S.riichiSelecting = false;
-  S.view = snapshot(S.practice.game, S.practice.seat);
+  S.view = snapshot2(S.practice.game, S.practice.seat);
   savePractice();
   if (S.practice.game.phase === "end") finishPractice();
   render();
@@ -2227,10 +2458,10 @@ function afterPracticeStep() {
 }
 function applyPrivatePractice(state) {
   if (S.practice?.aiPolicy !== "mortal") return;
-  const changed = !S.practiceRemote || S.practiceRemote.revision !== state.revision || S.practiceRemote.board !== state.board;
+  const changed = !S.practiceRemote || S.practiceRemote.revision !== state.revision || S.practiceRemote.handId !== state.handId || S.practiceRemote.board !== state.board;
   S.practiceRemote = state;
   S.practiceError = "";
-  S.practice.index = state.board - 1;
+  Object.assign(S.practice, seriesProgress(state), { index: state.board - 1, count: state.boardCount, matchRules: state.matchRules ?? null });
   savePractice();
   if (state.game?.phase === "end") finishPractice(state.game);
   if (S.mode === "practice") {
@@ -2261,15 +2492,23 @@ async function privateOperation(operation, action) {
   }
 }
 function finishPractice(view = null) {
-  const p = S.practice;
-  if (p.results.some((r) => r.index === p.index)) return;
-  const result = { index: p.index, board: p.index + 1, seed: seedForBoard(p.seed, p.index), seat: p.seat, score: view?.players[p.seat].score ?? p.game.players[p.seat].score, reference: null, referenceStatus: "loading" };
+  const p = S.practice, current = seriesProgress(p);
+  if (p.results.some((r) => handId({ board: r.board ?? r.index + 1, honba: r.honba ?? 0 }) === current.handId)) return;
+  const result = { ...current, index: current.handNumber - 1, seat: p.seat, score: view?.players[p.seat].score ?? p.game.players[p.seat].score, reference: null, referenceStatus: "loading" };
   p.results.push(result);
   savePractice();
-  const job = { seed: result.seed, rules: p.game.rules, dealer: p.index % 4, seat: p.seat };
+  let job;
+  try {
+    job = practiceBaselineOptions(p, view, S.practiceRemote?.handContext);
+    result.seed = job.seed;
+  } catch {
+    result.referenceStatus = "error";
+    savePractice();
+    return;
+  }
   try {
     S.worker?.terminate();
-    S.worker = new Worker(new URL("./baseline-worker.mjs?v=2376e18f1347851e", import.meta.url), { type: "module" });
+    S.worker = new Worker(new URL("./baseline-worker.mjs?v=fb2e9d8ade90d622", import.meta.url), { type: "module" });
     S.worker.onmessage = (e) => {
       if (e.data.error) {
         result.referenceStatus = "error";
@@ -2292,9 +2531,9 @@ function finishPractice(view = null) {
   } catch {
     setTimeout(() => {
       try {
-        const game = createGame(job);
+        const game = createGame2(job);
         driveAI(game, [], 2e3);
-        if (game.phase !== "end") throw new Error("AI limit");
+        if (game.phase !== "end") throw Error("AI limit");
         result.reference = game.players[job.seat].score;
         result.referenceStatus = "done";
       } catch {
@@ -2314,7 +2553,7 @@ async function play(action) {
       return;
     }
     try {
-      step(S.practice.game, S.practice.seat, action);
+      step2(S.practice.game, S.practice.seat, action);
       afterPracticeStep();
     } catch (error) {
       showGameError(error);
@@ -2433,11 +2672,11 @@ function renderTable() {
     $("seat-label").textContent = "";
     return;
   }
-  const board = S.mode === "practice" ? S.practice.index + 1 : S.online.board, count = S.mode === "practice" ? S.practice.count : S.online.boardCount;
-  $("board-label").textContent = `${S.mode === "practice" ? "\uC5F0\uC2B5" : "\uC628\uB77C\uC778"} ${board} / ${count}\uAD6D`;
+  const context2 = progress(), board = context2.board, count = S.mode === "practice" ? S.practice.count : S.online.boardCount;
+  $("board-label").textContent = `${S.mode === "practice" ? "\uC5F0\uC2B5" : "\uC628\uB77C\uC778"} \xB7 ${board}/${count}\uAE30\uBCF8\uAD6D \xB7 \uB300\uAD6D ${context2.handNumber}`;
   $("seat-label").textContent = `\uB0B4 \uC790\uB9AC ${winds[(v.seat - v.dealer + 4) % 4]}`;
-  $("round-name").textContent = `${winds[v.rules.roundWind - 27]} ${(board - 1) % 4 + 1} \u5C40`;
-  $("board-number").textContent = `BOARD ${String(board).padStart(2, "0")}`;
+  $("round-name").textContent = handLabel({ ...context2, game: v });
+  $("board-number").textContent = `DEAL ${context2.handId}`;
   $("wall-count").textContent = String(v.ownWallRemaining);
   $("pot-label").textContent = `\uB9AC\uCE58\uBD09 ${v.pot / 1e3}`;
   $("exhausted-label").textContent = `\uC18C\uC9C4 ${v.exhaustedSeats.length} / ${v.rules.exhaustLimit}`;
@@ -2530,7 +2769,7 @@ function renderActions() {
   if (v.phase === "end") {
     $("action-hint").textContent = "\uAD6D\uC774 \uB05D\uB0AC\uC2B5\uB2C8\uB2E4. \uACB0\uACFC\uB97C \uD655\uC778\uD558\uC138\uC694.";
     if (S.mode === "practice" || S.online.host) {
-      const next = textNode("button", hasNext() ? "\uB2E4\uC74C \uAD6D" : S.mode === "practice" ? "\uC0C8 \uC5F0\uC2B5" : "\uB300\uD68C \uC644\uB8CC", "primary");
+      const next = textNode("button", hasNext() ? currentNextHand()?.continues ? "\uC5F0\uC7A5 \uB300\uAD6D" : "\uB2E4\uC74C \uAD6D" : S.mode === "practice" ? "\uC0C8 \uC5F0\uC2B5" : "\uB300\uD68C \uC644\uB8CC", "primary");
       next.disabled = S.busy || S.mode === "online" && !hasNext();
       next.onclick = () => advance();
       box.append(next);
@@ -2571,7 +2810,9 @@ function renderActions() {
   }
 }
 function hasNext() {
-  return S.mode === "practice" ? S.practice.index + 1 < S.practice.count : S.online?.board < S.online?.boardCount;
+  if (S.mode === "online") return S.online?.hasNext ?? S.online?.board < S.online?.boardCount;
+  if (S.practice?.aiPolicy === "mortal") return S.practiceRemote?.hasNext ?? S.practiceRemote?.board < S.practiceRemote?.boardCount;
+  return S.practice?.game.phase === "end" ? !localNextPlan(S.practice).complete : false;
 }
 function renderEnd() {
   const v = S.view, ended = v?.phase === "end";
@@ -2581,14 +2822,14 @@ function renderEnd() {
     S.endKey = null;
     return;
   }
-  const key = `${S.mode}:${S.mode === "practice" ? S.practice.seed : S.online.code}:${S.mode === "practice" ? S.practice.index : S.online.board}`;
+  const key = `${S.mode}:${S.mode === "practice" ? S.practice.seed : S.online.code}:${progress().handId}`;
   if (S.endKey !== key) {
     S.endKey = key;
     S.endHidden = false;
   }
   $("end-overlay").hidden = S.endHidden || Date.now() < S.endRevealAt;
   $("end-title").textContent = v.end === "win" ? "\uD654\uB8CC" : v.end === "exhaustive-draw" ? "\uD669\uD328 \uC720\uAD6D" : "\uC0AC\uAE61\uC0B0\uB8CC";
-  $("end-eyebrow").textContent = `BOARD ${S.mode === "practice" ? S.practice.index + 1 : S.online.board} \xB7 RESULT`;
+  $("end-eyebrow").textContent = `${handLabel({ ...progress(), game: v })} \xB7 RESULT`;
   const details = $("end-details");
   details.replaceChildren();
   for (const seat of v.winners ?? []) {
@@ -2611,7 +2852,7 @@ function renderEnd() {
   }
   if (v.end === "exhaustive-draw") {
     details.append(textNode("p", `\uC18C\uC9C4 ${v.exhaustedSeats.length}\uBA85 \xB7 \uD150\uD30C\uC774 \uBC8C\uC810 \uC815\uC0B0`, "hint"));
-    if (v.pot) details.append(textNode("p", `\uB0A8\uC740 \uB9AC\uCE58 \uACF5\uD0C1 ${number(v.pot)}\uC810\uC740 \uC774\uBC88 \uAD6D\uC758 \uC810\uC218 \uBCC0\uD654\uC5D0 \uD3EC\uD568\uB429\uB2C8\uB2E4.`, "hint"));
+    if (v.pot) details.append(textNode("p", currentMatchRules() ? `\uB0A8\uC740 \uB9AC\uCE58 \uACF5\uD0C1 ${number(v.pot)}\uC810 \xB7 ${hasNext() ? "\uB2E4\uC74C \uB300\uAD6D\uC73C\uB85C \uC774\uC5B4\uC9D1\uB2C8\uB2E4." : "\uBBF8\uC218\uB839 \uC0C1\uD0DC\uB85C \uD45C\uC2DC\uD558\uBA70 \uC784\uC758\uB85C \uBC30\uBD84\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4."}` : `\uB0A8\uC740 \uB9AC\uCE58 \uACF5\uD0C1 ${number(v.pot)}\uC810\uC740 \uC774\uBC88 \uAD6D\uC758 \uC810\uC218 \uBCC0\uD654\uC5D0 \uD3EC\uD568\uB429\uB2C8\uB2E4.`, "hint"));
   }
   const points = $("end-points");
   points.replaceChildren();
@@ -2622,7 +2863,7 @@ function renderEnd() {
     row.append(textNode("span", `${winds[(seat - v.dealer + 4) % 4]} \xB7 ${name ?? "\uD50C\uB808\uC774\uC5B4"}`), textNode("b", signed(v.players[seat].score), v.players[seat].score > 0 ? "positive" : v.players[seat].score < 0 ? "negative" : ""));
     points.append(row);
   }
-  $("next-board").textContent = hasNext() ? "\uB2E4\uC74C \uAD6D" : S.mode === "practice" ? "\uC0C8 \uC5F0\uC2B5" : "\uB300\uD68C \uC644\uB8CC";
+  $("next-board").textContent = hasNext() ? currentNextHand()?.continues ? "\uC5F0\uC7A5 \uB300\uAD6D" : "\uB2E4\uC74C \uAD6D" : S.mode === "practice" ? "\uC0C8 \uC5F0\uC2B5" : "\uB300\uD68C \uC644\uB8CC";
   $("next-board").disabled = S.busy || S.mode === "online" && (!S.online.host || !hasNext());
 }
 function setMetric(id, value) {
@@ -2632,14 +2873,14 @@ function setMetric(id, value) {
   el.classList.toggle("negative", value < 0);
 }
 function renderComparison() {
-  const online = S.mode === "online", record = online ? S.online?.comparison : S.practice?.results.find((r) => r.index === S.practice.index);
+  const online = S.mode === "online", record = online ? S.online?.comparison : S.practice?.results.find((r) => handId({ board: r.board ?? r.index + 1, honba: r.honba ?? 0 }) === progress().handId);
   $("result-caption").textContent = online ? "\uAC19\uC740 \uC790\uB9AC \xB7 \uC0AC\uB78C" : "\uAE30\uBCF8 AI \uAE30\uC900";
   $("my-result-label").textContent = online ? "\uC644\uB8CC \uAD6D \uC810\uC218 \uD569\uACC4" : "\uB0B4 \uC810\uC218 \uBCC0\uD654";
   $("reference-label").textContent = online ? "\uAC19\uC740 \uC790\uB9AC \uD3C9\uADE0 \uD569\uACC4" : "\uAE30\uBCF8 AI \uAE30\uC900 \uB300\uAD6D";
   setMetric("my-result", record?.score ?? null);
   setMetric("reference-result", online ? record?.mean : record?.reference);
   setMetric("difference-result", online ? record?.difference : record?.reference !== null && record?.reference !== void 0 ? record.score - record.reference : null);
-  $("comparison-note").textContent = online ? record?.samples >= 2 ? `\uC644\uB8CC\uB41C \uC0AC\uB78C \uCC38\uAC00\uC790 ${record.samples}\uBA85 \xB7 \uAC19\uC740 \uADDC\uCE59\xB7\uAD6D\xB7\uC790\uB9AC \uBE44\uAD50` : "\uAC19\uC740 \uC790\uB9AC\uC5D0\uC11C \uC644\uB8CC\uD55C \uC0AC\uB78C\uC774 2\uBA85 \uC774\uC0C1\uC774\uBA74 \uD3C9\uADE0\uC744 \uD45C\uC2DC\uD569\uB2C8\uB2E4." : record?.referenceStatus === "loading" ? "\uAC19\uC740 \uBC30\uD328\uC758 AI \uAE30\uC900 \uB300\uAD6D\uC744 \uACC4\uC0B0 \uC911\uC785\uB2C8\uB2E4." : record?.referenceStatus === "done" ? "\uAE30\uBCF8 AI 4\uBA85\uC774 \uC9C4\uD589\uD55C \uAC19\uC740 \uBC30\uD328\uC758 \uAE30\uC900 \uB300\uAD6D\uC785\uB2C8\uB2E4." : record?.referenceStatus === "error" ? "AI \uAE30\uC900 \uB300\uAD6D \uACC4\uC0B0\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4." : "\uAD6D\uC774 \uB05D\uB098\uBA74 \uAC19\uC740 \uC790\uB9AC\uC758 \uACB0\uACFC\uB97C \uBE44\uAD50\uD569\uB2C8\uB2E4.";
+  $("comparison-note").textContent = online ? record?.boards?.some((row) => row.contextMismatch) ? "\uBCF8\uC7A5\xB7\uACF5\uD0C1\xB7\uC2DC\uC791 \uC810\uC218\uAC00 \uB2E4\uB978 \uD0C1\uC740 \uC810\uC218 \uBE44\uAD50\uC5D0\uC11C \uC81C\uC678\uD569\uB2C8\uB2E4. \uAC19\uC740 \uC870\uAC74\uC758 \uC644\uB8CC \uB300\uAD6D\uC774 2\uAC1C \uC774\uC0C1\uC77C \uB54C \uD3C9\uADE0\uC744 \uD45C\uC2DC\uD569\uB2C8\uB2E4." : record?.samples >= 2 ? `\uC644\uB8CC\uB41C \uC0AC\uB78C \uCC38\uAC00\uC790 ${record.samples}\uBA85 \xB7 \uAC19\uC740 \uBC30\uD328\xB7\uC790\uB9AC\xB7\uBCF8\uC7A5\xB7\uC2DC\uC791 \uC810\uC218\xB7\uACF5\uD0C1 \uC870\uAC74\uC758 \uBE44\uAD50\uC785\uB2C8\uB2E4.` : "\uAC19\uC740 \uBC30\uD328\xB7\uC790\uB9AC\xB7\uBCF8\uC7A5\xB7\uC2DC\uC791 \uC810\uC218\xB7\uACF5\uD0C1 \uC870\uAC74\uC5D0\uC11C \uC644\uB8CC\uD55C \uC0AC\uB78C\uC774 2\uBA85 \uC774\uC0C1\uC774\uBA74 \uD3C9\uADE0\uC744 \uD45C\uC2DC\uD569\uB2C8\uB2E4." : record?.referenceStatus === "loading" ? "\uAC19\uC740 \uBC30\uD328\uC758 AI \uAE30\uC900 \uB300\uAD6D\uC744 \uACC4\uC0B0 \uC911\uC785\uB2C8\uB2E4." : record?.referenceStatus === "done" ? "\uAC19\uC740 \uBC30\uD328\xB7\uBCF8\uC7A5\xB7\uC2DC\uC791 \uC810\uC218\xB7\uACF5\uD0C1\uC758 \uAE30\uBCF8 AI \uAE30\uC900\uC785\uB2C8\uB2E4. \uC774\uD6C4 \uC9C4\uD589 \uACBD\uB85C\uB294 \uB530\uB85C \uBE44\uAD50\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4." : record?.referenceStatus === "error" ? "AI \uAE30\uC900 \uB300\uAD6D \uACC4\uC0B0\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4." : "\uAD6D\uC774 \uB05D\uB098\uBA74 \uAC19\uC740 \uC790\uB9AC\uC758 \uACB0\uACFC\uB97C \uBE44\uAD50\uD569\uB2C8\uB2E4.";
   const history = $("result-history");
   history.replaceChildren();
   const rows = online ? record?.boards ?? [] : S.practice?.results ?? [];
@@ -2647,7 +2888,7 @@ function renderComparison() {
     const row = document.createElement("div");
     row.className = "result-history-row";
     const difference = online ? r.difference : r.reference === null ? null : r.score - r.reference;
-    row.append(textNode("span", `${r.board}\uAD6D`), textNode("span", signed(r.score)), textNode("span", difference === null ? "\uBE44\uAD50 \uB300\uAE30" : signed(difference), difference > 0 ? "positive" : difference < 0 ? "negative" : ""));
+    row.append(textNode("span", `${r.board}\uAD6D \xB7 ${r.honba ?? 0}\uBCF8\uC7A5`), textNode("span", signed(r.score)), textNode("span", difference === null ? "\uBE44\uAD50 \uB300\uAE30" : signed(difference), difference > 0 ? "positive" : difference < 0 ? "negative" : ""));
     history.append(row);
   }
   $("standings-open").hidden = !online || !S.online?.standings?.length;
@@ -2683,7 +2924,7 @@ function render() {
   renderTable();
   renderHand();
   renderActions();
-  const boardKey = S.view ? online ? `${S.server}:${S.online.code}:${S.online.tableId}:${S.online.board}:${S.view.seat}` : `practice:${S.practice.seed}:${S.practice.index}:${S.view.seat}:${S.gameEpoch}` : null;
+  const boardKey = S.view ? online ? `${S.server}:${S.online.code}:${S.online.tableId}:${progress().handId}:${S.view.seat}` : `practice:${S.practice.seed}:${progress().handId}:${S.view.seat}:${S.gameEpoch}` : null;
   const state = feedbackTracker.update(S.view, boardKey);
   if (state.newBoard) {
     clearTimeout(S.resultTimer);
@@ -2755,7 +2996,7 @@ async function connectRoom(create) {
   S.busy = true;
   renderRoom();
   try {
-    const state = await request(create ? "" : `/${code}/join`, create ? { name, rules: S.roomRules, boardCount: S.boardCount, aiPolicy: S.roomAI } : { name }, false);
+    const state = await request(create ? "" : `/${code}/join`, create ? { name, rules: S.roomRules, matchRules: S.roomMatchRules, boardCount: matchBoardCount(S.roomMatchRules), aiPolicy: S.roomAI } : { name }, false);
     S.credentials = { code: state.code, key: state.key, seat: state.seat, tableId: state.tableId, server: S.server };
     writeStorage(sessionStorage, "duplicate.room.v1", S.credentials);
     writeStorage(localStorage, "duplicate.name", name);
@@ -2859,8 +3100,7 @@ async function advance() {
     return;
   }
   const p = S.practice;
-  p.index++;
-  p.game = createGame({ seed: seedForBoard(p.seed, p.index), rules: p.game.rules, dealer: p.index % 4 });
+  if (!advancePracticeSeries(p)) return;
   S.endKey = null;
   S.endHidden = false;
   S.selected = null;
@@ -2876,14 +3116,25 @@ function openRules(context2 = S.mode === "online" ? "room" : "practice", create 
   $("rule-exhaustLimit").value = rules.exhaustLimit;
   $("rule-multipleRon").value = rules.multipleRon;
   $("rule-startingPoints").value = rules.startingPoints;
-  $("rule-boardCount").value = S.ruleReadOnly ? S.online.boardCount : S.boardCount;
+  const match = S.ruleReadOnly ? S.online.matchRules : context2 === "room" ? S.roomMatchRules : { ...S.practiceMatchRules, format: $("practice-count").value };
+  const format = $("rule-format");
+  format.querySelector("option[value=legacy]")?.remove();
+  if (S.ruleReadOnly && !match) {
+    const option = textNode("option", `\uAE30\uC874 ${S.online.boardCount}\uAD6D \xB7 \uB3C5\uB9BD \uC9C4\uD589`);
+    option.value = "legacy";
+    format.append(option);
+  }
+  format.value = match?.format ?? "legacy";
+  $("rule-dealerContinuation").checked = match?.dealerContinuation ?? false;
+  $("rule-agariYame").checked = match?.agariYame ?? false;
+  $("rule-match-note").textContent = S.ruleReadOnly && !match ? "\uC774 \uB300\uD68C\uB294 \uC774\uC804 \uB3C5\uB9BD \uB300\uAD6D \uBC29\uC2DD\uC73C\uB85C \uACC4\uC18D \uC9C4\uD589\uD569\uB2C8\uB2E4." : "\uAE30\uBCF8\uAD6D\uC740 \uB3D9\uD48D\uC804 4\uAD6D, \uBC18\uC7A5\uC804 8\uAD6D\uC785\uB2C8\uB2E4. \uB9C8\uC9C0\uB9C9 \uAD6D\uB3C4 \uCE5C \uC5F0\uC7A5 \uC870\uAC74\uC744 \uD655\uC778\uD569\uB2C8\uB2E4.";
   $("rule-aiPolicy").value = S.ruleReadOnly ? S.online.aiPolicy ?? "simple" : S.roomAI;
   $("rule-aiPolicy-field").hidden = context2 !== "room";
   $("rules-dialog-title").textContent = S.ruleReadOnly ? "\uC774 \uBC29\uC758 \uB300\uAD6D \uADDC\uCE59" : create ? "\uB300\uD68C \uB9CC\uB4E4\uAE30" : context2 === "room" ? "\uC0C8 \uB300\uD68C \uADDC\uCE59" : "\uC5F0\uC2B5 \uADDC\uCE59";
   $("rules-dialog-note").textContent = S.ruleReadOnly ? "\uBC29\uC744 \uB9CC\uB4E4 \uB54C \uD655\uC815\uD55C \uACF5\uD1B5 \uADDC\uCE59\uC785\uB2C8\uB2E4. \uCC38\uAC00\uC790\uB294 \uBCC0\uACBD\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4." : context2 === "room" ? "\uC774 \uB300\uD68C\uC758 \uBAA8\uB4E0 \uD14C\uC774\uBE14\uC5D0 \uAC19\uC740 \uADDC\uCE59\uC744 \uC801\uC6A9\uD569\uB2C8\uB2E4. \uAC1C\uC778 \uD654\uBA74\xB7\uC54C\uB9BC \uC124\uC815\uACFC \uBCC4\uB3C4\uB85C \uC800\uC7A5\uD569\uB2C8\uB2E4." : "\uB2E4\uC74C \uC0C8 \uC5F0\uC2B5\uBD80\uD130 \uC801\uC6A9\uB429\uB2C8\uB2E4. \uC628\uB77C\uC778 \uB300\uD68C\uC758 \uADDC\uCE59\uC740 \uB530\uB85C \uC124\uC815\uD569\uB2C8\uB2E4.";
   $("rules-dialog").classList.toggle("rules-readonly", S.ruleReadOnly);
   for (const input of $("rules-dialog").querySelectorAll('#rule-switches input,[id^="rule-"]')) input.disabled = S.ruleReadOnly;
-  $("rule-boardCount-field").hidden = context2 !== "room";
+  $("rule-format-field").hidden = false;
   $("create-room-name-field").hidden = !S.creatingRoom;
   $("create-room-name").value = $("online-name").value;
   $("rules-save").hidden = S.ruleReadOnly;
@@ -2895,6 +3146,8 @@ function fillPreset(noDora = false) {
   $("rule-exhaustLimit").value = 1;
   $("rule-multipleRon").value = "all";
   $("rule-startingPoints").value = 25e3;
+  $("rule-dealerContinuation").checked = true;
+  $("rule-agariYame").checked = false;
 }
 function saveRules() {
   if (S.ruleReadOnly || S.busy) return;
@@ -2910,16 +3163,19 @@ function saveRules() {
     raw.multipleRon = $("rule-multipleRon").value;
     raw.startingPoints = Number($("rule-startingPoints").value);
     if (raw.startingPoints > 1e5) throw new Error("\uC2DC\uC791 \uC810\uC218\uB294 100,000\uC810 \uC774\uD558\uB85C \uC124\uC815\uD574 \uC8FC\uC138\uC694.");
-    const rules = normalizeRules(raw);
+    const rules = normalizeRules(raw), matchRules = normalizeMatchRules({ format: $("rule-format").value, dealerContinuation: $("rule-dealerContinuation").checked, agariYame: $("rule-agariYame").checked });
     if (S.ruleContext === "room") {
       S.roomRules = rules;
-      S.boardCount = Number($("rule-boardCount").value);
+      S.roomMatchRules = matchRules;
+      S.boardCount = matchBoardCount(matchRules);
       S.roomAI = $("rule-aiPolicy").value;
       if (S.creatingRoom && S.roomAI === "mortal" && !S.aiCapabilities?.policies?.find((p) => p.id === "mortal")?.available) throw new Error("Mortal \uC5F0\uACB0\uC744 \uD655\uC778\uD55C \uB4A4 \uB300\uD68C\uB97C \uB9CC\uB4E4\uC5B4 \uC8FC\uC138\uC694.");
-      writeStorage(localStorage, "duplicate.room-rules.v1", { rules: S.roomRules, boardCount: S.boardCount, aiPolicy: S.roomAI });
+      writeStorage(localStorage, "duplicate.room-rules.v1", { rules: S.roomRules, matchRules: S.roomMatchRules, boardCount: S.boardCount, aiPolicy: S.roomAI });
     } else {
       S.settings = rules;
-      writeStorage(localStorage, "duplicate.settings.v1", { rules: S.settings });
+      S.practiceMatchRules = matchRules;
+      $("practice-count").value = matchRules.format;
+      writeStorage(localStorage, "duplicate.settings.v1", { rules: S.settings, matchRules });
     }
     const create = S.creatingRoom;
     if (create) $("online-name").value = $("create-room-name").value.trim();
@@ -2943,7 +3199,7 @@ function showStandings() {
   const body = document.createElement("tbody");
   for (const p of S.online?.standings ?? []) {
     const r = document.createElement("tr");
-    r.append(textNode("td", p.name), textNode("td", p.ai ? "AI" : "\uC0AC\uB78C"), textNode("td", `${p.completedBoards}\uAD6D`), textNode("td", signed(p.score)), textNode("td", signed(p.difference)));
+    r.append(textNode("td", p.name), textNode("td", p.ai ? "AI" : "\uC0AC\uB78C"), textNode("td", `${p.completedBoards}\uB300\uAD6D`), textNode("td", signed(p.score)), textNode("td", signed(p.difference)));
     body.append(r);
   }
   table.append(body);
@@ -2951,7 +3207,7 @@ function showStandings() {
   $("standings-dialog").showModal();
 }
 function exportResult() {
-  const record = S.mode === "practice" ? { format: "duplicate-practice-v1", createdAt: (/* @__PURE__ */ new Date()).toISOString(), seed: S.practice.seed, seat: S.practice.seat, rules: S.practice.game.rules, aiPolicy: S.practice.aiPolicy ?? "simple", modelSha256: S.practiceRemote?.aiModelSha256 ?? null, results: S.practice.results, game: S.practice.aiPolicy === "mortal" ? S.practiceRemote?.game ?? null : S.practice.game } : { format: "duplicate-online-result-v1", createdAt: (/* @__PURE__ */ new Date()).toISOString(), code: S.online?.code, tableId: S.online?.tableId, seat: S.online?.seat, rules: S.online?.rules, comparison: S.online?.comparison, standings: S.online?.standings, game: S.view };
+  const record = S.mode === "practice" ? { format: "duplicate-practice-v1", createdAt: (/* @__PURE__ */ new Date()).toISOString(), seed: S.practice.seed, seat: S.practice.seat, rules: S.practice.game.rules, matchRules: S.practice.matchRules, progress: progress(), aiPolicy: S.practice.aiPolicy ?? "simple", modelSha256: S.practiceRemote?.aiModelSha256 ?? null, results: S.practice.results, game: S.practice.aiPolicy === "mortal" ? S.practiceRemote?.game ?? null : S.practice.game } : { format: "duplicate-online-result-v1", createdAt: (/* @__PURE__ */ new Date()).toISOString(), code: S.online?.code, tableId: S.online?.tableId, seat: S.online?.seat, rules: S.online?.rules, matchRules: S.online?.matchRules, progress: progress(), comparison: S.online?.comparison, standings: S.online?.standings, game: S.view };
   const url = URL.createObjectURL(new Blob([JSON.stringify(record, null, 2)], { type: "application/json" })), a = document.createElement("a");
   a.href = url;
   a.download = `duplicate-${S.mode}-${Date.now()}.json`;
@@ -3073,13 +3329,20 @@ try {
 } catch {
   S.settings = normalizeRules();
 }
+try {
+  S.practiceMatchRules = normalizeMatchRules(storedSettings?.matchRules ?? {});
+} catch {
+  S.practiceMatchRules = normalizeMatchRules();
+}
 var storedRoomRules = readStorage(localStorage, "duplicate.room-rules.v1");
 try {
   S.roomRules = normalizeRules(storedRoomRules?.rules ?? storedSettings?.rules ?? {});
-  const count = storedRoomRules?.boardCount ?? storedSettings?.boardCount;
-  S.boardCount = [1, 4, 8, 16].includes(count) ? count : 8;
+  S.roomMatchRules = normalizeMatchRules(storedRoomRules?.matchRules ?? {});
+  S.boardCount = matchBoardCount(S.roomMatchRules);
 } catch {
   S.roomRules = normalizeRules();
+  S.roomMatchRules = normalizeMatchRules();
+  S.boardCount = 8;
 }
 S.roomAI = storedRoomRules?.aiPolicy === "mortal" ? "mortal" : "simple";
 S.preferences = loadPreferences(localStorage);
@@ -3087,24 +3350,22 @@ S.autoWin = S.preferences.autoWin;
 S.autoPass = S.preferences.autoPass;
 $("auto-win").checked = S.autoWin;
 $("auto-pass").checked = S.autoPass;
-personalSettingsUI = mountPersonalSettings($("settings-panel"), { value: S.preferences, onChange: applyPreferences, onPreview: () => feedback.preview(S.view ?? snapshot(S.practice.game, S.practice.seat)) });
+personalSettingsUI = mountPersonalSettings($("settings-panel"), { value: S.preferences, onChange: applyPreferences, onPreview: () => feedback.preview(S.view ?? snapshot2(S.practice.game, S.practice.seat)) });
 var saved = readStorage(localStorage, "duplicate.practice.v1");
 try {
-  if (saved?.game && saved.game.rules.id === DEFAULT_RULES2.id && Number.isInteger(saved.seat) && saved.seat >= 0 && saved.seat < 4 && Number.isInteger(saved.index) && saved.index < saved.count) {
-    assertInvariants(saved.game);
-    S.practice = saved;
-  }
+  S.practice = restorePracticeSeries(saved);
 } catch {
   S.practice = null;
 }
-if (!S.practice) {
-  const seed = randomSeed();
-  S.practice = { seed, seat: 0, count: 8, index: 0, results: [], game: createGame({ seed, rules: S.settings, dealer: 0 }) };
-}
+if (!S.practice) S.practice = createPracticeSeries({ seed: randomSeed(), seat: 0, matchRules: S.practiceMatchRules, rules: S.settings });
 $("practice-seed").value = S.practice.seed;
 $("practice-seat").value = S.practice.seat;
-$("practice-count").value = S.practice.count;
+$("practice-count").value = S.practice.matchRules?.format ?? S.practiceMatchRules.format;
 $("online-name").value = readStorage(localStorage, "duplicate.name") ?? "";
+$("practice-count").onchange = () => {
+  S.practiceMatchRules = normalizeMatchRules({ ...S.practiceMatchRules, format: $("practice-count").value });
+  writeStorage(localStorage, "duplicate.settings.v1", { rules: S.settings, matchRules: S.practiceMatchRules });
+};
 $("practice-ai").value = readStorage(localStorage, "duplicate.practice-ai.v1") ?? S.practice.aiPolicy ?? "simple";
 function normalizeServer(value) {
   const url = new URL(value);
@@ -3145,10 +3406,10 @@ if (invite && /^[A-Z2-9]{8}$/.test(invite)) {
   S.mode = "online";
 }
 if (S.credentials) S.mode = "online";
-S.view = S.mode === "practice" ? snapshot(S.practice.game, S.practice.seat) : null;
+S.view = S.mode === "practice" ? snapshot2(S.practice.game, S.practice.seat) : null;
 setMode(S.mode);
 if (S.credentials) schedulePoll();
-if (S.practice.game.phase === "end" && !S.practice.results.some((r) => r.index === S.practice.index)) finishPractice();
+if (S.practice.game.phase === "end" && !S.practice.results.some((r) => handId({ board: r.board ?? r.index + 1, honba: r.honba ?? 0 }) === seriesProgress(S.practice).handId)) finishPractice();
 void refreshAICapabilities();
 setInterval(() => {
   if (!document.hidden) void refreshAICapabilities();

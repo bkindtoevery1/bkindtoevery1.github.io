@@ -89,6 +89,13 @@ function pageTables(tables, page = 0) {
   const count = Math.max(1, Math.ceil(tables.length / 4)), index = Math.min(count - 1, Math.max(0, Math.floor(page) || 0));
   return { tables: tables.slice(index * 4, index * 4 + 4), page: index, pages: count, total: tables.length };
 }
+function observerRoundLabel(table) {
+  const board = table.board, honba = table.honba ?? table.game?.honba ?? 0, wind = table.handContext?.roundWind ?? table.game?.rules?.roundWind;
+  return `${[27, 28, 29, 30].includes(wind) ? `${["\u6771", "\u5357", "\u897F", "\u5317"][wind - 27]}${(board - 1) % 4 + 1}\u5C40` : `${board ?? "\u2014"}\uAD6D`} ${honba}\uBCF8\uC7A5`;
+}
+function contextLabel(context) {
+  return context ? `\uBCF8\uC7A5 ${context.honba ?? "\u2014"} \xB7 \uC2DC\uC791 \uACF5\uD0C1 ${number(context.pot)}\uC810 \xB7 \uC2DC\uC791 \uC810\uC218 ${(context.startingScores ?? []).map(number).join(" / ")} \xB7 \uCE5C ${Number(context.dealer) + 1}\uBC88` : "\uC2DC\uC791 \uC810\uC218\xB7\uACF5\uD0C1 \uB9E5\uB77D \uC815\uBCF4 \uC5C6\uC74C";
+}
 function face(doc, value, classes = "") {
   const tile = typeof value === "number" ? { type: value } : value, type = tile?.type ?? tile?.tile;
   if (!validTile(type)) return node(doc, "span", "obs-unknown-tile", "?");
@@ -166,7 +173,7 @@ function renderObserverTable(table, { handsVisible = false, detail = false, onDe
   const card = node(doc, "article", `obs-table-card${detail ? " obs-table-detail" : " obs-overview-card"}`);
   card.dataset.tableId = table.id;
   const header = node(doc, "header", "obs-table-heading"), title = node(doc, "div", "");
-  title.append(node(doc, "h2", "", `${table.id} \xB7 ${table.board ? `${table.board}\uAD6D` : "\uC900\uBE44"}`), node(doc, "span", "obs-captured", `\uD0C1 \uAE30\uB85D ${observerTime(table.capturedAt)}`));
+  title.append(node(doc, "h2", "", `${table.id} \xB7 ${table.board ? observerRoundLabel(table) : "\uC900\uBE44"}`), node(doc, "span", "obs-captured", `\uD0C1 \uAE30\uB85D ${observerTime(table.capturedAt)}`));
   header.append(title, node(doc, "span", "obs-phase", PHASES[table.phase] ?? "\uAE30\uB85D \uB300\uAE30"));
   if (!detail && onDetail) {
     const button = node(doc, "button", "obs-detail-button", "\uC790\uC138\uD788 \u2197");
@@ -180,6 +187,7 @@ function renderObserverTable(table, { handsVisible = false, detail = false, onDe
     return card;
   }
   const game = table.game, felt = node(doc, "div", "obs-felt"), meta = node(doc, "div", "obs-table-meta");
+  meta.title = contextLabel(table.handContext);
   meta.append(node(doc, "span", "", `\uCE5C ${Number(game.dealer) + 1}\uBC88 \xB7 ${PHASES[game.phase] ?? "\uB300\uAD6D"} \xB7 \uCBD4\uBAA8 ${game.draws ?? "\u2014"}\uD68C`), node(doc, "span", "", `\uB0A8\uC740 \uD328 ${game.wallRemaining ?? "\u2014"} \xB7 \uB9AC\uCE58\uBD09 ${(game.pot ?? 0) / 1e3}\uAC1C`));
   felt.append(meta);
   const dora = node(doc, "div", "obs-dora");
@@ -191,6 +199,7 @@ function renderObserverTable(table, { handsVisible = false, detail = false, onDe
   for (const player of [...game.players ?? []].sort((a, b) => a.seat - b.seat)) players.append(playerView(doc, table, player, { handsVisible, detail }));
   felt.append(players);
   card.append(felt);
+  if (detail) card.append(node(doc, "p", "obs-hand-context", contextLabel(table.handContext)));
   const recent = node(doc, "ol", "obs-recent");
   recent.setAttribute("aria-label", "\uCD5C\uADFC \uACF5\uAC1C \uD589\uB3D9");
   for (const event of (game.publicEvents ?? []).slice(detail ? -8 : -3).reverse()) recent.append(node(doc, "li", "", eventLabel(event, table)));
@@ -200,8 +209,9 @@ function renderObserverTable(table, { handsVisible = false, detail = false, onDe
   return card;
 }
 function renderObserverComparison(model, { document: doc = globalThis.document } = {}) {
-  const root = node(doc, "div", "obs-comparison-result"), summary = node(doc, "p", "obs-comparison-summary", `${model.board ?? "\u2014"}\uAD6D \xB7 ${model.tableIds?.length ?? 0}\uD0C1 \xB7 \uD655\uC778\uB41C \uB2E4\uB978 \uC120\uD0DD ${model.summary?.differenceCount ?? 0}\uAC1C`);
+  const root = node(doc, "div", "obs-comparison-result"), summary = node(doc, "p", "obs-comparison-summary", `${model.board ?? "\u2014"}\uAD6D \xB7 ${model.honba ?? 0}\uBCF8\uC7A5 \xB7 ${model.tableIds?.length ?? 0}\uD0C1 \xB7 \uD655\uC778\uB41C \uB2E4\uB978 \uC120\uD0DD ${model.summary?.differenceCount ?? 0}\uAC1C`);
   root.append(summary);
+  root.append(node(doc, "p", "obs-comparison-note", model.summary?.contextsMatched ? "\uBCF8\uC7A5\xB7\uC2DC\uC791 \uC810\uC218\xB7\uACF5\uD0C1 \uB9E5\uB77D\uC774 \uC77C\uCE58\uD569\uB2C8\uB2E4. \uC774\uD6C4 \uC190\uD328\uC640 \uC120\uD0DD\uC9C0\uB294 \uC9C4\uD589\uC5D0 \uB530\uB77C \uB2EC\uB77C\uC9D1\uB2C8\uB2E4." : "\uAC19\uC740 \uBC30\uD328\uB77C\uB3C4 \uC2DC\uC791 \uC810\uC218\xB7\uACF5\uD0C1 \uB9E5\uB77D\uC740 \uB2E4\uB97C \uC218 \uC788\uC2B5\uB2C8\uB2E4. \uC804\uCCB4 \uC758\uC0AC\uACB0\uC815 \uC870\uAC74\uC758 \uC77C\uCE58\uB97C \uB73B\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4."));
   for (const note of model.notes ?? []) root.append(node(doc, "p", "obs-comparison-note", note));
   const wrap = node(doc, "div", "obs-comparison-scroll"), table = node(doc, "table", "obs-comparison-table"), head = node(doc, "thead", ""), headRow = node(doc, "tr", "");
   headRow.append(node(doc, "th", "", "\uC790\uB9AC / \uC120\uD0DD \uC21C\uBC88"));
@@ -227,7 +237,7 @@ function renderObserverComparison(model, { document: doc = globalThis.document }
   const scores = node(doc, "div", "obs-comparison-scores");
   for (const t of model.tables ?? []) {
     const line = node(doc, "div", "");
-    line.append(node(doc, "b", "", `${t.id} \xB7 ${t.board ?? "\u2014"}\uAD6D`));
+    line.append(node(doc, "b", "", `${t.id} \xB7 ${observerRoundLabel(t)}${t.status === "other-deal" ? " \xB7 \uB2E4\uB978 \uBCF8\uC7A5" : ""}`), node(doc, "span", "", contextLabel(t.handContext)));
     for (const p of t.points ?? []) line.append(node(doc, "span", "", `${p.name ?? `${p.seat + 1}\uBC88`} \xB7 \uD604\uC7AC ${number(p.points)} \xB7 \uAD6D ${p.score > 0 ? "+" : ""}${number(p.score)} \xB7 \uB204\uC801 ${p.cumulativeScore > 0 ? "+" : ""}${number(p.cumulativeScore)}`));
     scores.append(line);
   }
@@ -255,11 +265,12 @@ var number2 = (n) => Number.isFinite(n) ? n : null;
 var winds = ["\uB3D9", "\uB0A8", "\uC11C", "\uBD81"];
 var callNames = { chi: "\uCE58", pon: "\uD401", minkan: "\uB300\uBA85\uAE61", ankan: "\uC554\uAE61", kakan: "\uAC00\uAE61" };
 var notes = [
-  "\uAC19\uC740 \uAD6D \uBC88\uD638\xB7\uADDC\uCE59\xB7\uC88C\uC11D\uC758 \uACF5\uAC1C \uACB0\uACFC\uB97C \uBE44\uAD50\uD569\uB2C8\uB2E4. \uAD6D \uBC88\uD638\uB294 \uB300\uD68C \uB0B4 \uC21C\uC11C\uC774\uBA70 \uC7A5\xB7\uAD6D \uC774\uB984\uACFC \uB2E4\uB985\uB2C8\uB2E4.",
+  "\uAC19\uC740 \uAD6D\xB7\uAC19\uC740 \uBCF8\uC7A5\xB7\uAC19\uC740 \uC790\uB9AC\uC758 \uACF5\uAC1C \uACB0\uACFC\uB97C \uBE44\uAD50\uD569\uB2C8\uB2E4. \uC774\uC804 \uB300\uAD6D \uC218\uB098 \uC5F0\uC7A5 \uD68C\uCC28\uAC00 \uB2EC\uB77C\uB3C4 \uAC19\uC740 \uAD6D\xB7\uBCF8\uC7A5\uC740 \uAC19\uC740 \uD328\uC0B0\uC785\uB2C8\uB2E4.",
+  "\uAC19\uC740 \uAD6D\xB7\uBCF8\uC7A5\uC774\uB77C\uB3C4 \uC2DC\uC791 \uC810\uC218\xB7\uACF5\uD0C1\uC740 \uD0C1\uB9C8\uB2E4 \uB2E4\uB97C \uC218 \uC788\uC2B5\uB2C8\uB2E4. \uADF8 \uCC28\uC774\uB97C \uC2E4\uB825 \uCC28\uC774\uB098 \uC644\uC804\uD788 \uAC19\uC740 \uC810\uC218 \uC870\uAC74\uC73C\uB85C \uD574\uC11D\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.",
   "\uAC1C\uC778 \uCBD4\uBAA8 \uBC88\uD638\uAC00 \uAC19\uC544\uB3C4 \uD6C4\uB85C \uC774\uD6C4 \uC190\uD328\xB7\uC21C\uC11C\xB7\uC120\uD0DD \uB9E5\uB77D\uC740 \uB2EC\uB77C\uC9D1\uB2C8\uB2E4. \uAC19\uC740 \uBC88\uD638\uB294 \uB3D9\uC77C\uD55C \uC120\uD0DD\uC9C0\uB098 \uC2E4\uB825\uC744 \uB73B\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.",
   "\uD6C4\uB85C \uD589\uC758 \uC88C\uC11D\uC740 \uC6D0\uC778 \uBC84\uB9BC\uD328\uB97C \uB0B8 \uC88C\uC11D\uC785\uB2C8\uB2E4. \uAC19\uC740 \uC2E4\uBB3C \uBC84\uB9BC\uD328 \uB610\uB294 \uD655\uC778 \uAC00\uB2A5\uD55C \uBC84\uB9BC\uD328 \uC21C\uC11C\xB7\uD328\uB9CC \uBB36\uC2B5\uB2C8\uB2E4.",
   "\uD6C4\uB85C \uACB0\uACFC \uC5C6\uC74C\uC740 \uD574\uB2F9 \uBC84\uB9BC\uD328\uC758 \uBC18\uC751\uC774 \uB05D\uB09C \uB4A4 \uC218\uB77D\uB41C \uD6C4\uB85C\uAC00 \uC5C6\uB2E4\uB294 \uB73B\uC785\uB2C8\uB2E4. \uD328\uC2A4 \uC758\uB3C4\xB7\uD6C4\uB85C \uAC00\uB2A5 \uC5EC\uBD80\xB7\uD0C8\uB77D\uD55C \uC694\uCCAD\uC740 \uCD94\uCE21\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.",
-  "\uB3C4\uB2EC \uC804\xB7\uB2E4\uB978 \uAD6D\xB7\uAE30\uB85D \uC5C6\uC74C\uC740 \uCC28\uC774\uB85C \uC138\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uB204\uC801 \uC810\uC218\uB294 \uC11C\uBC84\uAC00 \uC81C\uACF5\uD55C \uB204\uC801\uAC12\uB9CC \uD45C\uC2DC\uD569\uB2C8\uB2E4."
+  "\uB3C4\uB2EC \uC804\xB7\uB2E4\uB978 \uAD6D\xB7\uB2E4\uB978 \uBCF8\uC7A5\xB7\uAE30\uB85D \uC5C6\uC74C\uC740 \uCC28\uC774\uB85C \uC138\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uB204\uC801 \uC810\uC218\uB294 \uC11C\uBC84\uAC00 \uC81C\uACF5\uD55C \uB204\uC801\uAC12\uB9CC \uD45C\uC2DC\uD569\uB2C8\uB2E4."
 ];
 function eventView(e, order) {
   if (!e || !seatOK(e.seat) || !["discard", "call", "kan", "riichi", "win"].includes(e.kind)) return null;
@@ -285,6 +296,21 @@ function defaultBoard(dto, tables) {
   const counts = /* @__PURE__ */ new Map();
   for (const table of tables) if (boardOK(table.board)) counts.set(table.board, (counts.get(table.board) ?? 0) + 1);
   return [...counts].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0]?.[0] ?? null;
+}
+var repeatOf = (table) => indexOK(table?.repeat) ? table.repeat : 0;
+var honbaOf = (table) => indexOK(table?.honba ?? table?.game?.honba) ? table.honba ?? table.game.honba : 0;
+function defaultHonba(tables, board) {
+  const counts = /* @__PURE__ */ new Map();
+  for (const table of tables) if (table.board === board) {
+    const honba = honbaOf(table);
+    counts.set(honba, (counts.get(honba) ?? 0) + 1);
+  }
+  return [...counts].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0]?.[0] ?? 0;
+}
+function contextView(t) {
+  const c = t.handContext;
+  if (!c || !indexOK(c.honba) || !indexOK(c.pot) || !seatOK(c.dealer) || !Number.isInteger(c.roundWind) || c.roundWind < 27 || c.roundWind > 30 || !Array.isArray(c.startingScores) || c.startingScores.length !== 4 || !c.startingScores.every(Number.isSafeInteger)) return null;
+  return { honba: c.honba, pot: c.pot, dealer: c.dealer, roundWind: c.roundWind, startingScores: [...c.startingScores] };
 }
 function getTables(dto) {
   const tables = [], ids = /* @__PURE__ */ new Set();
@@ -312,7 +338,7 @@ function pointRows(t) {
     };
   });
 }
-function prepare(t, board, alignment) {
+function prepare(t, board, honba, alignment) {
   const hasHistory = Array.isArray(t.game?.publicEvents);
   const events = hasHistory ? t.game.publicEvents.map(eventView).filter(Boolean) : [];
   const discards = events.filter((e) => e.result.kind === "discard"), bySlot = /* @__PURE__ */ new Map(), occurrences = /* @__PURE__ */ new Map();
@@ -329,7 +355,9 @@ function prepare(t, board, alignment) {
     discards,
     bySlot,
     hasHistory,
-    boardMatch: t.board === board,
+    sameBoard: t.board === board,
+    honbaMatch: honbaOf(t) === honba,
+    boardMatch: t.board === board && honbaOf(t) === honba,
     waiting: !t.game && !boardOK(t.board),
     ended: !!t.game?.end || ["end", "ended", "complete"].includes(t.game?.phase) || ["ended", "complete"].includes(t.phase)
   };
@@ -344,13 +372,15 @@ function choice(tableId, status, result = null, label) {
   return { tableId, status, result, label: label ?? (result ? resultLabel(result) : {
     pending: "\uC544\uC9C1 \uD574\uB2F9 \uACB0\uACFC\uC5D0 \uB3C4\uB2EC\uD558\uC9C0 \uC54A\uC74C",
     "other-board": "\uB2E4\uB978 \uAD6D",
+    "other-deal": "\uB2E4\uB978 \uBCF8\uC7A5",
     "missing-record": "\uD574\uB2F9 \uACF5\uAC1C \uAE30\uB85D \uC5C6\uC74C",
     "no-call": "\uD6C4\uB85C \uACB0\uACFC \uC5C6\uC74C"
   }[status]) };
 }
 function unavailable(p) {
   if (p.waiting) return choice(p.t.id, "pending", null, "\uC9C0\uC5F0\uB41C \uACF5\uAC1C \uD654\uBA74\uC744 \uAE30\uB2E4\uB9AC\uB294 \uC911");
-  if (!p.boardMatch) return choice(p.t.id, "other-board");
+  if (!p.sameBoard) return choice(p.t.id, "other-board");
+  if (!p.honbaMatch) return choice(p.t.id, "other-deal");
   if (!p.t.game) return choice(p.t.id, "pending");
   if (!p.hasHistory) return choice(p.t.id, "missing-record");
   return null;
@@ -500,26 +530,37 @@ function selfKanRows(prepared, seatFilter) {
 }
 function buildObserverComparison(dto = {}, options = {}) {
   const input = getTables(dto), board = Object.hasOwn(options, "board") && options.board !== void 0 ? boardOK(options.board) ? options.board : null : defaultBoard(dto, input);
+  const honba = Object.hasOwn(options, "honba") && options.honba !== void 0 ? indexOK(options.honba) ? options.honba : null : defaultHonba(input, board);
+  const handId = board !== null && honba !== null ? `${board}:${honba}` : null;
   const seat = seatOK(options.seat) ? options.seat : null, alignment = options.alignment === "discard" ? "discard" : "draw";
   const type = ["discard", "call"].includes(options.type) ? options.type : "all";
-  const prepared = input.map((t) => prepare(t, board, alignment));
+  const prepared = input.map((t) => prepare(t, board, honba, alignment));
   const tables = prepared.map((p) => ({
     id: p.t.id,
     board: boardOK(p.t.board) ? p.t.board : null,
+    repeat: repeatOf(p.t),
+    handId: boardOK(p.t.board) ? `${p.t.board}:${honbaOf(p.t)}` : null,
+    honba: honbaOf(p.t),
+    handContext: contextView(p.t),
     phase: typeof p.t.phase === "string" ? p.t.phase : "waiting",
     revision: indexOK(p.t.revision) ? p.t.revision : null,
     capturedAt: number2(p.t.capturedAt),
     points: pointRows(p.t),
-    status: p.waiting ? "pending" : !p.boardMatch ? "other-board" : !p.t.game ? "pending" : !p.hasHistory ? "missing-record" : "available"
+    status: p.waiting ? "pending" : !p.sameBoard ? "other-board" : !p.honbaMatch ? "other-deal" : !p.t.game ? "pending" : !p.hasHistory ? "missing-record" : "available"
   }));
-  let all = board === null ? [] : [
+  let all = handId === null ? [] : [
     ...type !== "call" ? discardRows(prepared, seat, alignment) : [],
     ...type !== "discard" ? [...triggerRows(prepared, seat), ...selfKanRows(prepared, seat)] : []
   ];
+  all = all.map((row) => ({ ...row, id: `${handId}:${row.id}` }));
   all.sort((a, b) => a.seat - b.seat || (a.index ?? Infinity) - (b.index ?? Infinity) || a.occurrence - b.occurrence || a.id.localeCompare(b.id));
   const rows = options.differencesOnly ? all.filter((r) => r.isDifference) : all;
+  const contexts = tables.filter((t) => t.status === "available").map((t) => t.handContext);
+  const contextsMatched = contexts.length >= 2 && contexts.every(Boolean) && new Set(contexts.map((c) => JSON.stringify(c))).size === 1;
   return {
     board,
+    honba,
+    handId,
     tableIds: tables.map((t) => t.id),
     tables,
     rows,
@@ -527,10 +568,11 @@ function buildObserverComparison(dto = {}, options = {}) {
       rowCount: rows.length,
       visibleRowCount: rows.length,
       totalRowCount: all.length,
+      contextsMatched,
       differenceCount: all.filter((r) => r.isDifference).length,
       commonCount: all.filter((r) => r.status === "common").length,
       pendingCount: all.filter((r) => r.hasPending).length,
-      tablePoints: tables.map((t) => ({ tableId: t.id, board: t.board, points: t.points.map((p) => ({ ...p })) }))
+      tablePoints: tables.map((t) => ({ tableId: t.id, board: t.board, honba: t.honba, repeat: t.repeat, handId: t.handId, points: t.points.map((p) => ({ ...p })) }))
     },
     notes: [...notes]
   };
@@ -550,12 +592,14 @@ function normalizeObserverServer(value = DEFAULT_OBSERVER_SERVER) {
 function parseObserverLink(value, base = DEFAULT_OBSERVER_SERVER) {
   const url = new URL(value, base);
   if (!["https:", "http:"].includes(url.protocol)) throw Error("\uAD00\uC804 \uB9C1\uD06C\uC758 \uC8FC\uC18C\uB97C \uD655\uC778\uD574 \uC8FC\uC138\uC694.");
+  if (url.searchParams.has("repeat")) throw Error("\uAD00\uC804 \uAE30\uB85D\uC740 \uAD6D\uACFC \uBCF8\uC7A5\uC73C\uB85C \uC120\uD0DD\uD569\uB2C8\uB2E4. \uBCF8\uC7A5 \uC120\uD0DD \uB9C1\uD06C\uB85C \uB2E4\uC2DC \uC5F0\uACB0\uD574 \uC8FC\uC138\uC694.");
   if (url.searchParams.has("key")) throw Error("\uD0A4\uAC00 \uC8FC\uC18C \uCFFC\uB9AC\uC5D0 \uD3EC\uD568\uB418\uC5B4 \uC788\uC2B5\uB2C8\uB2E4. \uBC29\uC7A5\uC774 \uBC1C\uAE09\uD55C #key= \uD615\uC2DD\uC758 \uAD00\uC804 \uB9C1\uD06C\uB97C \uC0AC\uC6A9\uD574 \uC8FC\uC138\uC694.");
   const fragment = new URLSearchParams(url.hash.slice(1)), key = fragment.get("key"), code = (url.searchParams.get("code") ?? "").trim().toUpperCase();
-  if (!key) return { code, key: null, server: normalizeObserverServer(url.searchParams.get("server") ?? DEFAULT_OBSERVER_SERVER), delaySeconds: normalizeObserverDelay(url.searchParams.get("delay") ?? 5), board: null };
+  if (!key) return { code, key: null, server: normalizeObserverServer(url.searchParams.get("server") ?? DEFAULT_OBSERVER_SERVER), delaySeconds: normalizeObserverDelay(url.searchParams.get("delay") ?? 5), board: null, honba: null };
   if (!/^[a-f0-9]{64}$/.test(key) || !/^[A-Z2-9]{8}$/.test(code)) throw Error("\uAD00\uC804 \uB9C1\uD06C\uC758 \uB300\uD68C \uCF54\uB4DC\uC640 \uC804\uC6A9 \uD0A4\uB97C \uD655\uC778\uD574 \uC8FC\uC138\uC694.");
-  const requestedBoard = Number(url.searchParams.get("board"));
-  return { code, key, server: normalizeObserverServer(url.searchParams.get("server") ?? DEFAULT_OBSERVER_SERVER), delaySeconds: normalizeObserverDelay(url.searchParams.get("delay") ?? 5), board: Number.isInteger(requestedBoard) && requestedBoard >= 1 && requestedBoard <= 16 ? requestedBoard : null };
+  const requestedBoard = Number(url.searchParams.get("board")), rawHonba = url.searchParams.get("honba"), honba = rawHonba === null ? null : Number(rawHonba);
+  if (rawHonba !== null && (!url.searchParams.has("board") || !Number.isInteger(requestedBoard) || requestedBoard < 1 || requestedBoard > 16 || !Number.isInteger(honba) || honba < 0 || honba > 4294967295)) throw Error("\uBCF8\uC7A5\uC218\uB294 \uC62C\uBC14\uB978 \uAE30\uBCF8 \uAD6D \uBC88\uD638\uC640 \uD568\uAED8 \uC120\uD0DD\uD574 \uC8FC\uC138\uC694.");
+  return { code, key, server: normalizeObserverServer(url.searchParams.get("server") ?? DEFAULT_OBSERVER_SERVER), delaySeconds: normalizeObserverDelay(url.searchParams.get("delay") ?? 5), board: Number.isInteger(requestedBoard) && requestedBoard >= 1 && requestedBoard <= 16 ? requestedBoard : null, honba };
 }
 function createObserverClient({ fetchImpl = globalThis.fetch, onState = () => {
 }, onStatus = () => {
@@ -589,7 +633,10 @@ function createObserverClient({ fetchImpl = globalThis.fetch, onState = () => {
     try {
       const url = new URL(`${current.server}/api/duplicate/competitions/${encodeURIComponent(current.code)}/observe`);
       url.searchParams.set("delaySeconds", String(current.delaySeconds));
-      if (current.board !== null) url.searchParams.set("board", String(current.board));
+      if (current.board !== null) {
+        url.searchParams.set("board", String(current.board));
+        if (current.honba !== null) url.searchParams.set("honba", String(current.honba));
+      }
       const response = await fetchImpl(url.href, { method: "GET", headers: { Accept: "application/json", Authorization: `Bearer ${current.key}` }, cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer", signal: abort.signal });
       if (generation !== epoch || !active) return false;
       if (!response.ok) {
@@ -639,8 +686,9 @@ function createObserverClient({ fetchImpl = globalThis.fetch, onState = () => {
       cancel();
       active = false;
       config = null;
-      const next = { ...value, server: normalizeObserverServer(value.server), delaySeconds: normalizeObserverDelay(value.delaySeconds), board: value.board ?? null };
+      const next = { ...value, server: normalizeObserverServer(value.server), delaySeconds: normalizeObserverDelay(value.delaySeconds), board: value.board ?? null, honba: value.honba ?? null };
       if (!/^[a-f0-9]{64}$/.test(next.key ?? "") || !/^[A-Z2-9]{8}$/.test(next.code ?? "")) throw Error("\uC720\uD6A8\uD55C \uAD00\uC804 \uC804\uC6A9 \uB9C1\uD06C\uB97C \uC5F0\uACB0\uD574 \uC8FC\uC138\uC694.");
+      if (next.honba !== null && (next.board === null || !Number.isInteger(next.honba) || next.honba < 0 || next.honba > 4294967295)) throw Error("\uBCF8\uC7A5\uC218\uB294 \uAE30\uBCF8 \uAD6D \uBC88\uD638\uC640 \uD568\uAED8 \uC120\uD0DD\uD574 \uC8FC\uC138\uC694.");
       config = next;
       active = true;
       failures = 0;
@@ -682,7 +730,10 @@ function mountObserver(doc = globalThis.document, win = globalThis.window) {
     url.searchParams.set("code", ui.config.code);
     url.searchParams.set("delay", String(ui.config.delaySeconds));
     if (ui.config.server !== DEFAULT_OBSERVER_SERVER) url.searchParams.set("server", ui.config.server);
-    if (ui.config.board !== null) url.searchParams.set("board", String(ui.config.board));
+    if (ui.config.board !== null) {
+      url.searchParams.set("board", String(ui.config.board));
+      if (ui.config.honba !== null) url.searchParams.set("honba", String(ui.config.honba));
+    }
     url.hash = new URLSearchParams({ key: ui.config.key }).toString();
     win.history.replaceState(null, "", url.href);
   }
@@ -691,7 +742,7 @@ function mountObserver(doc = globalThis.document, win = globalThis.window) {
     render();
   }
   function render() {
-    const dto = ui.dto, tables = dto ? [...dto.tables, ...(dto.waitingTables ?? []).filter((id) => !dto.tables.some((t) => t.id === id)).map((id) => ({ id, board: ui.config?.board, phase: "waiting", capturedAt: null, game: null, members: [] }))] : [];
+    const dto = ui.dto, tables = dto ? [...dto.tables, ...(dto.waitingTables ?? []).filter((id) => !dto.tables.some((t) => t.id === id)).map((id) => ({ id, board: ui.config?.board, honba: ui.config?.honba, phase: "waiting", capturedAt: null, game: null, members: [] }))] : [];
     const caster = dto?.role === "caster" && dto.handsVisible === true;
     $("observer-role").textContent = dto ? caster ? "\uC911\uACC4\uC790 \xB7 \uC804\uCCB4 \uC190\uD328" : "\uAD00\uC804\uC790 \xB7 \uC190\uD328 \uBE44\uACF5\uAC1C" : "\uAD00\uC804 \uB9C1\uD06C \uD544\uC694";
     $("observer-role").classList.toggle("obs-caster", caster);
@@ -730,7 +781,7 @@ function mountObserver(doc = globalThis.document, win = globalThis.window) {
     for (const table of tables) {
       const option = doc.createElement("option");
       option.value = table.id;
-      option.textContent = `${table.id} \xB7 ${table.board ?? "\u2014"}\uAD6D`;
+      option.textContent = `${table.id} \xB7 ${table.board ?? "\u2014"}\uAD6D \xB7 ${table.honba ?? 0}\uBCF8\uC7A5`;
       select.append(option);
     }
     if (!tables.some((t) => t.id === ui.tableId)) ui.tableId = tables[0]?.id ?? null;
@@ -742,20 +793,26 @@ function mountObserver(doc = globalThis.document, win = globalThis.window) {
     const comparison = $("observer-comparison-content");
     comparison.replaceChildren();
     if (dto && ui.mode === "comparison") {
-      const seat = $("observer-compare-seat").value, model = buildObserverComparison(dto, { board: ui.config.board ?? void 0, seat: seat === "" ? null : Number(seat), type: $("observer-compare-type").value, alignment: $("observer-compare-alignment").value, differencesOnly: $("observer-compare-differences").checked });
+      const seat = $("observer-compare-seat").value, model = buildObserverComparison(dto, { board: ui.config.board ?? void 0, honba: ui.config.honba ?? void 0, seat: seat === "" ? null : Number(seat), type: $("observer-compare-type").value, alignment: $("observer-compare-alignment").value, differencesOnly: $("observer-compare-differences").checked });
       comparison.append(renderObserverComparison(model, options));
     }
-    const board = $("observer-board"), old = String(ui.config?.board ?? "");
+    const board = $("observer-board"), old = ui.config?.board === null || ui.config?.board === void 0 ? "" : ui.config.honba === null ? `board:${ui.config.board}` : `${ui.config.board}:${ui.config.honba}`;
     board.replaceChildren();
     const latest = doc.createElement("option");
     latest.value = "";
     latest.textContent = "\uAC01 \uD0C1\uC758 \uCD5C\uC2E0 \uAE30\uB85D";
     board.append(latest);
-    const boards = [.../* @__PURE__ */ new Set([...dto?.availableBoards ?? [], ...ui.config?.board ? [ui.config.board] : []])].sort((a, b) => a - b);
-    for (const n of boards) {
+    const deals = dto?.availableDeals ?? (dto?.availableBoards ?? []).map((board2) => ({ board: board2, honba: 0, handId: `${board2}:0` })), known = new Map(deals.map((d) => [`${d.board}:${d.honba}`, d]));
+    if (ui.config?.board !== null && ui.config?.board !== void 0 && !known.has(old)) {
       const option = doc.createElement("option");
-      option.value = String(n);
-      option.textContent = `${n}\uAD6D${dto?.availableBoards?.includes(n) ? "" : " \xB7 \uC9C0\uC5F0 \uB300\uAE30"}`;
+      option.value = old;
+      option.textContent = ui.config.honba === null ? `${ui.config.board}\uAD6D \xB7 \uCD5C\uC2E0 \uBCF8\uC7A5` : `${ui.config.board}\uAD6D \xB7 ${ui.config.honba}\uBCF8\uC7A5 \xB7 \uC9C0\uC5F0 \uB300\uAE30`;
+      board.append(option);
+    }
+    for (const deal of [...known.values()].sort((a, b) => a.board - b.board || a.honba - b.honba)) {
+      const option = doc.createElement("option");
+      option.value = `${deal.board}:${deal.honba}`;
+      option.textContent = `${deal.board}\uAD6D \xB7 ${deal.honba}\uBCF8\uC7A5`;
       board.append(option);
     }
     board.value = old;
@@ -808,7 +865,10 @@ function mountObserver(doc = globalThis.document, win = globalThis.window) {
   });
   doc.querySelectorAll("[data-delay]").forEach((button) => button.onclick = () => changeDelay(button.dataset.delay));
   $("observer-board").onchange = () => {
-    if (ui.config) connect({ ...ui.config, board: $("observer-board").value ? Number($("observer-board").value) : null });
+    if (ui.config) {
+      const selected = $("observer-board").value, parts = selected.split(":");
+      connect({ ...ui.config, board: selected ? Number(parts[0] === "board" ? parts[1] : parts[0]) : null, honba: selected && parts[0] !== "board" ? Number(parts[1]) : null });
+    }
   };
   $("observer-refresh").onclick = () => {
     if (ui.config) void client.refresh();
