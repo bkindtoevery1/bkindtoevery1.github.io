@@ -9,12 +9,12 @@
   <link rel="stylesheet" href="./style.css?v=03bfdf96bea31e5f">
   <link rel="stylesheet" href="./personal-settings.css?v=93ec230338a0b174">
   <link rel="stylesheet" href="./feedback.css?v=e9209ed41f291d0a">
-  <script type="module" src="./app.mjs?v=9560b37a447e89e7"></script>
+  <script type="module" src="./app.mjs?v=5927986d4ed7b592"></script>
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="./" aria-label="Duplicate Mahjong 홈"><span class="brand-mark" aria-hidden="true">發</span><span>DUPLICATE <b>MAHJONG</b><small>같은 패, 다른 선택</small></span></a>
-    <div class="top-actions"><a id="tournament-link" class="text-button" href="./tournament/">대회 운영·관리</a><a id="observer-nav-link" class="text-button" href="./tournament/observer.html" target="_blank" rel="noopener noreferrer">관전·중계 ↗</a><span class="connection" id="connection"><i></i> 로컬 연습</span><button id="settings-open" class="icon-button" title="개인 설정" aria-label="개인 설정">⚙ <span>설정</span></button><button id="help-open" class="icon-button" title="게임 안내" aria-label="게임 안내">? <span>안내</span></button></div>
+    <div class="top-actions"><a id="tournament-link" class="text-button" href="./tournament/">대회 운영·관리</a><a id="observer-nav-link" class="text-button" href="./tournament/observer.html" target="_blank" rel="noopener noreferrer">관전·중계 ↗</a><a id="replay-nav-link" class="text-button" href="./replay.html">패보실</a><span class="connection" id="connection"><i></i> 로컬 연습</span><button id="settings-open" class="icon-button" title="개인 설정" aria-label="개인 설정">⚙ <span>설정</span></button><button id="help-open" class="icon-button" title="게임 안내" aria-label="게임 안내">? <span>안내</span></button></div>
   </header>
   <main class="layout" id="layout">
     <aside class="sidebar">
@@ -43,7 +43,7 @@
       <footer class="sidebar-footer"><a href="../mahjong/">H/S 마작 연습실 ↗</a><span>4인 리치 · Duplicate</span></footer>
     </aside>
     <section class="game-column" aria-label="마작 대국">
-      <div class="game-toolbar"><div><span class="live-dot"></span><strong id="board-label">연습 준비</strong><span id="seat-label" class="muted"></span></div><button id="export-result" class="text-button">결과 저장 ↓</button></div>
+      <div class="game-toolbar"><div><span class="live-dot"></span><strong id="board-label">연습 준비</strong><span id="seat-label" class="muted"></span></div><div class="button-row"><button id="open-current-replay" class="text-button" type="button" disabled>이 국 패보</button><button id="export-result" class="text-button">성적 JSON ↓</button></div></div>
       <div class="table" id="table">
         <div class="felt-grain" aria-hidden="true"></div>
         <div class="opponent opponent-top" id="opponent-top"></div><div class="opponent opponent-left" id="opponent-left"></div><div class="opponent opponent-right" id="opponent-right"></div>

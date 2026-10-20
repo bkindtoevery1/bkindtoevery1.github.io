@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#183c32">
+  <title>Duplicate Mahjong · 패보실</title>
+  <link rel="stylesheet" href="./tournament/base.css?v=7dad8e0eaa44ee32"><link rel="stylesheet" href="./replay.css?v=48baf46d4da5bb2b"><script type="module" src="./replay.mjs?v=7e250c70d2535bf6"></script>
+</head>
+<body class="replay-page">
+  <header class="replay-header"><a id="replay-home-link" class="brand" href="./"><span class="brand-mark" aria-hidden="true">發</span><span>DUPLICATE <b>MAHJONG</b><small>한 수씩, 다시 보기 · 패보실</small></span></a><nav><a href="#replay-library" class="text-button">저장 목록</a><a id="replay-game-link" class="text-button" href="./">게임으로</a><a id="replay-manager-link" class="text-button" href="./tournament/">대회 운영</a></nav></header>
+  <main class="replay-layout" id="replay-root">
+    <aside class="replay-sidebar" id="replay-library">
+      <section class="panel replay-import" id="replay-drop"><span class="eyebrow">REPLAY LIBRARY</span><h1>내 패보</h1><p class="hint">패보 JSON 파일을 열거나 여기에 놓아 주세요. 이 브라우저에 저장하며 서버로 전송하지 않습니다.</p><input id="replay-file" type="file" accept=".json,application/json" hidden><button id="replay-import" type="button" class="primary full">패보 파일 불러오기 ↑</button><p id="replay-storage-note" class="hint">브라우저 데이터를 지우면 저장된 패보도 삭제됩니다. 보관할 패보는 파일로 내려받으세요.</p></section>
+      <section class="panel"><div class="section-title"><h2>저장한 패보</h2><button type="button" class="text-button" id="replay-reload">새로 확인</button></div><ul id="replay-list" class="replay-list"><li class="hint">저장 목록을 확인하고 있습니다.</li></ul></section>
+    </aside>
+    <section class="replay-main">
+      <p id="replay-status" class="replay-status" role="status" aria-live="polite">패보를 선택해 주세요.</p><div id="replay-error" class="replay-error" role="alert" hidden></div>
+      <section id="replay-confirm" class="replay-confirm" hidden><strong id="replay-confirm-title"></strong><p id="replay-confirm-copy" class="hint"></p><div class="button-row"><button id="replay-confirm-accept" type="button" class="primary">확인</button><button id="replay-confirm-cancel" type="button" class="secondary">취소</button></div></section>
+      <section id="replay-empty" class="panel replay-empty"><span class="eyebrow">SAME HAND, ANOTHER LOOK</span><h2>버림과 선택을 천천히.</h2><p>저장한 패보에서 국·본장과 시점을 골라 한 수씩 다시 볼 수 있습니다.</p><p class="hint">기존의 점수 결과 파일에는 행동 기록이 없을 수 있습니다. 패보에 없는 손패나 지난 행동을 추측해 채우지 않습니다.</p></section>
+      <section id="replay-viewer" hidden>
+        <div class="replay-title-row"><div><span class="eyebrow">REPLAY</span><h1 id="replay-title">패보</h1><p id="replay-summary" class="hint"></p></div><div class="button-row"><button id="replay-export" type="button" class="secondary">패보 파일 저장 ↓</button><button id="replay-delete" type="button" class="text-button">이 패보 삭제</button></div></div>
+        <div class="replay-filters"><label class="field">국·본장<select id="replay-hand"></select></label><label class="field">시점<select id="replay-seat"></select></label><p id="replay-visibility" class="hint"></p></div>
+        <div id="replay-table" class="replay-felt" aria-label="패보의 현재 대국 상태"></div>
+        <section class="replay-transport" aria-label="패보 재생 조작"><div class="replay-position"><strong id="replay-action-label">대국 시작</strong><span id="replay-progress">0 / 0</span></div><label class="replay-scrubber"><span class="sr-only">행동 순서</span><input id="replay-step" type="range" min="0" max="0" value="0" step="1"></label><div class="replay-buttons"><button id="replay-first" type="button" class="secondary" aria-label="국 시작으로">처음</button><button id="replay-prev" type="button" class="secondary" aria-label="이전 행동">← 이전</button><button id="replay-play" type="button" class="primary" aria-pressed="false">재생 ▶</button><button id="replay-next" type="button" class="secondary" aria-label="다음 행동">다음 →</button><button id="replay-last" type="button" class="secondary" aria-label="국 끝으로">끝</button><label>속도<select id="replay-speed" aria-label="재생 속도"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></label></div><p class="hint replay-keyboard">← / → 한 수 이동 · 스페이스 재생·정지 · 국 이동이나 시점 변경 시 재생을 멈춥니다.</p></section>
+        <details class="panel replay-timeline" open><summary>행동 기록</summary><ol id="replay-actions"></ol></details>
+      </section>
+    </section>
+  </main>
+</body></html>
