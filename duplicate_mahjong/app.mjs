@@ -408,6 +408,7 @@ function createGame({ seed = 1, rules = {}, dealer = 0, wall = null, pot = 0, st
     pendingAbort: null
   };
   for (let n = 0; n < 13; n++) for (let seat = 0; seat < 4; seat++) s.players[seat].hand.push(w.shift());
+  s.initialHands = s.players.map((p) => [...p.hand]);
   for (let i = 0; i < w.length; i++) s.walls[i % 4].push(w[i]);
   for (const p of s.players) p.hand.sort((a, b) => a - b);
   draw(s, dealer);
@@ -638,11 +639,11 @@ function reaction(s, source, id, kind, extra = {}) {
 function cancelIppatsu(s) {
   for (const p of s.players) p.ippatsu = false;
 }
-function completeKan(s, seat) {
+function completeKan(s, seat, details = {}) {
   cancelIppatsu(s);
   s.kans++;
   s.calls++;
-  event(s, { type: "kan", seat });
+  event(s, { type: "kan", seat, ...details });
   if (s.rules.abortFourKans && s.kans === 4 && s.players.filter((p) => p.melds.some((m) => m.type === "kan")).length > 1) s.pendingAbort = "four-kans";
   draw(s, seat, true);
 }
@@ -669,10 +670,10 @@ function resolve(s) {
     return;
   }
   if (r.kind === "kakan") {
-    const p2 = s.players[r.source], m = p2.melds[r.meld];
-    m.ids.push(...remove(p2, [m.tile]));
+    const p2 = s.players[r.source], m = p2.melds[r.meld], added = remove(p2, [m.tile]);
+    m.ids.push(...added);
     m.type = "kan";
-    completeKan(s, r.source);
+    completeKan(s, r.source, { callType: "kakan", tileId: added[0], ids: [...m.ids], meld: r.meld });
     return;
   }
   acceptRiichi(s, r);
@@ -704,8 +705,8 @@ function resolve(s) {
   s.turn = seat;
   s.phase = "turn";
   s.reaction = null;
-  event(s, { type: "call", seat, action: a, from: r.source });
-  if (a.type === "minkan") completeKan(s, seat);
+  event(s, { type: "call", seat, action: a, from: r.source, tileId: r.id, ids: [...ids] });
+  if (a.type === "minkan") completeKan(s, seat, { callType: "minkan", tileId: r.id, ids: [...ids], from: r.source });
 }
 function canonicalAction(s, seat, action) {
   if (!action || typeof action !== "object") return null;
@@ -721,7 +722,8 @@ function step(s, seat, action, { validate = true } = {}) {
   const a = canonicalAction(s, seat, action);
   if (!a) throw new Error(`Illegal action by ${seat}`);
   const p = s.players[seat];
-  event(s, { type: "action", seat, action: { ...a } });
+  const kakanId = a.type === "kakan" ? p.hand.find((id) => typeOf(id) === p.melds[a.meld].tile && !RED_IDS.has(id)) ?? p.hand.find((id) => typeOf(id) === p.melds[a.meld].tile) : null;
+  event(s, { type: "action", seat, action: { ...a }, ...a.type === "kakan" ? { tileId: kakanId, meldIds: [...p.melds[a.meld].ids] } : {} });
   if (s.phase === "reaction") {
     const r = s.reaction;
     if (a.type !== "ron" && canRon(s, seat)) {
@@ -742,12 +744,13 @@ function step(s, seat, action, { validate = true } = {}) {
     p.forbidden = [];
     reaction(s, seat, a.id, "discard", { riichi: a.type === "riichi" });
   } else if (a.type === "ankan") {
-    p.melds.push({ type: "kan", tile: a.tile, open: false, from: seat, ids: remove(p, Array(4).fill(a.tile)) });
+    const ids = remove(p, Array(4).fill(a.tile));
+    p.melds.push({ type: "kan", tile: a.tile, open: false, from: seat, ids });
     p.stats.closedKans++;
-    completeKan(s, seat);
+    completeKan(s, seat, { callType: "ankan", ids: [...ids] });
   } else if (a.type === "kakan") {
     cancelIppatsu(s);
-    reaction(s, seat, p.hand.find((id) => typeOf(id) === p.melds[a.meld].tile), "kakan", { meld: a.meld });
+    reaction(s, seat, kakanId, "kakan", { meld: a.meld });
   }
   if (validate) assertInvariants(s);
   return s;
@@ -1745,6 +1748,145 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
   };
 }
 
+// duplicate/remote-practice.mjs
+var STORAGE_KEY = "duplicate.mortal-practice.v1";
+function createRemotePractice({ getServer, onState, onError = () => {
+}, storage = globalThis.sessionStorage, fetchImpl = globalThis.fetch, pollMs = 1200 } = {}) {
+  let credentials = null, context2 = null, state = null, timer = null, active = false, epoch = 0, loading = false, lastError = "";
+  const persist = () => {
+    try {
+      if (credentials) storage.setItem(STORAGE_KEY, JSON.stringify({ credentials, context: context2 }));
+      else storage.removeItem(STORAGE_KEY);
+    } catch {
+    }
+  };
+  function schedule() {
+    clearTimeout(timer);
+    if (active && credentials) timer = setTimeout(poll, pollMs);
+  }
+  async function request2(server, path, body, key) {
+    const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 15e3);
+    try {
+      const response = await fetchImpl(`${server}/api/duplicate/competitions${path}`, { method: body === null ? "GET" : "POST", headers: { "Content-Type": "application/json", ...key ? { Authorization: `Bearer ${key}` } : {} }, body: body === null ? void 0 : JSON.stringify(body), signal: controller.signal });
+      const data = await response.json();
+      if (!response.ok) throw Object.assign(new Error(data.error ?? "Mortal \uC5F0\uC2B5 \uC11C\uBC84\uC5D0 \uC5F0\uACB0\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4."), { status: response.status });
+      return data;
+    } catch (error) {
+      if (error.name === "AbortError") throw new Error("Mortal \uC5F0\uC2B5 \uC11C\uBC84 \uC751\uB2F5\uC774 \uB2A6\uC2B5\uB2C8\uB2E4. \uB2E4\uC2DC \uC5F0\uACB0\uD558\uACE0 \uC788\uC2B5\uB2C8\uB2E4.");
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  function apply(value, generation) {
+    if (generation !== epoch || !credentials || value.code !== credentials.code) return false;
+    if (value.practice !== true || value.seat !== context2.seat || value.boardCount !== context2.count) throw new Error("\uC5F0\uC2B5 \uC5F0\uACB0 \uC815\uBCF4\uAC00 \uC77C\uCE58\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uC0C8 \uC5F0\uC2B5\uC744 \uC2DC\uC791\uD574 \uC8FC\uC138\uC694.");
+    if (state && value.revision < state.revision) return false;
+    state = value;
+    lastError = "";
+    onState(value);
+    return true;
+  }
+  async function poll() {
+    if (!active || !credentials || loading) return;
+    const generation = epoch, current = credentials;
+    loading = true;
+    try {
+      const value = await request2(current.server, `/${current.code}/state`, null, current.key);
+      apply(value, generation);
+    } catch (error) {
+      if (generation === epoch) {
+        const terminal = [401, 403, 404].includes(error.status);
+        if (terminal) {
+          credentials = null;
+          persist();
+        }
+        if (lastError !== error.message) {
+          lastError = error.message;
+          onError(error, { terminal });
+        }
+      }
+    } finally {
+      loading = false;
+      schedule();
+    }
+  }
+  return {
+    restore(expected) {
+      try {
+        const saved2 = JSON.parse(storage.getItem(STORAGE_KEY) || "null"), c = saved2?.credentials, p = saved2?.context;
+        if (!c || !p || p.seed !== expected.seed || p.seat !== expected.seat || p.count !== expected.count || typeof c.key !== "string" || !/^[a-f0-9]{64}$/.test(c.key) || !/^[A-Z2-9]{8}$/.test(c.code) || c.seat !== p.seat || typeof c.server !== "string") return false;
+        const server = new URL(c.server);
+        if (!["https:", "http:"].includes(server.protocol) || server.username || server.password || server.origin !== c.server) return false;
+        credentials = c;
+        context2 = p;
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    async start(options) {
+      const generation = ++epoch;
+      clearTimeout(timer);
+      credentials = null;
+      context2 = { seed: options.seed, seat: options.seat, count: options.count };
+      state = null;
+      persist();
+      const server = getServer(), value = await request2(server, "", { name: options.name ?? "\uB098", boardCount: options.count, rules: options.rules, aiPolicy: "mortal", practice: { seed: options.seed, seat: options.seat } }, null);
+      if (generation !== epoch) return null;
+      if (typeof value.key !== "string" || !/^[a-f0-9]{64}$/.test(value.key)) throw new Error("Mortal \uC5F0\uC2B5 \uC811\uC18D \uC815\uBCF4\uB97C \uD655\uC778\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.");
+      credentials = { code: value.code, key: value.key, seat: value.seat, tableId: value.tableId, server };
+      persist();
+      apply(value, generation);
+      const begun = await request2(server, `/${value.code}/start-ai`, { revision: value.revision, actionId: crypto.randomUUID() }, value.key);
+      apply(begun, generation);
+      schedule();
+      return state;
+    },
+    async act(action) {
+      if (!credentials || !state) throw new Error("Mortal \uC5F0\uC2B5\uC5D0 \uB2E4\uC2DC \uC5F0\uACB0\uD574 \uC8FC\uC138\uC694.");
+      const generation = epoch, current = credentials, value = await request2(current.server, `/${current.code}/action`, { action, revision: state.revision, actionId: crypto.randomUUID() }, current.key);
+      apply(value, generation);
+      schedule();
+      return state;
+    },
+    async next() {
+      if (!credentials || !state) throw new Error("Mortal \uC5F0\uC2B5\uC5D0 \uB2E4\uC2DC \uC5F0\uACB0\uD574 \uC8FC\uC138\uC694.");
+      const generation = epoch, current = credentials, value = await request2(current.server, `/${current.code}/next`, { revision: state.revision, actionId: crypto.randomUUID() }, current.key);
+      apply(value, generation);
+      schedule();
+      return state;
+    },
+    activate() {
+      active = true;
+      void poll();
+    },
+    deactivate() {
+      active = false;
+      clearTimeout(timer);
+    },
+    clear() {
+      epoch++;
+      active = false;
+      clearTimeout(timer);
+      credentials = null;
+      context2 = null;
+      state = null;
+      persist();
+    },
+    poll,
+    get connected() {
+      return !!credentials;
+    },
+    get state() {
+      return state;
+    },
+    get server() {
+      return credentials?.server ?? null;
+    }
+  };
+}
+
 // duplicate/app.mjs
 var DEFAULT_SERVER = "https://wellness-mahjong-h-lab.chayhyeon.chatgpt.site";
 var $ = (id) => document.getElementById(id);
@@ -1753,14 +1895,22 @@ var signed = (n) => n === null || n === void 0 ? "\u2014" : `${n > 0 ? "+" : ""}
 var winds = ["\u6771", "\u5357", "\u897F", "\u5317"];
 var positions = ["bottom", "right", "top", "left"];
 var switchDefinitions = [["dora", "\uB3C4\uB77C", "\uCCAB \uBC88\uC9F8 \uB3C4\uB77C \uD45C\uC2DC\uD328"], ["kanDora", "\uAE61\uB3C4\uB77C", "\uAE61\uB9C8\uB2E4 \uCD94\uAC00 \uB3C4\uB77C \uD45C\uC2DC\uD328"], ["uraDora", "\uC6B0\uB77C\uB3C4\uB77C", "\uB9AC\uCE58 \uD654\uB8CC \uC2DC \uACF5\uAC1C\uD558\uB294 \uB4B7 \uD45C\uC2DC\uD328"], ["redDora", "\uC801\uB3C4\uB77C", "\uB9CC\xB7\uD1B5\xB7\uC0AD\uC758 \uC8015 \uAC01 1\uC7A5"], ["deadWall", "\uC655\uD328", "\uD328\uC0B0\uC5D0\uC11C 14\uC7A5 \uC81C\uC678"], ["kuitan", "\uCFE0\uC774\uD0D5", "\uBD80\uB978 \uC190\uD328\uC758 \uD0D5\uC57C\uC624 \uD5C8\uC6A9"], ["abortFourKans", "\uC0AC\uAE61\uC0B0\uB8CC", "2\uBA85 \uC774\uC0C1\uC774 \uD569\uACC4 4\uAE61\uC774\uBA74 \uC720\uAD6D"]];
-var S = { mode: "practice", panel: "practice", practice: null, online: null, credentials: null, view: null, selected: null, riichiSelecting: false, busy: false, timer: null, poll: null, worker: null, endHidden: false, endKey: null, endRevealAt: 0, resultTimer: null, toastTimer: null, settings: null, roomRules: null, ruleContext: "practice", ruleReadOnly: false, creatingRoom: false, boardCount: 8, preferences: { ...DEFAULT_PREFERENCES }, autoWin: true, autoPass: true, server: DEFAULT_SERVER, gameEpoch: 0 };
+var S = { mode: "practice", panel: "practice", practice: null, practiceRemote: null, practiceError: "", online: null, credentials: null, view: null, selected: null, riichiSelecting: false, busy: false, timer: null, poll: null, worker: null, endHidden: false, endKey: null, endRevealAt: 0, resultTimer: null, toastTimer: null, settings: null, roomRules: null, roomAI: "simple", aiCapabilities: null, ruleContext: "practice", ruleReadOnly: false, creatingRoom: false, boardCount: 8, preferences: { ...DEFAULT_PREFERENCES }, autoWin: true, autoPass: true, server: DEFAULT_SERVER, gameEpoch: 0 };
 var personalSettingsUI;
 var feedbackTracker = createFeedbackTracker();
 var feedback = createFeedbackPresenter({ table: $("table"), handArea: $("hand-area"), historyContainer: $("recent-actions"), getPreferences: () => S.preferences, getPlayerName: (seat) => playerName(seat) });
+var remotePractice = createRemotePractice({ getServer: () => S.server, onState: applyPrivatePractice, onError: (error, { terminal }) => {
+  S.practiceError = terminal ? "Mortal \uC5F0\uC2B5\uC744 \uC0C8\uB85C \uC2DC\uC791\uD574 \uC8FC\uC138\uC694." : "\uC5F0\uACB0 \uC7AC\uC2DC\uB3C4 \uC911";
+  if (S.mode === "practice" && S.practice?.aiPolicy === "mortal") {
+    toast(error.message);
+    render();
+  }
+} });
+var activeRoom = () => S.mode === "online" ? S.online : S.practiceRemote;
 function playerName(seat, view = S.view) {
   if (!view) return winds[seat] ?? "\uD50C\uB808\uC774\uC5B4";
   const wind = winds[(seat - view.dealer + 4) % 4];
-  const member = S.mode === "online" ? S.online?.members?.find((p) => p.seat === seat) : null;
+  const member = activeRoom()?.members?.find((p) => p.seat === seat);
   const name = member?.name ?? (seat === view.seat ? "\uB098" : `AI ${(seat - view.seat + 4) % 4}`);
   return `${wind} \xB7 ${name}`;
 }
@@ -1781,6 +1931,33 @@ function randomSeed() {
   const bytes = new Uint32Array(1);
   crypto.getRandomValues(bytes);
   return bytes[0];
+}
+function renderAIOptions() {
+  const mortal = S.aiCapabilities?.policies?.find((p) => p.id === "mortal"), available = !!mortal?.available;
+  for (const id of ["practice-ai", "rule-aiPolicy"]) {
+    const option = $(id).querySelector('option[value="mortal"]');
+    option.disabled = !available;
+    option.textContent = available ? "Mortal \xB7 \uCEE4\uBBA4\uB2C8\uD2F0 v3" : "Mortal \xB7 \uC5F0\uACB0 \uB300\uAE30";
+  }
+  $("practice-ai-status").textContent = $("practice-ai").value === "mortal" ? available ? "Mortal \uC5F0\uACB0\uB428 \xB7 \uC11C\uBC84\uC5D0\uC11C \uB300\uAD6D\uD569\uB2C8\uB2E4." : "Mortal \uC5F0\uACB0 \uB300\uAE30 \xB7 AI \uC5F0\uACB0\uC744 \uD655\uC778\uD574 \uC8FC\uC138\uC694." : "\uAE30\uBCF8 AI\uB294 \uBE0C\uB77C\uC6B0\uC800\uC5D0\uC11C \uC2E4\uD589\uB429\uB2C8\uB2E4.";
+  $("room-ai-status").textContent = available ? "Mortal \uC5F0\uACB0\uB428. \uC120\uD0DD\uD55C AI\uB294 \uC774 \uB300\uD68C\uC758 \uBE48\uC790\uB9AC\uC5D0 \uC801\uC6A9\uB429\uB2C8\uB2E4." : "\uAE30\uBCF8 AI\uB97C \uC0AC\uC6A9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4. Mortal\uC740 \uC5F0\uACB0 \uB300\uAE30 \uC911\uC785\uB2C8\uB2E4.";
+  $("practice-disconnect").hidden = !remotePractice.connected;
+  $("practice-new").disabled = S.busy;
+  for (const id of ["practice-ai", "practice-seed", "practice-seat", "practice-count", "random-seed", "practice-disconnect"]) $(id).disabled = S.busy;
+}
+async function refreshAICapabilities() {
+  const server = S.server, controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 8e3);
+  try {
+    const response = await fetch(`${server}/api/duplicate/ai/capabilities`, { signal: controller.signal });
+    if (!response.ok) throw new Error("Unavailable");
+    const status = await response.json();
+    if (server === S.server) S.aiCapabilities = status;
+  } catch {
+    if (server === S.server) S.aiCapabilities = { policies: [{ id: "simple", available: true }, { id: "mortal", available: false }] };
+  } finally {
+    clearTimeout(timeout);
+    renderAIOptions();
+  }
 }
 var seedForBoard = (base, index) => base + Math.imul(index, 2654435769) >>> 0;
 function textNode(tag, value, className = "") {
@@ -1816,7 +1993,7 @@ function ruleSummary() {
   $("rules-summary-title").textContent = S.mode === "online" ? S.online ? "\uC774 \uBC29\uC758 \uB300\uAD6D \uADDC\uCE59" : "\uC0C8 \uB300\uD68C \uADDC\uCE59" : "\uD604\uC7AC \uC5F0\uC2B5 \uADDC\uCE59";
   $("rules-open-second").textContent = S.mode === "online" && S.online ? "\uADDC\uCE59 \uBCF4\uAE30" : "\uADDC\uCE59 \uC124\uC815";
   const roomRules = S.online?.rules ?? S.roomRules;
-  $("room-rules-preview").textContent = `${S.online?.boardCount ?? S.boardCount}\uAD6D \xB7 \uB3C4\uB77C ${roomRules.dora ? "\uC788\uC74C" : "\uC5C6\uC74C"} \xB7 \uC655\uD328 ${roomRules.deadWall ? "\uC788\uC74C" : "\uC5C6\uC74C"} \xB7 ${roomRules.exhaustLimit}\uBA85 \uC18C\uC9C4 \uC720\uAD6D`;
+  $("room-rules-preview").textContent = `${S.online?.boardCount ?? S.boardCount}\uAD6D \xB7 \uB3C4\uB77C ${roomRules.dora ? "\uC788\uC74C" : "\uC5C6\uC74C"} \xB7 \uC655\uD328 ${roomRules.deadWall ? "\uC788\uC74C" : "\uC5C6\uC74C"} \xB7 ${roomRules.exhaustLimit}\uBA85 \uC18C\uC9C4 \uC720\uAD6D \xB7 ${(S.online?.aiPolicy ?? S.roomAI) === "mortal" ? "Mortal" : "\uAE30\uBCF8 AI"}`;
   $("room-rules-open").textContent = S.online ? "\uBC29 \uADDC\uCE59 \uBCF4\uAE30" : "\uBC29 \uADDC\uCE59 \uC124\uC815";
 }
 function showPanel(panel) {
@@ -1834,6 +2011,7 @@ function openPersonalSettings() {
 }
 function setMode(mode) {
   clearPlayTimer();
+  remotePractice.deactivate();
   S.mode = mode;
   showPanel(mode);
   S.selected = null;
@@ -1845,8 +2023,9 @@ function setMode(mode) {
     render();
     if (S.credentials) pollRoom();
   } else {
-    S.view = snapshot(S.practice.game, S.practice.seat);
+    S.view = S.practice.aiPolicy === "mortal" ? S.practiceRemote?.game ?? null : snapshot(S.practice.game, S.practice.seat);
     render();
+    if (S.practice.aiPolicy === "mortal") remotePractice.activate();
     schedulePractice();
   }
 }
@@ -1863,17 +2042,33 @@ function applyPreferences(value) {
   if (S.mode === "practice") schedulePractice();
   else scheduleOnlineAuto();
 }
-function newPractice() {
+async function newPractice() {
+  if (S.busy) return;
   const raw = $("practice-seed").value.trim();
   if (!/^\d{1,10}$/.test(raw) || Number(raw) > 4294967295) {
     toast("\uBC30\uD328 \uBC88\uD638\uB294 0\uBD80\uD130 4294967295\uAE4C\uC9C0 \uC785\uB825\uD574 \uC8FC\uC138\uC694.");
     return;
   }
+  const aiPolicy = $("practice-ai").value;
+  if (aiPolicy === "mortal") {
+    S.busy = true;
+    renderAIOptions();
+    await refreshAICapabilities();
+    if (!S.aiCapabilities?.policies?.find((p) => p.id === "mortal")?.available) {
+      S.busy = false;
+      renderAIOptions();
+      toast("Mortal\uC5D0 \uC5F0\uACB0\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. AI \uC5F0\uACB0\uC744 \uD655\uC778\uD55C \uB4A4 \uB2E4\uC2DC \uC2DC\uC791\uD574 \uC8FC\uC138\uC694.");
+      return;
+    }
+  }
   clearPlayTimer();
   S.worker?.terminate();
   S.worker = null;
   const seed = Number(raw), seat = Number($("practice-seat").value), count = Number($("practice-count").value);
-  S.practice = { seed, seat, count, index: 0, results: [], game: createGame({ seed, rules: S.settings, dealer: 0 }) };
+  remotePractice.clear();
+  S.practiceRemote = null;
+  S.practiceError = "";
+  S.practice = { seed, seat, count, index: 0, results: [], aiPolicy, game: createGame({ seed, rules: S.settings, dealer: 0 }) };
   S.gameEpoch++;
   S.mode = "practice";
   S.endHidden = false;
@@ -1882,8 +2077,31 @@ function newPractice() {
   S.riichiSelecting = false;
   savePractice();
   setMode("practice");
+  if (aiPolicy === "mortal") {
+    S.busy = true;
+    render();
+    try {
+      await remotePractice.start({ seed, seat, count, rules: S.settings, name: readStorage(localStorage, "duplicate.name") ?? "\uB098" });
+      if (S.mode === "practice") remotePractice.activate();
+    } catch (error) {
+      S.practiceError = "Mortal \uC5F0\uC2B5\uC744 \uC0C8\uB85C \uC2DC\uC791\uD574 \uC8FC\uC138\uC694.";
+      toast(error.message);
+    } finally {
+      S.busy = false;
+      render();
+      schedulePractice();
+    }
+  }
 }
 function schedulePractice() {
+  if (S.practice?.aiPolicy === "mortal") {
+    clearPlayTimer();
+    const v = S.view;
+    if (S.mode !== "practice" || !v || v.phase === "end" || v.actor !== v.seat || S.busy) return;
+    const win2 = S.autoWin && v.legalActions.find((a) => ["ron", "tsumo"].includes(a.type)), pass = S.autoPass && v.legalActions.length === 1 && v.legalActions[0].type === "pass";
+    if (win2 || pass) S.timer = setTimeout(() => play(win2 || v.legalActions[0]), 450);
+    return;
+  }
   clearPlayTimer();
   if (S.mode !== "practice" || !S.practice || S.practice.game.phase === "end") return;
   const game = S.practice.game, seat = actor(game), view = snapshot(game, S.practice.seat), human = seat === S.practice.seat;
@@ -1916,16 +2134,51 @@ function afterPracticeStep() {
   render();
   schedulePractice();
 }
-function finishPractice() {
+function applyPrivatePractice(state) {
+  if (S.practice?.aiPolicy !== "mortal") return;
+  const changed = !S.practiceRemote || S.practiceRemote.revision !== state.revision || S.practiceRemote.board !== state.board;
+  S.practiceRemote = state;
+  S.practiceError = "";
+  S.practice.index = state.board - 1;
+  savePractice();
+  if (state.game?.phase === "end") finishPractice(state.game);
+  if (S.mode === "practice") {
+    S.view = state.game;
+    if (changed) {
+      S.selected = null;
+      S.riichiSelecting = false;
+    }
+    render();
+    schedulePractice();
+  }
+}
+async function privateOperation(operation, action) {
+  if (S.busy) return;
+  S.busy = true;
+  clearPlayTimer();
+  renderActions();
+  try {
+    if (operation === "next") await remotePractice.next();
+    else await remotePractice.act(action);
+  } catch (error) {
+    toast(error.message);
+    await remotePractice.poll();
+  } finally {
+    S.busy = false;
+    render();
+    schedulePractice();
+  }
+}
+function finishPractice(view = null) {
   const p = S.practice;
   if (p.results.some((r) => r.index === p.index)) return;
-  const result = { index: p.index, board: p.index + 1, seed: seedForBoard(p.seed, p.index), seat: p.seat, score: p.game.players[p.seat].score, reference: null, referenceStatus: "loading" };
+  const result = { index: p.index, board: p.index + 1, seed: seedForBoard(p.seed, p.index), seat: p.seat, score: view?.players[p.seat].score ?? p.game.players[p.seat].score, reference: null, referenceStatus: "loading" };
   p.results.push(result);
   savePractice();
   const job = { seed: result.seed, rules: p.game.rules, dealer: p.index % 4, seat: p.seat };
   try {
     S.worker?.terminate();
-    S.worker = new Worker(new URL("./baseline-worker.mjs?v=76363baffd7faf60", import.meta.url), { type: "module" });
+    S.worker = new Worker(new URL("./baseline-worker.mjs?v=2376e18f1347851e", import.meta.url), { type: "module" });
     S.worker.onmessage = (e) => {
       if (e.data.error) {
         result.referenceStatus = "error";
@@ -1965,6 +2218,10 @@ async function play(action) {
   if (S.busy || !action) return;
   clearPlayTimer();
   if (S.mode === "practice") {
+    if (S.practice.aiPolicy === "mortal") {
+      await privateOperation("act", action);
+      return;
+    }
     try {
       step(S.practice.game, S.practice.seat, action);
       afterPracticeStep();
@@ -2012,7 +2269,7 @@ function renderHand() {
     $("self-melds").replaceChildren();
     return;
   }
-  const self = v.players[v.seat], ownName = S.mode === "online" ? S.online?.members?.find((p) => p.seat === v.seat)?.name ?? "\uB098" : "\uB098";
+  const self = v.players[v.seat], ownName = activeRoom()?.members?.find((p) => p.seat === v.seat)?.name ?? "\uB098";
   $("self-name").replaceChildren(textNode("b", `${ownName}${self.riichi ? " \xB7 \uB9AC\uCE58" : ""}`), textNode("span", winds[(v.seat - v.dealer + 4) % 4]));
   $("self-points").textContent = number(self.points ?? v.rules.startingPoints + self.score);
   $("self-wall").textContent = `\uAC1C\uC778 \uD328\uC0B0 ${v.ownWallRemaining}\uC7A5${self.exhausted ? " \xB7 \uC18C\uC9C4" : ""}`;
@@ -2072,15 +2329,16 @@ function renderTable() {
     }
   }
   if (!v) {
-    $("round-name").textContent = "\uB300\uD68C \uC900\uBE44";
-    $("board-number").textContent = "LOBBY";
+    const privateGame = S.mode === "practice" && S.practice?.aiPolicy === "mortal";
+    $("round-name").textContent = privateGame ? "Mortal \uC5F0\uC2B5" : "\uB300\uD68C \uC900\uBE44";
+    $("board-number").textContent = privateGame ? "PRACTICE" : "LOBBY";
     $("wall-count").textContent = "\u2014";
     $("pot-label").textContent = "\uB9AC\uCE58\uBD09 0";
     $("exhausted-label").textContent = "";
     $("turn-compass").replaceChildren();
     $("dora-tiles").replaceChildren();
-    $("table-status").textContent = S.online?.phase === "lobby" ? "\uCC38\uAC00\uC790\uB97C \uAE30\uB2E4\uB9AC\uACE0 \uC788\uC2B5\uB2C8\uB2E4." : "\uB300\uD68C\uB97C \uB9CC\uB4E4\uAC70\uB098 \uCF54\uB4DC\uB85C \uCC38\uAC00\uD558\uC138\uC694.";
-    $("board-label").textContent = S.online ? `\uC628\uB77C\uC778 \xB7 \uB300\uAE30\uC2E4 ${S.online.tableId ?? ""}` : "\uC628\uB77C\uC778 \uB300\uC804";
+    $("table-status").textContent = privateGame ? S.practiceError || "Mortal \uC5F0\uC2B5\uC5D0 \uC5F0\uACB0\uD558\uACE0 \uC788\uC2B5\uB2C8\uB2E4." : S.online?.phase === "lobby" ? "\uCC38\uAC00\uC790\uB97C \uAE30\uB2E4\uB9AC\uACE0 \uC788\uC2B5\uB2C8\uB2E4." : "\uB300\uD68C\uB97C \uB9CC\uB4E4\uAC70\uB098 \uCF54\uB4DC\uB85C \uCC38\uAC00\uD558\uC138\uC694.";
+    $("board-label").textContent = privateGame ? "Mortal \uC5F0\uC2B5 \uC900\uBE44" : S.online ? `\uC628\uB77C\uC778 \xB7 \uB300\uAE30\uC2E4 ${S.online.tableId ?? ""}` : "\uC628\uB77C\uC778 \uB300\uC804";
     $("seat-label").textContent = "";
     return;
   }
@@ -2107,7 +2365,7 @@ function renderTable() {
       river.append(tile);
     }
     if (relative) {
-      const panel = $(`opponent-${position}`), member = S.mode === "online" ? S.online.members.find((p) => p.seat === seat) : { name: `AI ${relative}`, ai: true };
+      const panel = $(`opponent-${position}`), member = activeRoom()?.members?.find((p) => p.seat === seat) ?? { name: `AI ${relative}`, ai: true };
       const label = document.createElement("div");
       label.className = `player-label ${shownActor === seat && v.phase !== "end" ? "active" : ""}`;
       label.append(textNode("span", winds[(seat - v.dealer + 4) % 4], "player-wind"), textNode("span", member?.name ?? "\uB300\uAE30 \uC911"));
@@ -2134,6 +2392,7 @@ function renderTable() {
   let status = "";
   if (v.phase === "end") status = v.end === "win" ? "\uD654\uB8CC \xB7 \uAD6D \uC885\uB8CC" : "\uC720\uAD6D \xB7 \uAD6D \uC885\uB8CC";
   else if (v.actor === v.seat) status = v.phase === "reaction" && v.lastDiscard ? `${winds[(v.lastDiscard.seat - v.dealer + 4) % 4]}\uC758 ${tileName(v.lastDiscard.type ?? v.lastDiscard.tile)} \xB7 \uB860/\uD6C4\uB85C \uC120\uD0DD` : "\uB0B4 \uCC28\uB840\uC785\uB2C8\uB2E4.";
+  else if (activeRoom()?.aiWaiting) status = "Mortal \uC120\uD0DD\uC744 \uAE30\uB2E4\uB9AC\uACE0 \uC788\uC2B5\uB2C8\uB2E4.";
   else status = v.phase === "reaction" ? "\uB860\xB7\uCF5C \uD655\uC778 \uC911" : `${winds[(v.turn - v.dealer + 4) % 4]}\uC758 \uCC28\uB840`;
   $("table-status").textContent = status;
 }
@@ -2268,7 +2527,7 @@ function renderEnd() {
   for (let seat = 0; seat < 4; seat++) {
     const row = document.createElement("div");
     row.className = `end-score-row ${seat === v.seat ? "self" : ""}`;
-    const name = S.mode === "online" ? S.online.members.find((p) => p.seat === seat)?.name : seat === v.seat ? "\uB098" : `AI ${(seat - v.seat + 4) % 4}`;
+    const name = activeRoom()?.members?.find((p) => p.seat === seat)?.name ?? (seat === v.seat ? "\uB098" : `AI ${(seat - v.seat + 4) % 4}`);
     row.append(textNode("span", `${winds[(seat - v.dealer + 4) % 4]} \xB7 ${name ?? "\uD50C\uB808\uC774\uC5B4"}`), textNode("b", signed(v.players[seat].score), v.players[seat].score > 0 ? "positive" : v.players[seat].score < 0 ? "negative" : ""));
     points.append(row);
   }
@@ -2283,13 +2542,13 @@ function setMetric(id, value) {
 }
 function renderComparison() {
   const online = S.mode === "online", record = online ? S.online?.comparison : S.practice?.results.find((r) => r.index === S.practice.index);
-  $("result-caption").textContent = online ? "\uAC19\uC740 \uC790\uB9AC \xB7 \uC0AC\uB78C" : "AI \uAE30\uC900";
+  $("result-caption").textContent = online ? "\uAC19\uC740 \uC790\uB9AC \xB7 \uC0AC\uB78C" : "\uAE30\uBCF8 AI \uAE30\uC900";
   $("my-result-label").textContent = online ? "\uC644\uB8CC \uAD6D \uC810\uC218 \uD569\uACC4" : "\uB0B4 \uC810\uC218 \uBCC0\uD654";
-  $("reference-label").textContent = online ? "\uAC19\uC740 \uC790\uB9AC \uD3C9\uADE0 \uD569\uACC4" : "AI \uAE30\uC900 \uB300\uAD6D";
+  $("reference-label").textContent = online ? "\uAC19\uC740 \uC790\uB9AC \uD3C9\uADE0 \uD569\uACC4" : "\uAE30\uBCF8 AI \uAE30\uC900 \uB300\uAD6D";
   setMetric("my-result", record?.score ?? null);
   setMetric("reference-result", online ? record?.mean : record?.reference);
   setMetric("difference-result", online ? record?.difference : record?.reference !== null && record?.reference !== void 0 ? record.score - record.reference : null);
-  $("comparison-note").textContent = online ? record?.samples >= 2 ? `\uC644\uB8CC\uB41C \uC0AC\uB78C \uCC38\uAC00\uC790 ${record.samples}\uBA85 \xB7 \uAC19\uC740 \uADDC\uCE59\xB7\uAD6D\xB7\uC790\uB9AC \uBE44\uAD50` : "\uAC19\uC740 \uC790\uB9AC\uC5D0\uC11C \uC644\uB8CC\uD55C \uC0AC\uB78C\uC774 2\uBA85 \uC774\uC0C1\uC774\uBA74 \uD3C9\uADE0\uC744 \uD45C\uC2DC\uD569\uB2C8\uB2E4." : record?.referenceStatus === "loading" ? "\uAC19\uC740 \uBC30\uD328\uC758 AI \uAE30\uC900 \uB300\uAD6D\uC744 \uACC4\uC0B0 \uC911\uC785\uB2C8\uB2E4." : record?.referenceStatus === "done" ? "\uC0AC\uB78C \uCC38\uAC00\uC790 \uD3C9\uADE0\uACFC \uBCC4\uAC1C\uC778 AI \uAE30\uC900 \uB300\uAD6D\uC785\uB2C8\uB2E4." : record?.referenceStatus === "error" ? "AI \uAE30\uC900 \uB300\uAD6D \uACC4\uC0B0\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4." : "\uAD6D\uC774 \uB05D\uB098\uBA74 \uAC19\uC740 \uC790\uB9AC\uC758 \uACB0\uACFC\uB97C \uBE44\uAD50\uD569\uB2C8\uB2E4.";
+  $("comparison-note").textContent = online ? record?.samples >= 2 ? `\uC644\uB8CC\uB41C \uC0AC\uB78C \uCC38\uAC00\uC790 ${record.samples}\uBA85 \xB7 \uAC19\uC740 \uADDC\uCE59\xB7\uAD6D\xB7\uC790\uB9AC \uBE44\uAD50` : "\uAC19\uC740 \uC790\uB9AC\uC5D0\uC11C \uC644\uB8CC\uD55C \uC0AC\uB78C\uC774 2\uBA85 \uC774\uC0C1\uC774\uBA74 \uD3C9\uADE0\uC744 \uD45C\uC2DC\uD569\uB2C8\uB2E4." : record?.referenceStatus === "loading" ? "\uAC19\uC740 \uBC30\uD328\uC758 AI \uAE30\uC900 \uB300\uAD6D\uC744 \uACC4\uC0B0 \uC911\uC785\uB2C8\uB2E4." : record?.referenceStatus === "done" ? "\uAE30\uBCF8 AI 4\uBA85\uC774 \uC9C4\uD589\uD55C \uAC19\uC740 \uBC30\uD328\uC758 \uAE30\uC900 \uB300\uAD6D\uC785\uB2C8\uB2E4." : record?.referenceStatus === "error" ? "AI \uAE30\uC900 \uB300\uAD6D \uACC4\uC0B0\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4." : "\uAD6D\uC774 \uB05D\uB098\uBA74 \uAC19\uC740 \uC790\uB9AC\uC758 \uACB0\uACFC\uB97C \uBE44\uAD50\uD569\uB2C8\uB2E4.";
   const history = $("result-history");
   history.replaceChildren();
   const rows = online ? record?.boards ?? [] : S.practice?.results ?? [];
@@ -2324,9 +2583,10 @@ function renderRoom() {
 }
 function render() {
   const online = S.mode === "online";
-  $("connection").replaceChildren(textNode("i", ""), textNode("span", online ? S.online ? `\uC628\uB77C\uC778 \xB7 \uD14C\uC774\uBE14 ${S.online.tableId}` : "\uC628\uB77C\uC778 \uC900\uBE44" : "\uB85C\uCEEC \uC5F0\uC2B5"));
+  $("connection").replaceChildren(textNode("i", ""), textNode("span", online ? S.online ? `\uC628\uB77C\uC778 \xB7 \uD14C\uC774\uBE14 ${S.online.tableId}${S.online.aiPolicy === "mortal" ? " \xB7 Mortal" : ""}` : "\uC628\uB77C\uC778 \uC900\uBE44" : S.practice?.aiPolicy === "mortal" ? S.practiceError || "Mortal \uC5F0\uC2B5" : "\uB85C\uCEEC \uC5F0\uC2B5"));
   $("connection").classList.remove("error");
   ruleSummary();
+  renderAIOptions();
   renderRoom();
   renderTable();
   renderHand();
@@ -2348,7 +2608,7 @@ function render() {
   }
   renderEnd();
   renderComparison();
-  $("game-footnote").textContent = online ? "\uB300\uD68C\uB294 \uC0DD\uC131 \uD6C4 6\uC2DC\uAC04 \uC720\uC9C0\uB429\uB2C8\uB2E4. \uAC19\uC740 \uD0ED\uC5D0\uC11C \uC0C8\uB85C\uACE0\uCE68\uD558\uBA74 \uC790\uAE30 \uC790\uB9AC\uB85C \uB3CC\uC544\uC635\uB2C8\uB2E4." : "\uD328\uB97C \uB450 \uBC88 \uB204\uB974\uAC70\uB098 \uC120\uD0DD \uD6C4 \uBC84\uB9AC\uAE30\uB97C \uB204\uB974\uC138\uC694. \uD0A4\uBCF4\uB4DC \u2190 \u2192 / Enter / Esc \uC9C0\uC6D0.";
+  $("game-footnote").textContent = online ? "\uB300\uD68C\uB294 \uC0DD\uC131 \uD6C4 6\uC2DC\uAC04 \uC720\uC9C0\uB429\uB2C8\uB2E4. \uAC19\uC740 \uD0ED\uC5D0\uC11C \uC0C8\uB85C\uACE0\uCE68\uD558\uBA74 \uC790\uAE30 \uC790\uB9AC\uB85C \uB3CC\uC544\uC635\uB2C8\uB2E4." : S.practice?.aiPolicy === "mortal" ? "Mortal \uC5F0\uC2B5\uC740 \uC11C\uBC84 \uC5F0\uACB0\uC774 \uD544\uC694\uD569\uB2C8\uB2E4. \uAC19\uC740 \uD0ED\uC5D0\uC11C \uC0C8\uB85C\uACE0\uCE68\uD558\uBA74 \uC9C4\uD589\uC744 \uBCF5\uC6D0\uD569\uB2C8\uB2E4." : "\uD328\uB97C \uB450 \uBC88 \uB204\uB974\uAC70\uB098 \uC120\uD0DD \uD6C4 \uBC84\uB9AC\uAE30\uB97C \uB204\uB974\uC138\uC694. \uD0A4\uBCF4\uB4DC \u2190 \u2192 / Enter / Esc \uC9C0\uC6D0.";
 }
 async function request(path = "", body = null, authenticated = true) {
   const headers = { "Content-Type": "application/json" };
@@ -2403,7 +2663,7 @@ async function connectRoom(create) {
   S.busy = true;
   renderRoom();
   try {
-    const state = await request(create ? "" : `/${code}/join`, create ? { name, rules: S.roomRules, boardCount: S.boardCount } : { name }, false);
+    const state = await request(create ? "" : `/${code}/join`, create ? { name, rules: S.roomRules, boardCount: S.boardCount, aiPolicy: S.roomAI } : { name }, false);
     S.credentials = { code: state.code, key: state.key, seat: state.seat, tableId: state.tableId, server: S.server };
     writeStorage(sessionStorage, "duplicate.room.v1", S.credentials);
     writeStorage(localStorage, "duplicate.name", name);
@@ -2502,6 +2762,10 @@ async function advance() {
     newPractice();
     return;
   }
+  if (S.practice.aiPolicy === "mortal") {
+    await privateOperation("next");
+    return;
+  }
   const p = S.practice;
   p.index++;
   p.game = createGame({ seed: seedForBoard(p.seed, p.index), rules: p.game.rules, dealer: p.index % 4 });
@@ -2521,6 +2785,8 @@ function openRules(context2 = S.mode === "online" ? "room" : "practice", create 
   $("rule-multipleRon").value = rules.multipleRon;
   $("rule-startingPoints").value = rules.startingPoints;
   $("rule-boardCount").value = S.ruleReadOnly ? S.online.boardCount : S.boardCount;
+  $("rule-aiPolicy").value = S.ruleReadOnly ? S.online.aiPolicy ?? "simple" : S.roomAI;
+  $("rule-aiPolicy-field").hidden = context2 !== "room";
   $("rules-dialog-title").textContent = S.ruleReadOnly ? "\uC774 \uBC29\uC758 \uB300\uAD6D \uADDC\uCE59" : create ? "\uB300\uD68C \uB9CC\uB4E4\uAE30" : context2 === "room" ? "\uC0C8 \uB300\uD68C \uADDC\uCE59" : "\uC5F0\uC2B5 \uADDC\uCE59";
   $("rules-dialog-note").textContent = S.ruleReadOnly ? "\uBC29\uC744 \uB9CC\uB4E4 \uB54C \uD655\uC815\uD55C \uACF5\uD1B5 \uADDC\uCE59\uC785\uB2C8\uB2E4. \uCC38\uAC00\uC790\uB294 \uBCC0\uACBD\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4." : context2 === "room" ? "\uC774 \uB300\uD68C\uC758 \uBAA8\uB4E0 \uD14C\uC774\uBE14\uC5D0 \uAC19\uC740 \uADDC\uCE59\uC744 \uC801\uC6A9\uD569\uB2C8\uB2E4. \uAC1C\uC778 \uD654\uBA74\xB7\uC54C\uB9BC \uC124\uC815\uACFC \uBCC4\uB3C4\uB85C \uC800\uC7A5\uD569\uB2C8\uB2E4." : "\uB2E4\uC74C \uC0C8 \uC5F0\uC2B5\uBD80\uD130 \uC801\uC6A9\uB429\uB2C8\uB2E4. \uC628\uB77C\uC778 \uB300\uD68C\uC758 \uADDC\uCE59\uC740 \uB530\uB85C \uC124\uC815\uD569\uB2C8\uB2E4.";
   $("rules-dialog").classList.toggle("rules-readonly", S.ruleReadOnly);
@@ -2556,7 +2822,9 @@ function saveRules() {
     if (S.ruleContext === "room") {
       S.roomRules = rules;
       S.boardCount = Number($("rule-boardCount").value);
-      writeStorage(localStorage, "duplicate.room-rules.v1", { rules: S.roomRules, boardCount: S.boardCount });
+      S.roomAI = $("rule-aiPolicy").value;
+      if (S.creatingRoom && S.roomAI === "mortal" && !S.aiCapabilities?.policies?.find((p) => p.id === "mortal")?.available) throw new Error("Mortal \uC5F0\uACB0\uC744 \uD655\uC778\uD55C \uB4A4 \uB300\uD68C\uB97C \uB9CC\uB4E4\uC5B4 \uC8FC\uC138\uC694.");
+      writeStorage(localStorage, "duplicate.room-rules.v1", { rules: S.roomRules, boardCount: S.boardCount, aiPolicy: S.roomAI });
     } else {
       S.settings = rules;
       writeStorage(localStorage, "duplicate.settings.v1", { rules: S.settings });
@@ -2591,7 +2859,7 @@ function showStandings() {
   $("standings-dialog").showModal();
 }
 function exportResult() {
-  const record = S.mode === "practice" ? { format: "duplicate-practice-v1", createdAt: (/* @__PURE__ */ new Date()).toISOString(), seed: S.practice.seed, seat: S.practice.seat, rules: S.practice.game.rules, results: S.practice.results, game: S.practice.game } : { format: "duplicate-online-result-v1", createdAt: (/* @__PURE__ */ new Date()).toISOString(), code: S.online?.code, tableId: S.online?.tableId, seat: S.online?.seat, rules: S.online?.rules, comparison: S.online?.comparison, standings: S.online?.standings, game: S.view };
+  const record = S.mode === "practice" ? { format: "duplicate-practice-v1", createdAt: (/* @__PURE__ */ new Date()).toISOString(), seed: S.practice.seed, seat: S.practice.seat, rules: S.practice.game.rules, aiPolicy: S.practice.aiPolicy ?? "simple", modelSha256: S.practiceRemote?.aiModelSha256 ?? null, results: S.practice.results, game: S.practice.aiPolicy === "mortal" ? S.practiceRemote?.game ?? null : S.practice.game } : { format: "duplicate-online-result-v1", createdAt: (/* @__PURE__ */ new Date()).toISOString(), code: S.online?.code, tableId: S.online?.tableId, seat: S.online?.seat, rules: S.online?.rules, comparison: S.online?.comparison, standings: S.online?.standings, game: S.view };
   const url = URL.createObjectURL(new Blob([JSON.stringify(record, null, 2)], { type: "application/json" })), a = document.createElement("a");
   a.href = url;
   a.download = `duplicate-${S.mode}-${Date.now()}.json`;
@@ -2653,6 +2921,18 @@ $("copy-invite").onclick = async () => {
 };
 $("auto-win").onchange = () => applyPreferences({ ...S.preferences, autoWin: $("auto-win").checked });
 $("auto-pass").onchange = () => applyPreferences({ ...S.preferences, autoPass: $("auto-pass").checked });
+$("practice-ai").onchange = () => {
+  writeStorage(localStorage, "duplicate.practice-ai.v1", $("practice-ai").value);
+  renderAIOptions();
+};
+$("ai-refresh").onclick = refreshAICapabilities;
+$("practice-disconnect").onclick = () => {
+  remotePractice.clear();
+  S.practiceRemote = null;
+  S.practiceError = "Mortal \uC5F0\uC2B5\uC744 \uC0C8\uB85C \uC2DC\uC791\uD574 \uC8FC\uC138\uC694.";
+  if (S.mode === "practice" && S.practice.aiPolicy === "mortal") S.view = null;
+  render();
+};
 $("online-code").oninput = () => {
   $("online-code").value = $("online-code").value.toUpperCase().replace(/[^A-Z2-9]/g, "");
 };
@@ -2682,7 +2962,11 @@ document.addEventListener("keydown", (event2) => {
   }
 });
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden && S.credentials) pollRoom();
+  if (!document.hidden) {
+    if (S.credentials) pollRoom();
+    if (S.mode === "practice" && S.practice?.aiPolicy === "mortal") remotePractice.activate();
+    void refreshAICapabilities();
+  }
 });
 window.addEventListener("beforeunload", savePractice);
 document.addEventListener("pointerdown", () => {
@@ -2705,6 +2989,7 @@ try {
 } catch {
   S.roomRules = normalizeRules();
 }
+S.roomAI = storedRoomRules?.aiPolicy === "mortal" ? "mortal" : "simple";
 S.preferences = loadPreferences(localStorage);
 S.autoWin = S.preferences.autoWin;
 S.autoPass = S.preferences.autoPass;
@@ -2728,6 +3013,7 @@ $("practice-seed").value = S.practice.seed;
 $("practice-seat").value = S.practice.seat;
 $("practice-count").value = S.practice.count;
 $("online-name").value = readStorage(localStorage, "duplicate.name") ?? "";
+$("practice-ai").value = readStorage(localStorage, "duplicate.practice-ai.v1") ?? S.practice.aiPolicy ?? "simple";
 function normalizeServer(value) {
   const url = new URL(value);
   if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) throw new Error("http \uB610\uB294 https \uC11C\uBC84 \uC8FC\uC18C\uB97C \uC785\uB825\uD574 \uC8FC\uC138\uC694.");
@@ -2743,16 +3029,20 @@ try {
   S.server = DEFAULT_SERVER;
   S.credentials = null;
 }
+if (S.practice.aiPolicy === "mortal") {
+  if (!remotePractice.restore(S.practice)) S.practiceError = "Mortal \uC5F0\uC2B5\uC744 \uC0C8\uB85C \uC2DC\uC791\uD574 \uC8FC\uC138\uC694.";
+} else S.practice.aiPolicy = "simple";
 $("server-base").value = S.server;
 $("server-save").onclick = () => {
-  if (S.credentials) {
-    toast("\uB300\uD68C \uC5F0\uACB0\uC744 \uC885\uB8CC\uD55C \uB4A4 \uC11C\uBC84\uB97C \uBC14\uAFD4 \uC8FC\uC138\uC694.");
+  if (S.credentials || remotePractice.connected) {
+    toast("\uB300\uD68C \uB610\uB294 Mortal \uC5F0\uC2B5 \uC5F0\uACB0\uC744 \uC885\uB8CC\uD55C \uB4A4 \uC11C\uBC84\uB97C \uBC14\uAFD4 \uC8FC\uC138\uC694.");
     return;
   }
   try {
     S.server = normalizeServer($("server-base").value);
     $("server-base").value = S.server;
     writeStorage(localStorage, "duplicate.server", S.server);
+    void refreshAICapabilities();
     toast("\uC628\uB77C\uC778 \uC11C\uBC84 \uC8FC\uC18C\uB97C \uC801\uC6A9\uD588\uC2B5\uB2C8\uB2E4.");
   } catch (error) {
     toast(error.message);
@@ -2767,3 +3057,7 @@ S.view = S.mode === "practice" ? snapshot(S.practice.game, S.practice.seat) : nu
 setMode(S.mode);
 if (S.credentials) schedulePoll();
 if (S.practice.game.phase === "end" && !S.practice.results.some((r) => r.index === S.practice.index)) finishPractice();
+void refreshAICapabilities();
+setInterval(() => {
+  if (!document.hidden) void refreshAICapabilities();
+}, 3e4);

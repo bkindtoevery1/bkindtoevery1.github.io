@@ -407,6 +407,7 @@ function createGame({ seed = 1, rules = {}, dealer = 0, wall = null, pot = 0, st
     pendingAbort: null
   };
   for (let n = 0; n < 13; n++) for (let seat = 0; seat < 4; seat++) s.players[seat].hand.push(w.shift());
+  s.initialHands = s.players.map((p) => [...p.hand]);
   for (let i = 0; i < w.length; i++) s.walls[i % 4].push(w[i]);
   for (const p of s.players) p.hand.sort((a, b) => a - b);
   draw(s, dealer);
@@ -637,11 +638,11 @@ function reaction(s, source, id, kind, extra = {}) {
 function cancelIppatsu(s) {
   for (const p of s.players) p.ippatsu = false;
 }
-function completeKan(s, seat) {
+function completeKan(s, seat, details = {}) {
   cancelIppatsu(s);
   s.kans++;
   s.calls++;
-  event(s, { type: "kan", seat });
+  event(s, { type: "kan", seat, ...details });
   if (s.rules.abortFourKans && s.kans === 4 && s.players.filter((p) => p.melds.some((m) => m.type === "kan")).length > 1) s.pendingAbort = "four-kans";
   draw(s, seat, true);
 }
@@ -668,10 +669,10 @@ function resolve(s) {
     return;
   }
   if (r.kind === "kakan") {
-    const p2 = s.players[r.source], m = p2.melds[r.meld];
-    m.ids.push(...remove(p2, [m.tile]));
+    const p2 = s.players[r.source], m = p2.melds[r.meld], added = remove(p2, [m.tile]);
+    m.ids.push(...added);
     m.type = "kan";
-    completeKan(s, r.source);
+    completeKan(s, r.source, { callType: "kakan", tileId: added[0], ids: [...m.ids], meld: r.meld });
     return;
   }
   acceptRiichi(s, r);
@@ -703,8 +704,8 @@ function resolve(s) {
   s.turn = seat;
   s.phase = "turn";
   s.reaction = null;
-  event(s, { type: "call", seat, action: a, from: r.source });
-  if (a.type === "minkan") completeKan(s, seat);
+  event(s, { type: "call", seat, action: a, from: r.source, tileId: r.id, ids: [...ids] });
+  if (a.type === "minkan") completeKan(s, seat, { callType: "minkan", tileId: r.id, ids: [...ids], from: r.source });
 }
 function canonicalAction(s, seat, action) {
   if (!action || typeof action !== "object") return null;
@@ -720,7 +721,8 @@ function step(s, seat, action, { validate = true } = {}) {
   const a = canonicalAction(s, seat, action);
   if (!a) throw new Error(`Illegal action by ${seat}`);
   const p = s.players[seat];
-  event(s, { type: "action", seat, action: { ...a } });
+  const kakanId = a.type === "kakan" ? p.hand.find((id) => typeOf(id) === p.melds[a.meld].tile && !RED_IDS.has(id)) ?? p.hand.find((id) => typeOf(id) === p.melds[a.meld].tile) : null;
+  event(s, { type: "action", seat, action: { ...a }, ...a.type === "kakan" ? { tileId: kakanId, meldIds: [...p.melds[a.meld].ids] } : {} });
   if (s.phase === "reaction") {
     const r = s.reaction;
     if (a.type !== "ron" && canRon(s, seat)) {
@@ -741,12 +743,13 @@ function step(s, seat, action, { validate = true } = {}) {
     p.forbidden = [];
     reaction(s, seat, a.id, "discard", { riichi: a.type === "riichi" });
   } else if (a.type === "ankan") {
-    p.melds.push({ type: "kan", tile: a.tile, open: false, from: seat, ids: remove(p, Array(4).fill(a.tile)) });
+    const ids = remove(p, Array(4).fill(a.tile));
+    p.melds.push({ type: "kan", tile: a.tile, open: false, from: seat, ids });
     p.stats.closedKans++;
-    completeKan(s, seat);
+    completeKan(s, seat, { callType: "ankan", ids: [...ids] });
   } else if (a.type === "kakan") {
     cancelIppatsu(s);
-    reaction(s, seat, p.hand.find((id) => typeOf(id) === p.melds[a.meld].tile), "kakan", { meld: a.meld });
+    reaction(s, seat, kakanId, "kakan", { meld: a.meld });
   }
   if (validate) assertInvariants(s);
   return s;
