@@ -497,7 +497,7 @@ var KEY = /^[a-f0-9]{64}$/;
 function tournamentNavigationLinks({ baseUrl, server, defaultServer = "https://wellness-mahjong-h-lab.chayhyeon.chatgpt.site" }) {
   const api = new URL(server);
   if (api.username || api.password || api.pathname !== "/" || api.search || api.hash || !["https:", "http:"].includes(api.protocol) || api.protocol === "http:" && !["localhost", "127.0.0.1", "[::1]"].includes(api.hostname)) throw new Error("\uC11C\uBC84 \uC8FC\uC18C\uB97C \uD655\uC778\uD558\uC138\uC694.");
-  return Object.fromEntries([["game", "./"], ["manager", "./tournament/"], ["observer", "./tournament/observer.html"]].map(([name, path]) => {
+  return Object.fromEntries([["game", "./"], ["manager", "./tournament/"], ["observer", "./tournament/observer.html"], ["wiki", "./wiki.html"]].map(([name, path]) => {
     const url = new URL(path, baseUrl);
     url.search = "";
     url.hash = "";
@@ -557,7 +557,7 @@ function mountManager(doc = globalThis.document, win = globalThis.window, { fetc
   if (server !== DEFAULT_SERVER) createURL.searchParams.set("server", server);
   $("manager-create").href = createURL.href;
   const navigation = tournamentNavigationLinks({ baseUrl: siteRoot.href, server });
-  for (const [id, target] of [["manager-brand", "game"], ["manager-game-link", "game"], ["manager-observer-link", "observer"]]) if ($(id)) $(id).href = navigation[target];
+  for (const [id, target] of [["manager-brand", "game"], ["manager-game-link", "game"], ["manager-observer-link", "observer"], ["manager-wiki-link", "wiki"]]) if ($(id)) $(id).href = navigation[target];
   function stop() {
     clearTimer(timer);
     timer = null;

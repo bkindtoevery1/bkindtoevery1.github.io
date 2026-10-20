@@ -5,6 +5,9 @@
 .personal-settings .personal-setting-switch small{line-height:1.65}
 .personal-settings .personal-setting-switch input{flex-shrink:0}
 .personal-settings .personal-settings-note{margin-top:9px}
+.personal-settings-discard-display{margin:15px 0 0;min-width:0}
+.personal-settings-discard-display select{width:100%;min-width:0;max-width:100%}
+.personal-settings-discard-display small{display:block;margin-top:7px;font-size:10px;line-height:1.65;color:var(--muted)}
 .personal-settings-volume{margin:15px 0 12px}
 .personal-settings-volume-heading{display:flex;justify-content:space-between;gap:8px;align-items:center}
 .personal-settings-volume output{color:var(--accent);font-variant-numeric:tabular-nums}

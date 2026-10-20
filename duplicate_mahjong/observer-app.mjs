@@ -39,15 +39,15 @@ function eightBamboo(svg) {
   }
 }
 function tileFace(type, { button = false, small = false } = {}) {
-  const tile = document.createElement(button ? "button" : "span");
-  tile.className = `tile-face ${small ? "tile-small" : "tile"}`;
-  tile.dataset.type = String(type);
-  tile.dataset.suit = type < 27 ? ["m", "p", "s"][Math.floor(type / 9)] : "z";
-  tile.title = tileName(type);
-  tile.setAttribute("aria-label", tileName(type));
-  if (button) tile.type = "button";
+  const tile2 = document.createElement(button ? "button" : "span");
+  tile2.className = `tile-face ${small ? "tile-small" : "tile"}`;
+  tile2.dataset.type = String(type);
+  tile2.dataset.suit = type < 27 ? ["m", "p", "s"][Math.floor(type / 9)] : "z";
+  tile2.title = tileName(type);
+  tile2.setAttribute("aria-label", tileName(type));
+  if (button) tile2.type = "button";
   if (type < 9) {
-    tile.append(span(["\u4E00", "\u4E8C", "\u4E09", "\u56DB", "\u4E94", "\u516D", "\u4E03", "\u516B", "\u4E5D"][type], "tile-number"), span("\u842C", "tile-man"));
+    tile2.append(span(["\u4E00", "\u4E8C", "\u4E09", "\u56DB", "\u4E94", "\u516D", "\u4E03", "\u516B", "\u4E5D"][type], "tile-number"), span("\u842C", "tile-man"));
   } else if (type < 27) {
     const n = type % 9 + 1, svg = element("svg", { viewBox: "0 0 100 110", class: "tile-symbol", "aria-hidden": "true", focusable: "false" });
     if (type === 18) bird(svg);
@@ -62,12 +62,164 @@ function tileFace(type, { button = false, small = false } = {}) {
         svg.append(element("path", { d: `M ${x} ${y + 5 - length / 2} v ${length} M ${x - thick / 2} ${y + 5 - length / 2 + 4} h ${thick} M ${x - thick / 2} ${y + 5 + length / 2 - 4} h ${thick}`, fill: "none", stroke: color, "stroke-width": thick, "stroke-linecap": "round" }));
       }
     }
-    tile.append(svg);
+    tile2.append(svg);
   } else if (type === 31) {
-    tile.append(span("", "tile-white"));
-  } else tile.append(span({ 27: "\u6771", 28: "\u5357", 29: "\u897F", 30: "\u5317", 32: "\u767C", 33: "\u4E2D" }[type], "tile-honor"));
-  for (const child of tile.children) child.setAttribute("aria-hidden", "true");
-  return tile;
+    tile2.append(span("", "tile-white"));
+  } else tile2.append(span({ 27: "\u6771", 28: "\u5357", 29: "\u897F", 30: "\u5317", 32: "\u767C", 33: "\u4E2D" }[type], "tile-honor"));
+  for (const child of tile2.children) child.setAttribute("aria-hidden", "true");
+  return tile2;
+}
+
+// duplicate/preferences.mjs
+var PREFERENCES_STORAGE_KEY = "duplicate.preferences.v1";
+var DEFAULT_PREFERENCES = Object.freeze({
+  lastDiscard: true,
+  actionBubbles: true,
+  animations: true,
+  turnHighlight: true,
+  recentActions: true,
+  discardDisplay: "none",
+  callPreview: true,
+  sound: false,
+  vibration: false,
+  reducedMotion: false,
+  autoWin: true,
+  autoPass: true,
+  volume: 0.35
+});
+function normalizePreferences(value = {}) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const preferences = { ...DEFAULT_PREFERENCES };
+  for (const [key, fallback] of Object.entries(DEFAULT_PREFERENCES)) {
+    if (typeof fallback === "boolean" && typeof source[key] === "boolean") preferences[key] = source[key];
+  }
+  preferences.autoPass = true;
+  if (["none", "gray", "text"].includes(source.discardDisplay)) {
+    preferences.discardDisplay = source.discardDisplay;
+  }
+  if (typeof source.volume === "number" && Number.isFinite(source.volume)) {
+    preferences.volume = Math.max(0, Math.min(1, source.volume));
+  }
+  return preferences;
+}
+function loadPreferences(storage) {
+  try {
+    return normalizePreferences(JSON.parse(storage.getItem(PREFERENCES_STORAGE_KEY) ?? "null"));
+  } catch {
+    return normalizePreferences();
+  }
+}
+
+// duplicate/discard-metadata.mjs
+function decorateDiscardTile(element2, discard, mode = "none") {
+  const known = typeof discard?.tsumogiri === "boolean";
+  element2.classList.toggle("is-tsumogiri", mode === "gray" && discard?.tsumogiri === true);
+  const base = String(element2.title ?? "").replace(/ · (?:쯔모기리|테다시)$/, "");
+  element2.title = base + (known && mode !== "none" ? ` \xB7 ${discard.tsumogiri ? "\uCBD4\uBAA8\uAE30\uB9AC" : "\uD14C\uB2E4\uC2DC"}` : "");
+  element2.setAttribute("aria-label", element2.title);
+  return element2;
+}
+
+// duplicate/winning-hand.mjs
+var RED_IDS = /* @__PURE__ */ new Set([16, 52, 88]);
+var seat = (value) => Number.isInteger(value) && value >= 0 && value < 4;
+var physical = (value) => Number.isInteger(value) && value >= 0 && value < 136;
+var object = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+var insist = (ok, message = "Invalid winning-hand presentation") => {
+  if (!ok) throw new TypeError(message);
+};
+function tile(value) {
+  insist(object(value) && physical(value.id));
+  const type = Math.floor(value.id / 4);
+  insist(value.type === type && (value.red === void 0 || typeof value.red === "boolean"));
+  insist(value.red !== true || RED_IDS.has(value.id));
+  return { id: value.id, type, red: value.red === true };
+}
+function meld(value) {
+  insist(object(value) && ["chi", "pon", "kan"].includes(value.type) && typeof value.open === "boolean");
+  insist(Number.isInteger(value.tile) && value.tile >= 0 && value.tile < 34 && Array.isArray(value.tiles));
+  const tiles = value.tiles.map(tile), count = value.type === "kan" ? 4 : 3;
+  insist(tiles.length === count);
+  const types = tiles.map((t) => t.type).sort((a, b) => a - b), expected = value.type === "chi" ? [value.tile, value.tile + 1, value.tile + 2] : Array(count).fill(value.tile);
+  insist(value.type !== "chi" || value.tile < 27 && value.tile % 9 <= 6);
+  insist(types.every((type, index) => type === expected[index]));
+  const result = { type: value.type, tile: value.tile, open: value.open, tiles };
+  if (value.from !== void 0) {
+    insist(seat(value.from));
+    result.from = value.from;
+  }
+  return result;
+}
+function normalizeWinningHands(value) {
+  if (value === void 0 || value === null) return [];
+  insist(Array.isArray(value) && value.length <= 3);
+  const seen = /* @__PURE__ */ new Set();
+  const hands = value.map((row) => {
+    insist(object(row) && seat(row.seat) && !seen.has(row.seat) && ["ron", "tsumo"].includes(row.method));
+    seen.add(row.seat);
+    insist(Array.isArray(row.tiles) && Array.isArray(row.melds) && row.melds.length <= 4);
+    const tiles = row.tiles.map(tile), melds = row.melds.map(meld), winningTile = tile(row.winningTile);
+    insist(tiles.length === 14 - 3 * melds.length);
+    const all = [...tiles, ...melds.flatMap((m) => m.tiles)], ids = all.map((t) => t.id);
+    insist(new Set(ids).size === ids.length && tiles.filter((t) => t.id === winningTile.id).length === 1);
+    insist(tiles.some((t) => t.id === winningTile.id && t.type === winningTile.type && t.red === winningTile.red));
+    return { seat: row.seat, method: row.method, tiles, melds, winningTile };
+  });
+  insist(hands.length <= 1 || hands.every((row) => row.method === "ron"));
+  return hands;
+}
+
+// duplicate/winning-hand-view.mjs
+function renderWinningHands(container, hands, { document: doc = container?.ownerDocument, dealer } = {}) {
+  if (!container || !doc) throw new TypeError("Winning hands need a container and document");
+  const normalized = normalizeWinningHands(hands);
+  container.replaceChildren();
+  container.hidden = normalized.length === 0;
+  if (!normalized.length) return container;
+  const node2 = (tag, className, text) => {
+    const element2 = doc.createElement(tag);
+    element2.className = className;
+    if (text !== void 0) element2.textContent = text;
+    return element2;
+  };
+  const face2 = (tile2, winning = false) => {
+    const element2 = tileFace(tile2.type, { small: true });
+    element2.classList.toggle("red", tile2.red);
+    element2.classList.toggle("winning-hand-tile", winning);
+    element2.dataset.tileId = String(tile2.id);
+    const label = `${tile2.red ? "\uC801 " : ""}${tileName(tile2.type)}${winning ? " \xB7 \uD654\uB8CC\uD328" : ""}`;
+    element2.title = label;
+    element2.setAttribute("aria-label", label);
+    return element2;
+  };
+  for (const hand of normalized) {
+    const section = node2("section", "winning-hand");
+    section.dataset.seat = String(hand.seat);
+    const wind = Number.isInteger(dealer) && dealer >= 0 && dealer < 4 ? ` \xB7 ${["\u6771", "\u5357", "\u897F", "\u5317"][(hand.seat - dealer + 4) % 4]}` : "";
+    section.append(node2("h4", "winning-hand-heading", `${hand.seat + 1}\uBC88 \uC790\uB9AC${wind} \xB7 ${hand.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"}`));
+    const row = node2("div", "winning-hand-tiles"), concealed = node2("div", "winning-hand-concealed");
+    concealed.setAttribute("aria-label", "\uD654\uB8CC \uC190\uD328");
+    const tiles = hand.tiles.filter((tile2) => tile2.id !== hand.winningTile.id).sort((a, b) => a.type - b.type || Number(a.red) - Number(b.red) || a.id - b.id);
+    for (const tile2 of tiles) concealed.append(face2(tile2));
+    const winning = node2("div", "winning-hand-winning-tile");
+    winning.setAttribute("aria-label", "\uD654\uB8CC\uD328");
+    winning.append(node2("span", "winning-hand-winning-label", "\uD654\uB8CC\uD328"), face2(hand.winningTile, true));
+    row.append(concealed, winning);
+    section.append(row);
+    if (hand.melds.length) {
+      const melds = node2("div", "winning-hand-melds");
+      melds.setAttribute("aria-label", "\uD654\uB8CC \uD6C4\uB85C");
+      for (const meld2 of hand.melds) {
+        const group = node2("span", "winning-hand-meld");
+        group.title = meld2.type === "chi" ? "\uCE58" : meld2.type === "pon" ? "\uD401" : meld2.open ? "\uBA85\uAE61" : "\uC548\uAE61";
+        for (const tile2 of meld2.tiles) group.append(face2(tile2));
+        melds.append(group);
+      }
+      section.append(melds);
+    }
+    container.append(section);
+  }
+  return container;
 }
 
 // duplicate/observer-view.mjs
@@ -97,45 +249,45 @@ function contextLabel(context) {
   return context ? `\uBCF8\uC7A5 ${context.honba ?? "\u2014"} \xB7 \uC2DC\uC791 \uACF5\uD0C1 ${number(context.pot)}\uC810 \xB7 \uC2DC\uC791 \uC810\uC218 ${(context.startingScores ?? []).map(number).join(" / ")} \xB7 \uCE5C ${Number(context.dealer) + 1}\uBC88` : "\uC2DC\uC791 \uC810\uC218\xB7\uACF5\uD0C1 \uB9E5\uB77D \uC815\uBCF4 \uC5C6\uC74C";
 }
 function face(doc, value, classes = "") {
-  const tile = typeof value === "number" ? { type: value } : value, type = tile?.type ?? tile?.tile;
+  const tile2 = typeof value === "number" ? { type: value } : value, type = tile2?.type ?? tile2?.tile;
   if (!validTile(type)) return node(doc, "span", "obs-unknown-tile", "?");
   const el = tileFace(type, { small: true });
-  el.classList.toggle("red", !!tile.red);
-  el.classList.toggle("riichi", !!tile.riichi);
-  el.classList.toggle("claimed", !!tile.claimed);
+  el.classList.toggle("red", !!tile2.red);
+  el.classList.toggle("riichi", !!tile2.riichi);
+  el.classList.toggle("claimed", !!tile2.claimed);
   if (classes) el.classList.add(classes);
   return el;
 }
-function meldView(doc, meld) {
-  const box = node(doc, "span", "obs-meld"), kind = meld.type ?? meld.callType;
+function meldView(doc, meld2) {
+  const box = node(doc, "span", "obs-meld"), kind = meld2.type ?? meld2.callType;
   box.title = ACTIONS[kind] ?? "\uD6C4\uB85C";
-  if (meld.hidden || meld.tile === null) {
+  if (meld2.hidden || meld2.tile === null) {
     for (let n = 0; n < 4; n++) box.append(node(doc, "span", "obs-tile-back"));
     return box;
   }
-  const types = kind === "chi" ? [meld.tile, meld.tile + 1, meld.tile + 2] : Array(kind === "kan" || ["ankan", "minkan", "kakan"].includes(kind) ? 4 : 3).fill(meld.tile), tiles = meld.tiles?.length ? meld.tiles : types.map((type) => ({ type }));
-  tiles.forEach((tile, index) => {
-    if ((kind === "kan" || kind === "ankan") && !meld.open && (index === 0 || index === 3)) box.append(node(doc, "span", "obs-tile-back"));
-    else box.append(face(doc, tile));
+  const types = kind === "chi" ? [meld2.tile, meld2.tile + 1, meld2.tile + 2] : Array(kind === "kan" || ["ankan", "minkan", "kakan"].includes(kind) ? 4 : 3).fill(meld2.tile), tiles = meld2.tiles?.length ? meld2.tiles : types.map((type) => ({ type }));
+  tiles.forEach((tile2, index) => {
+    if ((kind === "kan" || kind === "ankan") && !meld2.open && (index === 0 || index === 3)) box.append(node(doc, "span", "obs-tile-back"));
+    else box.append(face(doc, tile2));
   });
   return box;
 }
 function playerView(doc, table, player, { handsVisible, detail }) {
-  const member = table.members?.find((m) => m.seat === player.seat), seat = player.seat, box = node(doc, "section", `obs-player${table.game?.actor === seat && table.game?.phase !== "end" ? " obs-active-player" : ""}`);
-  const heading = node(doc, "div", "obs-player-heading"), name = node(doc, "strong", "obs-player-name", member?.name ?? `\uD50C\uB808\uC774\uC5B4 ${seat + 1}`);
+  const member = table.members?.find((m) => m.seat === player.seat), seat2 = player.seat, box = node(doc, "section", `obs-player${table.game?.actor === seat2 && table.game?.phase !== "end" ? " obs-active-player" : ""}`);
+  const heading = node(doc, "div", "obs-player-heading"), name = node(doc, "strong", "obs-player-name", member?.name ?? `\uD50C\uB808\uC774\uC5B4 ${seat2 + 1}`);
   name.title = name.textContent;
-  heading.append(node(doc, "span", "obs-wind", ["\u6771", "\u5357", "\u897F", "\u5317"][(seat - (table.game?.dealer ?? 0) + 4) % 4]), name);
+  heading.append(node(doc, "span", "obs-wind", ["\u6771", "\u5357", "\u897F", "\u5317"][(seat2 - (table.game?.dealer ?? 0) + 4) % 4]), name);
   const flags = detail ? heading : node(doc, "div", "obs-compact-meta");
   if (member?.ai) flags.append(node(doc, "span", "obs-ai-label", "AI"));
   if (player.riichi) flags.append(node(doc, "span", "obs-riichi-label", "\uB9AC\uCE58"));
   if (player.won) flags.append(node(doc, "span", "obs-win-label", "\uD654\uB8CC"));
-  if (table.game?.actor === seat && table.game?.phase !== "end") flags.append(node(doc, "span", "obs-turn-label", "\uCC28\uB840"));
+  if (table.game?.actor === seat2 && table.game?.phase !== "end") flags.append(node(doc, "span", "obs-turn-label", "\uCC28\uB840"));
   const points = node(doc, "span", "obs-points", number(player.points));
   points.title = "\uD604\uC7AC \uAD6D \uC810\uC218";
   heading.append(points);
   (detail ? heading : flags).append(node(doc, "span", `obs-score${player.score > 0 ? " positive" : player.score < 0 ? " negative" : ""}`, Number.isFinite(player.score) ? `\uAD6D ${player.score > 0 ? "+" : ""}${number(player.score)}` : "\uAD6D \u2014"));
   box.append(heading);
-  const cumulative = table.cumulativeScores?.[seat];
+  const cumulative = table.cumulativeScores?.[seat2];
   if (Number.isFinite(cumulative)) (detail ? box : flags).append(node(doc, detail ? "div" : "span", "obs-cumulative", `${detail ? "\uB204\uC801 \uBCC0\uD654" : "\uB204\uC801"} ${cumulative > 0 ? "+" : ""}${number(cumulative)}`));
   if (!detail) {
     if (!handsVisible) flags.append(node(doc, "span", "obs-hand-count", `\uC190\uD328 \uBE44\uACF5\uAC1C ${Number(player.handSize) || 0}\uC7A5`));
@@ -143,7 +295,7 @@ function playerView(doc, table, player, { handsVisible, detail }) {
   }
   const hand = node(doc, "div", "obs-tiles obs-hand");
   hand.setAttribute("aria-label", handsVisible ? "\uC911\uACC4\uC790\uC6A9 \uC190\uD328" : "\uBE44\uACF5\uAC1C \uC190\uD328");
-  if (handsVisible && Array.isArray(player.handTiles)) for (const tile of player.handTiles) hand.append(face(doc, tile));
+  if (handsVisible && Array.isArray(player.handTiles)) for (const tile2 of player.handTiles) hand.append(face(doc, tile2));
   else if (detail) {
     const count = Math.min(14, Math.max(0, Number(player.handSize) || 0));
     for (let n = 0; n < count; n++) hand.append(node(doc, "span", "obs-tile-back"));
@@ -153,21 +305,21 @@ function playerView(doc, table, player, { handsVisible, detail }) {
   if (detail || handsVisible) tiles.append(hand);
   if (player.melds?.length) {
     const melds = node(doc, "div", "obs-melds");
-    for (const meld of player.melds) melds.append(meldView(doc, meld));
+    for (const meld2 of player.melds) melds.append(meldView(doc, meld2));
     tiles.append(melds);
   }
   if (!detail && tiles.children.length) box.append(tiles);
   const river = node(doc, "div", "obs-tiles obs-river"), discards = detail ? player.river ?? [] : (player.river ?? []).slice(-6);
   river.setAttribute("aria-label", detail ? "\uC804\uCCB4 \uBC84\uB9BC\uD328" : "\uCD5C\uADFC \uBC84\uB9BC\uD328 \uCD5C\uB300 6\uC7A5");
-  for (const tile of discards) river.append(face(doc, tile));
+  for (const tile2 of discards) river.append(decorateDiscardTile(face(doc, tile2), tile2, loadPreferences(globalThis.localStorage).discardDisplay));
   if (!discards.length) river.append(node(doc, "span", "obs-muted", "\uBC84\uB9BC\uD328 \uC5C6\uC74C"));
   if (!detail && (player.river?.length ?? 0) > 6) river.prepend(node(doc, "span", "obs-river-count", `\u2026 ${player.river.length}\uC7A5`));
   box.append(river);
   return box;
 }
-function eventLabel(event, table) {
+function eventLabel(event, table, { discardDisplay = "none" } = {}) {
   const member = table.members?.find((m) => m.seat === event.seat), kind = event.kind === "win" ? event.method : event.callType ?? event.kind;
-  return `${member?.name ?? `${Number(event.seat) + 1}\uBC88 \uC790\uB9AC`} \xB7 ${ACTIONS[kind] ?? "\uACF5\uAC1C \uD589\uB3D9"}${validTile(event.tile) ? ` ${event.red ? "\uC801 " : ""}${tileName(event.tile)}` : ""}`;
+  return `${member?.name ?? `${Number(event.seat) + 1}\uBC88 \uC790\uB9AC`} \xB7 ${kind === "discard" && discardDisplay === "text" && typeof event.tsumogiri === "boolean" ? event.tsumogiri ? "\uCBD4\uBAA8\uAE30\uB9AC" : "\uD14C\uB2E4\uC2DC" : ACTIONS[kind] ?? "\uACF5\uAC1C \uD589\uB3D9"}${validTile(event.tile) ? ` ${event.red ? "\uC801 " : ""}${tileName(event.tile)}` : ""}`;
 }
 function renderObserverTable(table, { handsVisible = false, detail = false, onDetail, document: doc = globalThis.document } = {}) {
   const card = node(doc, "article", `obs-table-card${detail ? " obs-table-detail" : " obs-overview-card"}`);
@@ -192,7 +344,7 @@ function renderObserverTable(table, { handsVisible = false, detail = false, onDe
   felt.append(meta);
   const dora = node(doc, "div", "obs-dora");
   dora.append(node(doc, "span", "obs-muted", "\uB3C4\uB77C \uD45C\uC2DC\uD328"));
-  for (const tile of game.doraIndicators ?? []) dora.append(face(doc, tile));
+  for (const tile2 of game.doraIndicators ?? []) dora.append(face(doc, tile2));
   if (!game.doraIndicators?.length) dora.append(node(doc, "span", "obs-muted", "\uC5C6\uC74C"));
   felt.append(dora);
   const players = node(doc, "div", "obs-players");
@@ -202,10 +354,15 @@ function renderObserverTable(table, { handsVisible = false, detail = false, onDe
   if (detail) card.append(node(doc, "p", "obs-hand-context", contextLabel(table.handContext)));
   const recent = node(doc, "ol", "obs-recent");
   recent.setAttribute("aria-label", "\uCD5C\uADFC \uACF5\uAC1C \uD589\uB3D9");
-  for (const event of (game.publicEvents ?? []).slice(detail ? -8 : -3).reverse()) recent.append(node(doc, "li", "", eventLabel(event, table)));
+  for (const event of (game.publicEvents ?? []).slice(detail ? -8 : -3).reverse()) recent.append(node(doc, "li", "", eventLabel(event, table, loadPreferences(globalThis.localStorage))));
   if (!recent.children.length) recent.append(node(doc, "li", "obs-muted", "\uC544\uC9C1 \uACF5\uAC1C \uD589\uB3D9\uC774 \uC5C6\uC2B5\uB2C8\uB2E4."));
   card.append(recent);
   if (game.end) card.append(node(doc, "p", "obs-end", typeof game.end === "string" ? { "win": "\uD654\uB8CC", "exhaustive-draw": "\uC720\uAD6D", "four-kans": "\uC0AC\uAE61\uC0B0\uB8CC" }[game.end] ?? "\uAD6D \uC885\uB8CC" : "\uAD6D \uC885\uB8CC"));
+  if (detail && game.end === "win" && game.winningHands?.length) {
+    const hands = node(doc, "div", "winning-hands");
+    renderWinningHands(hands, game.winningHands, { document: doc, dealer: game.dealer });
+    card.append(hands);
+  }
   return card;
 }
 function renderObserverComparison(model, { document: doc = globalThis.document } = {}) {
@@ -245,14 +402,14 @@ function renderObserverComparison(model, { document: doc = globalThis.document }
   return root;
 }
 function comparisonRowLabel(row) {
-  const seat = `${Number(row.seat) + 1}\uBC88`, draw = row.index === 0 ? "\uCBD4\uBAA8 \uC804" : Number.isInteger(row.index) ? `\uCBD4\uBAA8 ${row.index} \uB4A4` : "\uCBD4\uBAA8 \uC21C\uBC88 \uBBF8\uD655\uC778";
+  const seat2 = `${Number(row.seat) + 1}\uBC88`, draw = row.index === 0 ? "\uCBD4\uBAA8 \uC804" : Number.isInteger(row.index) ? `\uCBD4\uBAA8 ${row.index} \uB4A4` : "\uCBD4\uBAA8 \uC21C\uBC88 \uBBF8\uD655\uC778";
   const suffix = row.occurrence > 1 ? ` (${row.occurrence}\uBC88\uC9F8 \uC120\uD0DD)` : "";
   if (row.scope === "discard-trigger") {
-    const tile = validTile(row.trigger?.tile) ? ` \xB7 ${tileName(row.trigger.tile)}` : "";
-    return `${seat}\uC758 \uBC84\uB9BC\uD328 \uD6C4\uB85C \uACB0\uACFC${tile}${row.index !== null && row.index !== void 0 ? ` \xB7 \uBC84\uB9BC ${row.index}` : ""}${suffix}`;
+    const tile2 = validTile(row.trigger?.tile) ? ` \xB7 ${tileName(row.trigger.tile)}` : "";
+    return `${seat2}\uC758 \uBC84\uB9BC\uD328 \uD6C4\uB85C \uACB0\uACFC${tile2}${row.index !== null && row.index !== void 0 ? ` \xB7 \uBC84\uB9BC ${row.index}` : ""}${suffix}`;
   }
-  if (row.scope === "self-kan") return `${seat} \xB7 ${draw} \uC790\uC2E0\uC758 \uAE61${suffix}`;
-  return `${seat} \xB7 ${row.alignment === "draw" ? `${draw} \uBC84\uB9BC` : `\uBC84\uB9BC ${row.index ?? "\u2014"}`}${suffix}`;
+  if (row.scope === "self-kan") return `${seat2} \xB7 ${draw} \uC790\uC2E0\uC758 \uAE61${suffix}`;
+  return `${seat2} \xB7 ${row.alignment === "draw" ? `${draw} \uBC84\uB9BC` : `\uBC84\uB9BC ${row.index ?? "\u2014"}`}${suffix}`;
 }
 
 // duplicate/observer-comparison.mjs
@@ -260,7 +417,7 @@ var seatOK = (n) => Number.isInteger(n) && n >= 0 && n < 4;
 var indexOK = (n) => Number.isSafeInteger(n) && n >= 0;
 var boardOK = (n) => Number.isSafeInteger(n) && n >= 1;
 var tileOK = (n) => Number.isInteger(n) && n >= 0 && n < 34;
-var physical = (n) => Number.isInteger(n) && n >= 0 && n < 136 ? n : null;
+var physical2 = (n) => Number.isInteger(n) && n >= 0 && n < 136 ? n : null;
 var number2 = (n) => Number.isFinite(n) ? n : null;
 var winds = ["\uB3D9", "\uB0A8", "\uC11C", "\uBD81"];
 var callNames = { chi: "\uCE58", pon: "\uD401", minkan: "\uB300\uBA85\uAE61", ankan: "\uC554\uAE61", kakan: "\uAC00\uAE61" };
@@ -278,10 +435,10 @@ function eventView(e, order) {
     kind: e.kind,
     seat: e.seat,
     tile: tileOK(e.tile) ? e.tile : null,
-    tileId: physical(e.tileId),
+    tileId: physical2(e.tileId),
     red: e.red === true,
     source: seatOK(e.source) ? e.source : null,
-    sourceTileId: physical(e.sourceTileId),
+    sourceTileId: physical2(e.sourceTileId),
     callType: Object.hasOwn(callNames, e.callType) ? e.callType : null,
     method: ["ron", "tsumo"].includes(e.method) ? e.method : null,
     drawIndex: indexOK(e.drawIndex) ? e.drawIndex : null,
@@ -327,14 +484,14 @@ function getTables(dto) {
   return tables;
 }
 function pointRows(t) {
-  return Array.from({ length: 4 }, (_, seat) => {
-    const player = t.game?.players?.find((p) => p?.seat === seat), member = t.members?.find((m) => m?.seat === seat);
+  return Array.from({ length: 4 }, (_, seat2) => {
+    const player = t.game?.players?.find((p) => p?.seat === seat2), member = t.members?.find((m) => m?.seat === seat2);
     return {
-      seat,
-      name: typeof member?.name === "string" ? member.name : `${winds[seat]} \uC88C\uC11D`,
+      seat: seat2,
+      name: typeof member?.name === "string" ? member.name : `${winds[seat2]} \uC88C\uC11D`,
       points: number2(player?.points),
       score: number2(player?.score),
-      cumulativeScore: number2(t.cumulativeScores?.[seat])
+      cumulativeScore: number2(t.cumulativeScores?.[seat2])
     };
   });
 }
@@ -415,8 +572,8 @@ function discardRows(prepared, seatFilter, alignment) {
   const slots = /* @__PURE__ */ new Map();
   for (const p of prepared) if (p.boardMatch) for (const [key, e] of p.bySlot) {
     if (seatFilter !== null && e.result.seat !== seatFilter) continue;
-    const [seat, index, occurrence] = key.split(":").map(Number);
-    slots.set(key, { seat, index, occurrence });
+    const [seat2, index, occurrence] = key.split(":").map(Number);
+    slots.set(key, { seat: seat2, index, occurrence });
   }
   return [...slots].map(([key, slot]) => finish({ id: `discard:${alignment}:${key}`, type: "discard", scope: "discard", ...slot, alignment, trigger: null }, prepared.map((p) => {
     const absent = unavailable(p);
@@ -447,7 +604,7 @@ function triggerMatches(t, r, allowFallback = true) {
 }
 function pendingMatches(t, pending) {
   if (!pending || pending.kind !== "discard" || pending.source !== t.source) return false;
-  const id = physical(pending.tileId);
+  const id = physical2(pending.tileId);
   if (t.tileId !== null && id !== null) return t.tileId === id;
   return t.sourceDiscardIndex !== null && pending.sourceDiscardIndex === t.sourceDiscardIndex;
 }
@@ -537,7 +694,7 @@ function buildObserverComparison(dto = {}, options = {}) {
   const input = getTables(dto), board = Object.hasOwn(options, "board") && options.board !== void 0 ? boardOK(options.board) ? options.board : null : defaultBoard(dto, input);
   const honba = Object.hasOwn(options, "honba") && options.honba !== void 0 ? indexOK(options.honba) ? options.honba : null : defaultHonba(input, board);
   const handId = board !== null && honba !== null ? `${board}:${honba}` : null;
-  const seat = seatOK(options.seat) ? options.seat : null, alignment = options.alignment === "discard" ? "discard" : "draw";
+  const seat2 = seatOK(options.seat) ? options.seat : null, alignment = options.alignment === "discard" ? "discard" : "draw";
   const type = ["discard", "call"].includes(options.type) ? options.type : "all";
   const prepared = input.map((t) => prepare(t, board, honba, alignment));
   const tables = prepared.map((p) => ({
@@ -555,8 +712,8 @@ function buildObserverComparison(dto = {}, options = {}) {
     status: p.skipped ? "skipped" : p.t.phase === "missing-record" ? "missing-record" : p.waiting ? "pending" : !p.sameBoard ? "other-board" : !p.honbaMatch ? "other-deal" : !p.t.game ? "pending" : !p.hasHistory ? "missing-record" : "available"
   }));
   let all = handId === null ? [] : [
-    ...type !== "call" ? discardRows(prepared, seat, alignment) : [],
-    ...type !== "discard" ? [...triggerRows(prepared, seat), ...selfKanRows(prepared, seat)] : []
+    ...type !== "call" ? discardRows(prepared, seat2, alignment) : [],
+    ...type !== "discard" ? [...triggerRows(prepared, seat2), ...selfKanRows(prepared, seat2)] : []
   ];
   all = all.map((row) => ({ ...row, id: `${handId}:${row.id}` }));
   all.sort((a, b) => a.seat - b.seat || (a.index ?? Infinity) - (b.index ?? Infinity) || a.occurrence - b.occurrence || a.id.localeCompare(b.id));
@@ -653,7 +810,7 @@ function bindObserverDelayInput(input, select, { seconds = 300, minimumSeconds =
 function tournamentNavigationLinks({ baseUrl, server, defaultServer = "https://wellness-mahjong-h-lab.chayhyeon.chatgpt.site" }) {
   const api = new URL(server);
   if (api.username || api.password || api.pathname !== "/" || api.search || api.hash || !["https:", "http:"].includes(api.protocol) || api.protocol === "http:" && !["localhost", "127.0.0.1", "[::1]"].includes(api.hostname)) throw new Error("\uC11C\uBC84 \uC8FC\uC18C\uB97C \uD655\uC778\uD558\uC138\uC694.");
-  return Object.fromEntries([["game", "./"], ["manager", "./tournament/"], ["observer", "./tournament/observer.html"]].map(([name, path]) => {
+  return Object.fromEntries([["game", "./"], ["manager", "./tournament/"], ["observer", "./tournament/observer.html"], ["wiki", "./wiki.html"]].map(([name, path]) => {
     const url = new URL(path, baseUrl);
     url.search = "";
     url.hash = "";
@@ -820,7 +977,7 @@ function mountObserver(doc = globalThis.document, win = globalThis.window) {
   const delayInput = bindObserverDelayInput($("observer-delay"), $("observer-delay-unit"), { onError: error });
   function updateNavigation(server) {
     const links = tournamentNavigationLinks({ baseUrl: new URL("./", import.meta.url).href, server });
-    for (const [id, target] of [["observer-brand", "manager"], ["observer-manager-link", "manager"], ["observer-game-link", "game"]]) if ($(id)) $(id).href = links[target];
+    for (const [id, target] of [["observer-brand", "manager"], ["observer-manager-link", "manager"], ["observer-game-link", "game"], ["observer-wiki-link", "wiki"]]) if ($(id)) $(id).href = links[target];
   }
   try {
     updateNavigation(normalizeObserverServer(new URL(win.location.href).searchParams.get("server") ?? DEFAULT_OBSERVER_SERVER));
@@ -902,7 +1059,7 @@ function mountObserver(doc = globalThis.document, win = globalThis.window) {
       comparison.append(empty);
     }
     if (dto && ui.mode === "comparison" && !protectedRecord) {
-      const seat = $("observer-compare-seat").value, model = buildObserverComparison(dto, { board: ui.config.board ?? dto.selectedDeal?.board ?? void 0, honba: ui.config.honba ?? dto.selectedDeal?.honba ?? void 0, seat: seat === "" ? null : Number(seat), type: $("observer-compare-type").value, alignment: $("observer-compare-alignment").value, differencesOnly: $("observer-compare-differences").checked });
+      const seat2 = $("observer-compare-seat").value, model = buildObserverComparison(dto, { board: ui.config.board ?? dto.selectedDeal?.board ?? void 0, honba: ui.config.honba ?? dto.selectedDeal?.honba ?? void 0, seat: seat2 === "" ? null : Number(seat2), type: $("observer-compare-type").value, alignment: $("observer-compare-alignment").value, differencesOnly: $("observer-compare-differences").checked });
       comparison.append(renderObserverComparison(model, options));
     }
     const board = $("observer-board"), old = ui.config?.board === null || ui.config?.board === void 0 ? "" : ui.config.honba === null ? `board:${ui.config.board}` : `${ui.config.board}:${ui.config.honba}`;

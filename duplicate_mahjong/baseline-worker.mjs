@@ -783,7 +783,7 @@ var tileView = (id, s, drawn = null) => ({ id, type: typeOf(id), tile: typeOf(id
 var meldView = (m, s) => ({ ...structuredClone(m), tiles: m.ids.map((id) => tileView(id, s)) });
 function publicEvents(s) {
   const out = [], discards = Array(4).fill(null), pendingKan = Array(4).fill(null), melds = Array.from({ length: 4 }, () => []);
-  const physical = (id) => Number.isInteger(id) && id >= 0 && id < 136 ? id : null;
+  const physical2 = (id) => Number.isInteger(id) && id >= 0 && id < 136 ? id : null;
   const preview = (seat, index, tile, callType) => {
     const count = ["ankan", "kakan", "minkan"].includes(callType) ? 4 : 3;
     const ids = s.players[seat]?.melds[index]?.ids?.slice(0, count);
@@ -792,7 +792,7 @@ function publicEvents(s) {
     return types.filter((type) => Number.isInteger(type) && type >= 0 && type < 34).map((type) => ({ type, red: false }));
   };
   const emit = (raw, kind, { tile = null, tileId = null, source = null, callType = null, method = null, tiles } = {}) => {
-    const id = physical(tileId), type = id === null ? tile : typeOf(id);
+    const id = physical2(tileId), type = id === null ? tile : typeOf(id);
     const item = {
       id: raw.n,
       kind,
@@ -1414,7 +1414,7 @@ var tileView2 = (id, s, drawn = null) => ({ id, type: typeOf(id), tile: typeOf(i
 var meldView2 = (m, s) => ({ ...structuredClone(m), tiles: m.ids.map((id) => tileView2(id, s)) });
 function publicEvents2(s) {
   const out = [], discards = Array(4).fill(null), pendingKan = Array(4).fill(null), melds = Array.from({ length: 4 }, () => []);
-  const physical = (id) => Number.isInteger(id) && id >= 0 && id < 136 ? id : null;
+  const physical2 = (id) => Number.isInteger(id) && id >= 0 && id < 136 ? id : null;
   const preview = (seat, index, tile, callType) => {
     const count = ["ankan", "kakan", "minkan"].includes(callType) ? 4 : 3;
     const ids = s.players[seat]?.melds[index]?.ids?.slice(0, count);
@@ -1423,7 +1423,7 @@ function publicEvents2(s) {
     return types.filter((type) => Number.isInteger(type) && type >= 0 && type < 34).map((type) => ({ type, red: false }));
   };
   const emit = (raw, kind, { tile = null, tileId = null, source = null, callType = null, method = null, tiles } = {}) => {
-    const id = physical(tileId), type = id === null ? tile : typeOf(id);
+    const id = physical2(tileId), type = id === null ? tile : typeOf(id);
     const item = {
       id: raw.n,
       kind,
@@ -1737,16 +1737,131 @@ function step3(game, seat, action, options = {}) {
 function snapshot3(game, seat) {
   return { ...engineFor(game).snapshot(game, seat), honba: honbaOf(game), duplicateProfile: normalizeDuplicateProfile(game.duplicateProfile) };
 }
+
+// duplicate/basic-ai.mjs
+var RED_IDS3 = /* @__PURE__ */ new Set([16, 52, 88]);
+var ORPHANS3 = [0, 8, 9, 17, 18, 26, 27, 28, 29, 30, 31, 32, 33];
+var physical = (id) => Number.isInteger(id) && id >= 0 && id < 136;
+var simple = (type) => type < 27 && type % 9 !== 0 && type % 9 !== 8;
+var distance2 = (c, melds) => Math.min(shanten(c, melds), melds ? 8 : 13 - ORPHANS3.filter((type) => c[type]).length - Number(ORPHANS3.some((type) => c[type] >= 2)));
+var meldTypes = (meld) => meld.type === "chi" ? [meld.tile, meld.tile + 1, meld.tile + 2] : [meld.tile];
+function fixedYakuhai(melds, view) {
+  const wind = 27 + (view.seat - view.dealer + 4) % 4, round = view.rules?.roundWind ?? 27;
+  return melds.some((meld) => meld.type !== "chi" && (meld.tile >= 31 || meld.tile === wind || meld.tile === round));
+}
+function credibleYaku(c, melds, view) {
+  return fixedYakuhai(melds, view) || view.rules?.kuitan === true && melds.every((meld) => meldTypes(meld).every(simple)) && c.every((number, type) => !number || simple(type));
+}
+function quality(c, meldCount, visible) {
+  const d = distance2(c, meldCount);
+  let ukeire = 0;
+  for (let type = 0; type < 34; type++) if (c[type] < 4 && visible[type] < 4) {
+    c[type]++;
+    if (distance2(c, meldCount) < d) ukeire += 4 - visible[type];
+    c[type]--;
+  }
+  return { d, ukeire };
+}
+var better = (a, b) => a.d < b.d - 1e-10 || Math.abs(a.d - b.d) < 1e-10 && a.ukeire > b.ukeire + 1e-10;
+function bestDiscard(c, melds, view, visible, forbidden2 = []) {
+  let best = null;
+  for (let type = 0; type < 34; type++) if (c[type] && !forbidden2.includes(type)) {
+    c[type]--;
+    if (credibleYaku(c, melds, view)) {
+      const value = quality(c, melds.length, visible);
+      if (!best || better(value, best)) best = { ...value, discard: type };
+    }
+    c[type]++;
+  }
+  return best;
+}
+function forbidden(call, called) {
+  const out = [called];
+  if (call.type === "chi") {
+    if (called === call.tile && called % 9 <= 5) out.push(called + 3);
+    if (called === call.tile + 2 && called % 9 >= 3) out.push(called - 3);
+  }
+  return out;
+}
+function consume(view, call, called) {
+  const own = view.handTiles;
+  if (!Array.isArray(own) || own.length !== view.hand.length || own.some((tile) => !physical(tile.id) || tile.type !== Math.floor(tile.id / 4)) || new Set(own.map((tile) => tile.id)).size !== own.length) return null;
+  if (JSON.stringify([...own.map((tile) => tile.type)].sort((a, b) => a - b)) !== JSON.stringify([...view.hand].sort((a, b) => a - b))) return null;
+  const wanted = call.type === "chi" ? [call.tile, call.tile + 1, call.tile + 2].filter((type) => type !== called) : Array(call.type === "minkan" ? 3 : 2).fill(called), remaining3 = [...own].sort((a, b) => a.id - b.id);
+  if (wanted.length !== (call.type === "minkan" ? 3 : 2)) return null;
+  for (const type of wanted) {
+    let index = remaining3.findIndex((tile) => tile.type === type && !RED_IDS3.has(tile.id));
+    if (index < 0) index = remaining3.findIndex((tile) => tile.type === type);
+    if (index < 0) return null;
+    remaining3.splice(index, 1);
+  }
+  return counts(remaining3.map((tile) => tile.type));
+}
+function replacementQuality(c, melds, view, visible) {
+  let weight = 0, d = 0, ukeire = 0;
+  for (let type = 0; type < 34; type++) {
+    const remaining3 = 4 - visible[type];
+    if (remaining3 <= 0 || c[type] >= 4) continue;
+    c[type]++;
+    const complete = distance2(c, melds.length) === -1 && credibleYaku(c, melds, view), seen = [...visible];
+    seen[type]++;
+    const value = complete ? { d: -1, ukeire: 0 } : bestDiscard(c, melds, view, seen);
+    c[type]--;
+    if (!value) return null;
+    weight += remaining3;
+    d += remaining3 * value.d;
+    ukeire += remaining3 * value.ukeire;
+  }
+  return weight ? { d: d / weight, ukeire: ukeire / weight } : null;
+}
+function chooseAction2(view) {
+  const legal = view.legalActions;
+  if (!legal?.length) throw new Error("No legal action");
+  for (const type of ["tsumo", "ron"]) {
+    const win3 = legal.find((action) => action.type === type);
+    if (win3) return win3;
+  }
+  if (view.phase !== "reaction") {
+    const melds2 = view.melds ?? [];
+    if (melds2.some((meld) => meld.open) && !fixedYakuhai(melds2, view) && view.rules?.kuitan === true) {
+      const c = counts(view.hand), safe = legal.filter((action) => {
+        if (action.type !== "discard") return false;
+        c[action.tile]--;
+        const yaku = credibleYaku(c, melds2, view);
+        c[action.tile]++;
+        return yaku;
+      });
+      if (safe.length) return chooseAction({ ...view, legalActions: safe });
+    }
+    return chooseAction(view);
+  }
+  const pass = legal.find((action) => action.type === "pass") ?? legal[0], source = view.lastDiscard, called = source?.type ?? source?.tile, id = source?.id ?? source?.tileId;
+  if (source?.kind !== "discard" || !physical(id) || Math.floor(id / 4) !== called || source.seat === view.seat) return pass;
+  if (view.players?.some((player) => player.seat !== view.seat && player.riichi)) return pass;
+  const visible = Array.from({ length: 34 }, (_, type) => Number.isInteger(view.visible?.[type]) ? Math.min(4, Math.max(0, view.visible[type])) : counts(view.hand)[type]);
+  const melds = view.melds ?? [], before = quality(counts(view.hand), melds.length, visible), rows = [];
+  for (const call of legal.filter((action) => ["chi", "pon", "minkan"].includes(action.type))) {
+    if (call.type === "chi" && (view.seat !== (source.seat + 1) % 4 || call.tile < 0 || call.tile >= 27 || call.tile % 9 > 6 || called < call.tile || called > call.tile + 2)) continue;
+    if (call.type !== "chi" && call.tile !== called) continue;
+    const c = consume(view, call, called);
+    if (!c) continue;
+    const next = [...melds, { type: call.type === "minkan" ? "kan" : call.type, tile: call.tile, open: true, from: source.seat }];
+    const value = call.type === "minkan" ? replacementQuality(c, next, view, visible) : bestDiscard(c, next, view, visible, forbidden(call, called));
+    if (value && better(value, before)) rows.push({ call, ...value });
+  }
+  rows.sort((a, b) => a.d - b.d || b.ukeire - a.ukeire || ["pon", "chi", "minkan"].indexOf(a.call.type) - ["pon", "chi", "minkan"].indexOf(b.call.type) || a.call.tile - b.call.tile);
+  return rows[0]?.call ?? pass;
+}
 function driveAI(game, humanSeats = [], maxSteps = 500) {
   if (!Array.isArray(humanSeats) || humanSeats.some((seat) => !Number.isInteger(seat) || seat < 0 || seat > 3) || !Number.isInteger(maxSteps) || maxSteps < 0 || maxSteps > 1e4) throw new Error("Invalid AI drive options");
   let steps = 0;
-  while (game.phase !== "end" && steps < maxSteps) {
+  while (!["end", "ended"].includes(game.phase) && steps < maxSteps) {
     const seat = actor3(game);
     if (humanSeats.includes(seat)) break;
-    step3(game, seat, chooseAction(snapshot3(game, seat)));
+    step3(game, seat, chooseAction2(snapshot3(game, seat)));
     steps++;
   }
-  return { state: game, steps, finished: game.phase === "end", waitingForHuman: humanSeats.includes(actor3(game)) };
+  return { state: game, steps, finished: ["end", "ended"].includes(game.phase), waitingForHuman: humanSeats.includes(actor3(game)) };
 }
 
 // duplicate/baseline-worker.mjs
