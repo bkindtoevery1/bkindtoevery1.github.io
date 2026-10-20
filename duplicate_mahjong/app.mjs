@@ -950,7 +950,7 @@ __export(mil_core_game_exports, {
 
 // duplicate/engine/duplicate-profile.mjs
 function normalizeDuplicateProfile(value = "custom") {
-  if (value !== "custom" && value !== "mil") throw new Error("Unknown duplicate profile");
+  if (!["custom", "mil", "mil-riichi"].includes(value)) throw new Error("Unknown duplicate profile");
   return value;
 }
 var milRules = Object.freeze({
@@ -967,6 +967,10 @@ function normalizeProfileRules(raw = {}, profile = "custom") {
   const selected = normalizeDuplicateProfile(profile);
   if (selected === "custom") return normalizeRules(raw);
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Invalid rules");
+  if (selected === "mil-riichi") {
+    if (Object.hasOwn(raw, "exhaustLimit") && raw.exhaustLimit !== 1) throw new Error("MIL-riichi duplicate profile requires exhaustLimit=1");
+    return normalizeRules({ deadWall: false, abortFourKans: false, ...raw, exhaustLimit: 1 });
+  }
   for (const [key, value] of Object.entries(milRules)) if (Object.hasOwn(raw, key) && raw[key] !== value) throw new Error(`MIL duplicate profile requires ${key}=${value}`);
   return normalizeRules({ ...raw, ...milRules });
 }
@@ -1011,15 +1015,17 @@ function context2(s, seat, method, id) {
     redCount: ids.filter((id2) => red2(id2, s.rules)).length
   };
 }
-function createGame2({ seed = 1, rules = {}, dealer = 0, wall = null, pot = 0, startingScores = null } = {}) {
+function createGame2({ seed = 1, rules = {}, dealer = 0, wall = null, pot = 0, startingScores = null, duplicateProfile = "mil" } = {}) {
   if (!Number.isInteger(seed) || seed < 0 || seed > 4294967295 || !Number.isInteger(dealer) || dealer < 0 || dealer > 3 || !Number.isSafeInteger(pot) || pot < 0 || pot % 1e3) throw new Error("Invalid seed, dealer or pot");
   if (startingScores !== null && (!Array.isArray(startingScores) || startingScores.length !== 4 || startingScores.some((n) => !Number.isSafeInteger(n)))) throw new Error("Invalid starting scores");
-  const r = normalizeProfileRules(rules, "mil"), w = wall ? [...wall] : shuffledWall(seed);
+  const profile = normalizeDuplicateProfile(duplicateProfile);
+  if (profile === "custom") throw new Error("MIL core requires a MIL progression profile");
+  const r = normalizeProfileRules(rules, profile), w = wall ? [...wall] : shuffledWall(seed);
   if (w.length !== 136 || new Set(w).size !== 136 || w.some((id) => !Number.isInteger(id) || id < 0 || id >= 136)) throw new Error("Invalid wall");
   const reserve = reservedTileCount(r), dead = reserve ? w.splice(136 - reserve) : [];
   const s = {
     version: 1,
-    duplicateProfile: "mil",
+    duplicateProfile: profile,
     milLastTurn: null,
     seed,
     rules: r,
@@ -1495,7 +1501,7 @@ function snapshot2(s, seat) {
   }));
   return {
     variant: "D",
-    duplicateProfile: "mil",
+    duplicateProfile: s.duplicateProfile,
     lastTileTurn: !!s.milLastTurn,
     seat,
     dealer: s.dealer,
@@ -1530,6 +1536,8 @@ function observation2(s, seat = actor2(s)) {
   return snapshot2(s, seat);
 }
 function assertInvariants2(s) {
+  if (!["mil", "mil-riichi"].includes(s.duplicateProfile)) throw new Error("Invalid MIL progression profile");
+  normalizeProfileRules(s.rules, s.duplicateProfile);
   const all = [...s.walls.flat(), ...s.dead];
   for (const p of s.players) {
     all.push(...p.hand);
@@ -1674,11 +1682,11 @@ var honbaOf = (game) => {
   if (!Number.isSafeInteger(honba) || honba < 0) throw new Error("Invalid honba");
   return honba;
 };
-var engineFor = (game) => normalizeDuplicateProfile(game.duplicateProfile) === "mil" ? mil_core_game_exports : game_exports;
+var engineFor = (game) => normalizeDuplicateProfile(game.duplicateProfile) === "custom" ? game_exports : mil_core_game_exports;
 function createGame3({ honba = 0, duplicateProfile = "custom", ...options } = {}) {
   const profile = normalizeDuplicateProfile(duplicateProfile);
   honbaOf({ honba });
-  const game = (profile === "mil" ? mil_core_game_exports : game_exports).createGame(options);
+  const game = profile === "custom" ? createGame(options) : createGame2({ ...options, duplicateProfile: profile });
   game.honba = honba;
   game.duplicateProfile = profile;
   return game;
@@ -1916,6 +1924,12 @@ function normalizeScoring(options = {}) {
   const result = { method: "raw", impUnit: 100, ...options };
   if (!["raw", "imp"].includes(result.method) || ![100, 1e3].includes(result.impUnit)) throw Error("Invalid competition scoring");
   return result;
+}
+function normalizeNewCompetitionScoring(options = {}, profile = "custom") {
+  if (!["mil", "mil-riichi", "custom"].includes(profile)) throw Error("Unknown duplicate profile");
+  const config = normalizeScoring(options);
+  if (["mil", "mil-riichi"].includes(profile) && !Object.hasOwn(options, "method")) config.method = "imp";
+  return config;
 }
 
 // duplicate/tile-view.mjs
@@ -2882,14 +2896,16 @@ var signed = (n) => n === null || n === void 0 ? "\u2014" : `${n > 0 ? "+" : ""}
 var winds = ["\u6771", "\u5357", "\u897F", "\u5317"];
 var positions = ["bottom", "right", "top", "left"];
 var milFixed = ["dora", "kanDora", "uraDora", "redDora", "deadWall", "exhaustLimit", "multipleRon", "abortFourKans"];
-var profileName = (value) => value === "mil" ? "MIL \uBC30\uD328\xB7\uC9C4\uD589" : "\uC0AC\uC6A9\uC790 \uADDC\uCE59";
-function setupRules(raw = {}, profile = "mil") {
+var usesMilProgression = (value) => value === "mil" || value === "mil-riichi";
+var profileName = (value) => value === "mil-riichi" ? "MIL \uBC29\uC2DD + \uB9AC\uCE58 \uC635\uC158" : value === "mil" ? "MIL \uC6D0\uD615 \xB7 \uB3C4\uB77C \uC5C6\uC74C" : "\uC0AC\uC6A9\uC790 \uADDC\uCE59";
+function setupRules(raw = {}, profile = "mil-riichi") {
   const value = { ...raw };
   if (profile === "mil") for (const key of milFixed) delete value[key];
+  else if (profile === "mil-riichi") delete value.exhaustLimit;
   return normalizeProfileRules(value, profile);
 }
 var switchDefinitions = [["dora", "\uB3C4\uB77C", "\uCCAB \uBC88\uC9F8 \uB3C4\uB77C \uD45C\uC2DC\uD328"], ["kanDora", "\uAE61\uB3C4\uB77C", "\uAE61\uB9C8\uB2E4 \uCD94\uAC00 \uB3C4\uB77C \uD45C\uC2DC\uD328"], ["uraDora", "\uC6B0\uB77C\uB3C4\uB77C", "\uB9AC\uCE58 \uD654\uB8CC \uC2DC \uACF5\uAC1C\uD558\uB294 \uB4B7 \uD45C\uC2DC\uD328"], ["redDora", "\uC801\uB3C4\uB77C", "\uB9CC\xB7\uD1B5\xB7\uC0AD\uC758 \uC8015 \uAC01 1\uC7A5"], ["deadWall", "\uC655\uD328", "\uD328\uC0B0\uC5D0\uC11C 14\uC7A5 \uC81C\uC678"], ["kuitan", "\uCFE0\uC774\uD0D5", "\uBD80\uB978 \uC190\uD328\uC758 \uD0D5\uC57C\uC624 \uD5C8\uC6A9"], ["abortFourKans", "\uC0AC\uAE61\uC0B0\uB8CC", "2\uBA85 \uC774\uC0C1\uC774 \uD569\uACC4 4\uAE61\uC774\uBA74 \uC720\uAD6D"]];
-var S = { mode: "practice", panel: "practice", practice: null, practiceRemote: null, practiceError: "", online: null, credentials: null, view: null, selected: null, riichiSelecting: false, busy: false, timer: null, poll: null, worker: null, endHidden: false, endKey: null, endRevealAt: 0, resultTimer: null, toastTimer: null, settings: null, roomRules: null, roomAI: "simple", aiCapabilities: null, ruleContext: "practice", ruleReadOnly: false, creatingRoom: false, boardCount: 8, practiceMatchRules: null, roomMatchRules: null, practiceDuplicateProfile: "mil", roomDuplicateProfile: "mil", roomScoring: { method: "raw", impUnit: 100 }, preferences: { ...DEFAULT_PREFERENCES }, autoWin: true, autoPass: true, server: DEFAULT_SERVER, gameEpoch: 0 };
+var S = { mode: "practice", panel: "practice", practice: null, practiceRemote: null, practiceError: "", online: null, credentials: null, view: null, selected: null, riichiSelecting: false, busy: false, timer: null, poll: null, worker: null, endHidden: false, endKey: null, endRevealAt: 0, resultTimer: null, toastTimer: null, settings: null, roomRules: null, roomAI: "simple", aiCapabilities: null, ruleContext: "practice", ruleReadOnly: false, creatingRoom: false, boardCount: 8, practiceMatchRules: null, roomMatchRules: null, practiceDuplicateProfile: "mil-riichi", roomDuplicateProfile: "mil-riichi", roomScoring: normalizeNewCompetitionScoring({}, "mil-riichi"), preferences: { ...DEFAULT_PREFERENCES }, autoWin: true, autoPass: true, server: DEFAULT_SERVER, gameEpoch: 0 };
 var personalSettingsUI;
 var observerLinks = mountObserverLinks({ document, getRoom: () => S.online, getServer: () => S.server, request: (...args) => request(...args), toast });
 var feedbackTracker = createFeedbackTracker();
@@ -2994,7 +3010,7 @@ function ruleSummary() {
   box.className = "rule-chips";
   box.append(textNode("span", profileName(currentDuplicateProfile()), "chip"));
   for (const [key, name] of switchDefinitions.slice(0, 6)) box.append(textNode("span", `${name} ${r[key] ? "ON" : "OFF"}`, `chip ${r[key] ? "" : "off"}`));
-  box.append(textNode("span", currentDuplicateProfile() === "mil" ? "\uD558\uAC00 \uC0B0 \uC18C\uC9C4 \xB7 \uB9C8\uC9C0\uB9C9 \uCC28\uB840" : `${r.exhaustLimit}\uBA85 \uC18C\uC9C4 \uC720\uAD6D`, "chip"));
+  box.append(textNode("span", usesMilProgression(currentDuplicateProfile()) ? "\uD558\uAC00 \uC0B0 \uC18C\uC9C4 \xB7 \uB9C8\uC9C0\uB9C9 \uCC28\uB840" : `${r.exhaustLimit}\uBA85 \uC18C\uC9C4 \uC720\uAD6D`, "chip"));
   const match = currentMatchRules(), count = S.mode === "online" ? S.online?.boardCount ?? S.boardCount : S.practice?.count;
   box.append(textNode("span", formatName(match, count), "chip"));
   box.append(textNode("span", `\uCE5C \uC5F0\uC7A5 ${match?.dealerContinuation ? "ON" : "OFF"}`, "chip"));
@@ -3195,7 +3211,7 @@ function finishPractice(view = null) {
   }
   try {
     S.worker?.terminate();
-    S.worker = new Worker(new URL("./baseline-worker.mjs?v=24ae06bd10a5f5f7", import.meta.url), { type: "module" });
+    S.worker = new Worker(new URL("./baseline-worker.mjs?v=ec9a1d9e6c0971a0", import.meta.url), { type: "module" });
     S.worker.onmessage = (e) => {
       if (e.data.error) {
         result.referenceStatus = "error";
@@ -3366,7 +3382,7 @@ function renderTable() {
   $("board-number").textContent = `DEAL ${context3.handId}`;
   $("wall-count").textContent = String(v.ownWallRemaining);
   $("pot-label").textContent = `\uB9AC\uCE58\uBD09 ${v.pot / 1e3}`;
-  $("exhausted-label").textContent = v.duplicateProfile === "mil" ? v.lastTileTurn ? "MIL \uB9C8\uC9C0\uB9C9 \uCC28\uB840" : "MIL \uAC1C\uC778 \uD328\uC0B0" : `\uC18C\uC9C4 ${v.exhaustedSeats.length} / ${v.rules.exhaustLimit}`;
+  $("exhausted-label").textContent = usesMilProgression(v.duplicateProfile) ? v.lastTileTurn ? "MIL \uB9C8\uC9C0\uB9C9 \uCC28\uB840" : "MIL \uAC1C\uC778 \uD328\uC0B0" : `\uC18C\uC9C4 ${v.exhaustedSeats.length} / ${v.rules.exhaustLimit}`;
   const shownActor = v.phase === "reaction" ? v.lastDiscard?.seat : v.turn;
   for (let relative = 0; relative < 4; relative++) {
     const seat = (v.seat + relative) % 4, player = v.players[seat], position = positions[relative], river = $(`river-${position}`);
@@ -3839,7 +3855,7 @@ function openRules(context3 = S.mode === "online" ? "room" : "practice", create 
   $("rules-dialog").classList.toggle("rules-readonly", S.ruleReadOnly);
   for (const input of $("rules-dialog").querySelectorAll('#rule-switches input,[id^="rule-"]')) input.disabled = S.ruleReadOnly;
   updateProfileControls();
-  for (const id of ["preset-standard", "preset-no-dora"]) $(id).disabled = S.ruleReadOnly;
+  for (const id of ["preset-standard", "preset-no-dora", "preset-mil-riichi"]) $(id).disabled = S.ruleReadOnly;
   $("rule-format-field").hidden = false;
   $("create-room-name-field").hidden = !S.creatingRoom;
   $("create-room-name").value = $("online-name").value;
@@ -3854,27 +3870,31 @@ function updateWallQuota() {
   $("rule-wall-quota").textContent = `\uBC30\uD328 \uAC01 13\uC7A5 + \uAC1C\uC778 \uD328\uC0B0 ${quotas.join(" / ")}\uC7A5 \xB7 \uCD5C\uCD08 \uC790\uB9AC 1\xB72\xB73\xB74 \uC21C\uC11C, \uCE5C \uCCAB \uCBD4\uBAA8 \uD3EC\uD568`;
 }
 function updateProfileControls() {
-  const mil = $("rule-duplicateProfile").value === "mil";
-  $("rule-exhaustLimit").querySelector('option[value="1"]').textContent = mil ? "\uD558\uAC00 \uC18C\uC9C4 \uD6C4 \uB9C8\uC9C0\uB9C9 \uCC28\uB840 \xB7 MIL" : "1\uBA85 \uC18C\uC9C4";
+  const profile = $("rule-duplicateProfile").value, mil = profile === "mil", progression = usesMilProgression(profile);
+  $("rule-exhaustLimit").querySelector('option[value="1"]').textContent = progression ? "\uD558\uAC00 \uC18C\uC9C4 \uD6C4 \uB9C8\uC9C0\uB9C9 \uCC28\uB840 \xB7 MIL" : "1\uBA85 \uC18C\uC9C4";
   if (mil) {
     for (const key of ["dora", "kanDora", "uraDora", "redDora", "deadWall", "abortFourKans"]) $(`rule-${key}`).checked = false;
-    $("rule-exhaustLimit").value = 1;
     $("rule-multipleRon").value = "all";
   }
-  for (const key of milFixed) $(`rule-${key}`).disabled = S.ruleReadOnly || mil;
+  if (progression) $("rule-exhaustLimit").value = 1;
+  for (const key of milFixed) $(`rule-${key}`).disabled = S.ruleReadOnly || mil || progression && key === "exhaustLimit";
   $("rule-duplicateProfile").disabled = S.ruleReadOnly;
-  $("rule-profile-custom").hidden = !mil || S.ruleReadOnly;
+  $("rule-profile-custom").hidden = !progression || S.ruleReadOnly;
   updateWallQuota();
-  $("rule-profile-note").textContent = mil ? "136\uC7A5 \xB7 \uAF43 \uC5C6\uC74C \xB7 \uAC01\uC790 \uBC30\uD328 13\uC7A5\uACFC \uAC1C\uC778 \uD328\uC0B0 21\uC7A5. \uD558\uAC00\uC758 \uD328\uC0B0\uC774 \uBE44\uC5B4 \uC788\uC744 \uB54C \uC5BB\uC740 \uB9C8\uC9C0\uB9C9 \uCC28\uB840\uB294 \uD654\uB8CC\uC640 \uBC84\uB9BC\uB9CC \uD5C8\uC6A9\uD558\uACE0, \uB860 \uD655\uC778 \uB4A4 \uC720\uAD6D\uD569\uB2C8\uB2E4. \uB3C4\uB77C\xB7\uC655\uD328\xB7\uC0AC\uAE61\uC0B0\uB8CC\xB7\uBCF5\uC218 \uB860 \uC124\uC815\uC740 \uC774 \uD504\uB85C\uD544\uC5D0 \uACE0\uC815\uB429\uB2C8\uB2E4." : "\uC655\uD328\xB7\uB3C4\uB77C\uC640 n\uBA85 \uD328\uC0B0 \uC18C\uC9C4 \uC720\uAD6D\uC744 \uC9C1\uC811 \uC124\uC815\uD569\uB2C8\uB2E4. MIL\uC758 13+21 \uBC30\uD328\uC640 \uD558\uAC00 \uD328\uC0B0 \uAE30\uC900 \uC885\uB8CC \uC870\uAC74\uACFC \uAD6C\uBD84\uB429\uB2C8\uB2E4.";
+  $("rule-profile-note").textContent = mil ? "MIL \uC6D0\uD615: \uAF43 \uC5C6\uC774 136\uC7A5, \uAC01\uC790 \uBC30\uD328 13\uC7A5\uACFC \uAC1C\uC778 \uD328\uC0B0 21\uC7A5. \uB3C4\uB77C\xB7\uC655\uD328\xB7\uC0AC\uAE61\uC0B0\uB8CC\uB294 \uC5C6\uACE0 \uBCF5\uC218 \uB860\uC744 \uBAA8\uB450 \uC778\uC815\uD569\uB2C8\uB2E4. \uD558\uAC00\uC758 \uC0B0 \uC18C\uC9C4\uC744 \uAE30\uC900\uC73C\uB85C \uB9C8\uC9C0\uB9C9 \uCC28\uB840\uB97C \uD310\uC815\uD569\uB2C8\uB2E4." : profile === "mil-riichi" ? "\uAE30\uBCF8 \uC124\uC815: \uB3C4\uB77C\xB7\uAE61\uB3C4\uB77C\xB7\uC6B0\uB77C\uB3C4\uB77C\xB7\uC801\uB3C4\uB77C ON, \uC655\uD328 OFF. \uD45C\uC2DC\uD328\uB9CC \uC608\uC57D\uD574 \uAC1C\uC778 \uD328\uC0B0\uC740 19 / 19 / 18 / 18\uC7A5\uC785\uB2C8\uB2E4. \uC544\uB798 \uC635\uC158\uC744 \uBCC0\uACBD\uD560 \uC218 \uC788\uC73C\uBA70 \uD558\uAC00\uC758 \uC0B0 \uC18C\uC9C4\uC744 \uAE30\uC900\uC73C\uB85C \uB9C8\uC9C0\uB9C9 \uCC28\uB840\uB97C \uD310\uC815\uD569\uB2C8\uB2E4. MIL \uC9C4\uD589\uC5D0 \uB9AC\uCE58 \uC635\uC158\uC744 \uB354\uD55C \uBCC0\uD615\uC785\uB2C8\uB2E4." : "\uC655\uD328\xB7\uB3C4\uB77C\uC640 n\uBA85 \uD328\uC0B0 \uC18C\uC9C4 \uC720\uAD6D\uC744 \uC9C1\uC811 \uC124\uC815\uD569\uB2C8\uB2E4. MIL\uC758 \uD558\uAC00 \uD328\uC0B0 \uAE30\uC900 \uC885\uB8CC \uC870\uAC74\uACFC \uAD6C\uBD84\uB429\uB2C8\uB2E4.";
 }
-function fillPreset(mil = false) {
-  $("rule-duplicateProfile").value = mil ? "mil" : "custom";
-  for (const [key] of switchDefinitions) $(`rule-${key}`).checked = DEFAULT_RULES2[key];
-  $("rule-exhaustLimit").value = 1;
-  $("rule-multipleRon").value = "all";
-  $("rule-startingPoints").value = 25e3;
+function fillPreset(profile = "mil-riichi") {
+  const rules = normalizeProfileRules({}, profile);
+  $("rule-duplicateProfile").value = profile;
+  for (const [key] of switchDefinitions) $(`rule-${key}`).checked = rules[key];
+  $("rule-exhaustLimit").value = rules.exhaustLimit;
+  $("rule-multipleRon").value = rules.multipleRon;
+  $("rule-startingPoints").value = rules.startingPoints;
   $("rule-dealerContinuation").checked = true;
   $("rule-agariYame").checked = false;
+  const scoring = normalizeNewCompetitionScoring({}, profile);
+  $("rule-scoring-method").value = scoring.method;
+  $("rule-scoring-unit").value = String(scoring.impUnit);
   updateProfileControls();
 }
 function saveRules() {
@@ -3990,14 +4010,23 @@ $("room-rules-open").onclick = () => openRules("room");
 $("rules-open-second").onclick = () => openRules();
 $("help-open").onclick = () => $("help-dialog").showModal();
 $("rules-save").onclick = saveRules;
-$("rule-duplicateProfile").onchange = updateProfileControls;
+$("rule-duplicateProfile").onchange = () => {
+  if ($("rule-duplicateProfile").value === "mil-riichi") {
+    const rules = normalizeProfileRules({}, "mil-riichi");
+    for (const [key] of switchDefinitions) $(`rule-${key}`).checked = rules[key];
+    $("rule-multipleRon").value = rules.multipleRon;
+    $("rule-scoring-method").value = "imp";
+  }
+  updateProfileControls();
+};
 $("rule-profile-custom").onclick = () => {
   $("rule-duplicateProfile").value = "custom";
   updateProfileControls();
 };
 for (const key of ["dora", "kanDora", "uraDora", "deadWall"]) $(`rule-${key}`).onchange = updateWallQuota;
-$("preset-standard").onclick = () => fillPreset(false);
-$("preset-no-dora").onclick = () => fillPreset(true);
+$("preset-standard").onclick = () => fillPreset("custom");
+$("preset-no-dora").onclick = () => fillPreset("mil");
+$("preset-mil-riichi").onclick = () => fillPreset("mil-riichi");
 $("online-create").onclick = () => openRules("room", true);
 $("online-join").onclick = () => connectRoom(false);
 $("start-ai").onclick = () => roomOperation("start-ai");
@@ -4085,10 +4114,10 @@ document.addEventListener("keydown", () => {
 }, { passive: true });
 var storedSettings = readStorage(localStorage, "duplicate.settings.v1");
 try {
-  S.practiceDuplicateProfile = normalizeDuplicateProfile(storedSettings?.duplicateProfile ?? "mil");
+  S.practiceDuplicateProfile = normalizeDuplicateProfile(storedSettings?.duplicateProfile ?? "mil-riichi");
   S.settings = setupRules(storedSettings?.rules ?? {}, S.practiceDuplicateProfile);
 } catch {
-  S.practiceDuplicateProfile = "mil";
+  S.practiceDuplicateProfile = "mil-riichi";
   S.settings = setupRules();
 }
 try {
@@ -4098,20 +4127,20 @@ try {
 }
 var storedRoomRules = readStorage(localStorage, "duplicate.room-rules.v1");
 try {
-  S.roomDuplicateProfile = normalizeDuplicateProfile(storedRoomRules?.duplicateProfile ?? "mil");
+  S.roomDuplicateProfile = normalizeDuplicateProfile(storedRoomRules?.duplicateProfile ?? "mil-riichi");
   S.roomRules = setupRules(storedRoomRules?.rules ?? storedSettings?.rules ?? {}, S.roomDuplicateProfile);
   S.roomMatchRules = normalizeMatchRules(storedRoomRules?.matchRules ?? {});
   S.boardCount = matchBoardCount(S.roomMatchRules);
 } catch {
-  S.roomDuplicateProfile = "mil";
+  S.roomDuplicateProfile = "mil-riichi";
   S.roomRules = setupRules();
   S.roomMatchRules = normalizeMatchRules();
   S.boardCount = 8;
 }
 try {
-  S.roomScoring = normalizeScoring(storedRoomRules?.scoring);
+  S.roomScoring = normalizeNewCompetitionScoring(storedRoomRules?.scoring, S.roomDuplicateProfile);
 } catch {
-  S.roomScoring = normalizeScoring();
+  S.roomScoring = normalizeNewCompetitionScoring({}, S.roomDuplicateProfile);
 }
 S.roomAI = storedRoomRules?.aiPolicy === "mortal" ? "mortal" : "simple";
 S.preferences = loadPreferences(localStorage);

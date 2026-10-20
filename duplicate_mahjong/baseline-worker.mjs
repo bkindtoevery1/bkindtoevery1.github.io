@@ -949,7 +949,7 @@ __export(mil_core_game_exports, {
 
 // duplicate/engine/duplicate-profile.mjs
 function normalizeDuplicateProfile(value = "custom") {
-  if (value !== "custom" && value !== "mil") throw new Error("Unknown duplicate profile");
+  if (!["custom", "mil", "mil-riichi"].includes(value)) throw new Error("Unknown duplicate profile");
   return value;
 }
 var milRules = Object.freeze({
@@ -966,6 +966,10 @@ function normalizeProfileRules(raw = {}, profile = "custom") {
   const selected = normalizeDuplicateProfile(profile);
   if (selected === "custom") return normalizeRules(raw);
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Invalid rules");
+  if (selected === "mil-riichi") {
+    if (Object.hasOwn(raw, "exhaustLimit") && raw.exhaustLimit !== 1) throw new Error("MIL-riichi duplicate profile requires exhaustLimit=1");
+    return normalizeRules({ deadWall: false, abortFourKans: false, ...raw, exhaustLimit: 1 });
+  }
   for (const [key, value] of Object.entries(milRules)) if (Object.hasOwn(raw, key) && raw[key] !== value) throw new Error(`MIL duplicate profile requires ${key}=${value}`);
   return normalizeRules({ ...raw, ...milRules });
 }
@@ -1010,15 +1014,17 @@ function context2(s, seat, method, id) {
     redCount: ids.filter((id2) => red2(id2, s.rules)).length
   };
 }
-function createGame2({ seed = 1, rules = {}, dealer = 0, wall = null, pot = 0, startingScores = null } = {}) {
+function createGame2({ seed = 1, rules = {}, dealer = 0, wall = null, pot = 0, startingScores = null, duplicateProfile = "mil" } = {}) {
   if (!Number.isInteger(seed) || seed < 0 || seed > 4294967295 || !Number.isInteger(dealer) || dealer < 0 || dealer > 3 || !Number.isSafeInteger(pot) || pot < 0 || pot % 1e3) throw new Error("Invalid seed, dealer or pot");
   if (startingScores !== null && (!Array.isArray(startingScores) || startingScores.length !== 4 || startingScores.some((n) => !Number.isSafeInteger(n)))) throw new Error("Invalid starting scores");
-  const r = normalizeProfileRules(rules, "mil"), w = wall ? [...wall] : shuffledWall(seed);
+  const profile = normalizeDuplicateProfile(duplicateProfile);
+  if (profile === "custom") throw new Error("MIL core requires a MIL progression profile");
+  const r = normalizeProfileRules(rules, profile), w = wall ? [...wall] : shuffledWall(seed);
   if (w.length !== 136 || new Set(w).size !== 136 || w.some((id) => !Number.isInteger(id) || id < 0 || id >= 136)) throw new Error("Invalid wall");
   const reserve = reservedTileCount(r), dead = reserve ? w.splice(136 - reserve) : [];
   const s = {
     version: 1,
-    duplicateProfile: "mil",
+    duplicateProfile: profile,
     milLastTurn: null,
     seed,
     rules: r,
@@ -1494,7 +1500,7 @@ function snapshot2(s, seat) {
   }));
   return {
     variant: "D",
-    duplicateProfile: "mil",
+    duplicateProfile: s.duplicateProfile,
     lastTileTurn: !!s.milLastTurn,
     seat,
     dealer: s.dealer,
@@ -1529,6 +1535,8 @@ function observation2(s, seat = actor2(s)) {
   return snapshot2(s, seat);
 }
 function assertInvariants2(s) {
+  if (!["mil", "mil-riichi"].includes(s.duplicateProfile)) throw new Error("Invalid MIL progression profile");
+  normalizeProfileRules(s.rules, s.duplicateProfile);
   const all = [...s.walls.flat(), ...s.dead];
   for (const p of s.players) {
     all.push(...p.hand);
@@ -1673,11 +1681,11 @@ var honbaOf = (game) => {
   if (!Number.isSafeInteger(honba) || honba < 0) throw new Error("Invalid honba");
   return honba;
 };
-var engineFor = (game) => normalizeDuplicateProfile(game.duplicateProfile) === "mil" ? mil_core_game_exports : game_exports;
+var engineFor = (game) => normalizeDuplicateProfile(game.duplicateProfile) === "custom" ? game_exports : mil_core_game_exports;
 function createGame3({ honba = 0, duplicateProfile = "custom", ...options } = {}) {
   const profile = normalizeDuplicateProfile(duplicateProfile);
   honbaOf({ honba });
-  const game = (profile === "mil" ? mil_core_game_exports : game_exports).createGame(options);
+  const game = profile === "custom" ? createGame(options) : createGame2({ ...options, duplicateProfile: profile });
   game.honba = honba;
   game.duplicateProfile = profile;
   return game;
