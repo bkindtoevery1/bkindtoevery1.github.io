@@ -1887,6 +1887,96 @@ function createRemotePractice({ getServer, onState, onError = () => {
   };
 }
 
+// duplicate/observer-links.mjs
+var CODE = /^[A-Z2-9]{8}$/;
+var KEY = /^[a-f0-9]{64}$/;
+function observerLink({ baseUrl, code, key, server, delaySeconds = 5 }) {
+  if (!CODE.test(code ?? "") || !KEY.test(key ?? "") || !Number.isSafeInteger(delaySeconds) || delaySeconds < 5 || delaySeconds > 21600) throw new Error("\uAD00\uC804 \uB9C1\uD06C \uC815\uBCF4\uAC00 \uC62C\uBC14\uB974\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
+  const api = new URL(server);
+  if (!["https:", "http:"].includes(api.protocol) || api.username || api.password || api.pathname !== "/" || api.search || api.hash) throw new Error("\uC11C\uBC84 \uC8FC\uC18C\uB97C \uD655\uC778\uD558\uC138\uC694.");
+  if (api.protocol === "http:" && !["localhost", "127.0.0.1", "[::1]"].includes(api.hostname)) throw new Error("\uACF5\uAC1C \uC11C\uBC84\uB294 HTTPS \uC8FC\uC18C\uB97C \uC0AC\uC6A9\uD558\uC138\uC694.");
+  const url = new URL("./observer.html", baseUrl);
+  url.search = "";
+  url.hash = "";
+  url.searchParams.set("code", code);
+  url.searchParams.set("server", api.origin);
+  url.searchParams.set("delay", String(delaySeconds));
+  url.hash = new URLSearchParams({ key }).toString();
+  return url.href;
+}
+function mountObserverLinks({ document: document2, getRoom, getServer, request: request2, toast: toast2, baseUrl = globalThis.location?.href, clipboard = globalThis.navigator?.clipboard }) {
+  const $2 = (id) => document2.getElementById(id), open = $2("observer-links-open"), dialog = $2("observer-links-dialog"), create = $2("observer-links-create"), delay = $2("observer-min-delay");
+  let issuing = false, roomCode = null;
+  function clear() {
+    for (const role of ["viewer", "caster"]) {
+      $2(`observer-${role}-url`).value = "";
+      $2(`observer-${role}-open`).removeAttribute("href");
+    }
+    $2("observer-issued-links").hidden = true;
+  }
+  function update() {
+    const room = getRoom();
+    open.hidden = !room?.organizer;
+    open.disabled = issuing;
+    if (room?.code !== roomCode) {
+      roomCode = room?.code ?? null;
+      clear();
+      if (dialog.open) dialog.close();
+    }
+    create.disabled = issuing || !room?.organizer;
+  }
+  open.addEventListener("click", () => {
+    update();
+    if (!getRoom()?.organizer) return;
+    dialog.showModal();
+  });
+  create.addEventListener("click", async () => {
+    const room = getRoom(), value = Number(delay.value);
+    if (issuing || !room?.organizer) return;
+    if (!Number.isSafeInteger(value) || value < 5 || value > 21600) {
+      toast2("\uC911\uACC4 \uC9C0\uC5F0\uC740 5\u201321600\uCD08\uC758 \uC815\uC218\uB85C \uC785\uB825\uD558\uC138\uC694.");
+      delay.focus();
+      return;
+    }
+    issuing = true;
+    update();
+    create.textContent = "\uC911\uACC4 \uB9C1\uD06C\uB97C \uB9CC\uB4E4\uACE0 \uC788\uC2B5\uB2C8\uB2E4\u2026";
+    try {
+      const result = await request2(`/${room.code}/observer-access`, { delaySeconds: value });
+      if (getRoom()?.code !== room.code || !getRoom()?.organizer) return;
+      if (result.code !== room.code || !KEY.test(result.viewerKey ?? "") || !KEY.test(result.casterKey ?? "") || result.viewerKey === result.casterKey || result.delaySeconds < 5) throw new Error("\uC911\uACC4 \uB9C1\uD06C \uC751\uB2F5\uC744 \uD655\uC778\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+      for (const role of ["viewer", "caster"]) {
+        const url = observerLink({ baseUrl, code: result.code, key: result[`${role}Key`], server: getServer(), delaySeconds: result.delaySeconds });
+        $2(`observer-${role}-url`).value = url;
+        $2(`observer-${role}-open`).href = url;
+      }
+      $2("observer-issued-links").hidden = false;
+      $2("observer-link-status").textContent = `\uCD5C\uC18C ${result.delaySeconds}\uCD08 \uC9C0\uC5F0 \xB7 \uAE30\uC874 \uB9C1\uD06C\uB294 \uC885\uB8CC\uB418\uC5C8\uC2B5\uB2C8\uB2E4. \uAD00\uC804 \uCC3D\uC5D0\uC11C \uB354 \uAE34 \uC9C0\uC5F0\uC744 \uC124\uC815\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.`;
+      toast2("\uAD00\uC804\xB7\uC911\uACC4 \uB9C1\uD06C\uB97C \uB9CC\uB4E4\uC5C8\uC2B5\uB2C8\uB2E4.");
+    } catch (error) {
+      toast2(error.message);
+    } finally {
+      issuing = false;
+      create.textContent = "\uB9C1\uD06C \uB9CC\uB4E4\uAE30 \xB7 \uC7AC\uBC1C\uAE09";
+      update();
+    }
+  });
+  for (const role of ["viewer", "caster"]) $2(`observer-${role}-copy`).addEventListener("click", async () => {
+    const input = $2(`observer-${role}-url`);
+    if (!input.value) return;
+    try {
+      await clipboard.writeText(input.value);
+      toast2(role === "caster" ? "\uC911\uACC4\uC790 \uC804\uC6A9 \uB9C1\uD06C\uB97C \uBCF5\uC0AC\uD588\uC2B5\uB2C8\uB2E4." : "\uC77C\uBC18 \uAD00\uC804 \uB9C1\uD06C\uB97C \uBCF5\uC0AC\uD588\uC2B5\uB2C8\uB2E4.");
+    } catch {
+      input.focus();
+      input.select();
+      toast2("\uC120\uD0DD\uB41C \uB9C1\uD06C\uB97C \uBCF5\uC0AC\uD574 \uC8FC\uC138\uC694.");
+    }
+  });
+  update();
+  return { update };
+}
+
 // duplicate/app.mjs
 var DEFAULT_SERVER = "https://wellness-mahjong-h-lab.chayhyeon.chatgpt.site";
 var $ = (id) => document.getElementById(id);
@@ -1897,6 +1987,7 @@ var positions = ["bottom", "right", "top", "left"];
 var switchDefinitions = [["dora", "\uB3C4\uB77C", "\uCCAB \uBC88\uC9F8 \uB3C4\uB77C \uD45C\uC2DC\uD328"], ["kanDora", "\uAE61\uB3C4\uB77C", "\uAE61\uB9C8\uB2E4 \uCD94\uAC00 \uB3C4\uB77C \uD45C\uC2DC\uD328"], ["uraDora", "\uC6B0\uB77C\uB3C4\uB77C", "\uB9AC\uCE58 \uD654\uB8CC \uC2DC \uACF5\uAC1C\uD558\uB294 \uB4B7 \uD45C\uC2DC\uD328"], ["redDora", "\uC801\uB3C4\uB77C", "\uB9CC\xB7\uD1B5\xB7\uC0AD\uC758 \uC8015 \uAC01 1\uC7A5"], ["deadWall", "\uC655\uD328", "\uD328\uC0B0\uC5D0\uC11C 14\uC7A5 \uC81C\uC678"], ["kuitan", "\uCFE0\uC774\uD0D5", "\uBD80\uB978 \uC190\uD328\uC758 \uD0D5\uC57C\uC624 \uD5C8\uC6A9"], ["abortFourKans", "\uC0AC\uAE61\uC0B0\uB8CC", "2\uBA85 \uC774\uC0C1\uC774 \uD569\uACC4 4\uAE61\uC774\uBA74 \uC720\uAD6D"]];
 var S = { mode: "practice", panel: "practice", practice: null, practiceRemote: null, practiceError: "", online: null, credentials: null, view: null, selected: null, riichiSelecting: false, busy: false, timer: null, poll: null, worker: null, endHidden: false, endKey: null, endRevealAt: 0, resultTimer: null, toastTimer: null, settings: null, roomRules: null, roomAI: "simple", aiCapabilities: null, ruleContext: "practice", ruleReadOnly: false, creatingRoom: false, boardCount: 8, preferences: { ...DEFAULT_PREFERENCES }, autoWin: true, autoPass: true, server: DEFAULT_SERVER, gameEpoch: 0 };
 var personalSettingsUI;
+var observerLinks = mountObserverLinks({ document, getRoom: () => S.online, getServer: () => S.server, request: (...args) => request(...args), toast });
 var feedbackTracker = createFeedbackTracker();
 var feedback = createFeedbackPresenter({ table: $("table"), handArea: $("hand-area"), historyContainer: $("recent-actions"), getPreferences: () => S.preferences, getPlayerName: (seat) => playerName(seat) });
 var remotePractice = createRemotePractice({ getServer: () => S.server, onState: applyPrivatePractice, onError: (error, { terminal }) => {
@@ -2562,6 +2653,7 @@ function renderComparison() {
   $("standings-open").hidden = !online || !S.online?.standings?.length;
 }
 function renderRoom() {
+  observerLinks.update();
   const room = S.online;
   $("room-info").hidden = !room;
   $("online-create").disabled = S.busy || !!room;
