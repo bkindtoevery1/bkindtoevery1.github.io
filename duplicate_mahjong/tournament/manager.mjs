@@ -430,6 +430,67 @@ function mountAccountPanel(container, { client, onSessionChange = () => {
   } };
 }
 
+// duplicate/observer-delay.mjs
+var DEFAULT_OBSERVER_DELAY_SECONDS = 300;
+var factor = (unit) => {
+  if (!["seconds", "minutes"].includes(unit)) throw Error("\uC9C0\uC5F0 \uB2E8\uC704\uB97C \uD655\uC778\uD558\uC138\uC694.");
+  return unit === "minutes" ? 60 : 1;
+};
+function observerDelaySeconds(value, unit = "seconds", { minimumSeconds = 5 } = {}) {
+  if (!["number", "string"].includes(typeof value) || String(value).trim() === "") throw Error("\uC911\uACC4 \uC9C0\uC5F0 \uC2DC\uAC04\uC744 \uC785\uB825\uD558\uC138\uC694.");
+  const seconds = Number(value) * factor(unit), rounded = Math.round(seconds);
+  if (!Number.isFinite(seconds) || Math.abs(seconds - rounded) > 1e-7 || !Number.isSafeInteger(rounded)) throw Error("\uC911\uACC4 \uC9C0\uC5F0\uC740 1\uCD08 \uB2E8\uC704\uB85C \uC785\uB825\uD558\uC138\uC694. \uBD84 \uB2E8\uC704 \uC18C\uC218\uB97C \uC0AC\uC6A9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.");
+  if (!Number.isInteger(minimumSeconds) || minimumSeconds < 5 || minimumSeconds > 21600) throw Error("\uCD5C\uC18C \uC911\uACC4 \uC9C0\uC5F0\uC744 \uD655\uC778\uD558\uC138\uC694.");
+  if (rounded < minimumSeconds || rounded > 21600) throw Error(`\uC911\uACC4 \uC9C0\uC5F0\uC740 ${minimumSeconds}\u201321600\uCD08 \uBC94\uC704\uB85C \uC785\uB825\uD558\uC138\uC694.`);
+  return rounded;
+}
+function observerDelayValue(seconds, unit = "seconds") {
+  return String(observerDelaySeconds(seconds) / factor(unit));
+}
+function bindObserverDelayInput(input, select, { seconds = 300, minimumSeconds = 5, onError = () => {
+} } = {}) {
+  let unit = select.value || "minutes", minimum = minimumSeconds;
+  function constraints() {
+    const scale = factor(unit);
+    input.min = String(minimum / scale);
+    input.max = String(21600 / scale);
+    input.step = unit === "minutes" ? "any" : "1";
+    input.inputMode = unit === "minutes" ? "decimal" : "numeric";
+    input.setAttribute("aria-label", `\uC911\uACC4 \uC9C0\uC5F0 ${unit === "minutes" ? "\uBD84" : "\uCD08"}`);
+  }
+  function setSeconds(value) {
+    const canonical = observerDelaySeconds(value);
+    input.value = observerDelayValue(canonical, unit);
+    constraints();
+  }
+  const change = () => {
+    try {
+      const value = observerDelaySeconds(input.value, unit);
+      const next = select.value;
+      factor(next);
+      unit = next;
+      setSeconds(value);
+    } catch (error) {
+      select.value = unit;
+      onError(error.message);
+    }
+  };
+  select.addEventListener("change", change);
+  setSeconds(seconds);
+  return {
+    getSeconds: () => observerDelaySeconds(input.value, unit, { minimumSeconds: minimum }),
+    setSeconds,
+    setMinimum(value) {
+      observerDelaySeconds(value);
+      minimum = value;
+      constraints();
+    },
+    destroy() {
+      select.removeEventListener("change", change);
+    }
+  };
+}
+
 // duplicate/observer-links.mjs
 var CODE = /^[A-Z2-9]{8}$/;
 var KEY = /^[a-f0-9]{64}$/;
@@ -444,7 +505,7 @@ function tournamentNavigationLinks({ baseUrl, server, defaultServer = "https://w
     return [name, url.href];
   }));
 }
-function observerLink({ baseUrl, code, key, server, delaySeconds = 5 }) {
+function observerLink({ baseUrl, code, key, server, delaySeconds = DEFAULT_OBSERVER_DELAY_SECONDS }) {
   if (!CODE.test(code ?? "") || !KEY.test(key ?? "") || !Number.isSafeInteger(delaySeconds) || delaySeconds < 5 || delaySeconds > 21600) throw new Error("\uAD00\uC804 \uB9C1\uD06C \uC815\uBCF4\uAC00 \uC62C\uBC14\uB974\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
   const api = new URL(server);
   if (!["https:", "http:"].includes(api.protocol) || api.username || api.password || api.pathname !== "/" || api.search || api.hash) throw new Error("\uC11C\uBC84 \uC8FC\uC18C\uB97C \uD655\uC778\uD558\uC138\uC694.");
@@ -666,25 +727,30 @@ function mountManager(doc = globalThis.document, win = globalThis.window, { fetc
     root.append(grid);
     const observer = node("section", void 0, "manager-section manager-links");
     observer.append(node("h3", "\uAD00\uC804\xB7\uC911\uACC4 \uB9C1\uD06C"), node("p", "\uD544\uC694\uD560 \uB54C\uB9CC \uBC1C\uAE09\uD574 \uD45C\uC2DC\uD569\uB2C8\uB2E4. \uB9C1\uD06C\uB97C \uB2E4\uC2DC \uB9CC\uB4E4\uBA74 \uC774\uC804 \uB9C1\uD06C\uB294 \uB9CC\uB8CC\uB429\uB2C8\uB2E4.", "hint"));
-    const label = node("label", "\uCD5C\uC18C \uC911\uACC4 \uC9C0\uC5F0 \xB7 \uCD08", "field"), delay = node("input");
+    const fields = node("div", void 0, "two-fields"), label = node("label", "\uCD5C\uC18C \uC911\uACC4 \uC9C0\uC5F0", "field"), delay = node("input"), unitLabel = node("label", "\uB2E8\uC704", "field"), unit = node("select");
     delay.type = "number";
-    delay.min = "5";
-    delay.max = "21600";
-    delay.step = "1";
-    delay.value = String(value.observer?.minimumDelaySeconds ?? 5);
+    unit.setAttribute("aria-label", "\uC9C0\uC5F0 \uC2DC\uAC04 \uB2E8\uC704");
+    for (const [value2, text] of [["seconds", "\uCD08"], ["minutes", "\uBD84"]]) {
+      const option = node("option", text);
+      option.value = value2;
+      unit.append(option);
+    }
+    unit.value = "minutes";
+    const delayInput = bindObserverDelayInput(delay, unit, { seconds: value.observer?.minimumDelaySeconds ?? DEFAULT_OBSERVER_DELAY_SECONDS, onError: error });
     label.append(delay);
+    unitLabel.append(unit);
+    fields.append(label, unitLabel);
     const issue = node("button", "\uB9C1\uD06C \uB9CC\uB4E4\uAE30 \xB7 \uC7AC\uBC1C\uAE09", "secondary");
     issue.onclick = () => {
-      const n = Number(delay.value);
-      if (!Number.isInteger(n) || n < 5 || n > 21600) {
-        error("\uC9C0\uC5F0\uC740 5\u201321600\uCD08 \uC815\uC218\uB85C \uC9C0\uC815\uD558\uC138\uC694.");
-        return;
+      try {
+        void action("observer-access", { delaySeconds: delayInput.getSeconds() });
+      } catch (e) {
+        error(e.message);
       }
-      void action("observer-access", { delaySeconds: n });
     };
     const links = node("div");
     links.id = "manager-issued-links";
-    observer.append(label, issue, links);
+    observer.append(fields, node("p", "\uAE30\uBCF8 5\uBD84(300\uCD08) \xB7 \uCD5C\uC18C 5\uCD08 \xB7 \uCD5C\uB300 360\uBD84. \uBD84 \uB2E8\uC704 \uC18C\uC218\uB3C4 \uC785\uB825\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.", "hint"), issue, links);
     root.append(observer);
     if (issued?.code === value.code) showLinks(issued.result);
     const final = publicFinalResults(value);

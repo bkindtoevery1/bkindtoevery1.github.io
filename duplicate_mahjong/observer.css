@@ -52,3 +52,8 @@
   .obs-focus .obs-overview-card .obs-end{display:none}
 }
 .obs-choice-other-deal{color:#a0afa3}.obs-hand-context{font-size:11px;line-height:1.7;color:var(--muted);padding:10px 16px;margin:0;background:#17271e}.obs-overview-card .obs-table-heading h2{font-size:12px}.obs-overview-card .obs-table-heading>div{min-width:0}.obs-overview-card .obs-table-heading h2{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Unit changes preserve canonical seconds, including fractional minutes. */
+.obs-delay-row input{min-width:0;width:110px}
+.obs-delay-row select{flex:0 0 auto;width:65px;min-height:39px}
+.obs-presets{flex-wrap:wrap}

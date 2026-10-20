@@ -2023,8 +2023,37 @@ function parseReplay(input) {
     throw new ReplayError(error.message || "\uC7AC\uC0DD \uD30C\uC77C\uC744 \uC77D\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
   }
 }
+function compactReplay(input) {
+  const record = parseReplay(input);
+  if (record.schema !== FRAME_REPLAY_SCHEMA) return record;
+  const compactTile = (value) => {
+    delete value.tile;
+    if (value.red === false) delete value.red;
+  };
+  for (const frame of record.frames) {
+    const view = frame.view;
+    for (const key of ["hand", "handTiles", "melds", "visible", "legalActions", "readOnly", "variant", "exhaustedSeats", "duplicateProfile"]) delete view[key];
+    if (equal(view.rules, record.rules)) delete view.rules;
+    if (view.ownWallRemaining === view.players[view.seat]?.wallRemaining) delete view.ownWallRemaining;
+    for (const player of view.players) {
+      for (const value of player.handTiles ?? []) compactTile(value);
+      for (const value of player.melds) for (const tile2 of value.tiles) compactTile(tile2);
+      for (const value of player.river) {
+        compactTile(value);
+        for (const key of ["claimed", "riichi", "robbedKan"]) if (value[key] === false) delete value[key];
+      }
+    }
+    for (const event3 of view.publicEvents) {
+      for (const key of ["tile", "tileId", "source", "callType", "method"]) if (event3[key] === null) delete event3[key];
+      if (event3.red === false) delete event3.red;
+      for (const value of event3.tiles ?? []) compactTile(value);
+    }
+    if (view.lastDiscard) compactTile(view.lastDiscard);
+  }
+  return record;
+}
 function serializeReplay(record) {
-  return JSON.stringify(parseReplay(record), null, 2);
+  return JSON.stringify(compactReplay(record));
 }
 function createReplaySession(input) {
   const record = parseReplay(input);
@@ -2288,6 +2317,37 @@ function replayFrameCaption(record, view, index) {
   }
   return replayPublicCaption(view, index);
 }
+function replayDisplaySteps(record) {
+  if (record.schema !== ENGINE_REPLAY_SCHEMA) return null;
+  const steps = [{ rawIndex: 0, actionIndex: null }];
+  for (let index = 0; index < record.actions.length; index++) {
+    if (record.actions[index].action.type === "pass") {
+      steps.at(-1).rawIndex = index + 1;
+      continue;
+    }
+    steps.push({ rawIndex: index + 1, actionIndex: index });
+  }
+  return steps;
+}
+function createReplayDisplaySession(record, session = createReplaySession(record)) {
+  const steps = replayDisplaySteps(record);
+  if (!steps) return session;
+  return {
+    ...session,
+    steps,
+    frameCount: steps.length,
+    actionCount: steps.length - 1,
+    rawActionCount: session.actionCount,
+    seek(index, options) {
+      if (!Number.isInteger(index) || index < 0 || index >= steps.length) throw Error("\uD328\uBCF4 \uC7AC\uC0DD \uBC94\uC704\uB97C \uD655\uC778\uD574 \uC8FC\uC138\uC694.");
+      const step4 = steps[index], frame = session.seek(step4.rawIndex, options);
+      return { ...frame, index, rawIndex: step4.rawIndex, actionIndex: step4.actionIndex };
+    }
+  };
+}
+function replayStepCaption(record, view, index, steps = replayDisplaySteps(record)) {
+  return steps ? replayFrameCaption(record, view, steps[index]?.actionIndex === null ? 0 : steps[index].actionIndex + 1) : replayFrameCaption(record, view, index);
+}
 function createReplayPlayer({ session, seat: seat2 = session.allowedSeats[0], onFrame = () => {
 }, onPlayState = () => {
 }, onError = () => {
@@ -2524,7 +2584,7 @@ function mountReplay(doc = globalThis.document, win3 = globalThis.window, { stor
     if (!current || !session) return;
     const { index, view } = frame;
     $("replay-table").replaceChildren(renderReplayView(view, { record: current, access: session.access, document: doc }));
-    const label = replayFrameCaption(current, view, index);
+    const label = replayStepCaption(current, view, index, session.steps);
     $("replay-action-label").textContent = label;
     $("replay-progress").textContent = `${index} / ${session.frameCount - 1}`;
     $("replay-step").value = String(index);
@@ -2543,7 +2603,7 @@ function mountReplay(doc = globalThis.document, win3 = globalThis.window, { stor
     current = record;
     currentMeta = metadata;
     currentId = metadata.saved === false ? null : metadata.id;
-    session = createSession(record);
+    session = createReplayDisplaySession(record, createSession(record));
     hideConfirm();
     doc.body.classList.add("has-replay");
     $("replay-empty").hidden = true;
@@ -2565,7 +2625,7 @@ function mountReplay(doc = globalThis.document, win3 = globalThis.window, { stor
     const timeline = $("replay-actions");
     timeline.replaceChildren();
     for (let index = 0; index < session.frameCount; index++) {
-      const item = node(doc, "li"), caption = index === 0 ? "\uB300\uAD6D \uC2DC\uC791" : record.schema === ENGINE_REPLAY_SCHEMA ? replayFrameCaption(record, null, index) : "\uCEA1\uCC98 \uAE30\uB85D", button = node(doc, "button", `${index} \xB7 ${caption}`);
+      const item = node(doc, "li"), caption = index === 0 ? "\uB300\uAD6D \uC2DC\uC791" : record.schema === ENGINE_REPLAY_SCHEMA ? replayStepCaption(record, null, index, session.steps) : "\uCEA1\uCC98 \uAE30\uB85D", button = node(doc, "button", `${index} \xB7 ${caption}`);
       item.dataset.step = String(index);
       button.type = "button";
       button.onclick = () => {
@@ -2733,11 +2793,14 @@ function mountReplay(doc = globalThis.document, win3 = globalThis.window, { stor
 }
 if (typeof document !== "undefined" && document.getElementById("replay-root")) mountReplay();
 export {
+  createReplayDisplaySession,
   createReplayPlayer,
   mountReplay,
   renderReplayView,
+  replayDisplaySteps,
   replayFrameCaption,
   replayHandTiles,
   replayPublicCaption,
-  replayRoundLabel
+  replayRoundLabel,
+  replayStepCaption
 };

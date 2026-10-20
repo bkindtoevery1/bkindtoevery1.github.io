@@ -7,9 +7,9 @@
   <meta name="theme-color" content="#132b23">
   <meta name="robots" content="noindex, nofollow">
   <title>Duplicate Mahjong · 중계실</title>
-  <link rel="stylesheet" href="../style.css?v=03bfdf96bea31e5f">
-  <link rel="stylesheet" href="../observer.css?v=5d0d00edce9df2c0">
-  <script type="module" src="../observer-app.mjs?v=b08385b267dc428a"></script>
+  <link rel="stylesheet" href="../style.css?v=a73dde7f1466dede">
+  <link rel="stylesheet" href="../observer.css?v=cdf76563ab922074">
+  <script type="module" src="../observer-app.mjs?v=81ee14f7c4152bd6"></script>
 </head>
 <body class="observer-page" id="observer-root">
   <header class="obs-header">
@@ -24,10 +24,10 @@
     </details>
     <section class="obs-controls" aria-label="중계 설정">
       <div class="obs-title"><span class="eyebrow">DELAYED BROADCAST</span><h1 id="observer-title">여러 탁, 같은 배패.</h1><p id="observer-privacy">서버가 지연 처리한 읽기 전용 화면입니다.</p></div>
-      <form id="observer-delay-form" class="obs-delay"><label for="observer-delay">중계 지연 <span id="observer-delay-minimum">최소 5초</span></label><div class="obs-delay-row"><input id="observer-delay" type="number" inputmode="numeric" min="5" max="21600" step="1" value="5" aria-label="중계 지연 초"><span>초</span><button type="submit">적용</button></div><div class="obs-presets" aria-label="지연 프리셋"><button type="button" data-delay="5">5초</button><button type="button" data-delay="10">10초</button><button type="button" data-delay="30">30초</button><button type="button" data-delay="60">60초</button></div></form>
+      <form id="observer-delay-form" class="obs-delay"><label for="observer-delay">중계 지연 <span id="observer-delay-minimum">최소 5초</span></label><div class="obs-delay-row"><input id="observer-delay" type="number" inputmode="decimal" min="0.08333333333333333" max="360" step="any" value="5" aria-label="중계 지연 분"><select id="observer-delay-unit" aria-label="지연 시간 단위"><option value="seconds">초</option><option value="minutes" selected>분</option></select><button type="submit">적용</button></div><div class="obs-presets" aria-label="지연 프리셋"><button type="button" data-delay="5">5초</button><button type="button" data-delay="10">10초</button><button type="button" data-delay="30">30초</button><button type="button" data-delay="60">1분</button><button type="button" data-delay="300">5분</button><button type="button" data-delay="600">10분</button></div></form>
       <label class="obs-board-label" for="observer-board">국·본장<select id="observer-board"><option value="">각 탁의 최신 기록</option></select></label>
     </section>
-    <section class="obs-timing" aria-label="중계 시각"><div><span>화면 기준 시각</span><strong id="observer-asof">—</strong></div><div><span>실제 적용 지연</span><strong id="observer-effective-delay">5초 이상</strong></div><div><span>서버 확인</span><strong id="observer-server-time">—</strong></div><p id="observer-status" role="status" aria-live="polite">방장이 발급한 관전 링크로 연결해 주세요.</p><button id="observer-refresh" type="button">새로 확인</button></section>
+    <section class="obs-timing" aria-label="중계 시각"><div><span>화면 기준 시각</span><strong id="observer-asof">—</strong></div><div><span>실제 적용 지연</span><strong id="observer-effective-delay">기본 5분 (300초)</strong></div><div><span>서버 확인</span><strong id="observer-server-time">—</strong></div><p id="observer-status" role="status" aria-live="polite">방장이 발급한 관전 링크로 연결해 주세요.</p><button id="observer-refresh" type="button">새로 확인</button></section>
     <div id="observer-error" class="obs-error" role="alert" hidden></div>
     <nav class="obs-view-tabs" aria-label="중계 화면"><button id="observer-overview-tab" type="button" class="active" aria-pressed="true">네 탁 한눈에</button><button id="observer-comparison-tab" type="button" aria-pressed="false">전체 탁 선택 비교</button></nav>
     <section id="observer-overview" aria-label="탁 개요"><div class="obs-pagination"><span id="observer-table-count">연결 대기</span><div><button id="observer-prev" type="button" aria-label="이전 네 탁" disabled>←</button><span id="observer-page-label">1 / 1</span><button id="observer-next" type="button" aria-label="다음 네 탁" disabled>→</button></div></div><div id="observer-grid" class="obs-grid"><div class="obs-empty">관전 링크를 연결하면 최대 네 탁을 한 화면에 표시합니다.</div></div></section>

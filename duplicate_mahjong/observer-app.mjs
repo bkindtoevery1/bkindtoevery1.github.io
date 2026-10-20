@@ -584,6 +584,71 @@ function buildObserverComparison(dto = {}, options = {}) {
   };
 }
 
+// duplicate/observer-delay.mjs
+var DEFAULT_OBSERVER_DELAY_SECONDS = 300;
+var factor = (unit) => {
+  if (!["seconds", "minutes"].includes(unit)) throw Error("\uC9C0\uC5F0 \uB2E8\uC704\uB97C \uD655\uC778\uD558\uC138\uC694.");
+  return unit === "minutes" ? 60 : 1;
+};
+function observerDelaySeconds(value, unit = "seconds", { minimumSeconds = 5 } = {}) {
+  if (!["number", "string"].includes(typeof value) || String(value).trim() === "") throw Error("\uC911\uACC4 \uC9C0\uC5F0 \uC2DC\uAC04\uC744 \uC785\uB825\uD558\uC138\uC694.");
+  const seconds = Number(value) * factor(unit), rounded = Math.round(seconds);
+  if (!Number.isFinite(seconds) || Math.abs(seconds - rounded) > 1e-7 || !Number.isSafeInteger(rounded)) throw Error("\uC911\uACC4 \uC9C0\uC5F0\uC740 1\uCD08 \uB2E8\uC704\uB85C \uC785\uB825\uD558\uC138\uC694. \uBD84 \uB2E8\uC704 \uC18C\uC218\uB97C \uC0AC\uC6A9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.");
+  if (!Number.isInteger(minimumSeconds) || minimumSeconds < 5 || minimumSeconds > 21600) throw Error("\uCD5C\uC18C \uC911\uACC4 \uC9C0\uC5F0\uC744 \uD655\uC778\uD558\uC138\uC694.");
+  if (rounded < minimumSeconds || rounded > 21600) throw Error(`\uC911\uACC4 \uC9C0\uC5F0\uC740 ${minimumSeconds}\u201321600\uCD08 \uBC94\uC704\uB85C \uC785\uB825\uD558\uC138\uC694.`);
+  return rounded;
+}
+function observerDelayValue(seconds, unit = "seconds") {
+  return String(observerDelaySeconds(seconds) / factor(unit));
+}
+function observerDelayLabel(seconds) {
+  const value = observerDelaySeconds(seconds);
+  return value % 60 === 0 ? `${value / 60}\uBD84 (${value}\uCD08)` : `${value}\uCD08`;
+}
+function bindObserverDelayInput(input, select, { seconds = 300, minimumSeconds = 5, onError = () => {
+} } = {}) {
+  let unit = select.value || "minutes", minimum = minimumSeconds;
+  function constraints() {
+    const scale = factor(unit);
+    input.min = String(minimum / scale);
+    input.max = String(21600 / scale);
+    input.step = unit === "minutes" ? "any" : "1";
+    input.inputMode = unit === "minutes" ? "decimal" : "numeric";
+    input.setAttribute("aria-label", `\uC911\uACC4 \uC9C0\uC5F0 ${unit === "minutes" ? "\uBD84" : "\uCD08"}`);
+  }
+  function setSeconds(value) {
+    const canonical = observerDelaySeconds(value);
+    input.value = observerDelayValue(canonical, unit);
+    constraints();
+  }
+  const change = () => {
+    try {
+      const value = observerDelaySeconds(input.value, unit);
+      const next = select.value;
+      factor(next);
+      unit = next;
+      setSeconds(value);
+    } catch (error) {
+      select.value = unit;
+      onError(error.message);
+    }
+  };
+  select.addEventListener("change", change);
+  setSeconds(seconds);
+  return {
+    getSeconds: () => observerDelaySeconds(input.value, unit, { minimumSeconds: minimum }),
+    setSeconds,
+    setMinimum(value) {
+      observerDelaySeconds(value);
+      minimum = value;
+      constraints();
+    },
+    destroy() {
+      select.removeEventListener("change", change);
+    }
+  };
+}
+
 // duplicate/observer-links.mjs
 function tournamentNavigationLinks({ baseUrl, server, defaultServer = "https://wellness-mahjong-h-lab.chayhyeon.chatgpt.site" }) {
   const api = new URL(server);
@@ -607,9 +672,9 @@ function observerPublicationMessage(data) {
   const deal = data.selectedDeal;
   return `${deal ? `${deal.board}\uAD6D \xB7 ${deal.honba}\uBCF8\uC7A5 \xB7 ` : ""}\uC804\uD0C1 \uC644\uB8CC\xB7\uD1B5\uACFC\uC640 \uC124\uC815 \uC9C0\uC5F0\uC744 \uD655\uC778\uD55C \uACFC\uAC70 \uAE30\uB85D\uC785\uB2C8\uB2E4.`;
 }
-function normalizeObserverDelay(value) {
+function normalizeObserverDelay(value = DEFAULT_OBSERVER_DELAY_SECONDS) {
   const n = Number(value);
-  return Number.isFinite(n) ? Math.min(21600, Math.max(5, Math.floor(n))) : 5;
+  return Number.isFinite(n) ? Math.min(21600, Math.max(5, Math.floor(n))) : DEFAULT_OBSERVER_DELAY_SECONDS;
 }
 function normalizeObserverServer(value = DEFAULT_OBSERVER_SERVER) {
   const url = new URL(value), local = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
@@ -622,11 +687,11 @@ function parseObserverLink(value, base = DEFAULT_OBSERVER_SERVER) {
   if (url.searchParams.has("repeat")) throw Error("\uAD00\uC804 \uAE30\uB85D\uC740 \uAD6D\uACFC \uBCF8\uC7A5\uC73C\uB85C \uC120\uD0DD\uD569\uB2C8\uB2E4. \uBCF8\uC7A5 \uC120\uD0DD \uB9C1\uD06C\uB85C \uB2E4\uC2DC \uC5F0\uACB0\uD574 \uC8FC\uC138\uC694.");
   if (url.searchParams.has("key")) throw Error("\uD0A4\uAC00 \uC8FC\uC18C \uCFFC\uB9AC\uC5D0 \uD3EC\uD568\uB418\uC5B4 \uC788\uC2B5\uB2C8\uB2E4. \uBC29\uC7A5\uC774 \uBC1C\uAE09\uD55C #key= \uD615\uC2DD\uC758 \uAD00\uC804 \uB9C1\uD06C\uB97C \uC0AC\uC6A9\uD574 \uC8FC\uC138\uC694.");
   const fragment = new URLSearchParams(url.hash.slice(1)), key = fragment.get("key"), code = (url.searchParams.get("code") ?? "").trim().toUpperCase();
-  if (!key) return { code, key: null, server: normalizeObserverServer(url.searchParams.get("server") ?? DEFAULT_OBSERVER_SERVER), delaySeconds: normalizeObserverDelay(url.searchParams.get("delay") ?? 5), board: null, honba: null };
+  if (!key) return { code, key: null, server: normalizeObserverServer(url.searchParams.get("server") ?? DEFAULT_OBSERVER_SERVER), delaySeconds: normalizeObserverDelay(url.searchParams.get("delay") ?? DEFAULT_OBSERVER_DELAY_SECONDS), board: null, honba: null };
   if (!/^[a-f0-9]{64}$/.test(key) || !/^[A-Z2-9]{8}$/.test(code)) throw Error("\uAD00\uC804 \uB9C1\uD06C\uC758 \uB300\uD68C \uCF54\uB4DC\uC640 \uC804\uC6A9 \uD0A4\uB97C \uD655\uC778\uD574 \uC8FC\uC138\uC694.");
   const requestedBoard = Number(url.searchParams.get("board")), rawHonba = url.searchParams.get("honba"), honba = rawHonba === null ? null : Number(rawHonba);
   if (rawHonba !== null && (!url.searchParams.has("board") || !Number.isInteger(requestedBoard) || requestedBoard < 1 || requestedBoard > 16 || !Number.isInteger(honba) || honba < 0 || honba > 4294967295)) throw Error("\uBCF8\uC7A5\uC218\uB294 \uC62C\uBC14\uB978 \uAE30\uBCF8 \uAD6D \uBC88\uD638\uC640 \uD568\uAED8 \uC120\uD0DD\uD574 \uC8FC\uC138\uC694.");
-  return { code, key, server: normalizeObserverServer(url.searchParams.get("server") ?? DEFAULT_OBSERVER_SERVER), delaySeconds: normalizeObserverDelay(url.searchParams.get("delay") ?? 5), board: Number.isInteger(requestedBoard) && requestedBoard >= 1 && requestedBoard <= 16 ? requestedBoard : null, honba };
+  return { code, key, server: normalizeObserverServer(url.searchParams.get("server") ?? DEFAULT_OBSERVER_SERVER), delaySeconds: normalizeObserverDelay(url.searchParams.get("delay") ?? DEFAULT_OBSERVER_DELAY_SECONDS), board: Number.isInteger(requestedBoard) && requestedBoard >= 1 && requestedBoard <= 16 ? requestedBoard : null, honba };
 }
 function createObserverClient({ fetchImpl = globalThis.fetch, onState = () => {
 }, onStatus = () => {
@@ -752,6 +817,7 @@ function mountObserver(doc = globalThis.document, win = globalThis.window) {
     $("observer-error").hidden = !message;
     $("observer-error").textContent = message ?? "";
   };
+  const delayInput = bindObserverDelayInput($("observer-delay"), $("observer-delay-unit"), { onError: error });
   function updateNavigation(server) {
     const links = tournamentNavigationLinks({ baseUrl: new URL("./", import.meta.url).href, server });
     for (const [id, target] of [["observer-brand", "manager"], ["observer-manager-link", "manager"], ["observer-game-link", "game"]]) if ($(id)) $(id).href = links[target];
@@ -787,7 +853,7 @@ function mountObserver(doc = globalThis.document, win = globalThis.window) {
     $("observer-privacy").textContent = caster ? "\uC911\uACC4\uC790 \uC804\uC6A9 \xB7 \uD574\uC81C\uB41C \uACFC\uAC70 \uAE30\uB85D\uC758 \uC190\uD328\uB97C \uBCF4\uC5EC \uC90D\uB2C8\uB2E4. \uC774 \uB9C1\uD06C\uB97C \uAD00\uC804\uC790\uC5D0\uAC8C \uACF5\uC720\uD558\uC9C0 \uB9C8\uC138\uC694." : "\uAD00\uC804\uC790 \uD654\uBA74 \xB7 \uBAA8\uB4E0 \uC190\uD328\uB294 \uBE44\uACF5\uAC1C\uC785\uB2C8\uB2E4. \uD574\uC81C\uB41C \uAE30\uB85D\uC758 \uBC84\uB9BC\uACFC \uD6C4\uB85C\uB9CC \uD45C\uC2DC\uD569\uB2C8\uB2E4.";
     $("observer-asof").textContent = observerTime(dto?.asOf);
     $("observer-server-time").textContent = observerTime(dto?.serverTime);
-    $("observer-effective-delay").textContent = dto ? `${dto.delaySeconds}\uCD08` : ui.config ? `${ui.config.delaySeconds}\uCD08 \uC694\uCCAD` : "5\uCD08 \uC774\uC0C1";
+    $("observer-effective-delay").textContent = dto ? observerDelayLabel(dto.delaySeconds) : ui.config ? `${observerDelayLabel(ui.config.delaySeconds)} \uC694\uCCAD` : "\uAE30\uBCF8 5\uBD84 (300\uCD08)";
     $("observer-overview").hidden = ui.mode !== "overview";
     $("observer-detail").hidden = ui.mode !== "detail";
     $("observer-comparison").hidden = ui.mode !== "comparison";
@@ -864,8 +930,8 @@ function mountObserver(doc = globalThis.document, win = globalThis.window) {
     ui.dto = dto;
     if (dto) {
       ui.minimum = Math.max(5, dto.minimumDelaySeconds ?? 5);
-      $("observer-delay").min = String(ui.minimum);
-      $("observer-delay-minimum").textContent = `\uCD5C\uC18C ${ui.minimum}\uCD08`;
+      delayInput.setMinimum(ui.minimum);
+      $("observer-delay-minimum").textContent = `\uCD5C\uC18C ${observerDelayLabel(ui.minimum)}`;
       $("observer-link-panel").open = false;
     }
     render();
@@ -877,11 +943,12 @@ function mountObserver(doc = globalThis.document, win = globalThis.window) {
     if (status.kind === "auth-error") $("observer-link-panel").open = true;
   } });
   function connect(config) {
+    if (ui.config?.code !== config.code || ui.config?.server !== config.server) ui.minimum = 5;
     ui.config = config;
-    ui.minimum = 5;
     ui.page = 0;
     ui.tableId = null;
-    $("observer-delay").value = String(config.delaySeconds);
+    delayInput.setMinimum(ui.minimum);
+    delayInput.setSeconds(config.delaySeconds);
     error("");
     updateNavigation(config.server);
     writeLocation();
@@ -889,7 +956,7 @@ function mountObserver(doc = globalThis.document, win = globalThis.window) {
   }
   function changeDelay(value) {
     const delaySeconds = Math.max(ui.minimum, normalizeObserverDelay(value));
-    $("observer-delay").value = String(delaySeconds);
+    delayInput.setSeconds(delaySeconds);
     if (ui.config) connect({ ...ui.config, delaySeconds });
   }
   $("observer-connect-form").addEventListener("submit", (event) => {
@@ -905,7 +972,11 @@ function mountObserver(doc = globalThis.document, win = globalThis.window) {
   });
   $("observer-delay-form").addEventListener("submit", (event) => {
     event.preventDefault();
-    changeDelay($("observer-delay").value);
+    try {
+      changeDelay(delayInput.getSeconds());
+    } catch (e) {
+      error(e.message);
+    }
   });
   doc.querySelectorAll("[data-delay]").forEach((button) => button.onclick = () => changeDelay(button.dataset.delay));
   $("observer-board").onchange = () => {
@@ -948,7 +1019,10 @@ function mountObserver(doc = globalThis.document, win = globalThis.window) {
     error(e.message);
     render();
   }
-  return { client, destroy: () => client.destroy() };
+  return { client, destroy() {
+    client.destroy();
+    delayInput.destroy();
+  } };
 }
 if (typeof document !== "undefined" && document.getElementById("observer-root")) mountObserver();
 export {
