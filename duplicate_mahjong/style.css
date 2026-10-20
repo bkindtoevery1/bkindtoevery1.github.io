@@ -18,3 +18,6 @@
 @media(max-width:470px){.call-preview .tile-face{--river-w:16px;--river-h:22px}.actions .call-preview-button{padding:7px 9px}.top-actions .icon-button{min-width:36px;min-height:36px}}
 
 .preset-row{flex-wrap:wrap}.preset-row button{flex:1 1 130px}
+
+/* Keep both destination links readable on phones. */
+@media(max-width:470px){.topbar{height:auto;min-height:96px;padding:10px 12px;flex-wrap:wrap;gap:7px}.topbar>.brand{width:100%}.top-actions{width:100%;justify-content:space-between;gap:6px}.top-actions>.text-button{font-size:11px;white-space:nowrap}.top-actions .connection{white-space:nowrap;margin-left:auto}}

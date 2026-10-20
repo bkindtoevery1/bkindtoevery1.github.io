@@ -584,6 +584,19 @@ function buildObserverComparison(dto = {}, options = {}) {
   };
 }
 
+// duplicate/observer-links.mjs
+function tournamentNavigationLinks({ baseUrl, server, defaultServer = "https://wellness-mahjong-h-lab.chayhyeon.chatgpt.site" }) {
+  const api = new URL(server);
+  if (api.username || api.password || api.pathname !== "/" || api.search || api.hash || !["https:", "http:"].includes(api.protocol) || api.protocol === "http:" && !["localhost", "127.0.0.1", "[::1]"].includes(api.hostname)) throw new Error("\uC11C\uBC84 \uC8FC\uC18C\uB97C \uD655\uC778\uD558\uC138\uC694.");
+  return Object.fromEntries([["game", "./"], ["manager", "./tournament/"], ["observer", "./tournament/observer.html"]].map(([name, path]) => {
+    const url = new URL(path, baseUrl);
+    url.search = "";
+    url.hash = "";
+    if (api.origin !== new URL(defaultServer).origin) url.searchParams.set("server", api.origin);
+    return [name, url.href];
+  }));
+}
+
 // duplicate/observer-app.mjs
 var DEFAULT_OBSERVER_SERVER = "https://wellness-mahjong-h-lab.chayhyeon.chatgpt.site";
 function observerPublicationMessage(data) {
@@ -739,6 +752,14 @@ function mountObserver(doc = globalThis.document, win = globalThis.window) {
     $("observer-error").hidden = !message;
     $("observer-error").textContent = message ?? "";
   };
+  function updateNavigation(server) {
+    const links = tournamentNavigationLinks({ baseUrl: new URL("./", import.meta.url).href, server });
+    for (const [id, target] of [["observer-brand", "manager"], ["observer-manager-link", "manager"], ["observer-game-link", "game"]]) if ($(id)) $(id).href = links[target];
+  }
+  try {
+    updateNavigation(normalizeObserverServer(new URL(win.location.href).searchParams.get("server") ?? DEFAULT_OBSERVER_SERVER));
+  } catch {
+  }
   function writeLocation() {
     const url = new URL(win.location.href);
     url.search = "";
@@ -862,6 +883,7 @@ function mountObserver(doc = globalThis.document, win = globalThis.window) {
     ui.tableId = null;
     $("observer-delay").value = String(config.delaySeconds);
     error("");
+    updateNavigation(config.server);
     writeLocation();
     void client.connect(config);
   }

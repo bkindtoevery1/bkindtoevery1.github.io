@@ -2806,7 +2806,7 @@ function observerLink({ baseUrl, code, key, server, delaySeconds = 5 }) {
   const api = new URL(server);
   if (!["https:", "http:"].includes(api.protocol) || api.username || api.password || api.pathname !== "/" || api.search || api.hash) throw new Error("\uC11C\uBC84 \uC8FC\uC18C\uB97C \uD655\uC778\uD558\uC138\uC694.");
   if (api.protocol === "http:" && !["localhost", "127.0.0.1", "[::1]"].includes(api.hostname)) throw new Error("\uACF5\uAC1C \uC11C\uBC84\uB294 HTTPS \uC8FC\uC18C\uB97C \uC0AC\uC6A9\uD558\uC138\uC694.");
-  const url = new URL("./observer.html", baseUrl);
+  const url = new URL("./tournament/observer.html", baseUrl);
   url.search = "";
   url.hash = "";
   url.searchParams.set("code", code);
@@ -2888,6 +2888,253 @@ function mountObserverLinks({ document: document2, getRoom, getServer, request: 
   return { update };
 }
 
+// duplicate/accounts/protocol.mjs
+var protocol_exports = {};
+__export(protocol_exports, {
+  ACCOUNT_PROTOCOL: () => ACCOUNT_PROTOCOL,
+  PRIVACY_VERSION: () => PRIVACY_VERSION,
+  SESSION_TTL_MS: () => SESSION_TTL_MS,
+  base64url: () => base64url,
+  decryptAccountRequest: () => decryptAccountRequest,
+  decryptAccountResult: () => decryptAccountResult,
+  encryptAccountRequest: () => encryptAccountRequest,
+  encryptAccountResult: () => encryptAccountResult,
+  fromBase64url: () => fromBase64url,
+  randomSecret: () => randomSecret,
+  sha256: () => sha256,
+  signAccountSession: () => signAccountSession,
+  validateNickname: () => validateNickname,
+  validatePassword: () => validatePassword,
+  verifyAccountSession: () => verifyAccountSession
+});
+var ACCOUNT_PROTOCOL = "duplicate-accounts-v1";
+var PRIVACY_VERSION = "2026-10-20-v1";
+var SESSION_TTL_MS = 8 * 60 * 60 * 1e3;
+var encoder = new TextEncoder();
+var decoder = new TextDecoder("utf-8", { fatal: true });
+var requestAAD = encoder.encode(`${ACCOUNT_PROTOCOL}:request`);
+var resultAAD = encoder.encode(`${ACCOUNT_PROTOCOL}:result`);
+var clock = (value) => typeof value === "function" ? value() : value;
+var object = (value) => value && typeof value === "object" && !Array.isArray(value);
+function base64url(bytes) {
+  return btoa(String.fromCharCode(...new Uint8Array(bytes))).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+}
+function fromBase64url(value, max = 16384) {
+  if (typeof value !== "string" || !value.length || value.length > max || !/^[A-Za-z0-9_-]+$/.test(value)) throw Error("Invalid encoded account data");
+  const text = atob(value.replaceAll("-", "+").replaceAll("_", "/"));
+  return Uint8Array.from(text, (char) => char.charCodeAt(0));
+}
+function randomSecret() {
+  return base64url(crypto.getRandomValues(new Uint8Array(32)));
+}
+async function sha256(value) {
+  return [...new Uint8Array(await crypto.subtle.digest("SHA-256", encoder.encode(value)))].map((n) => n.toString(16).padStart(2, "0")).join("");
+}
+function validateNickname(value) {
+  if (typeof value !== "string") throw Error("\uB2C9\uB124\uC784\uC744 \uC785\uB825\uD574 \uC8FC\uC138\uC694.");
+  const nickname = value.normalize("NFKC").trim();
+  if ([...nickname].length < 1 || [...nickname].length > 20 || /[\u0000-\u001f\u007f-\u009f]/u.test(nickname)) throw Error("\uB2C9\uB124\uC784\uC740 \uC81C\uC5B4\uBB38\uC790 \uC5C6\uC774 1\u201320\uC790\uB85C \uC785\uB825\uD574 \uC8FC\uC138\uC694.");
+  return { nickname, normalized: nickname.toLowerCase() };
+}
+function validatePassword(value) {
+  if (typeof value !== "string" || [...value].length < 15 || [...value].length > 128 || encoder.encode(value).length > 512) throw Error("\uBE44\uBC00\uBC88\uD638\uB294 15\u2013128\uC790\uB85C \uC785\uB825\uD574 \uC8FC\uC138\uC694.");
+  return value;
+}
+var encode = (value) => {
+  if (!object(value)) throw Error("Invalid account payload");
+  const bytes = encoder.encode(JSON.stringify(value));
+  if (bytes.length > 8192) throw Error("Account payload is too large");
+  return bytes;
+};
+var decode = (bytes) => {
+  const result = JSON.parse(decoder.decode(bytes));
+  if (!object(result)) throw Error("Invalid account payload");
+  return result;
+};
+async function encryptAccountRequest(payload, publicJwk) {
+  const publicKey = await crypto.subtle.importKey("jwk", publicJwk, { name: "RSA-OAEP", hash: "SHA-256" }, false, ["encrypt"]);
+  const rawKey = crypto.getRandomValues(new Uint8Array(32)), iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await crypto.subtle.importKey("raw", rawKey, "AES-GCM", false, ["encrypt", "decrypt"]);
+  const [wrappedKey, ciphertext] = await Promise.all([
+    crypto.subtle.encrypt("RSA-OAEP", publicKey, rawKey),
+    crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: requestAAD }, key, encode(payload))
+  ]);
+  rawKey.fill(0);
+  return { envelope: { wrappedKey: base64url(wrappedKey), iv: base64url(iv), ciphertext: base64url(ciphertext) }, key };
+}
+async function decryptAccountRequest(envelope, privateJwk) {
+  if (!object(envelope)) throw Error("Invalid account envelope");
+  const iv = fromBase64url(envelope.iv, 32);
+  if (iv.length !== 12) throw Error("Invalid account IV");
+  const privateKey = await crypto.subtle.importKey("jwk", privateJwk, { name: "RSA-OAEP", hash: "SHA-256" }, false, ["decrypt"]);
+  const rawKey = new Uint8Array(await crypto.subtle.decrypt("RSA-OAEP", privateKey, fromBase64url(envelope.wrappedKey, 1024)));
+  if (rawKey.length !== 32) throw Error("Invalid account key");
+  const key = await crypto.subtle.importKey("raw", rawKey, "AES-GCM", false, ["encrypt", "decrypt"]);
+  rawKey.fill(0);
+  const bytes = await crypto.subtle.decrypt({ name: "AES-GCM", iv, additionalData: requestAAD }, key, fromBase64url(envelope.ciphertext));
+  return { payload: decode(bytes), key };
+}
+async function encryptAccountResult(payload, key) {
+  const iv = crypto.getRandomValues(new Uint8Array(12)), ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: resultAAD }, key, encode(payload));
+  return { iv: base64url(iv), ciphertext: base64url(ciphertext) };
+}
+async function decryptAccountResult(envelope, key) {
+  if (!object(envelope)) throw Error("Invalid account result");
+  const iv = fromBase64url(envelope.iv, 32);
+  if (iv.length !== 12) throw Error("Invalid account IV");
+  return decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv, additionalData: resultAAD }, key, fromBase64url(envelope.ciphertext)));
+}
+async function signAccountSession(user, privateJwk, { now = Date.now, jti = crypto.randomUUID() } = {}) {
+  const time = clock(now), { nickname } = validateNickname(user.nickname);
+  if (!/^[a-f0-9-]{36}$/.test(user.id ?? "") || !Number.isSafeInteger(user.version) || user.version < 0 || !Number.isSafeInteger(time) || !/^[-a-zA-Z0-9_]{8,128}$/.test(jti)) throw Error("Invalid account session");
+  const claims = { iss: ACCOUNT_PROTOCOL, aud: "duplicate-tournament", sub: user.id, nickname, ver: user.version, jti, iat: Math.floor(time / 1e3), exp: Math.floor((time + SESSION_TTL_MS) / 1e3) };
+  const body = [{ alg: "EdDSA", typ: "JWT" }, claims].map((value) => base64url(encoder.encode(JSON.stringify(value)))).join(".");
+  const key = await crypto.subtle.importKey("jwk", privateJwk, "Ed25519", false, ["sign"]);
+  const signature = await crypto.subtle.sign("Ed25519", key, encoder.encode(body));
+  return { token: `${body}.${base64url(signature)}`, expiresAt: claims.exp * 1e3, sessionId: jti };
+}
+async function verifyAccountSession(token, publicJwk, { now = Date.now } = {}) {
+  if (typeof token !== "string" || token.length > 4096) throw Error("\uACC4\uC815 \uB85C\uADF8\uC778\uC774 \uD544\uC694\uD569\uB2C8\uB2E4.");
+  const parts = token.split(".");
+  if (parts.length !== 3) throw Error("\uACC4\uC815 \uB85C\uADF8\uC778\uC774 \uD544\uC694\uD569\uB2C8\uB2E4.");
+  const header = decode(fromBase64url(parts[0], 256)), claims = decode(fromBase64url(parts[1], 2048));
+  if (header.alg !== "EdDSA" || header.typ !== "JWT" || Object.keys(header).some((name) => !["alg", "typ"].includes(name))) throw Error("\uACC4\uC815 \uC778\uC99D \uD615\uC2DD\uC774 \uC62C\uBC14\uB974\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
+  const key = await crypto.subtle.importKey("jwk", publicJwk, "Ed25519", false, ["verify"]);
+  if (!await crypto.subtle.verify("Ed25519", key, fromBase64url(parts[2], 128), encoder.encode(`${parts[0]}.${parts[1]}`))) throw Error("\uACC4\uC815 \uC778\uC99D\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4.");
+  const time = clock(now), nickname = validateNickname(claims.nickname).nickname;
+  if (claims.iss !== ACCOUNT_PROTOCOL || claims.aud !== "duplicate-tournament" || !/^[a-f0-9-]{36}$/.test(claims.sub ?? "") || !/^[-a-zA-Z0-9_]{8,128}$/.test(claims.jti ?? "") || !Number.isSafeInteger(claims.ver) || claims.ver < 0 || !Number.isSafeInteger(claims.iat) || !Number.isSafeInteger(claims.exp) || claims.iat * 1e3 > time + 3e4 || claims.exp * 1e3 <= time || claims.exp <= claims.iat || (claims.exp - claims.iat) * 1e3 > SESSION_TTL_MS) throw Error("\uACC4\uC815 \uB85C\uADF8\uC778\uC774 \uB9CC\uB8CC\uB418\uC5C8\uC2B5\uB2C8\uB2E4. \uB2E4\uC2DC \uB85C\uADF8\uC778\uD574 \uC8FC\uC138\uC694.");
+  return { id: claims.sub, nickname, version: claims.ver, sessionId: claims.jti, expiresAt: claims.exp * 1e3 };
+}
+
+// duplicate/accounts/client.mjs
+var SESSION_KEY = "duplicate.account.v1";
+var abortError = () => Object.assign(new Error("\uACC4\uC815 \uC694\uCCAD\uC744 \uCDE8\uC18C\uD588\uC2B5\uB2C8\uB2E4."), { name: "AbortError" });
+function normalizeAccountServer(server) {
+  const origin = new URL(server);
+  if (!["https:", "http:"].includes(origin.protocol) || origin.username || origin.password || origin.pathname !== "/" || origin.search || origin.hash || origin.protocol === "http:" && !["localhost", "127.0.0.1", "[::1]"].includes(origin.hostname)) throw Error("\uACC4\uC815 \uC11C\uBC84 \uC8FC\uC18C\uB97C \uD655\uC778\uD574 \uC8FC\uC138\uC694.");
+  return origin.origin;
+}
+function createAccountClient({ server, storage = globalThis.sessionStorage, fetchImpl = globalThis.fetch, cryptoProtocol = protocol_exports, now = Date.now, sleep = (ms, signal) => new Promise((resolve3, reject) => {
+  const timer = setTimeout(done, ms);
+  function done() {
+    signal?.removeEventListener("abort", cancel);
+    resolve3();
+  }
+  function cancel() {
+    clearTimeout(timer);
+    reject(abortError());
+  }
+  if (signal?.aborted) cancel();
+  else signal?.addEventListener("abort", cancel, { once: true });
+}), timeoutMs = 6e4 } = {}) {
+  const origin = new URL(normalizeAccountServer(server));
+  let session = null;
+  const listeners = /* @__PURE__ */ new Set(), pending = /* @__PURE__ */ new Set();
+  function valid(value) {
+    return value && typeof value.token === "string" && value.token.length > 0 && Number.isFinite(value.expiresAt) && value.expiresAt > now() && typeof value.user?.id === "string" && typeof value.user?.nickname === "string";
+  }
+  function publish(value) {
+    session = valid(value) ? { user: { id: value.user.id, nickname: value.user.nickname }, token: value.token, expiresAt: value.expiresAt } : null;
+    try {
+      if (session) storage?.setItem(SESSION_KEY, JSON.stringify({ ...session, server: origin.origin }));
+      else {
+        const saved2 = JSON.parse(storage?.getItem(SESSION_KEY) || "null");
+        if (!saved2?.server || saved2.server === origin.origin) storage?.removeItem(SESSION_KEY);
+      }
+    } catch {
+    }
+    for (const listener of listeners) listener(getSession());
+  }
+  try {
+    const saved2 = JSON.parse(storage?.getItem(SESSION_KEY) || "null");
+    if (valid(saved2) && saved2.server === origin.origin) session = { user: { id: saved2.user.id, nickname: saved2.user.nickname }, token: saved2.token, expiresAt: saved2.expiresAt };
+    else if (saved2?.server === origin.origin || !saved2?.server) storage?.removeItem(SESSION_KEY);
+  } catch {
+  }
+  function getSession() {
+    if (session && !valid(session)) publish(null);
+    return session ? structuredClone(session) : null;
+  }
+  async function json(path, options, signal) {
+    const response = await fetchImpl(`${origin.origin}/api/duplicate${path}`, { ...options, signal, cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer" });
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      throw Error("\uACC4\uC815 \uC11C\uBC84 \uC751\uB2F5\uC744 \uC77D\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+    }
+    if (!response.ok) throw Object.assign(Error(data?.error ?? "\uACC4\uC815 \uC11C\uBC84\uB97C \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. \uC7A0\uC2DC \uD6C4 \uB2E4\uC2DC \uC2DC\uB3C4\uD574 \uC8FC\uC138\uC694."), { status: response.status });
+    return data;
+  }
+  async function capabilities({ signal } = {}) {
+    return json("/accounts/capabilities", { method: "GET", headers: { Accept: "application/json" } }, signal);
+  }
+  async function operation(name, fields = {}, authenticated = false) {
+    const controller = new AbortController(), timer = setTimeout(() => controller.abort(), Math.min(timeoutMs, 6e4));
+    pending.add(controller);
+    try {
+      const current = getSession();
+      if (authenticated && !current) throw Error("\uB85C\uADF8\uC778\uC774 \uD544\uC694\uD569\uB2C8\uB2E4.");
+      const cap = await capabilities({ signal: controller.signal });
+      if (!cap.available || !cap.encryptionKey || cap.protocol !== cryptoProtocol.ACCOUNT_PROTOCOL) throw Error("\uACC4\uC815 \uC11C\uBE44\uC2A4\uAC00 \uC5F0\uACB0\uB418\uC5B4 \uC788\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uAC8C\uC784\uC740 \uC190\uB2D8\uC73C\uB85C \uC774\uC6A9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.");
+      const clean = { ...fields };
+      if ("nickname" in clean && cryptoProtocol.validateNickname) clean.nickname = cryptoProtocol.validateNickname(clean.nickname).nickname;
+      for (const field of ["password", "newPassword"]) if (field in clean && cryptoProtocol.validatePassword) cryptoProtocol.validatePassword(clean[field]);
+      const payload = { operation: name, ...clean, ...authenticated ? { token: current.token } : {} }, encrypted = await cryptoProtocol.encryptAccountRequest(payload, cap.encryptionKey), receiptSecret = cryptoProtocol.randomSecret(), started = now();
+      const queued = await json("/accounts/jobs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requestId: crypto.randomUUID(), operation: name, receiptSecret, envelope: encrypted.envelope }) }, controller.signal);
+      if (typeof queued.id !== "string" || !queued.id) throw Error("\uACC4\uC815 \uC694\uCCAD \uC811\uC218 \uC815\uBCF4\uB97C \uD655\uC778\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+      let result;
+      while (!controller.signal.aborted && now() - started < Math.min(timeoutMs, 6e4)) {
+        await sleep(Math.min(3e3, Math.max(100, queued.pollAfterMs ?? 500)), controller.signal);
+        const job = await json(`/accounts/jobs/${encodeURIComponent(queued.id)}`, { method: "GET", headers: { Accept: "application/json", Authorization: `Bearer ${receiptSecret}` } }, controller.signal);
+        if (job.status === "complete") {
+          result = await cryptoProtocol.decryptAccountResult(job.envelope, encrypted.key);
+          break;
+        }
+        if (["failed", "expired"].includes(job.status)) throw Error("\uACC4\uC815 \uC694\uCCAD\uC774 \uC644\uB8CC\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4. \uB2E4\uC2DC \uC2DC\uB3C4\uD574 \uC8FC\uC138\uC694.");
+      }
+      if (controller.signal.aborted || !result) throw abortError();
+      if (result.ok !== true) throw Object.assign(Error(result.error ?? "\uACC4\uC815 \uC694\uCCAD\uC744 \uCC98\uB9AC\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4."), { code: result.code, status: result.status });
+      if (["login", "register", "recover"].includes(name)) publish(result);
+      else if (name === "delete" || name === "logout") publish(null);
+      else if (result.user) publish({ ...current, ...result, token: result.token ?? current?.token, expiresAt: result.expiresAt ?? current?.expiresAt });
+      return result;
+    } catch (error) {
+      if (controller.signal.aborted) throw Error("\uACC4\uC815 \uC694\uCCAD \uC2DC\uAC04\uC774 \uCD08\uACFC\uB418\uC5C8\uAC70\uB098 \uCDE8\uC18C\uB418\uC5C8\uC2B5\uB2C8\uB2E4. \uB2E4\uC2DC \uC2DC\uB3C4\uD574 \uC8FC\uC138\uC694.");
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      pending.delete(controller);
+    }
+  }
+  return {
+    capabilities,
+    getSession,
+    subscribe(fn) {
+      listeners.add(fn);
+      return () => listeners.delete(fn);
+    },
+    cancel() {
+      for (const controller of pending) controller.abort();
+    },
+    register: (fields) => operation("register", fields),
+    login: (fields) => operation("login", fields),
+    profile: () => operation("profile", {}, true),
+    rename: (fields) => operation("rename", fields, true),
+    changePassword: (fields) => operation("password", fields, true),
+    recover: (fields) => operation("recover", fields),
+    delete: (fields) => operation("delete", fields, true),
+    resetRecovery: (fields) => operation("recovery-reset", fields, true),
+    async logout() {
+      try {
+        return await operation("logout", {}, true);
+      } finally {
+        publish(null);
+      }
+    }
+  };
+}
+
 // duplicate/app.mjs
 var DEFAULT_SERVER = "https://wellness-mahjong-h-lab.chayhyeon.chatgpt.site";
 var $ = (id) => document.getElementById(id);
@@ -2907,6 +3154,27 @@ function setupRules(raw = {}, profile = "mil-riichi") {
 var switchDefinitions = [["dora", "\uB3C4\uB77C", "\uCCAB \uBC88\uC9F8 \uB3C4\uB77C \uD45C\uC2DC\uD328"], ["kanDora", "\uAE61\uB3C4\uB77C", "\uAE61\uB9C8\uB2E4 \uCD94\uAC00 \uB3C4\uB77C \uD45C\uC2DC\uD328"], ["uraDora", "\uC6B0\uB77C\uB3C4\uB77C", "\uB9AC\uCE58 \uD654\uB8CC \uC2DC \uACF5\uAC1C\uD558\uB294 \uB4B7 \uD45C\uC2DC\uD328"], ["redDora", "\uC801\uB3C4\uB77C", "\uB9CC\xB7\uD1B5\xB7\uC0AD\uC758 \uC8015 \uAC01 1\uC7A5"], ["deadWall", "\uC655\uD328", "\uD328\uC0B0\uC5D0\uC11C 14\uC7A5 \uC81C\uC678"], ["kuitan", "\uCFE0\uC774\uD0D5", "\uBA58\uC820\uC774 \uC544\uB2C8\uC5B4\uB3C4 \uD0D5\uC57C\uC624 \uC778\uC815"], ["abortFourKans", "\uC0AC\uAE61\uC0B0\uB8CC", "2\uBA85 \uC774\uC0C1\uC774 \uD569\uACC4 4\uAE61\uC774\uBA74 \uC720\uAD6D"]];
 var S = { mode: "practice", panel: "practice", practice: null, practiceRemote: null, practiceError: "", online: null, credentials: null, view: null, selected: null, riichiSelecting: false, busy: false, timer: null, poll: null, worker: null, endHidden: false, endKey: null, endRevealAt: 0, resultTimer: null, toastTimer: null, settings: null, roomRules: null, roomAI: "simple", aiCapabilities: null, ruleContext: "practice", ruleReadOnly: false, creatingRoom: false, boardCount: 8, practiceMatchRules: null, roomMatchRules: null, practiceDuplicateProfile: "mil-riichi", roomDuplicateProfile: "mil-riichi", roomScoring: normalizeNewCompetitionScoring({}, "mil-riichi"), preferences: { ...DEFAULT_PREFERENCES }, autoWin: true, autoPass: true, server: DEFAULT_SERVER, gameEpoch: 0 };
 var personalSettingsUI;
+var gameAccountClient;
+var gameAccountServer;
+function accountSession() {
+  if (gameAccountServer !== S.server) {
+    gameAccountClient?.cancel?.();
+    gameAccountServer = S.server;
+    gameAccountClient = createAccountClient({ server: S.server, storage: sessionStorage });
+  }
+  return gameAccountClient.getSession();
+}
+function syncAccountUI() {
+  const account = accountSession(), link = $("tournament-link"), url = new URL("./tournament/", location.href);
+  if (S.server !== DEFAULT_SERVER) url.searchParams.set("server", S.server);
+  link.href = url.href;
+  const observerURL = new URL("./tournament/observer.html", location.href);
+  if (S.server !== DEFAULT_SERVER) observerURL.searchParams.set("server", S.server);
+  $("observer-nav-link").href = observerURL.href;
+  $("account-status").textContent = account ? `${account.user.nickname} \xB7 \uB85C\uADF8\uC778` : "\uAC8C\uC2A4\uD2B8 \xB7 \uACC4\uC815 \uB85C\uADF8\uC778\uC740 \uC6B4\uC601 \uD398\uC774\uC9C0";
+  if (!S.credentials && account) $("online-name").value = account.user.nickname;
+  $("online-name").disabled = !!S.credentials || !!account;
+}
 var observerLinks = mountObserverLinks({ document, getRoom: () => S.online, getServer: () => S.server, request: (...args) => request(...args), toast });
 var feedbackTracker = createFeedbackTracker();
 var feedback = createFeedbackPresenter({ table: $("table"), handArea: $("hand-area"), historyContainer: $("recent-actions"), getPreferences: () => S.preferences, getPlayerName: (seat) => playerName(seat) });
@@ -3605,11 +3873,12 @@ function renderComparison() {
 }
 function renderRoom() {
   observerLinks.update();
+  syncAccountUI();
   const room = S.online;
   $("room-info").hidden = !room;
   $("online-create").disabled = S.busy || !!room;
   $("online-join").disabled = S.busy || !!room;
-  $("online-name").disabled = !!room;
+  $("online-name").disabled = !!room || !!accountSession();
   $("online-code").disabled = !!room;
   if (!room) return;
   $("room-code").textContent = room.code;
@@ -3660,6 +3929,8 @@ function render() {
 }
 async function request(path = "", body = null, authenticated = true) {
   const headers = { "Content-Type": "application/json" };
+  const account = body !== null && (path === "" || /\/join$/.test(path)) ? accountSession() : null;
+  if (account) headers["X-Duplicate-Account-Token"] = account.token;
   if (authenticated && S.credentials) headers.Authorization = `Bearer ${S.credentials.key}`;
   const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 15e3);
   try {
@@ -3697,7 +3968,7 @@ function applyRoomState(state) {
 }
 async function connectRoom(create) {
   if (S.busy || S.credentials) return;
-  const name = $("online-name").value.trim();
+  const name = accountSession()?.user.nickname ?? $("online-name").value.trim();
   if (!name) {
     toast("\uD50C\uB808\uC774\uC5B4 \uC774\uB984\uC744 \uC785\uB825\uD574 \uC8FC\uC138\uC694.");
     $("online-name").focus();
@@ -3858,7 +4129,8 @@ function openRules(context3 = S.mode === "online" ? "room" : "practice", create 
   for (const id of ["preset-standard", "preset-no-dora", "preset-mil-riichi"]) $(id).disabled = S.ruleReadOnly;
   $("rule-format-field").hidden = false;
   $("create-room-name-field").hidden = !S.creatingRoom;
-  $("create-room-name").value = $("online-name").value;
+  $("create-room-name").value = accountSession()?.user.nickname ?? $("online-name").value;
+  $("create-room-name").readOnly = !!accountSession();
   $("rules-save").hidden = S.ruleReadOnly;
   $("rules-save").textContent = S.creatingRoom ? "\uC774 \uADDC\uCE59\uC73C\uB85C \uB300\uD68C \uB9CC\uB4E4\uAE30" : context3 === "room" ? "\uB300\uD68C \uADDC\uCE59 \uC800\uC7A5" : "\uC5F0\uC2B5 \uADDC\uCE59 \uC800\uC7A5";
   $("rules-dialog").showModal();
@@ -4212,3 +4484,7 @@ void refreshAICapabilities();
 setInterval(() => {
   if (!document.hidden) void refreshAICapabilities();
 }, 3e4);
+if (parameters.get("create") === "1" && !S.credentials) {
+  setMode("online");
+  openRules("room", true);
+}

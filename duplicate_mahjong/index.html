@@ -6,15 +6,15 @@
   <meta name="theme-color" content="#183c32">
   <meta name="description" content="같은 배패, 같은 개인 패산. PC와 모바일에서 즐기는 커스텀 Duplicate 리치마작.">
   <title>Duplicate Mahjong · 같은 패, 다른 선택</title>
-  <link rel="stylesheet" href="./style.css?v=4d94b17268e92a24">
+  <link rel="stylesheet" href="./style.css?v=03bfdf96bea31e5f">
   <link rel="stylesheet" href="./personal-settings.css?v=93ec230338a0b174">
   <link rel="stylesheet" href="./feedback.css?v=e9209ed41f291d0a">
-  <script type="module" src="./app.mjs?v=54d09486bd79d90d"></script>
+  <script type="module" src="./app.mjs?v=9560b37a447e89e7"></script>
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="./" aria-label="Duplicate Mahjong 홈"><span class="brand-mark" aria-hidden="true">發</span><span>DUPLICATE <b>MAHJONG</b><small>같은 패, 다른 선택</small></span></a>
-    <div class="top-actions"><a class="text-button" href="./observer.html" target="_blank" rel="noopener noreferrer">관전·중계 ↗</a><span class="connection" id="connection"><i></i> 로컬 연습</span><button id="settings-open" class="icon-button" title="개인 설정" aria-label="개인 설정">⚙ <span>설정</span></button><button id="help-open" class="icon-button" title="게임 안내" aria-label="게임 안내">? <span>안내</span></button></div>
+    <div class="top-actions"><a id="tournament-link" class="text-button" href="./tournament/">대회 운영·관리</a><a id="observer-nav-link" class="text-button" href="./tournament/observer.html" target="_blank" rel="noopener noreferrer">관전·중계 ↗</a><span class="connection" id="connection"><i></i> 로컬 연습</span><button id="settings-open" class="icon-button" title="개인 설정" aria-label="개인 설정">⚙ <span>설정</span></button><button id="help-open" class="icon-button" title="게임 안내" aria-label="게임 안내">? <span>안내</span></button></div>
   </header>
   <main class="layout" id="layout">
     <aside class="sidebar">
@@ -31,7 +31,7 @@
       <section id="online-panel" class="panel" hidden>
         <div class="panel-heading"><span class="eyebrow">ONLINE</span><h1>같은 배패로 함께.</h1></div>
         <p class="intro">대회 코드 하나로 여러 테이블이 같은 패를 플레이합니다. 빈자리는 AI로 채울 수 있어요.</p>
-        <label class="field">이름<input id="online-name" autocomplete="nickname" maxlength="20" placeholder="플레이어 이름"></label>
+        <p id="account-status" class="hint"></p><label class="field">이름<input id="online-name" autocomplete="nickname" maxlength="20" placeholder="플레이어 이름"></label>
         <label class="field">대회 코드<input id="online-code" autocomplete="off" maxlength="8" autocapitalize="characters" placeholder="8자리 코드"></label>
         <div class="room-rules-preview"><span id="room-rules-preview"></span><button id="room-rules-open" class="text-button">방 규칙 설정</button></div><div class="button-row"><button id="online-join" class="secondary">참가하기</button><button id="online-create" class="primary">대회 만들기</button></div>
         <div id="room-info" class="room-info" hidden><span>대회 코드</span><strong id="room-code"></strong><button id="copy-invite" class="secondary full">초대 링크 복사</button><div id="room-members"></div><p id="tournament-status" class="hint" role="status"></p><button id="start-ai" class="secondary full" hidden>내 탁의 빈자리를 AI로 채우기</button><button id="start-tournament" class="primary full" hidden>명단 확정 · 대회 시작</button><button id="observer-links-open" class="secondary full" hidden>관전·중계 링크 관리</button><button id="leave-room" class="text-button full">대회에서 나가기</button></div>
