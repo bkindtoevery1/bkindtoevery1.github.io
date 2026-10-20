@@ -4128,7 +4128,7 @@ try {
 var storedRoomRules = readStorage(localStorage, "duplicate.room-rules.v1");
 try {
   S.roomDuplicateProfile = normalizeDuplicateProfile(storedRoomRules?.duplicateProfile ?? "mil-riichi");
-  S.roomRules = setupRules(storedRoomRules?.rules ?? storedSettings?.rules ?? {}, S.roomDuplicateProfile);
+  S.roomRules = setupRules(storedRoomRules?.rules ?? {}, S.roomDuplicateProfile);
   S.roomMatchRules = normalizeMatchRules(storedRoomRules?.matchRules ?? {});
   S.boardCount = matchBoardCount(S.roomMatchRules);
 } catch {
