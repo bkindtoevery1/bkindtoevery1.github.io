@@ -2129,6 +2129,7 @@ function renderWinningHands(container, hands, { document: doc = container?.owner
 // duplicate/round-results-view.mjs
 var winds = ["\uB3D9", "\uB0A8", "\uC11C", "\uBD81"];
 var validSeat = (value) => Number.isInteger(value) && value >= 0 && value < 4;
+var validBoard = (value) => Number.isInteger(value) && value >= 1 && value <= 16;
 var finite = (value) => typeof value === "number" && Number.isFinite(value);
 var format = new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 2 });
 var score = (value) => `${value > 0 ? "+" : ""}${format.format(value)}\uC810`;
@@ -2138,14 +2139,14 @@ function element2(document2, tag, className, text3) {
   if (text3 !== void 0) node.textContent = text3;
   return node;
 }
-function renderRoundResults(container, rows, { seat: seat5, ai = false, ownTableId, document: document2 = container?.ownerDocument } = {}) {
+function renderRoundResults(container, rows, { seat: seat5, ai = false, ownTableId, currentBoard, document: document2 = container?.ownerDocument } = {}) {
   if (!container || !document2?.createElement) throw new TypeError("A round-results container and document are required");
   const expanded = new Set(Array.from(container.querySelectorAll?.(".round-score-card") ?? []).filter((card) => card.querySelector?.("details")?.open).map((card) => card.dataset.board));
-  const root = element2(document2, "div", "round-score-content"), heading = element2(document2, "div", "round-score-heading");
-  heading.append(element2(document2, "h2", "", "\uAD6D\uBCC4 \uC810\uC218 \uBE44\uAD50"), element2(document2, "p", "", "\uAC19\uC740 \uC2DC\uC791 \uC790\uB9AC \xB7 \uBCF8\uC7A5 \uD569\uC0B0"));
-  root.append(heading);
+  const root = element2(document2, "div", "round-score-content"), available = Array.isArray(rows) ? rows : [];
+  const board = validBoard(currentBoard) ? currentBoard : available.find((row) => validBoard(row?.board))?.board;
+  const current = available.find((row) => row?.board === board) ?? (validBoard(board) ? { board, status: "waiting" } : null);
   const seen = /* @__PURE__ */ new Set();
-  for (const row of Array.isArray(rows) ? rows : []) {
+  for (const row of current ? [current] : []) {
     if (!row || !Number.isInteger(row.board) || row.board < 1 || row.board > 16 || seen.has(row.board)) continue;
     seen.add(row.board);
     const card = element2(document2, "section", "round-score-card");
@@ -5292,7 +5293,7 @@ function renderRoundScorePanel() {
       return { board, status: complete && group.length ? "complete" : "waiting", entries, averages: [], referenceLabel: "AI \uAE30\uC900", referenceMean: complete && group.length && group.every((row) => Number.isFinite(row.reference)) ? group.reduce((sum, row) => sum + row.reference, 0) : null };
     });
   }
-  renderRoundResults(panel, rows, { seat: S.view.seat, ownTableId: S.mode === "online" ? S.online?.tableId : "\uC5F0\uC2B5", ai: false });
+  renderRoundResults(panel, rows, { currentBoard: progress().board, seat: S.view.seat, ownTableId: S.mode === "online" ? S.online?.tableId : "\uC5F0\uC2B5", ai: false });
 }
 function renderComparison() {
   renderRoundScorePanel();
@@ -5310,7 +5311,7 @@ function renderComparison() {
   const history = $("result-history");
   history.replaceChildren();
   const rows = tournament ? record?.rounds ?? [] : online ? record?.boards ?? [] : S.practice?.results ?? [];
-  for (const r of rows.slice(-8)) {
+  for (const r of rows.filter((row) => (row.board ?? row.index + 1) === progress().board).slice(-8)) {
     const row = document.createElement("div");
     row.className = "result-history-row";
     const difference = online ? tournament && scoring.method === "imp" ? r.imp : r.difference : r.reference === null ? null : r.score - r.reference;

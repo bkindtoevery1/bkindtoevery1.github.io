@@ -135,11 +135,10 @@
 .winning-hand-meld{display:inline-flex;gap:2px}
 
 /* Scores stay on the normal page; focused play keeps only the game and return. */
-.round-score-panel{min-width:0;grid-column:1/-1;padding:16px;border:1px solid var(--line);border-radius:6px;background:var(--panel);align-self:start}
-.round-score-heading{font-size:14px;margin:0 0 12px}
-.round-score-card{border-top:1px solid var(--line);padding:11px 0;min-width:0}
-.round-score-card h3{font-size:12px;margin:0 0 5px}
-.round-score-mean{font-size:16px;color:var(--accent);font-variant-numeric:tabular-nums;margin:6px 0}
+.round-score-panel{min-width:0;margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+.round-score-card{min-width:0}
+.round-score-card h3{font-size:12px;margin:0}
+.round-score-mean{display:block;font-size:13px;color:var(--accent);font-variant-numeric:tabular-nums;margin:6px 0}
 .round-score-details{font-size:11px;min-width:0}
 .round-score-details summary{cursor:pointer;padding:8px 0;color:var(--accent)}
 .round-score-details[open]{overflow-x:auto}
@@ -151,8 +150,6 @@
 .game-focus{--focus-board-width:min(100%,calc(max(220px,100svh - 250px)*1.5))}
 .game-focus #game-view-toggle{background:var(--accent);border:1px solid var(--accent);color:#23291e;font-weight:700;font-size:13px;min-height:40px;padding:8px 14px}
 .game-focus #game-view-toggle:hover{background:#e4d3a1}
-@media(min-width:1250px){body:not(.game-focus) .layout{max-width:1600px;grid-template-columns:250px minmax(0,1fr) 250px;gap:22px}body:not(.game-focus) .round-score-panel{grid-column:3;grid-row:1;position:sticky;top:16px;max-height:calc(100svh - 110px);overflow:auto}}
-
-.round-score-heading h2{font-size:14px;margin:0 0 5px}.round-score-heading p,.round-score-cohort{font-size:10px;line-height:1.6;color:var(--muted);margin:0 0 7px}.round-score-card-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}.round-score-scope,.round-score-ai{font-size:9px;color:var(--muted)}.round-score-table caption{text-align:left;font-size:9px;color:var(--muted);padding:4px 0}
+.round-score-cohort{font-size:10px;line-height:1.6;color:var(--muted);margin:0 0 7px}.round-score-card-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}.round-score-scope,.round-score-ai{font-size:9px;color:var(--muted)}.round-score-table caption{text-align:left;font-size:9px;color:var(--muted);padding:4px 0}
 
 .round-score-empty{color:var(--muted);font-size:11px;line-height:1.7;margin:9px 0 0}

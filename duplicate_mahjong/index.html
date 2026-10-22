@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#183c32">
   <meta name="description" content="같은 배패, 같은 개인 패산. PC와 모바일에서 즐기는 커스텀 Duplicate 리치마작.">
   <title>Duplicate Mahjong · 같은 패, 다른 선택</title>
-  <link rel="stylesheet" href="./style.css?v=83b4694bb8cf5f52">
+  <link rel="stylesheet" href="./style.css?v=b3c3a4fecf7704d6">
   <link rel="stylesheet" href="./personal-settings.css?v=cea2b6be29b28663">
   <link rel="stylesheet" href="./feedback.css?v=2c15e6fa46e9a875">
-  <script type="module" src="./app.mjs?v=54972c3320bd6fab"></script>
+  <script type="module" src="./app.mjs?v=faba67984c00c90d"></script>
 </head>
 <body>
   <header class="topbar">
@@ -39,7 +39,7 @@
       </section>
       <section id="settings-panel" class="panel" aria-label="개인 설정" hidden></section>
       <section class="panel rule-summary"><div class="section-title"><h2 id="rules-summary-title">현재 연습 규칙</h2><button id="rules-open-second" class="text-button">규칙 설정</button></div><div id="rule-chips"></div><p id="rules-series-summary" class="hint">개인별 패산 · 반장전 · 친 연장 있음</p><p class="hint">Duplicate 방식 참고: <a href="https://mahjong-mil.org/rules_dup/" target="_blank" rel="noopener noreferrer">MIL Duplicate 공식 설명 ↗</a> · 리치 판·부와 친 연장은 별도로 적용합니다.</p></section>
-      <section class="panel results-summary"><div class="section-title"><h2>같은 패의 결과</h2><span id="result-caption" class="muted">AI 기준</span></div><div class="result-metrics"><div><small id="my-result-label">내 점수 변화</small><strong id="my-result">—</strong></div><div><small id="reference-label">AI 기준 대국</small><strong id="reference-result">—</strong></div></div><div class="difference-row"><span id="difference-label">기준 대비</span><strong id="difference-result">—</strong></div><p id="comparison-note" class="hint">국이 끝나면 같은 자리의 결과를 비교합니다.</p><p id="scoring-result-details" class="hint" hidden></p><div id="result-history"></div><button id="standings-open" class="text-button full" hidden>대회 참가자 결과 보기</button></section>
+      <section class="panel results-summary"><div class="section-title"><h2>같은 패의 결과</h2><span id="result-caption" class="muted">AI 기준</span></div><div class="result-metrics"><div><small id="my-result-label">내 점수 변화</small><strong id="my-result">—</strong></div><div><small id="reference-label">AI 기준 대국</small><strong id="reference-result">—</strong></div></div><div class="difference-row"><span id="difference-label">기준 대비</span><strong id="difference-result">—</strong></div><p id="comparison-note" class="hint">국이 끝나면 같은 자리의 결과를 비교합니다.</p><p id="scoring-result-details" class="hint" hidden></p><div id="round-score-panel" class="round-score-panel" aria-label="현재 국 다른 탁 결과"></div><div id="result-history"></div><button id="standings-open" class="text-button full" hidden>대회 참가자 결과 보기</button></section>
       <footer class="sidebar-footer"><a href="../mahjong/">H/S 마작 연습실 ↗</a><span>4인 리치 · Duplicate</span></footer>
     </aside>
     <section class="game-column" aria-label="마작 대국">
@@ -57,7 +57,6 @@
       <section id="recent-actions" class="recent-actions" aria-label="최근 행동"></section>
       <p class="game-footnote" id="game-footnote">패를 두 번 누르거나 선택 후 버리기를 누르세요. 키보드 ← → / Enter / Esc 지원.</p>
     </section>
-    <aside id="round-score-panel" class="round-score-panel" aria-label="국별 점수 비교"></aside>
   </main>
   <div id="end-overlay" class="end-overlay" hidden>
     <section class="end-card" role="dialog" aria-labelledby="end-title">
