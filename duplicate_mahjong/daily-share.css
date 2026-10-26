@@ -21,3 +21,20 @@
 #daily-open-game{white-space:nowrap;flex:0 0 auto}
 #daily-result-open{flex:1 0 100%;min-height:44px}
 .end-actions:has(#daily-result-open:not([hidden])){flex-wrap:wrap}
+.daily-card-stats{grid-template-columns:repeat(5,minmax(0,1fr))}
+.daily-action-comparison{margin:22px 0 18px;padding-top:17px;border-top:1px solid #cbd0bb}
+.action-comparison{text-align:left;min-width:0;--action-favorable:#c6deb1;--action-positive-bg:#9eba7122;--action-line:#b8c4a633}
+.action-comparison-title{font-size:12px;line-height:1.5;margin:0;font-weight:700}
+.action-comparison-sample{font-size:10px;opacity:.75;line-height:1.6;margin:5px 0 10px}
+.action-comparison-table{width:100%;border-collapse:collapse;table-layout:auto;font-size:10px;font-variant-numeric:tabular-nums}
+.action-comparison-table th,.action-comparison-table td{padding:8px 3px;border-bottom:1px solid var(--action-line);text-align:right;white-space:nowrap}
+.action-comparison-table th:first-child,.action-comparison-table td:first-child{text-align:left}
+.action-comparison-table thead th{font-size:9px;opacity:.7;font-weight:500}
+.action-comparison-table tbody th{font-weight:500}
+.action-comparison-table .is-favorable{color:var(--action-favorable);background:var(--action-positive-bg);font-weight:700}
+.action-comparison-highlights{border:1px solid var(--action-line);border-radius:7px;background:var(--action-positive-bg);padding:10px 11px;margin-top:12px;color:var(--action-favorable);font-size:10px;line-height:1.7}
+.action-comparison-highlights>strong{font-size:11px}
+.action-comparison-highlights ul{padding-left:15px;margin:5px 0 0}
+.action-comparison-note{font-size:9px;line-height:1.65;opacity:.72;margin:9px 0 0}
+.daily-action-comparison .action-comparison{color:#4e654a;--action-favorable:#28543c;--action-positive-bg:#dce5cc;--action-line:#cbd0bb}
+@media(max-width:470px){.daily-stat dd{font-size:18px}.daily-action-comparison{margin-top:18px}.action-comparison-table{font-size:9px}.action-comparison-table th,.action-comparison-table td{padding:8px 2px}.action-comparison-table thead th{font-size:8px}}

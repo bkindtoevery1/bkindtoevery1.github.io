@@ -1864,13 +1864,51 @@ function driveAI(game, humanSeats = [], maxSteps = 500) {
   return { state: game, steps, finished: ["end", "ended"].includes(game.phase), waitingForHuman: humanSeats.includes(actor3(game)) };
 }
 
+// duplicate/action-statistics.mjs
+var STAT_KEYS = Object.freeze(["discard", "riichi", "call", "kan", "win", "dealIn"]);
+var METRICS = Object.freeze([
+  ["call", "\uD6C4\uB85C", "neutral"],
+  ["riichi", "\uB9AC\uCE58", "neutral"],
+  ["kan", "\uAE61", "neutral"],
+  ["win", "\uD654\uB8CC", "higher"],
+  ["dealIn", "\uBC29\uCD1D", "lower"]
+]);
+var integer = (value, min, max) => Number.isSafeInteger(value) && value >= min && value <= max;
+var plain = (value) => !!value && typeof value === "object" && [Object.prototype, null].includes(Object.getPrototypeOf(value));
+var MAX_HANDS = Math.floor(Number.MAX_SAFE_INTEGER / 140);
+function validateActionStats(stats, hands = 1) {
+  if (!integer(hands, 1, MAX_HANDS) || !plain(stats) || Reflect.ownKeys(stats).length !== STAT_KEYS.length || !Reflect.ownKeys(stats).every((key) => STAT_KEYS.includes(key)) || !STAT_KEYS.every((key) => integer(stats[key], 0, hands * (key === "discard" ? 140 : ["call", "kan"].includes(key) ? 4 : 1))) || stats.riichi > stats.discard || stats.win + stats.dealIn > hands) throw Error("Invalid action statistics");
+  return Object.fromEntries(STAT_KEYS.map((key) => [key, stats[key]]));
+}
+function actionStatsFromGame(game, seat = 0) {
+  if (game?.phase !== "end" || !integer(seat, 0, 3)) throw Error("Hand has not ended");
+  const player = game.players?.[seat];
+  if (!Array.isArray(player?.river) || !Array.isArray(player.melds) || typeof player.riichi !== "boolean" || !Array.isArray(game.winners) || !game.winners.every((winner) => integer(winner, 0, 3)) || new Set(game.winners).size !== game.winners.length) throw Error("Missing hand outcomes");
+  let dealIn = 0;
+  for (const winner of game.winners) {
+    const win3 = game.players[winner]?.win;
+    if (!win3 || !["ron", "tsumo"].includes(win3.method) || win3.method === "ron" && (!integer(win3.source, 0, 3) || win3.source === winner)) throw Error("Missing winning outcome");
+    if (win3.method === "ron" && win3.source === seat) dealIn = 1;
+  }
+  return validateActionStats({
+    discard: player.river.filter((tile) => !tile.robbedKan).length,
+    // A declaration discarded into ron is not an accepted riichi.
+    riichi: Number(player.riichi),
+    // An upgraded pon remains one accepted open meld, not a second call.
+    call: player.melds.filter((meld) => meld.open).length,
+    kan: player.melds.filter((meld) => meld.type === "kan").length,
+    win: Number(game.winners.includes(seat)),
+    dealIn
+  });
+}
+
 // duplicate/baseline-worker.mjs
 self.onmessage = (event3) => {
   try {
     const options = event3.data, game = createGame3(options);
     driveAI(game, [], 2e3);
     if (game.phase !== "end") throw new Error("AI \uAE30\uC900 \uB300\uAD6D\uC758 \uC9C4\uD589 \uD55C\uB3C4\uB97C \uCD08\uACFC\uD588\uC2B5\uB2C8\uB2E4.");
-    self.postMessage({ score: game.players[options.seat].score });
+    self.postMessage({ score: game.players[options.seat].score, stats: actionStatsFromGame(game, options.seat) });
   } catch (error) {
     self.postMessage({ error: error.message });
   }

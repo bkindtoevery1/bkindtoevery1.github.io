@@ -266,7 +266,7 @@ function scoreRiichi(types, melds = [], context3 = {}, rules = {}) {
     if (shape.kind === "standard") {
       const freq = /* @__PURE__ */ new Map();
       for (const g of seq) freq.set(g.tile, (freq.get(g.tile) ?? 0) + 1);
-      const identical = [...freq.values()].reduce((n, count) => n + Math.floor(count / 2), 0);
+      const identical = [...freq.values()].reduce((n, count2) => n + Math.floor(count2 / 2), 0);
       add("ryanpeikou", "\uB7C9\uD398\uCF54", 3, closed && identical >= 2);
       add("iipeikou", "\uC774\uD398\uCF54", 1, closed && identical === 1);
       add("toitoi", "\uB610\uC774\uB610\uC774", 2, trip.length === 4);
@@ -500,12 +500,12 @@ function win(s, seat5, method, source, id, { finish = true } = {}) {
   const first = s.ledger.length;
   const pao = p.pao && score2.yakuman && score2.yakuEntries.some((y) => y.id === p.pao.yaku) ? p.pao : null;
   if (pao) {
-    const count = score2.yakumanCount ?? 1, portion = score2.points.ron / count;
+    const count2 = score2.yakumanCount ?? 1, portion = score2.points.ron / count2;
     if (method === "tsumo") {
       transfer(s, pao.seat, seat5, portion, method);
-      if (count > 1) {
+      if (count2 > 1) {
         for (let from = 0; from < 4; from++) if (from !== seat5) {
-          const amount2 = (from === s.dealer ? score2.points.tsumoDealer : score2.points.tsumoOther) * (count - 1) / count;
+          const amount2 = (from === s.dealer ? score2.points.tsumoDealer : score2.points.tsumoOther) * (count2 - 1) / count2;
           transfer(s, from, seat5, amount2, method);
         }
       }
@@ -786,10 +786,10 @@ function publicEvents(s) {
   const out = [], discards = Array(4).fill(null), pendingKan = Array(4).fill(null), melds = Array.from({ length: 4 }, () => []);
   const physical4 = (id) => Number.isInteger(id) && id >= 0 && id < 136 ? id : null;
   const preview = (seat5, index, tile3, callType) => {
-    const count = ["ankan", "kakan", "minkan"].includes(callType) ? 4 : 3;
-    const ids = s.players[seat5]?.melds[index]?.ids?.slice(0, count);
-    if (ids?.length === count) return ids.map((id) => ({ type: typeOf(id), red: red(id, s.rules) })).sort((a, b) => a.type - b.type);
-    const types = callType === "chi" ? [tile3, tile3 + 1, tile3 + 2] : Array(count).fill(tile3);
+    const count2 = ["ankan", "kakan", "minkan"].includes(callType) ? 4 : 3;
+    const ids = s.players[seat5]?.melds[index]?.ids?.slice(0, count2);
+    if (ids?.length === count2) return ids.map((id) => ({ type: typeOf(id), red: red(id, s.rules) })).sort((a, b) => a.type - b.type);
+    const types = callType === "chi" ? [tile3, tile3 + 1, tile3 + 2] : Array(count2).fill(tile3);
     return types.filter((type) => Number.isInteger(type) && type >= 0 && type < 34).map((type) => ({ type, red: false }));
   };
   const emit = (raw, kind, { tile: tile3 = null, tileId = null, source = null, callType = null, method = null, tiles: tiles3 } = {}) => {
@@ -1132,12 +1132,12 @@ function win2(s, seat5, method, source, id, { finish = true } = {}) {
   const first = s.ledger.length;
   const pao = p.pao && score2.yakuman && score2.yakuEntries.some((y) => y.id === p.pao.yaku) ? p.pao : null;
   if (pao) {
-    const count = score2.yakumanCount ?? 1, portion = score2.points.ron / count;
+    const count2 = score2.yakumanCount ?? 1, portion = score2.points.ron / count2;
     if (method === "tsumo") {
       transfer2(s, pao.seat, seat5, portion, method);
-      if (count > 1) {
+      if (count2 > 1) {
         for (let from = 0; from < 4; from++) if (from !== seat5) {
-          const amount2 = (from === s.dealer ? score2.points.tsumoDealer : score2.points.tsumoOther) * (count - 1) / count;
+          const amount2 = (from === s.dealer ? score2.points.tsumoDealer : score2.points.tsumoOther) * (count2 - 1) / count2;
           transfer2(s, from, seat5, amount2, method);
         }
       }
@@ -1417,10 +1417,10 @@ function publicEvents2(s) {
   const out = [], discards = Array(4).fill(null), pendingKan = Array(4).fill(null), melds = Array.from({ length: 4 }, () => []);
   const physical4 = (id) => Number.isInteger(id) && id >= 0 && id < 136 ? id : null;
   const preview = (seat5, index, tile3, callType) => {
-    const count = ["ankan", "kakan", "minkan"].includes(callType) ? 4 : 3;
-    const ids = s.players[seat5]?.melds[index]?.ids?.slice(0, count);
-    if (ids?.length === count) return ids.map((id) => ({ type: typeOf(id), red: red2(id, s.rules) })).sort((a, b) => a.type - b.type);
-    const types = callType === "chi" ? [tile3, tile3 + 1, tile3 + 2] : Array(count).fill(tile3);
+    const count2 = ["ankan", "kakan", "minkan"].includes(callType) ? 4 : 3;
+    const ids = s.players[seat5]?.melds[index]?.ids?.slice(0, count2);
+    if (ids?.length === count2) return ids.map((id) => ({ type: typeOf(id), red: red2(id, s.rules) })).sort((a, b) => a.type - b.type);
+    const types = callType === "chi" ? [tile3, tile3 + 1, tile3 + 2] : Array(count2).fill(tile3);
     return types.filter((type) => Number.isInteger(type) && type >= 0 && type < 34).map((type) => ({ type, red: false }));
   };
   const emit = (raw, kind, { tile: tile3 = null, tileId = null, source = null, callType = null, method = null, tiles: tiles3 } = {}) => {
@@ -1940,9 +1940,9 @@ function tile(value) {
 function meld(value) {
   insist(object(value) && ["chi", "pon", "kan"].includes(value.type) && typeof value.open === "boolean");
   insist(Number.isInteger(value.tile) && value.tile >= 0 && value.tile < 34 && Array.isArray(value.tiles));
-  const tiles3 = value.tiles.map(tile), count = value.type === "kan" ? 4 : 3;
-  insist(tiles3.length === count);
-  const types = tiles3.map((t) => t.type).sort((a, b) => a - b), expected = value.type === "chi" ? [value.tile, value.tile + 1, value.tile + 2] : Array(count).fill(value.tile);
+  const tiles3 = value.tiles.map(tile), count2 = value.type === "kan" ? 4 : 3;
+  insist(tiles3.length === count2);
+  const types = tiles3.map((t) => t.type).sort((a, b) => a - b), expected = value.type === "chi" ? [value.tile, value.tile + 1, value.tile + 2] : Array(count2).fill(value.tile);
   insist(value.type !== "chi" || value.tile < 27 && value.tile % 9 <= 6);
   insist(types.every((type, index) => type === expected[index]));
   const result = { type: value.type, tile: value.tile, open: value.open, tiles: tiles3 };
@@ -2080,7 +2080,7 @@ function renderWinningHands(container, hands, { document: doc = container?.owner
   container.replaceChildren();
   container.hidden = normalized.length === 0;
   if (!normalized.length) return container;
-  const node2 = (tag, className, text3) => {
+  const node3 = (tag, className, text3) => {
     const element4 = doc.createElement(tag);
     element4.className = className;
     if (text3 !== void 0) element4.textContent = text3;
@@ -2097,24 +2097,24 @@ function renderWinningHands(container, hands, { document: doc = container?.owner
     return element4;
   };
   for (const hand of normalized) {
-    const section = node2("section", "winning-hand");
+    const section = node3("section", "winning-hand");
     section.dataset.seat = String(hand.seat);
     const wind = Number.isInteger(dealer) && dealer >= 0 && dealer < 4 ? ` \xB7 ${["\u6771", "\u5357", "\u897F", "\u5317"][(hand.seat - dealer + 4) % 4]}` : "";
-    section.append(node2("h4", "winning-hand-heading", `${hand.seat + 1}\uBC88 \uC790\uB9AC${wind} \xB7 ${hand.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"}`));
-    const row = node2("div", "winning-hand-tiles"), concealed = node2("div", "winning-hand-concealed");
+    section.append(node3("h4", "winning-hand-heading", `${hand.seat + 1}\uBC88 \uC790\uB9AC${wind} \xB7 ${hand.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"}`));
+    const row = node3("div", "winning-hand-tiles"), concealed = node3("div", "winning-hand-concealed");
     concealed.setAttribute("aria-label", "\uD654\uB8CC \uC190\uD328");
     const tiles3 = hand.tiles.filter((tile3) => tile3.id !== hand.winningTile.id).sort((a, b) => a.type - b.type || Number(a.red) - Number(b.red) || a.id - b.id);
     for (const tile3 of tiles3) concealed.append(face(tile3));
-    const winning = node2("div", "winning-hand-winning-tile");
+    const winning = node3("div", "winning-hand-winning-tile");
     winning.setAttribute("aria-label", "\uD654\uB8CC\uD328");
-    winning.append(node2("span", "winning-hand-winning-label", "\uD654\uB8CC\uD328"), face(hand.winningTile, true));
+    winning.append(node3("span", "winning-hand-winning-label", "\uD654\uB8CC\uD328"), face(hand.winningTile, true));
     row.append(concealed, winning);
     section.append(row);
     if (hand.melds.length) {
-      const melds = node2("div", "winning-hand-melds");
+      const melds = node3("div", "winning-hand-melds");
       melds.setAttribute("aria-label", "\uD654\uB8CC \uD6C4\uB85C");
       for (const meld3 of hand.melds) {
-        const group = node2("span", "winning-hand-meld");
+        const group = node3("span", "winning-hand-meld");
         group.title = meld3.type === "chi" ? "\uCE58" : meld3.type === "pon" ? "\uD401" : meld3.open ? "\uBA85\uAE61" : "\uC548\uAE61";
         for (const tile3 of meld3.tiles) group.append(face(tile3));
         melds.append(group);
@@ -2126,6 +2126,123 @@ function renderWinningHands(container, hands, { document: doc = container?.owner
   return container;
 }
 
+// duplicate/action-statistics.mjs
+var STAT_KEYS = Object.freeze(["discard", "riichi", "call", "kan", "win", "dealIn"]);
+var METRICS = Object.freeze([
+  ["call", "\uD6C4\uB85C", "neutral"],
+  ["riichi", "\uB9AC\uCE58", "neutral"],
+  ["kan", "\uAE61", "neutral"],
+  ["win", "\uD654\uB8CC", "higher"],
+  ["dealIn", "\uBC29\uCD1D", "lower"]
+]);
+var integer = (value, min, max) => Number.isSafeInteger(value) && value >= min && value <= max;
+var plain = (value) => !!value && typeof value === "object" && [Object.prototype, null].includes(Object.getPrototypeOf(value));
+var MAX_HANDS = Math.floor(Number.MAX_SAFE_INTEGER / 140);
+var emptyActionStats = () => Object.fromEntries(STAT_KEYS.map((key) => [key, 0]));
+function validateActionStats(stats, hands = 1) {
+  if (!integer(hands, 1, MAX_HANDS) || !plain(stats) || Reflect.ownKeys(stats).length !== STAT_KEYS.length || !Reflect.ownKeys(stats).every((key) => STAT_KEYS.includes(key)) || !STAT_KEYS.every((key) => integer(stats[key], 0, hands * (key === "discard" ? 140 : ["call", "kan"].includes(key) ? 4 : 1))) || stats.riichi > stats.discard || stats.win + stats.dealIn > hands) throw Error("Invalid action statistics");
+  return Object.fromEntries(STAT_KEYS.map((key) => [key, stats[key]]));
+}
+function actionStatsFromGame(game, seat5 = 0) {
+  if (game?.phase !== "end" || !integer(seat5, 0, 3)) throw Error("Hand has not ended");
+  const player = game.players?.[seat5];
+  if (!Array.isArray(player?.river) || !Array.isArray(player.melds) || typeof player.riichi !== "boolean" || !Array.isArray(game.winners) || !game.winners.every((winner) => integer(winner, 0, 3)) || new Set(game.winners).size !== game.winners.length) throw Error("Missing hand outcomes");
+  let dealIn = 0;
+  for (const winner of game.winners) {
+    const win3 = game.players[winner]?.win;
+    if (!win3 || !["ron", "tsumo"].includes(win3.method) || win3.method === "ron" && (!integer(win3.source, 0, 3) || win3.source === winner)) throw Error("Missing winning outcome");
+    if (win3.method === "ron" && win3.source === seat5) dealIn = 1;
+  }
+  return validateActionStats({
+    discard: player.river.filter((tile3) => !tile3.robbedKan).length,
+    // A declaration discarded into ron is not an accepted riichi.
+    riichi: Number(player.riichi),
+    // An upgraded pon remains one accepted open meld, not a second call.
+    call: player.melds.filter((meld3) => meld3.open).length,
+    kan: player.melds.filter((meld3) => meld3.type === "kan").length,
+    win: Number(game.winners.includes(seat5)),
+    dealIn
+  });
+}
+function validateSample(sample) {
+  if (!plain(sample) || !integer(sample.hands, 1, MAX_HANDS)) throw Error("Missing action-statistics sample");
+  return { stats: validateActionStats(sample.stats, sample.hands), hands: sample.hands };
+}
+function compareActionStats(own, peers) {
+  const checkedOwn = validateSample(own);
+  if (!Array.isArray(peers)) throw Error("Missing action-statistics peers");
+  const checkedPeers = peers.map(validateSample), samples = checkedPeers.length;
+  const metrics = METRICS.map(([key, label, direction]) => {
+    const ownCount = checkedOwn.stats[key], ownRate = ownCount / checkedOwn.hands * 100;
+    const peerMeanCount = samples ? checkedPeers.reduce((sum, peer) => sum + peer.stats[key] / samples, 0) : null;
+    const peerRate = samples ? checkedPeers.reduce((sum, peer) => sum + peer.stats[key] / peer.hands * 100 / samples, 0) : null;
+    let difference = samples ? ownRate - peerRate : null;
+    if (difference !== null && Math.abs(difference) <= Number.EPSILON * Math.max(1, ownRate, peerRate) * samples * 8) difference = 0;
+    return { key, label, ownCount, ownRate, peerMeanCount, peerRate, difference, direction };
+  });
+  const highlights = metrics.filter((metric) => metric.direction === "higher" && metric.difference > 0 || metric.direction === "lower" && metric.difference !== null && metric.difference < 0).sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference)).map((metric) => ({ ...metric }));
+  return { samples, metrics, highlights };
+}
+
+// duplicate/action-statistics-view.mjs
+var METRICS2 = [["call", "\uD6C4\uB85C"], ["riichi", "\uB9AC\uCE58"], ["kan", "\uAE61"], ["win", "\uD654\uB8CC"], ["dealIn", "\uBC29\uCD1D"]];
+var count = (value) => Number.isInteger(value) ? String(value) : Number(value).toLocaleString("ko-KR", { maximumFractionDigits: 1 });
+var signed = (value) => `${value > 0 ? "+" : value < 0 ? "\u2212" : ""}${count(Math.abs(value))}`;
+function node(document2, tag, className, text3) {
+  const element4 = document2.createElement(tag);
+  if (className) element4.className = className;
+  if (text3 !== void 0) element4.textContent = text3;
+  return element4;
+}
+function renderActionComparison(container, { own, peers = [], sourceLabel = "\uB2E4\uB978 \uD0C1 \uD3C9\uADE0", document: document2 = container.ownerDocument } = {}) {
+  let comparison;
+  try {
+    comparison = compareActionStats(own, peers);
+  } catch {
+    comparison = { samples: 0, metrics: METRICS2.map(([key, label]) => ({ key, label, ownCount: Number.isInteger(own?.stats?.[key]) ? own.stats[key] : null, ownRate: null, peerMeanCount: null, peerRate: null, difference: null, direction: key === "win" ? "higher" : key === "dealIn" ? "lower" : "neutral" })), highlights: [] };
+  }
+  const section = node(document2, "section", "action-comparison");
+  section.append(node(document2, "h4", "action-comparison-title", sourceLabel));
+  if (comparison.samples) {
+    const hands = peers.map((peer) => peer.hands), low = Math.min(...hands), high = Math.max(...hands);
+    const range = low === high ? String(low) : `${low}~${high}`;
+    section.append(node(document2, "p", "action-comparison-sample", `${comparison.samples}\uD0C1 \uBE44\uAD50 \xB7 \uB098 ${own.hands}\uAD6D \xB7 \uBE44\uAD50 ${range}\uAD6D`));
+  } else section.append(node(document2, "p", "action-comparison-sample", Object.hasOwn(own?.stats || {}, "dealIn") ? "\uB2E4\uB978 \uD0C1\uC758 \uD589\uB3D9 \uAE30\uB85D\uC744 \uAE30\uB2E4\uB9AC\uACE0 \uC788\uC2B5\uB2C8\uB2E4." : "\uC774\uC804 \uAE30\uB85D\uC5D0\uB294 \uBC29\uCD1D\xB7\uB2E4\uB978 \uD0C1 \uD589\uB3D9 \uC815\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4."));
+  const table = node(document2, "table", "action-comparison-table");
+  const thead = node(document2, "thead"), heading = node(document2, "tr");
+  for (const text3 of ["\uD589\uB3D9", "\uB098", "\uD0C1 \uD3C9\uADE0", "100\uAD6D\uB2F9 \uCC28\uC774"]) {
+    const cell = node(document2, "th", "", text3);
+    cell.scope = "col";
+    heading.append(cell);
+  }
+  thead.append(heading);
+  table.append(thead);
+  const tbody = node(document2, "tbody");
+  for (const metric of comparison.metrics) {
+    const row = node(document2, "tr", comparison.highlights.some((value) => value.key === metric.key) ? "is-favorable" : "");
+    const label = node(document2, "th", "", metric.label);
+    label.scope = "row";
+    row.append(label);
+    row.append(node(document2, "td", "", metric.ownCount === null ? "\u2014" : `${count(metric.ownCount)}\uD68C`));
+    row.append(node(document2, "td", "", metric.peerMeanCount === null ? "\u2014" : `${count(metric.peerMeanCount)}\uD68C`));
+    row.append(node(document2, "td", "", metric.difference === null ? "\u2014" : `${signed(metric.difference)}\uD68C`));
+    tbody.append(row);
+  }
+  table.append(tbody);
+  section.append(table);
+  if (comparison.highlights.length) {
+    const highlights = node(document2, "div", "action-comparison-highlights");
+    highlights.append(node(document2, "strong", "", "\uD3C9\uADE0\uBCF4\uB2E4 \uC88B\uC558\uB358 \uC810"));
+    const list = node(document2, "ul");
+    for (const metric of comparison.highlights) list.append(node(document2, "li", "", `${metric.key === "dealIn" ? "\uBC29\uCD1D\uC774" : "\uD654\uB8CC\uAC00"} 100\uAD6D\uB2F9 ${count(Math.abs(metric.difference))}\uD68C ${metric.key === "dealIn" ? "\uC801\uC5C8\uC5B4\uC694" : "\uB9CE\uC558\uC5B4\uC694"}.`));
+    highlights.append(list);
+    section.append(highlights);
+  } else if (comparison.samples) section.append(node(document2, "p", "action-comparison-note", "\uC774\uBC88\uC5D0\uB294 \uD3C9\uADE0\uBCF4\uB2E4 \uD654\uB8CC\uAC00 \uB9CE\uAC70\uB098 \uBC29\uCD1D\uC774 \uC801\uC5C8\uB358 \uD56D\uBAA9\uC774 \uC5C6\uC2B5\uB2C8\uB2E4."));
+  if (comparison.samples) section.append(node(document2, "p", "action-comparison-note", "\uAD6D \uC218\uAC00 \uB2EC\uB77C\uC9C8 \uC218 \uC788\uC5B4 100\uAD6D\uB2F9 \uD69F\uC218\uB85C \uBE44\uAD50\uD569\uB2C8\uB2E4. \uD6C4\uB85C\xB7\uB9AC\uCE58\xB7\uAE61\uC740 \uC120\uD0DD\uC758 \uCC28\uC774\uB85C \uD45C\uC2DC\uD569\uB2C8\uB2E4."));
+  container.replaceChildren(section);
+  return comparison;
+}
+
 // duplicate/round-results-view.mjs
 var winds = ["\uB3D9", "\uB0A8", "\uC11C", "\uBD81"];
 var validSeat = (value) => Number.isInteger(value) && value >= 0 && value < 4;
@@ -2133,11 +2250,19 @@ var validBoard = (value) => Number.isInteger(value) && value >= 1 && value <= 16
 var finite = (value) => typeof value === "number" && Number.isFinite(value);
 var format = new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 2 });
 var score = (value) => `${value > 0 ? "+" : ""}${format.format(value)}\uC810`;
+var actionKeys = [["call", "\uD6C4\uB85C"], ["riichi", "\uB9AC\uCE58"], ["kan", "\uAE61"], ["win", "\uD654\uB8CC"], ["dealIn", "\uBC29\uCD1D"]];
+function statsFor(entry) {
+  try {
+    return validateActionStats(entry?.actionStats, entry?.hands);
+  } catch {
+    return null;
+  }
+}
 function element2(document2, tag, className, text3) {
-  const node2 = document2.createElement(tag);
-  if (className) node2.className = className;
-  if (text3 !== void 0) node2.textContent = text3;
-  return node2;
+  const node3 = document2.createElement(tag);
+  if (className) node3.className = className;
+  if (text3 !== void 0) node3.textContent = text3;
+  return node3;
 }
 function renderRoundResults(container, rows, { seat: seat5, ai = false, ownTableId, currentBoard, document: document2 = container?.ownerDocument } = {}) {
   if (!container || !document2?.createElement) throw new TypeError("A round-results container and document are required");
@@ -2162,14 +2287,28 @@ function renderRoundResults(container, rows, { seat: seat5, ai = false, ownTable
     const publicEntries = complete && Array.isArray(row.entries) ? row.entries.filter((entry) => entry && typeof entry.tableId === "string" && typeof entry.name === "string" && validSeat(entry.seat) && Number.isSafeInteger(entry.score)) : [];
     const knownTable = typeof ownTableId === "string" && ownTableId.length > 0 && publicEntries.some((entry) => entry.tableId === ownTableId);
     const entries = knownTable ? publicEntries.filter((entry) => entry.tableId !== ownTableId) : [];
+    const own = knownTable ? publicEntries.find((entry) => entry.tableId === ownTableId && entry.seat === seat5 && entry.ai === true === ai) : null;
+    if (own && statsFor(own)) {
+      const cohort = entries.filter((entry) => entry.seat === seat5 && entry.ai === true === ai), peers = cohort.filter(statsFor).map((entry) => ({ stats: statsFor(entry), hands: entry.hands }));
+      if (referenceRequested) {
+        try {
+          peers.push({ stats: validateActionStats(row.referenceActionStats, row.referenceHands), hands: row.referenceHands });
+        } catch {
+        }
+      }
+      const comparison = element2(document2, "div", "round-action-comparison");
+      renderActionComparison(comparison, { own: { stats: statsFor(own), hands: own.hands }, peers, sourceLabel: referenceRequested ? "\uAE30\uBCF8 AI \uAC19\uC740 \uC790\uB9AC" : "\uB2E4\uB978 \uD0C1 \xB7 \uAC19\uC740 \uC2DC\uC791 \uC790\uB9AC \uD3C9\uADE0", document: document2 });
+      card.append(comparison);
+      if (cohort.some((entry) => !statsFor(entry))) card.append(element2(document2, "p", "action-comparison-note", "\uD589\uB3D9 \uAE30\uB85D\uC774 \uC5C6\uB294 \uD0C1\uC740 \uD1B5\uACC4 \uD3C9\uADE0\uC5D0\uC11C \uC81C\uC678\uD588\uC2B5\uB2C8\uB2E4."));
+    }
     if (entries.length) {
       const details = element2(document2, "details", "round-score-details");
       details.open = expanded.has(String(row.board));
       details.append(element2(document2, "summary", "", "\uB2E4\uB978 \uD0C1 \uC810\uC218 \uC790\uC138\uD788"));
       const table = element2(document2, "table", "round-score-table");
       table.append(element2(document2, "caption", "", "\uB0B4 \uD0C1 \uC81C\uC678 \xB7 \uC2DC\uC791 \uC790\uB9AC \uAE30\uC900 \xB7 \uBCF8\uC7A5 \uD569\uC0B0"));
-      const head = element2(document2, "thead", ""), header = element2(document2, "tr", "");
-      for (const label of ["\uD0C1", "\uC774\uB984", "\uC790\uB9AC", "\uC810\uC218\uC99D\uAC10"]) {
+      const actions = entries.some(statsFor), head = element2(document2, "thead", ""), header = element2(document2, "tr", "");
+      for (const label of ["\uD0C1", "\uC774\uB984", "\uC790\uB9AC", "\uC810\uC218\uC99D\uAC10", ...actions ? actionKeys.map(([, label2]) => label2) : []]) {
         const cell = element2(document2, "th", "", label);
         cell.setAttribute("scope", "col");
         header.append(cell);
@@ -2178,11 +2317,15 @@ function renderRoundResults(container, rows, { seat: seat5, ai = false, ownTable
       table.append(head);
       const body = element2(document2, "tbody", "");
       for (const entry of entries) {
-        const own = entry.seat === seat5 && entry.ai === true === ai, tr = element2(document2, "tr", own ? "is-own-cohort" : "");
-        if (own) tr.dataset.ownCohort = "true";
+        const own2 = entry.seat === seat5 && entry.ai === true === ai, tr = element2(document2, "tr", own2 ? "is-own-cohort" : "");
+        if (own2) tr.dataset.ownCohort = "true";
         const name = element2(document2, "td", "", entry.name);
         if (entry.ai === true) name.append(element2(document2, "span", "round-score-ai", " AI"));
         tr.append(element2(document2, "td", "", entry.tableId), name, element2(document2, "td", "", winds[entry.seat]), element2(document2, "td", "round-score-delta", score(entry.score)));
+        if (actions) {
+          const stats = statsFor(entry);
+          for (const [key] of actionKeys) tr.append(element2(document2, "td", "", stats ? `${stats[key]}\uD68C` : "\u2014"));
+        }
         body.append(tr);
       }
       table.append(body);
@@ -2242,9 +2385,9 @@ function dealerReady(game) {
 }
 function nextHandPlan({ board, repeat = 0, honba = 0, handNumber = 1, boardCount, game, matchRules = null } = {}) {
   const config = matchRules === null ? null : normalizeMatchRules(matchRules);
-  const count = boardCount ?? (config ? matchBoardCount(config) : null);
-  if (!positive(board) || !positive(count) || board > count || !uint32(repeat) || !nonnegative(honba) || !positive(handNumber)) throw new Error("Invalid match position");
-  if (config && count !== matchBoardCount(config)) throw new Error("Match format and board count differ");
+  const count2 = boardCount ?? (config ? matchBoardCount(config) : null);
+  if (!positive(board) || !positive(count2) || board > count2 || !uint32(repeat) || !nonnegative(honba) || !positive(handNumber)) throw new Error("Invalid match position");
+  if (config && count2 !== matchBoardCount(config)) throw new Error("Match format and board count differ");
   if (!game || !["end", "ended"].includes(game.phase) && !game.end) throw new Error("The current hand has not ended");
   const pot = game.pot ?? 0;
   if (!nonnegative(pot) || pot % 1e3) throw new Error("Invalid final pot");
@@ -2262,7 +2405,7 @@ function nextHandPlan({ board, repeat = 0, honba = 0, handNumber = 1, boardCount
     pendingPotNote: pot ? "\uB0A8\uC740 \uB9AC\uCE58 \uACF5\uD0C1\uC740 \uBBF8\uC218\uB839 \uC0C1\uD0DC\uB85C \uD45C\uC2DC\uD558\uBA70 \uC784\uC758\uB85C \uBC30\uBD84\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4." : null
   });
   if (config === null) {
-    if (board === count) return complete("legacy-complete");
+    if (board === count2) return complete("legacy-complete");
     if (!positive(handNumber + 1)) throw new Error("Hand number exceeds the supported range");
     return { complete: false, continues: false, reason: "legacy-next", board: board + 1, repeat: 0, honba: 0, handNumber: handNumber + 1, pot: 0, startingScores: null, pendingPotNote: null };
   }
@@ -2286,8 +2429,8 @@ function nextHandPlan({ board, repeat = 0, honba = 0, handNumber = 1, boardCount
     nextHonba = honba + 1;
   } else throw new Error("Unsupported match hand result");
   const leader = [0, 1, 2, 3].sort((a, b) => finalPoints[b] - finalPoints[a] || a - b)[0];
-  if (board === count && continues && config.agariYame && leader === game.dealer && ["win", "exhaustive-draw"].includes(game.end)) return complete("all-last-leader");
-  if (!continues && board === count) return complete("match-complete");
+  if (board === count2 && continues && config.agariYame && leader === game.dealer && ["win", "exhaustive-draw"].includes(game.end)) return complete("all-last-leader");
+  if (!continues && board === count2) return complete("match-complete");
   const nextBoard = continues ? board : board + 1, nextRepeat = continues ? repeat + 1 : 0, nextNumber = handNumber + 1;
   if (!uint32(nextRepeat) || !nonnegative(nextHonba) || !positive(nextNumber)) throw new Error("Match counters exceed the supported range");
   return {
@@ -2319,8 +2462,8 @@ function seriesProgress(value) {
   const board = value?.board ?? (value?.index ?? 0) + 1, repeat = value?.repeat ?? 0, honba = value?.honba ?? value?.game?.honba ?? 0;
   return { board, repeat, honba, handNumber: value?.handNumber ?? (value?.index ?? 0) + 1, handId: handId({ board, honba }) };
 }
-function formatName(matchRules, count) {
-  return matchRules ? matchRules.format === "east" ? "\uB3D9\uD48D\uC804" : "\uBC18\uC7A5\uC804" : `\uAE30\uC874 ${count ?? "\u2014"}\uAD6D \xB7 \uB3C5\uB9BD \uC9C4\uD589`;
+function formatName(matchRules, count2) {
+  return matchRules ? matchRules.format === "east" ? "\uB3D9\uD48D\uC804" : "\uBC18\uC7A5\uC804" : `\uAE30\uC874 ${count2 ?? "\u2014"}\uAD6D \xB7 \uB3C5\uB9BD \uC9C4\uD589`;
 }
 function handLabel(value) {
   const p = seriesProgress(value), game = value?.game, wind = game?.rules?.roundWind ?? value?.handContext?.roundWind ?? (value?.matchRules ? 27 + Math.floor((p.board - 1) / 4) : 27);
@@ -2515,10 +2658,10 @@ var CONTROL_OPTIONS = [
   ["autoWin", "\uC790\uB3D9 \uD654\uB8CC", "\uB860\xB7\uCBD4\uBAA8\uAC00 \uAC00\uB2A5\uD558\uBA74 \uC790\uB3D9\uC73C\uB85C \uD654\uB8CC\uD569\uB2C8\uB2E4."]
 ];
 function element3(document2, tag, className, text3) {
-  const node2 = document2.createElement(tag);
-  if (className) node2.className = className;
-  if (text3 !== void 0) node2.textContent = text3;
-  return node2;
+  const node3 = document2.createElement(tag);
+  if (className) node3.className = className;
+  if (text3 !== void 0) node3.textContent = text3;
+  return node3;
 }
 function mountPersonalSettings(container, { value, onChange, onPreview } = {}) {
   if (!container?.ownerDocument) throw new TypeError("A settings container is required");
@@ -2737,32 +2880,32 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
   const media = window2?.matchMedia?.("(prefers-reduced-motion: reduce)");
   const timers = /* @__PURE__ */ new Map(), ghosts = /* @__PURE__ */ new Set(), transientMarks = /* @__PURE__ */ new Set(), voices = /* @__PURE__ */ new Set(), seen = /* @__PURE__ */ new Set();
   let view = null, lastDiscard = null, preferences = {}, logItems = [], initialized = false, destroyed = false, delay = 0, audio = null;
-  const node2 = (tag, className, text3) => {
+  const node3 = (tag, className, text3) => {
     const el = document2.createElement(tag);
     el.className = className;
     if (text3 !== void 0) el.textContent = text3;
     return el;
   };
-  const layer = node2("div", "feedback-layer");
+  const layer = node3("div", "feedback-layer");
   layer.setAttribute("aria-hidden", "true");
   const callouts = POSITIONS.map((position) => {
-    const el = node2("div", `feedback-callout feedback-${position}`);
+    const el = node3("div", `feedback-callout feedback-${position}`);
     el.hidden = true;
     layer.append(el);
     return el;
   });
   const calloutEvents = Array(4).fill(null);
   const riichiMarkers = POSITIONS.map((position) => {
-    const el = node2("div", `feedback-riichi-marker feedback-riichi-${position}`);
+    const el = node3("div", `feedback-riichi-marker feedback-riichi-${position}`);
     el.hidden = true;
-    el.append(node2("span", "feedback-riichi-stick"), node2("span", "feedback-riichi-label", "\u7ACB\u76F4"));
+    el.append(node3("span", "feedback-riichi-stick"), node3("span", "feedback-riichi-label", "\u7ACB\u76F4"));
     layer.append(el);
     return el;
   });
-  const winner = node2("div", "feedback-win-banner");
+  const winner = node3("div", "feedback-win-banner");
   winner.hidden = true;
   layer.append(winner);
-  const announcement = node2("div", "feedback-announcement");
+  const announcement = node3("div", "feedback-announcement");
   announcement.setAttribute("role", "status");
   announcement.setAttribute("aria-live", "polite");
   announcement.setAttribute("aria-atomic", "true");
@@ -2935,14 +3078,14 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
     historyContainer.hidden = !preferences.recentActions || !logItems.length;
     historyContainer.replaceChildren();
     if (historyContainer.hidden) return;
-    const heading = node2("div", "feedback-history-heading", "\uCD5C\uADFC \uC120\uD0DD");
-    const list = node2("ol", "feedback-history-list");
+    const heading = node3("div", "feedback-history-heading", "\uCD5C\uADFC \uC120\uD0DD");
+    const list = node3("ol", "feedback-history-list");
     for (const event3 of logItems.slice(-6)) {
-      const item = node2("li", `feedback-history-item feedback-history-${event3.kind}`);
-      item.append(node2("span", "feedback-history-player", name(event3.seat)), node2("b", "feedback-history-action", actionName(event3, preferences.discardDisplay)));
-      if (validTile(event3.tile)) item.append(node2("span", "feedback-history-tile", `${event3.red ? "\uC801 " : ""}${tileName(event3.tile)}`));
+      const item = node3("li", `feedback-history-item feedback-history-${event3.kind}`);
+      item.append(node3("span", "feedback-history-player", name(event3.seat)), node3("b", "feedback-history-action", actionName(event3, preferences.discardDisplay)));
+      if (validTile(event3.tile)) item.append(node3("span", "feedback-history-tile", `${event3.red ? "\uC801 " : ""}${tileName(event3.tile)}`));
       const source = sourceSeat(event3);
-      if (source !== null && source !== event3.seat) item.append(node2("span", "feedback-history-source", `\u2190 ${name(source)}`));
+      if (source !== null && source !== event3.seat) item.append(node3("span", "feedback-history-source", `\u2190 ${name(source)}`));
       list.append(item);
     }
     historyContainer.append(heading, list);
@@ -2954,9 +3097,9 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
     box.dataset.kind = event3.kind;
     box.dataset.seat = String(event3.seat);
     calloutEvents[index] = { kind: event3.kind, callType: event3.callType, method: event3.method, ...typeof event3.tsumogiri === "boolean" ? { tsumogiri: event3.tsumogiri } : {} };
-    box.append(node2("div", "feedback-callout-player", `${preview2 ? "\uBBF8\uB9AC\uBCF4\uAE30 \xB7 " : ""}${name(event3.seat)}`));
-    const line = node2("div", "feedback-callout-main");
-    line.append(node2("strong", `feedback-callout-action${discardDetail(event3, preferences.discardDisplay) ? " feedback-discard-detail" : ""}`, actionName(event3, preferences.discardDisplay)));
+    box.append(node3("div", "feedback-callout-player", `${preview2 ? "\uBBF8\uB9AC\uBCF4\uAE30 \xB7 " : ""}${name(event3.seat)}`));
+    const line = node3("div", "feedback-callout-main");
+    line.append(node3("strong", `feedback-callout-action${discardDetail(event3, preferences.discardDisplay) ? " feedback-discard-detail" : ""}`, actionName(event3, preferences.discardDisplay)));
     if (validTile(event3.tile)) {
       const tile3 = tileFace(event3.tile, { small: true });
       tile3.classList.toggle("red", !!event3.red);
@@ -2964,7 +3107,7 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
     }
     box.append(line);
     const source = sourceSeat(event3);
-    if (source !== null && source !== event3.seat) box.append(node2("div", "feedback-callout-source", `\u2190 ${name(source)}`));
+    if (source !== null && source !== event3.seat) box.append(node3("div", "feedback-callout-source", `\u2190 ${name(source)}`));
     box.hidden = false;
     box.classList.remove("feedback-enter");
     if (preferences.motion) {
@@ -3055,9 +3198,9 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
   }
   function announceWins(events) {
     if (!events.length || !preferences.actionBubbles) return;
-    winner.replaceChildren(node2("span", "feedback-win-eyebrow", events.length > 1 ? `${events.length}\uBA85 \uB3D9\uC2DC \uD654\uB8CC` : "\uD654\uB8CC"));
-    const line = node2("div", "feedback-win-names");
-    for (const event3 of events) line.append(node2("strong", "", `${name(event3.seat)} \xB7 ${actionName(event3)}`));
+    winner.replaceChildren(node3("span", "feedback-win-eyebrow", events.length > 1 ? `${events.length}\uBA85 \uB3D9\uC2DC \uD654\uB8CC` : "\uD654\uB8CC"));
+    const line = node3("div", "feedback-win-names");
+    for (const event3 of events) line.append(node3("strong", "", `${name(event3.seat)} \xB7 ${actionName(event3)}`));
     winner.append(line);
     winner.hidden = false;
     winner.classList.toggle("feedback-enter", preferences.motion);
@@ -3151,7 +3294,7 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
     if (preferences.recentActions && historyContainer) {
       renderHistory();
       historyContainer.hidden = false;
-      const demo = node2("div", "feedback-history-preview", `\uBBF8\uB9AC\uBCF4\uAE30 \xB7 ${textFor(event3)}`);
+      const demo = node3("div", "feedback-history-preview", `\uBBF8\uB9AC\uBCF4\uAE30 \xB7 ${textFor(event3)}`);
       historyContainer.prepend(demo);
       later("preview-history", renderHistory, 1600);
     }
@@ -3277,14 +3420,14 @@ function createRemotePractice({ getServer, onState, onError = () => {
       }
     },
     async start(options) {
-      const config = options.matchRules ? normalizeMatchRules(options.matchRules) : null, count = config ? matchBoardCount(config) : options.count;
+      const config = options.matchRules ? normalizeMatchRules(options.matchRules) : null, count2 = config ? matchBoardCount(config) : options.count;
       const duplicateProfile = normalizeDuplicateProfile(options.duplicateProfile), generation = ++epoch;
       clearTimeout(timer);
       credentials = null;
-      context3 = { seed: options.seed, seat: options.seat, count, matchRules: config, duplicateProfile };
+      context3 = { seed: options.seed, seat: options.seat, count: count2, matchRules: config, duplicateProfile };
       state = null;
       persist();
-      const server = getServer(), value = await request2(server, "", { name: options.name ?? "\uB098", boardCount: count, rules: options.rules, duplicateProfile, ...config ? { matchRules: config } : {}, aiPolicy: "mortal", practice: { seed: options.seed, seat: options.seat } }, null);
+      const server = getServer(), value = await request2(server, "", { name: options.name ?? "\uB098", boardCount: count2, rules: options.rules, duplicateProfile, ...config ? { matchRules: config } : {}, aiPolicy: "mortal", practice: { seed: options.seed, seat: options.seat } }, null);
       if (generation !== epoch) return null;
       if (typeof value.key !== "string" || !/^[a-f0-9]{64}$/.test(value.key)) throw new Error("Mortal \uC5F0\uC2B5 \uC811\uC18D \uC815\uBCF4\uB97C \uD655\uC778\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.");
       credentials = { code: value.code, key: value.key, seat: value.seat, tableId: value.tableId, server };
@@ -3765,7 +3908,7 @@ var REPLAY_LIMITS = Object.freeze({ bytes: 32 * 1024 * 1024, actions: 2048, fram
 var roles = /* @__PURE__ */ new Set(["private", "participant", "viewer", "caster"]);
 var kinds = /* @__PURE__ */ new Set(["discard", "call", "kan", "riichi", "win"]);
 var object3 = (v) => v && typeof v === "object" && !Array.isArray(v);
-var integer = Number.isSafeInteger;
+var integer2 = Number.isSafeInteger;
 var clone = (v) => structuredClone(v);
 var sort = (v) => Array.isArray(v) ? v.map(sort) : object3(v) ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sort(v[k])])) : v;
 var canonical = (v) => JSON.stringify(sort(v));
@@ -3784,11 +3927,11 @@ var keys = (v, allowed) => {
   require2(Object.keys(v).every((k) => allowed.includes(k)), "\uC7AC\uC0DD \uD30C\uC77C\uC5D0 \uD5C8\uC6A9\uB418\uC9C0 \uC54A\uC740 \uC815\uBCF4\uAC00 \uC788\uC2B5\uB2C8\uB2E4.");
 };
 var seat3 = (v) => {
-  require2(integer(v) && v >= 0 && v < 4, "\uC7AC\uC0DD \uC88C\uC11D\uC744 \uD655\uC778\uD558\uC138\uC694.");
+  require2(integer2(v) && v >= 0 && v < 4, "\uC7AC\uC0DD \uC88C\uC11D\uC744 \uD655\uC778\uD558\uC138\uC694.");
   return v;
 };
 var number = (v, min = 0, max = Number.MAX_SAFE_INTEGER) => {
-  require2(integer(v) && v >= min && v <= max);
+  require2(integer2(v) && v >= min && v <= max);
   return v;
 };
 var text = (v, max = 160) => {
@@ -4037,8 +4180,8 @@ function normalizeEngine(value) {
   for (const [key, expected] of Object.entries({ duplicateProfile: profile, honba: initial.honba, dealer: initial.dealer, roundWind: initial.rules.roundWind, pot: initial.pot, initialPot: initial.pot, startingScores: initial.startingScores })) if (result.context[key] !== void 0) require2(equal(result.context[key], expected), "\uC7AC\uC0DD \uC2DC\uC791 \uC815\uBCF4\uC640 \uB300\uAD6D \uBB38\uB9E5\uC774 \uB2E4\uB985\uB2C8\uB2E4.");
   for (const key of ["board", "honba", "handNumber", "handId", "code", "tableId"]) if (result.source[key] !== void 0 && result.context[key] !== void 0) require2(result.source[key] === result.context[key], "\uC7AC\uC0DD \uCD9C\uCC98\uC640 \uB300\uAD6D \uBB38\uB9E5\uC774 \uB2E4\uB985\uB2C8\uB2E4.");
   if (result.context.matchRules && result.context.board !== void 0) {
-    const count = matchBoardCount(result.context.matchRules);
-    require2(result.context.board <= count && (!result.context.boardCount || result.context.boardCount === count) && initial.dealer === (result.context.board - 1) % 4 && initial.rules.roundWind === 27 + Math.floor((result.context.board - 1) / 4), "\uC7AC\uC0DD \uAD6D \uC815\uBCF4\uC640 \uACBD\uAE30 \uD615\uC2DD\uC774 \uB2E4\uB985\uB2C8\uB2E4.");
+    const count2 = matchBoardCount(result.context.matchRules);
+    require2(result.context.board <= count2 && (!result.context.boardCount || result.context.boardCount === count2) && initial.dealer === (result.context.board - 1) % 4 && initial.rules.roundWind === 27 + Math.floor((result.context.board - 1) / 4), "\uC7AC\uC0DD \uAD6D \uC815\uBCF4\uC640 \uACBD\uAE30 \uD615\uC2DD\uC774 \uB2E4\uB985\uB2C8\uB2E4.");
   }
   optional(result, value, "id", (v) => text(v));
   optional(result, value, "createdAt", number);
@@ -4393,13 +4536,14 @@ function winnerPaymentSummary(view, winnerSeat) {
 
 // duplicate/daily-challenge.mjs
 var DAILY_VERSION = 1;
+var DAILY_RESULT_VERSION = 2;
 var DAILY_STORAGE_KEY = "duplicate.daily-results.v1";
 var DAILY_SHARE_NOTICE = "\uACF5\uC720\uC790\uAC00 \uC81C\uACF5\uD55C \uAE30\uB85D\uC785\uB2C8\uB2E4.";
 var DAY = 864e5;
 var MAX_HASH = 2048;
-var MAX_HANDS = 1e3;
+var MAX_HANDS2 = 1e3;
 var MAX_SCORE = 1e8;
-var STAT_KEYS = ["discard", "riichi", "call", "kan", "win"];
+var STAT_KEYS2 = ["discard", "riichi", "call", "kan", "win"];
 var RESULT_KEYS = ["v", "date", "seed", "seat", "net", "referenceDifference", "hands", "stats"];
 var DAILY_RULES = Object.freeze({
   id: "duplicate-riichi-v1",
@@ -4417,9 +4561,9 @@ var DAILY_RULES = Object.freeze({
   roundWind: 27,
   abortFourKans: false
 });
-var integer2 = (n, min, max) => Number.isSafeInteger(n) && n >= min && n <= max;
-var plain = (o) => !!o && typeof o === "object" && !Array.isArray(o) && [Object.prototype, null].includes(Object.getPrototypeOf(o));
-var exact = (o, keys2) => plain(o) && Object.keys(o).length === keys2.length && Object.keys(o).every((key) => keys2.includes(key));
+var integer3 = (n, min, max) => Number.isSafeInteger(n) && n >= min && n <= max;
+var plain2 = (o) => !!o && typeof o === "object" && !Array.isArray(o) && [Object.prototype, null].includes(Object.getPrototypeOf(o));
+var exact = (o, keys2) => plain2(o) && Object.keys(o).length === keys2.length && Object.keys(o).every((key) => keys2.includes(key));
 function checkedDate(date) {
   if (typeof date !== "string" || !/^20\d\d-\d\d-\d\d$/.test(date)) throw Error("Invalid daily date");
   const value = /* @__PURE__ */ new Date(`${date}T00:00:00.000Z`);
@@ -4448,49 +4592,62 @@ function dailyChallenge(date = dailyDate()) {
     rules: normalizeProfileRules(DAILY_RULES, "mil-riichi")
   };
 }
-var emptyDailyStats = () => Object.fromEntries(STAT_KEYS.map((key) => [key, 0]));
 function dailyStatsFromGame(game, seat5 = 0) {
-  if (game?.phase !== "end" || !integer2(seat5, 0, 3)) throw Error("Daily hand has not ended");
-  const player = game.players?.[seat5];
-  if (!Array.isArray(player?.river) || !Array.isArray(player.melds) || !Array.isArray(game.winners)) throw Error("Missing daily hand outcomes");
-  return {
-    discard: player.river.filter((tile3) => !tile3.robbedKan).length,
-    riichi: player.river.filter((tile3) => tile3.riichi && !tile3.robbedKan).length,
-    call: player.melds.filter((meld3) => meld3.open).length,
-    kan: player.melds.filter((meld3) => meld3.type === "kan").length,
-    win: Number(game.winners.includes(seat5))
-  };
+  return actionStatsFromGame(game, seat5);
 }
 function validStats(stats, hands) {
-  return exact(stats, STAT_KEYS) && STAT_KEYS.every((key) => integer2(stats[key], 0, key === "discard" ? hands * 140 : ["kan", "call"].includes(key) ? hands * 4 : hands)) && stats.riichi <= stats.discard;
+  return exact(stats, STAT_KEYS2) && STAT_KEYS2.every((key) => integer3(stats[key], 0, key === "discard" ? hands * 140 : ["kan", "call"].includes(key) ? hands * 4 : hands)) && stats.riichi <= stats.discard;
 }
 function validateDailyResult(value) {
-  if (!exact(value, RESULT_KEYS) || value.v !== DAILY_VERSION || !integer2(value.seat, 0, 3) || !integer2(value.hands, 1, MAX_HANDS) || !integer2(value.net, -MAX_SCORE, MAX_SCORE) || !(value.referenceDifference === null || integer2(value.referenceDifference, -MAX_SCORE, MAX_SCORE)) || !validStats(value.stats, value.hands)) throw Error("Invalid daily result");
+  const modern = value?.v === DAILY_RESULT_VERSION;
+  if (!exact(value, modern ? [...RESULT_KEYS, "comparison"] : RESULT_KEYS) || ![1, DAILY_RESULT_VERSION].includes(value.v) || !integer3(value.seat, 0, 3) || !integer3(value.hands, 1, MAX_HANDS2) || !integer3(value.net, -MAX_SCORE, MAX_SCORE) || !(value.referenceDifference === null || integer3(value.referenceDifference, -MAX_SCORE, MAX_SCORE)) || !modern && !validStats(value.stats, value.hands)) throw Error("Invalid daily result");
   checkedDate(value.date);
   if (value.seed !== dailySeed(value.date)) throw Error("Daily date and seed differ");
-  return {
-    v: DAILY_VERSION,
-    date: value.date,
-    seed: value.seed,
-    seat: value.seat,
-    net: value.net,
-    referenceDifference: value.referenceDifference,
-    hands: value.hands,
-    stats: Object.fromEntries(STAT_KEYS.map((key) => [key, value.stats[key]]))
-  };
+  const stats = modern ? validateActionStats(value.stats, value.hands) : Object.fromEntries(STAT_KEYS2.map((key) => [key, value.stats[key]]));
+  const result = { v: value.v, date: value.date, seed: value.seed, seat: value.seat, net: value.net, referenceDifference: value.referenceDifference, hands: value.hands, stats };
+  if (modern) {
+    let comparison = null;
+    if (value.comparison !== null) {
+      const c = value.comparison;
+      if (!exact(c, ["source", "hands", "stats"]) || c.source !== "ai" || c.hands !== value.hands) throw Error("Invalid daily comparison");
+      comparison = { source: "ai", hands: c.hands, stats: validateActionStats(c.stats, c.hands) };
+    }
+    result.comparison = comparison;
+  }
+  return result;
 }
 function resultFromDailySeries({ date, seed, seat: seat5, results } = {}) {
-  if (!Array.isArray(results) || !integer2(results.length, 1, MAX_HANDS)) throw Error("Missing daily results");
-  const stats = emptyDailyStats();
-  let net = 0, reference = 0, referenceReady = true;
+  if (!Array.isArray(results) || !integer3(results.length, 1, MAX_HANDS2)) throw Error("Missing daily results");
+  const modern = results.every((row) => plain2(row?.dailyStats) && Object.hasOwn(row.dailyStats, "dealIn"));
+  const stats = modern ? emptyActionStats() : Object.fromEntries(STAT_KEYS2.map((key) => [key, 0])), referenceStats = emptyActionStats();
+  let net = 0, reference = 0, referenceReady = true, statsReady = modern;
   for (const row of results) {
-    if (!integer2(row?.score, -MAX_SCORE, MAX_SCORE) || !validStats(row.dailyStats, 1)) throw Error("Invalid daily hand result");
+    if (!integer3(row?.score, -MAX_SCORE, MAX_SCORE)) throw Error("Invalid daily hand result");
+    if (Object.hasOwn(row?.dailyStats ?? {}, "dealIn")) validateActionStats(row.dailyStats, 1);
+    else if (!validStats(row.dailyStats, 1)) throw Error("Invalid daily hand result");
     net += row.score;
-    for (const key of STAT_KEYS) stats[key] += row.dailyStats[key];
-    if (row.referenceStatus === "done" && integer2(row.reference, -MAX_SCORE, MAX_SCORE)) reference += row.reference;
+    for (const key of Object.keys(stats)) stats[key] += row.dailyStats[key];
+    if (row.referenceStatus === "done" && integer3(row.reference, -MAX_SCORE, MAX_SCORE)) reference += row.reference;
     else referenceReady = false;
+    try {
+      if (row.referenceStatus !== "done") throw Error("Pending reference");
+      const other = validateActionStats(row.referenceStats, 1);
+      for (const key of Object.keys(referenceStats)) referenceStats[key] += other[key];
+    } catch {
+      statsReady = false;
+    }
   }
-  return validateDailyResult({ v: DAILY_VERSION, date, seed, seat: seat5, net, referenceDifference: referenceReady ? net - reference : null, hands: results.length, stats });
+  return validateDailyResult({
+    v: modern ? DAILY_RESULT_VERSION : 1,
+    date,
+    seed,
+    seat: seat5,
+    net,
+    referenceDifference: referenceReady ? net - reference : null,
+    hands: results.length,
+    stats,
+    ...modern ? { comparison: statsReady ? { source: "ai", hands: results.length, stats: referenceStats } : null } : {}
+  });
 }
 function dailyPersona(result) {
   const { stats: s, hands } = validateDailyResult(result);
@@ -4599,57 +4756,67 @@ function resultForDailyPractice(practice) {
 var RULES = "\uBC18\uC7A5\uC804 \xB7 \uC2DC\uC791 \uC790\uB9AC \uB79C\uB364 \xB7 \uAE30\uBCF8 AI \xB7 \uAE30\uBCF8 \uADDC\uCE59 \xB7 \uCE5C \uC5F0\uC7A5";
 var WINDS = ["\u6771", "\u5357", "\u897F", "\u5317"];
 var number2 = (value) => Number(value).toLocaleString("ko-KR");
-var signed = (value) => `${value > 0 ? "+" : ""}${number2(value)}`;
+var signed2 = (value) => `${value > 0 ? "+" : ""}${number2(value)}`;
 var dateLabel = (date) => date.replaceAll("-", ".");
-var referenceLabel = (result, shared2 = false) => result.referenceDifference === null ? shared2 ? "\uBE44\uAD50 \uC5C6\uC74C" : "\uC9D1\uACC4 \uC911" : signed(result.referenceDifference) + "\uC810";
-function node(document2, tag, className, text3) {
+var referenceLabel = (result, shared2 = false) => result.referenceDifference === null ? shared2 ? "\uBE44\uAD50 \uC5C6\uC74C" : "\uC9D1\uACC4 \uC911" : signed2(result.referenceDifference) + "\uC810";
+var rate = (value) => Number(Math.abs(value)).toLocaleString("ko-KR", { maximumFractionDigits: 1 });
+var signedRate = (value) => `${value > 0 ? "+" : value < 0 ? "\u2212" : ""}${rate(value)}`;
+var actionPeers = (result) => result.comparison ? [{ hands: result.comparison.hands, stats: result.comparison.stats }] : [];
+function actionComparison(result) {
+  try {
+    return compareActionStats({ hands: result.hands, stats: result.stats }, actionPeers(result));
+  } catch {
+    return null;
+  }
+}
+function node2(document2, tag, className, text3) {
   const element4 = document2.createElement(tag);
   if (className) element4.className = className;
   if (text3 !== void 0) element4.textContent = text3;
   return element4;
 }
 function button(document2, label, action, { id, className = "" } = {}) {
-  const element4 = node(document2, "button", className, label);
+  const element4 = node2(document2, "button", className, label);
   element4.type = "button";
   if (id) element4.id = id;
   element4.addEventListener("click", action);
   return element4;
 }
 function tiles2(document2) {
-  const row = node(document2, "div", "daily-tiles");
+  const row = node2(document2, "div", "daily-tiles");
   row.setAttribute("aria-hidden", "true");
-  for (const text3 of ["\u6771", "\u767C", "\u4E2D"]) row.append(node(document2, "span", `daily-tile${text3 === "\u4E2D" ? " daily-tile-red" : ""}`, text3));
+  for (const text3 of ["\u6771", "\u767C", "\u4E2D"]) row.append(node2(document2, "span", `daily-tile${text3 === "\u4E2D" ? " daily-tile-red" : ""}`, text3));
   return row;
 }
 function fact(document2, label, value) {
-  const cell = node(document2, "div", "daily-stat");
-  cell.append(node(document2, "dt", "", label), node(document2, "dd", "", value));
+  const cell = node2(document2, "div", "daily-stat");
+  cell.append(node2(document2, "dt", "", label), node2(document2, "dd", "", value));
   return cell;
 }
 function mountDailyShare({ document: document2, onStart, toast: toast2 = () => {
 }, getBaseURL = () => document2.defaultView.location.href, onOpen = () => {
 }, onClose = () => {
 } }) {
-  const window2 = document2.defaultView, dialog = node(document2, "dialog", "daily-share-dialog");
+  const window2 = document2.defaultView, dialog = node2(document2, "dialog", "daily-share-dialog");
   dialog.id = "daily-share-dialog";
   dialog.setAttribute("aria-labelledby", "daily-share-title");
-  const shell = node(document2, "div", "daily-share-shell"), header = node(document2, "header", "daily-share-header");
-  const heading = node(document2, "div", "daily-heading"), eyebrow = node(document2, "span", "daily-eyebrow", "DUPLICATE MAHJONG");
-  const title = node(document2, "h2", "", "\uC624\uB298\uC758 \uD328\uC0B0");
+  const shell = node2(document2, "div", "daily-share-shell"), header = node2(document2, "header", "daily-share-header");
+  const heading = node2(document2, "div", "daily-heading"), eyebrow = node2(document2, "span", "daily-eyebrow", "DUPLICATE MAHJONG");
+  const title = node2(document2, "h2", "", "\uC624\uB298\uC758 \uD328\uC0B0");
   title.id = "daily-share-title";
   title.tabIndex = -1;
   const closeButton = button(document2, "\uB2EB\uAE30", () => closeDialog(), { id: "daily-share-close", className: "daily-close" });
   heading.append(eyebrow, title);
   header.append(heading, closeButton);
-  const body = node(document2, "div", "daily-share-body"), footer = node(document2, "footer", "daily-share-footer");
-  const status = node(document2, "p", "daily-status");
+  const body = node2(document2, "div", "daily-share-body"), footer = node2(document2, "footer", "daily-share-footer");
+  const status = node2(document2, "p", "daily-status");
   status.setAttribute("role", "status");
   status.setAttribute("aria-live", "polite");
-  const fallback = node(document2, "div", "daily-copy-fallback");
+  const fallback = node2(document2, "div", "daily-copy-fallback");
   fallback.hidden = true;
-  const fallbackLabel = node(document2, "label", "", "\uC544\uB798 \uB0B4\uC6A9\uC744 \uC120\uD0DD\uD574 \uBCF5\uC0AC\uD574 \uC8FC\uC138\uC694.");
+  const fallbackLabel = node2(document2, "label", "", "\uC544\uB798 \uB0B4\uC6A9\uC744 \uC120\uD0DD\uD574 \uBCF5\uC0AC\uD574 \uC8FC\uC138\uC694.");
   fallbackLabel.htmlFor = "daily-copy-value";
-  const fallbackInput = node(document2, "textarea", "");
+  const fallbackInput = node2(document2, "textarea", "");
   fallbackInput.id = "daily-copy-value";
   fallbackInput.readOnly = true;
   fallbackInput.rows = 3;
@@ -4720,9 +4887,9 @@ function mountDailyShare({ document: document2, onStart, toast: toast2 = () => {
     }
   }
   function seedLine(challenge) {
-    const line = node(document2, "div", "daily-seed-row");
-    const label = node(document2, "div", "");
-    label.append(node(document2, "span", "daily-field-label", "\uD328\uC0B0 \uC2DC\uB4DC"), node(document2, "code", "", String(challenge.seed)));
+    const line = node2(document2, "div", "daily-seed-row");
+    const label = node2(document2, "div", "");
+    label.append(node2(document2, "span", "daily-field-label", "\uD328\uC0B0 \uC2DC\uB4DC"), node2(document2, "code", "", String(challenge.seed)));
     line.append(label, button(document2, "\uC2DC\uB4DC \uBCF5\uC0AC", () => copy2(String(challenge.seed), "\uD328\uC0B0 \uC2DC\uB4DC\uB97C \uBCF5\uC0AC\uD588\uC2B5\uB2C8\uB2E4."), { className: "daily-seed-copy" }));
     return line;
   }
@@ -4731,12 +4898,12 @@ function mountDailyShare({ document: document2, onStart, toast: toast2 = () => {
     currentShared = false;
     title.textContent = "\uC624\uB298\uC758 \uD328\uC0B0";
     body.replaceChildren();
-    const hero = node(document2, "section", "daily-hub-hero");
-    const kicker = node(document2, "p", "daily-date", dateLabel(challenge.date));
-    hero.append(kicker, tiles2(document2), node(document2, "h3", "", "\uAC19\uC740 \uD328\uC0B0, \uB098\uB9CC\uC758 \uC120\uD0DD"), node(document2, "p", "daily-lead", "\uB9E4\uC77C \uAC19\uC740 \uBC30\uD328\uC640 \uAC1C\uC778 \uD328\uC0B0\uC73C\uB85C \uB3C4\uC804\uD558\uACE0, \uB098\uC758 \uD50C\uB808\uC774 \uC720\uD615\uC744 \uCE74\uB4DC\uB85C \uB098\uB220 \uBCF4\uC138\uC694."));
-    hero.append(seedLine(challenge), node(document2, "p", "daily-rules", RULES));
+    const hero = node2(document2, "section", "daily-hub-hero");
+    const kicker = node2(document2, "p", "daily-date", dateLabel(challenge.date));
+    hero.append(kicker, tiles2(document2), node2(document2, "h3", "", "\uAC19\uC740 \uD328\uC0B0, \uB098\uB9CC\uC758 \uC120\uD0DD"), node2(document2, "p", "daily-lead", "\uB9E4\uC77C \uAC19\uC740 \uBC30\uD328\uC640 \uAC1C\uC778 \uD328\uC0B0\uC73C\uB85C \uB3C4\uC804\uD558\uACE0, \uB098\uC758 \uD50C\uB808\uC774 \uC720\uD615\uC744 \uCE74\uB4DC\uB85C \uB098\uB220 \uBCF4\uC138\uC694."));
+    hero.append(seedLine(challenge), node2(document2, "p", "daily-rules", RULES));
     const cta = button(document2, active ? "\uC9C4\uD589 \uC911\uC778 \uB3C4\uC804 \uACC4\uC18D\uD558\uAE30" : "\uC624\uB298\uC758 \uD328\uC0B0 \uB3C4\uC804", () => start(challenge.date, { resume: active }), { id: "daily-start", className: "primary daily-start" });
-    hero.append(cta, node(document2, "p", "daily-note", "\uD55C\uAD6D \uC2DC\uAC04 \uC790\uC815\uC5D0 \uC0C8 \uC2DC\uB4DC\uAC00 \uC5F4\uB9BD\uB2C8\uB2E4. \uB2E4\uB978 \uB0A0\uC9DC\uC758 \uACB0\uACFC\uB3C4 \uAC19\uC740 \uD328\uC0B0\uC73C\uB85C \uB2E4\uC2DC \uB3C4\uC804\uD560 \uC218 \uC788\uC5B4\uC694."));
+    hero.append(cta, node2(document2, "p", "daily-note", "\uD55C\uAD6D \uC2DC\uAC04 \uC790\uC815\uC5D0 \uC0C8 \uC2DC\uB4DC\uAC00 \uC5F4\uB9BD\uB2C8\uB2E4. \uB2E4\uB978 \uB0A0\uC9DC\uC758 \uACB0\uACFC\uB3C4 \uAC19\uC740 \uD328\uC0B0\uC73C\uB85C \uB2E4\uC2DC \uB3C4\uC804\uD560 \uC218 \uC788\uC5B4\uC694."));
     body.append(hero);
     const saved2 = savedResults.slice(0, 5).flatMap((result) => {
       try {
@@ -4746,13 +4913,13 @@ function mountDailyShare({ document: document2, onStart, toast: toast2 = () => {
       }
     });
     if (saved2.length) {
-      const history2 = node(document2, "section", "daily-history");
-      history2.append(node(document2, "h3", "", "\uB0B4 \uB3C4\uC804 \uCE74\uB4DC"));
-      history2.append(node(document2, "p", "daily-note", "\uC774 \uBE0C\uB77C\uC6B0\uC800\uC5D0 \uC800\uC7A5\uB41C \uCD5C\uADFC \uACB0\uACFC\uC785\uB2C8\uB2E4."));
-      const list = node(document2, "ul", "daily-result-list");
+      const history2 = node2(document2, "section", "daily-history");
+      history2.append(node2(document2, "h3", "", "\uB0B4 \uB3C4\uC804 \uCE74\uB4DC"));
+      history2.append(node2(document2, "p", "daily-note", "\uC774 \uBE0C\uB77C\uC6B0\uC800\uC5D0 \uC800\uC7A5\uB41C \uCD5C\uADFC \uACB0\uACFC\uC785\uB2C8\uB2E4."));
+      const list = node2(document2, "ul", "daily-result-list");
       for (const result of saved2) {
-        const item = node(document2, "li", "daily-result-item"), summary2 = node(document2, "div", "daily-result-summary");
-        summary2.append(node(document2, "span", "daily-result-date", `${dateLabel(result.date)} \xB7 \uC2DC\uC791 \uC790\uB9AC ${WINDS[result.seat]}`), node(document2, "strong", "", dailyPersona(result).title), node(document2, "span", `daily-result-net${result.net < 0 ? " is-negative" : ""}`, `${signed(result.net)}\uC810 \xB7 ${result.hands}\uAD6D`));
+        const item = node2(document2, "li", "daily-result-item"), summary2 = node2(document2, "div", "daily-result-summary");
+        summary2.append(node2(document2, "span", "daily-result-date", `${dateLabel(result.date)} \xB7 \uC2DC\uC791 \uC790\uB9AC ${WINDS[result.seat]}`), node2(document2, "strong", "", dailyPersona(result).title), node2(document2, "span", `daily-result-net${result.net < 0 ? " is-negative" : ""}`, `${signed2(result.net)}\uC810 \xB7 ${result.hands}\uAD6D`));
         item.append(summary2, button(document2, "\uB0B4 \uACB0\uACFC \uBCF4\uAE30", () => openResult(result), { className: "daily-open-result" }));
         list.append(item);
       }
@@ -4762,18 +4929,20 @@ function mountDailyShare({ document: document2, onStart, toast: toast2 = () => {
     show("daily");
   }
   function resultCard(result, shared2) {
-    const persona = dailyPersona(result), card = node(document2, "article", "daily-persona-card");
-    card.append(node(document2, "div", "daily-card-topline", `${dateLabel(result.date)} \xB7 \uC624\uB298\uC758 \uD328\uC0B0`), tiles2(document2));
-    card.append(node(document2, "p", "daily-card-kicker", "\uC774\uBC88 \uB300\uAD6D\uC758 \uB098\uB294"), node(document2, "h3", "daily-persona-title", persona.title), node(document2, "p", "daily-persona-description", persona.description));
-    const score2 = node(document2, "div", `daily-card-score${Math.abs(result.net) >= 1e6 ? " long-value" : ""}`);
-    score2.append(node(document2, "span", "", "\uB300\uAD6D \uC810\uC218 \uC99D\uAC10"), node(document2, "strong", result.net < 0 ? "is-negative" : "", `${signed(result.net)}`), node(document2, "small", "", "\uC810"));
+    const persona = dailyPersona(result), card = node2(document2, "article", "daily-persona-card");
+    card.append(node2(document2, "div", "daily-card-topline", `${dateLabel(result.date)} \xB7 \uC624\uB298\uC758 \uD328\uC0B0`), tiles2(document2));
+    card.append(node2(document2, "p", "daily-card-kicker", "\uC774\uBC88 \uB300\uAD6D\uC758 \uB098\uB294"), node2(document2, "h3", "daily-persona-title", persona.title), node2(document2, "p", "daily-persona-description", persona.description));
+    const score2 = node2(document2, "div", `daily-card-score${Math.abs(result.net) >= 1e6 ? " long-value" : ""}`);
+    score2.append(node2(document2, "span", "", "\uB300\uAD6D \uC810\uC218 \uC99D\uAC10"), node2(document2, "strong", result.net < 0 ? "is-negative" : "", `${signed2(result.net)}`), node2(document2, "small", "", "\uC810"));
     card.append(score2);
-    const reference = node(document2, "div", "daily-card-reference");
-    reference.append(node(document2, "span", "", "\uAE30\uBCF8 AI \uAC19\uC740 \uC790\uB9AC \uB300\uBE44"), node(document2, "strong", "", referenceLabel(result, shared2)));
+    const reference = node2(document2, "div", "daily-card-reference");
+    reference.append(node2(document2, "span", "", "\uAE30\uBCF8 AI \uAC19\uC740 \uC790\uB9AC \uB300\uBE44"), node2(document2, "strong", "", referenceLabel(result, shared2)));
     card.append(reference);
-    const stats = node(document2, "dl", "daily-card-stats");
-    for (const [label, value] of [["\uB9AC\uCE58", result.stats.riichi], ["\uD6C4\uB85C", result.stats.call], ["\uD654\uB8CC", result.stats.win], ["\uAE61", result.stats.kan]]) stats.append(fact(document2, label, `${value}\uD68C`));
-    card.append(stats, node(document2, "p", "daily-card-meta", `${result.hands}\uAD6D \uC644\uB8CC \xB7 \uC2DC\uC791 \uC790\uB9AC ${WINDS[result.seat]} \xB7 \uBC84\uB9BC ${result.stats.discard}\uD68C \xB7 \uC2DC\uB4DC ${result.seed}`));
+    const stats = node2(document2, "dl", "daily-card-stats");
+    for (const [label, value] of [["\uB9AC\uCE58", result.stats.riichi], ["\uD6C4\uB85C", result.stats.call], ["\uAE61", result.stats.kan], ["\uD654\uB8CC", result.stats.win], ["\uBC29\uCD1D", result.stats.dealIn]]) stats.append(fact(document2, label, Number.isInteger(value) ? `${value}\uD68C` : "\u2014"));
+    const comparison = node2(document2, "div", "daily-action-comparison");
+    renderActionComparison(comparison, { own: { hands: result.hands, stats: result.stats }, peers: actionPeers(result), sourceLabel: "\uAE30\uBCF8 AI \uAC19\uC740 \uC790\uB9AC", document: document2 });
+    card.append(stats, comparison, node2(document2, "p", "daily-card-meta", `${result.hands}\uAD6D \uC644\uB8CC \xB7 \uC2DC\uC791 \uC790\uB9AC ${WINDS[result.seat]} \xB7 \uBC84\uB9BC ${result.stats.discard}\uD68C \xB7 \uC2DC\uB4DC ${result.seed}`));
     return card;
   }
   function openResult(value, { shared: shared2 = false } = {}) {
@@ -4782,17 +4951,17 @@ function mountDailyShare({ document: document2, onStart, toast: toast2 = () => {
     currentShared = shared2;
     title.textContent = shared2 ? "\uACF5\uC720\uD55C \uB3C4\uC804 \uCE74\uB4DC" : "\uB0B4 \uB3C4\uC804 \uCE74\uB4DC";
     body.replaceChildren();
-    if (shared2) body.append(node(document2, "p", "daily-unverified", DAILY_SHARE_NOTICE));
+    if (shared2) body.append(node2(document2, "p", "daily-unverified", DAILY_SHARE_NOTICE));
     body.append(resultCard(result, shared2));
-    const actions = node(document2, "div", "daily-card-actions");
+    const actions = node2(document2, "div", "daily-card-actions");
     const share = button(document2, "\uACB0\uACFC \uACF5\uC720", () => withAction(share, () => shareResult(result, shared2)), { id: "daily-share-result", className: "primary" });
     const save = button(document2, "\uC774\uBBF8\uC9C0 \uC800\uC7A5", () => withAction(save, () => downloadImage(result, shared2)), { id: "daily-save-image" });
     const link = button(document2, "\uB9C1\uD06C \uBCF5\uC0AC", () => copy2(buildDailyShareURL(getBaseURL(), result), "\uACB0\uACFC \uB9C1\uD06C\uB97C \uBCF5\uC0AC\uD588\uC2B5\uB2C8\uB2E4. \uAC19\uC740 \uD328\uC0B0 \uB3C4\uC804\uB3C4 \uD568\uAED8 \uC5F4\uB9BD\uB2C8\uB2E4."), { id: "daily-copy-link" });
     actions.append(share, save, link);
     body.append(actions);
     body.append(button(document2, "\uC774 \uD328\uC0B0 \uB3C4\uC804", () => start(result.date, { seat: result.seat }), { id: "daily-retry", className: "daily-retry" }));
-    body.append(node(document2, "p", "daily-note", "\uACF5\uC720 \uB9C1\uD06C\uC5D0\uB294 \uB0A0\uC9DC\xB7\uC2DC\uB4DC\xB7\uC2DC\uC791 \uC790\uB9AC\xB7\uC810\uC218\uC640 \uD589\uB3D9 \uD69F\uC218\uB9CC \uB2F4\uAE41\uB2C8\uB2E4. \uB2C9\uB124\uC784\xB7\uC190\uD328\xB7\uD328\uBCF4\uB294 \uD3EC\uD568\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4."));
-    if (!shared2) body.append(node(document2, "p", "daily-note", "\uACB0\uACFC\uB294 \uC774 \uBE0C\uB77C\uC6B0\uC800\uC5D0 \uC800\uC7A5\uB429\uB2C8\uB2E4. \uC0AC\uC774\uD2B8 \uB370\uC774\uD130\uB97C \uC9C0\uC6B0\uBA74 \uC0AC\uB77C\uC9C8 \uC218 \uC788\uC5B4\uC694."));
+    body.append(node2(document2, "p", "daily-note", "\uACF5\uC720 \uB9C1\uD06C\uC5D0\uB294 \uB0A0\uC9DC\xB7\uC2DC\uB4DC\xB7\uC2DC\uC791 \uC790\uB9AC\xB7\uC810\uC218\uC640 \uD589\uB3D9 \uD69F\uC218\uB9CC \uB2F4\uAE41\uB2C8\uB2E4. \uB2C9\uB124\uC784\xB7\uC190\uD328\xB7\uD328\uBCF4\uB294 \uD3EC\uD568\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4."));
+    if (!shared2) body.append(node2(document2, "p", "daily-note", "\uACB0\uACFC\uB294 \uC774 \uBE0C\uB77C\uC6B0\uC800\uC5D0 \uC800\uC7A5\uB429\uB2C8\uB2E4. \uC0AC\uC774\uD2B8 \uB370\uC774\uD130\uB97C \uC9C0\uC6B0\uBA74 \uC0AC\uB77C\uC9C8 \uC218 \uC788\uC5B4\uC694."));
     show("result");
   }
   async function withAction(target, action) {
@@ -4812,7 +4981,7 @@ function mountDailyShare({ document: document2, onStart, toast: toast2 = () => {
     return new Promise((resolve3, reject) => canvas.toBlob((blob) => blob ? resolve3(blob) : reject(Error("\uC774\uBBF8\uC9C0\uB97C \uB9CC\uB4E4\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. \uB9C1\uD06C \uBCF5\uC0AC\uB97C \uC774\uC6A9\uD574 \uC8FC\uC138\uC694.")), "image/png"));
   }
   async function downloadImage(result, shared2) {
-    const blob = await imageBlob(result, shared2), url = window2.URL.createObjectURL(blob), anchor = node(document2, "a", "");
+    const blob = await imageBlob(result, shared2), url = window2.URL.createObjectURL(blob), anchor = node2(document2, "a", "");
     anchor.href = url;
     anchor.download = `duplicate-mahjong-${result.date}.png`;
     anchor.hidden = true;
@@ -4824,7 +4993,7 @@ function mountDailyShare({ document: document2, onStart, toast: toast2 = () => {
   }
   async function shareResult(result, shared2) {
     const url = buildDailyShareURL(getBaseURL(), result), persona = dailyPersona(result), text3 = `${dateLabel(result.date)} \uC624\uB298\uC758 \uD328\uC0B0 \xB7 ${persona.title}
-\uC810\uC218 \uC99D\uAC10 ${signed(result.net)}\uC810 \xB7 ${result.hands}\uAD6D \xB7 \uC2DC\uC791 \uC790\uB9AC ${WINDS[result.seat]}`;
+\uC810\uC218 \uC99D\uAC10 ${signed2(result.net)}\uC810 \xB7 ${result.hands}\uAD6D \xB7 \uC2DC\uC791 \uC790\uB9AC ${WINDS[result.seat]}`;
     const navigator2 = window2.navigator;
     if (navigator2.share) {
       try {
@@ -4889,22 +5058,22 @@ function wrapText(context3, text3, x, y, maxWidth, lineHeight) {
   return y + offset + lineHeight;
 }
 function renderDailyResultCanvas(value, { document: document2 = globalThis.document, width = 1080, shared: shared2 = false } = {}) {
-  const result = validateDailyResult(value), persona = dailyPersona(result), canvas = document2.createElement("canvas");
+  const result = validateDailyResult(value), persona = dailyPersona(result), comparison = actionComparison(result), canvas = document2.createElement("canvas");
   canvas.width = Number.isFinite(width) ? Math.min(2160, Math.max(360, Math.round(width))) : 1080;
-  canvas.height = Math.round(canvas.width * 1.3);
+  canvas.height = Math.round(canvas.width * 1850 / 1080);
   const context3 = canvas.getContext("2d");
   if (!context3) throw Error("\uC774 \uBE0C\uB77C\uC6B0\uC800\uC5D0\uC11C\uB294 \uACB0\uACFC \uC774\uBBF8\uC9C0\uB97C \uB9CC\uB4E4 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. \uB9C1\uD06C \uBCF5\uC0AC\uB97C \uC774\uC6A9\uD574 \uC8FC\uC138\uC694.");
   const scale = canvas.width / 1080;
   context3.scale(scale, scale);
   context3.textAlign = "center";
-  const gradient = context3.createLinearGradient(0, 0, 1080, 1404);
+  const gradient = context3.createLinearGradient(0, 0, 1080, 1850);
   gradient.addColorStop(0, "#183b2e");
   gradient.addColorStop(1, "#101f1a");
   context3.fillStyle = gradient;
-  context3.fillRect(0, 0, 1080, 1404);
+  context3.fillRect(0, 0, 1080, 1850);
   context3.strokeStyle = "#6e805d";
   context3.lineWidth = 2;
-  roundRect(context3, 38, 38, 1004, 1328, 24);
+  roundRect(context3, 38, 38, 1004, 1774, 24);
   context3.stroke();
   context3.fillStyle = "#d6c58f";
   context3.font = "700 24px system-ui, -apple-system, sans-serif";
@@ -4913,7 +5082,7 @@ function renderDailyResultCanvas(value, { document: document2 = globalThis.docum
   context3.font = "500 26px system-ui, -apple-system, sans-serif";
   context3.fillText(`${dateLabel(result.date)}  \xB7  \uC624\uB298\uC758 \uD328\uC0B0`, 540, 151);
   context3.fillStyle = "#f0ecdf";
-  roundRect(context3, 83, 195, 914, 1052, 30);
+  roundRect(context3, 83, 195, 914, 1498, 30);
   context3.fill();
   for (const [i, glyph] of ["\u6771", "\u767C", "\u4E2D"].entries()) {
     const x = 414 + i * 90;
@@ -4929,57 +5098,113 @@ function renderDailyResultCanvas(value, { document: document2 = globalThis.docum
   }
   context3.fillStyle = "#6b755f";
   context3.font = "500 24px system-ui, -apple-system, sans-serif";
-  context3.fillText("\uC774\uBC88 \uB300\uAD6D\uC758 \uB098\uB294", 540, 394);
+  context3.fillText("\uC774\uBC88 \uB300\uAD6D\uC758 \uB098\uB294", 540, 389);
   context3.fillStyle = "#224532";
   fitText(context3, persona.title, 796, 64);
-  context3.fillText(persona.title, 540, 475);
+  context3.fillText(persona.title, 540, 461);
   context3.fillStyle = "#65715e";
   context3.font = "400 27px system-ui, -apple-system, sans-serif";
-  wrapText(context3, persona.description, 540, 534, 740, 42);
+  wrapText(context3, persona.description, 540, 519, 740, 42);
   context3.fillStyle = "#65715e";
   context3.font = "600 25px system-ui, -apple-system, sans-serif";
-  context3.fillText("\uB300\uAD6D \uC810\uC218 \uC99D\uAC10", 540, 679);
+  context3.fillText("\uB300\uAD6D \uC810\uC218 \uC99D\uAC10", 540, 650);
   context3.fillStyle = result.net < 0 ? "#a25343" : "#28543c";
-  fitText(context3, signed(result.net), 780, 116, { weight: 750, min: 68 });
-  context3.fillText(signed(result.net), 540, 796);
+  fitText(context3, signed2(result.net), 780, 110, { weight: 750, min: 68 });
+  context3.fillText(signed2(result.net), 540, 755);
   context3.fillStyle = "#65715e";
   context3.font = "500 24px system-ui, -apple-system, sans-serif";
-  context3.fillText("\uC810", 540, 840);
+  context3.fillText("\uC810", 540, 797);
   context3.strokeStyle = "#cbd0bb";
   context3.lineWidth = 1;
   context3.beginPath();
-  context3.moveTo(170, 882);
-  context3.lineTo(910, 882);
+  context3.moveTo(170, 826);
+  context3.lineTo(910, 826);
   context3.stroke();
   context3.textAlign = "left";
   context3.fillStyle = "#5f6d59";
   context3.font = "500 25px system-ui, -apple-system, sans-serif";
-  context3.fillText("\uAE30\uBCF8 AI \uAC19\uC740 \uC790\uB9AC \uB300\uBE44", 176, 931);
+  context3.fillText("\uAE30\uBCF8 AI \uAC19\uC740 \uC790\uB9AC \uB300\uBE44", 176, 867);
   context3.textAlign = "right";
   context3.fillStyle = "#325039";
   fitText(context3, referenceLabel(result, shared2), 340, 29);
-  context3.fillText(referenceLabel(result, shared2), 904, 931);
+  context3.fillText(referenceLabel(result, shared2), 904, 867);
   context3.textAlign = "center";
-  for (const [i, [label, value2]] of [["\uB9AC\uCE58", result.stats.riichi], ["\uD6C4\uB85C", result.stats.call], ["\uD654\uB8CC", result.stats.win], ["\uAE61", result.stats.kan]].entries()) {
-    const x = 260 + i * 187;
+  for (const [i, [label, value2]] of [["\uB9AC\uCE58", result.stats.riichi], ["\uD6C4\uB85C", result.stats.call], ["\uAE61", result.stats.kan], ["\uD654\uB8CC", result.stats.win], ["\uBC29\uCD1D", result.stats.dealIn]].entries()) {
+    const x = 218 + i * 161;
     context3.fillStyle = "#687560";
-    context3.font = "500 24px system-ui, -apple-system, sans-serif";
-    context3.fillText(label, x, 1008);
+    context3.font = "500 23px system-ui, -apple-system, sans-serif";
+    context3.fillText(label, x, 928);
     context3.fillStyle = "#2b4b35";
-    context3.font = "700 42px system-ui, -apple-system, sans-serif";
-    context3.fillText(`${value2}\uD68C`, x, 1067);
+    context3.font = "700 38px system-ui, -apple-system, sans-serif";
+    context3.fillText(Number.isInteger(value2) ? `${value2}\uD68C` : "\u2014", x, 978);
   }
+  context3.strokeStyle = "#cbd0bb";
+  context3.beginPath();
+  context3.moveTo(170, 1010);
+  context3.lineTo(910, 1010);
+  context3.stroke();
+  context3.textAlign = "left";
+  context3.fillStyle = "#284b35";
+  context3.font = "700 27px system-ui, -apple-system, sans-serif";
+  context3.fillText("\uAE30\uBCF8 AI \uAC19\uC740 \uC790\uB9AC \xB7 \uD589\uB3D9 \uBE44\uAD50", 176, 1060);
   context3.fillStyle = "#6f7965";
   context3.font = "400 22px system-ui, -apple-system, sans-serif";
-  context3.fillText(`${result.hands}\uAD6D \uC644\uB8CC \xB7 \uC2DC\uC791 \uC790\uB9AC ${WINDS[result.seat]} \xB7 \uBC84\uB9BC ${result.stats.discard}\uD68C`, 540, 1123);
+  context3.fillText(comparison?.samples ? `1\uD0C1 \uBE44\uAD50 \xB7 \uB098 ${result.hands}\uAD6D \xB7 \uBE44\uAD50 ${result.comparison.hands}\uAD6D` : result.v === 1 ? "\uC774\uC804 \uAE30\uB85D\uC5D0\uB294 \uBC29\uCD1D\xB7\uB2E4\uB978 \uD0C1 \uD589\uB3D9 \uC815\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4." : "\uB2E4\uB978 \uD0C1\uC758 \uD589\uB3D9 \uAE30\uB85D\uC744 \uAE30\uB2E4\uB9AC\uACE0 \uC788\uC2B5\uB2C8\uB2E4.", 176, 1099);
+  const columns = [176, 454, 660, 904];
+  for (const [i, label] of ["\uD589\uB3D9", "\uB098", "\uD0C1 \uD3C9\uADE0", "100\uAD6D\uB2F9 \uCC28\uC774"].entries()) {
+    context3.textAlign = i === 0 ? "left" : "right";
+    context3.fillStyle = "#738067";
+    context3.font = "600 21px system-ui, -apple-system, sans-serif";
+    context3.fillText(label, columns[i], 1150);
+  }
+  const metrics = comparison?.metrics || [["call", "\uD6C4\uB85C"], ["riichi", "\uB9AC\uCE58"], ["kan", "\uAE61"], ["win", "\uD654\uB8CC"], ["dealIn", "\uBC29\uCD1D"]].map(([key, label]) => ({ key, label, ownCount: result.stats[key] ?? null, peerMeanCount: null, difference: null }));
+  for (const [index, metric] of metrics.entries()) {
+    const y = 1194 + index * 45, good = comparison?.highlights.some((value2) => value2.key === metric.key);
+    if (good) {
+      context3.fillStyle = "#dce5cc";
+      roundRect(context3, 160, y - 29, 760, 42, 5);
+      context3.fill();
+    }
+    const values = [metric.label, metric.ownCount === null ? "\u2014" : `${number2(metric.ownCount)}\uD68C`, metric.peerMeanCount === null ? "\u2014" : `${rate(metric.peerMeanCount)}\uD68C`, metric.difference === null ? "\u2014" : `${signedRate(metric.difference)}\uD68C`];
+    for (const [i, text3] of values.entries()) {
+      context3.textAlign = i === 0 ? "left" : "right";
+      context3.fillStyle = good ? "#28543c" : "#52664d";
+      fitText(context3, text3, i === 0 ? 190 : 180, 25, { weight: good ? 700 : 500, min: 18 });
+      context3.fillText(text3, columns[i], y);
+    }
+  }
+  context3.textAlign = "left";
+  if (comparison?.highlights.length) {
+    context3.fillStyle = "#28543c";
+    context3.font = "700 24px system-ui, -apple-system, sans-serif";
+    context3.fillText("\uD3C9\uADE0\uBCF4\uB2E4 \uC88B\uC558\uB358 \uC810", 176, 1460);
+    for (const [index, metric] of comparison.highlights.entries()) {
+      context3.fillStyle = "#4b6345";
+      context3.font = "500 23px system-ui, -apple-system, sans-serif";
+      context3.fillText(`${metric.key === "dealIn" ? "\uBC29\uCD1D\uC774" : "\uD654\uB8CC\uAC00"} 100\uAD6D\uB2F9 ${rate(metric.difference)}\uD68C ${metric.key === "dealIn" ? "\uC801\uC5C8\uC5B4\uC694" : "\uB9CE\uC558\uC5B4\uC694"}.`, 176, 1500 + index * 35);
+    }
+  } else if (comparison?.samples) {
+    context3.fillStyle = "#6f7965";
+    context3.font = "400 22px system-ui, -apple-system, sans-serif";
+    wrapText(context3, "\uC774\uBC88\uC5D0\uB294 \uD3C9\uADE0\uBCF4\uB2E4 \uD654\uB8CC\uAC00 \uB9CE\uAC70\uB098 \uBC29\uCD1D\uC774 \uC801\uC5C8\uB358 \uD56D\uBAA9\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.", 176, 1460, 740, 33);
+  }
+  if (comparison?.samples) {
+    context3.fillStyle = "#74816a";
+    context3.font = "400 19px system-ui, -apple-system, sans-serif";
+    context3.fillText("\uD6C4\uB85C\xB7\uB9AC\uCE58\xB7\uAE61\uC740 \uC120\uD0DD\uC758 \uCC28\uC774 \xB7 \uAD6D \uC218 \uCC28\uC774\uB294 100\uAD6D\uB2F9 \uD69F\uC218\uB85C \uBE44\uAD50", 176, 1575);
+  }
+  context3.textAlign = "center";
+  context3.fillStyle = "#6f7965";
+  context3.font = "400 22px system-ui, -apple-system, sans-serif";
+  context3.fillText(`${result.hands}\uAD6D \uC644\uB8CC \xB7 \uC2DC\uC791 \uC790\uB9AC ${WINDS[result.seat]} \xB7 \uBC84\uB9BC ${result.stats.discard}\uD68C`, 540, 1620);
   context3.font = "400 20px system-ui, -apple-system, sans-serif";
-  context3.fillText(`\uC2DC\uB4DC ${result.seed}`, 540, 1158);
+  context3.fillText(`\uC2DC\uB4DC ${result.seed}`, 540, 1656);
   context3.fillStyle = "#c5ceb6";
   context3.font = "400 20px system-ui, -apple-system, sans-serif";
-  context3.fillText(shared2 ? "\uACF5\uC720\uC790\uAC00 \uC81C\uACF5\uD55C \uACB0\uACFC \xB7 \uACF5\uC2DD \uAC80\uC99D \uC544\uB2D8" : "\uC774 \uBE0C\uB77C\uC6B0\uC800\uC5D0\uC11C \uB9CC\uB4E0 \uD50C\uB808\uC774 \uC694\uC57D", 540, 1294);
+  context3.fillText(shared2 ? "\uACF5\uC720\uC790\uAC00 \uC81C\uACF5\uD55C \uACB0\uACFC \xB7 \uACF5\uC2DD \uAC80\uC99D \uC544\uB2D8" : "\uC774 \uBE0C\uB77C\uC6B0\uC800\uC5D0\uC11C \uB9CC\uB4E0 \uD50C\uB808\uC774 \uC694\uC57D", 540, 1750);
   context3.fillStyle = "#b2c09f";
   context3.font = "500 18px system-ui, -apple-system, sans-serif";
-  context3.fillText("\uAC19\uC740 \uD328\uC0B0, \uB098\uB9CC\uC758 \uC120\uD0DD.", 540, 1330);
+  context3.fillText("\uAC19\uC740 \uD328\uC0B0, \uB098\uB9CC\uC758 \uC120\uD0DD.", 540, 1787);
   return canvas;
 }
 
@@ -4988,7 +5213,7 @@ var DEFAULT_SERVER = "https://wellness-mahjong-h-lab.chayhyeon.chatgpt.site";
 var snapshot4 = (game, seat5) => withWinningHands(game, withDiscardMetadata(game, snapshot3(game, seat5)));
 var $ = (id) => document.getElementById(id);
 var number3 = (n) => Number(n).toLocaleString("ko-KR");
-var signed2 = (n) => n === null || n === void 0 ? "\u2014" : `${n > 0 ? "+" : ""}${number3(n)}`;
+var signed3 = (n) => n === null || n === void 0 ? "\u2014" : `${n > 0 ? "+" : ""}${number3(n)}`;
 var winds2 = ["\u6771", "\u5357", "\u897F", "\u5317"];
 var positions = ["bottom", "right", "top", "left"];
 var milFixed = ["dora", "kanDora", "uraDora", "redDora", "deadWall", "exhaustLimit", "multipleRon", "abortFourKans"];
@@ -5324,8 +5549,8 @@ function ruleSummary() {
   box.append(textNode("span", profileName(currentDuplicateProfile()), "chip"));
   for (const [key, name] of switchDefinitions.slice(0, 6)) box.append(textNode("span", `${name} ${r[key] ? "ON" : "OFF"}`, `chip ${r[key] ? "" : "off"}`));
   box.append(textNode("span", usesMilProgression(currentDuplicateProfile()) ? "\uD558\uAC00 \uC0B0 \uC18C\uC9C4 \xB7 \uB9C8\uC9C0\uB9C9 \uCC28\uB840" : `${r.exhaustLimit}\uBA85 \uC18C\uC9C4 \uC720\uAD6D`, "chip"));
-  const match = currentMatchRules(), count = S.mode === "online" ? S.online?.boardCount ?? S.boardCount : S.practice?.count;
-  box.append(textNode("span", formatName(match, count), "chip"));
+  const match = currentMatchRules(), count2 = S.mode === "online" ? S.online?.boardCount ?? S.boardCount : S.practice?.count;
+  box.append(textNode("span", formatName(match, count2), "chip"));
   box.append(textNode("span", `\uCE5C \uC5F0\uC7A5 ${match?.dealerContinuation ? "ON" : "OFF"}`, "chip"));
   $("rules-series-summary").textContent = match ? `${formatName(match)} \xB7 \uCE5C \uC5F0\uC7A5 ${match.dealerContinuation ? "\uC788\uC74C" : "\uC5C6\uC74C"} \xB7 \uC544\uAC00\uB9AC\uC57C\uBA54 ${match.agariYame ? "ON" : "OFF"}` : "\uAE30\uC874 \uB300\uAD6D \xB7 \uAC01 \uAD6D \uB3C5\uB9BD \xB7 \uCE5C \uC5F0\uC7A5 \uC5C6\uC74C";
   $("rules-summary-title").textContent = S.mode === "online" ? S.online ? "\uC774 \uBC29\uC758 \uB300\uAD6D \uADDC\uCE59" : "\uC0C8 \uB300\uD68C \uADDC\uCE59" : "\uD604\uC7AC \uC5F0\uC2B5 \uADDC\uCE59";
@@ -5415,7 +5640,7 @@ async function newPractice(options = {}) {
   clearPlayTimer();
   S.worker?.terminate();
   S.worker = null;
-  const seed = Number(raw), seatChoice = challenge ? options.dailySeat === void 0 ? "random" : String(options.dailySeat) : $("practice-seat").value, seat5 = resolvePracticeSeat(seatChoice, randomSeed), matchRules = challenge?.matchRules ?? normalizeMatchRules({ ...S.practiceMatchRules, format: $("practice-count").value }), count = matchBoardCount(matchRules);
+  const seed = Number(raw), seatChoice = challenge ? options.dailySeat === void 0 ? "random" : String(options.dailySeat) : $("practice-seat").value, seat5 = resolvePracticeSeat(seatChoice, randomSeed), matchRules = challenge?.matchRules ?? normalizeMatchRules({ ...S.practiceMatchRules, format: $("practice-count").value }), count2 = matchBoardCount(matchRules);
   remotePractice.clear();
   S.practiceRemote = null;
   S.practiceError = "";
@@ -5437,7 +5662,7 @@ async function newPractice(options = {}) {
     S.busy = true;
     render();
     try {
-      await remotePractice.start({ seed, seat: seat5, count, matchRules, rules: S.settings, duplicateProfile: S.practiceDuplicateProfile, name: readStorage(localStorage, "duplicate.name") ?? "\uB098" });
+      await remotePractice.start({ seed, seat: seat5, count: count2, matchRules, rules: S.settings, duplicateProfile: S.practiceDuplicateProfile, name: readStorage(localStorage, "duplicate.name") ?? "\uB098" });
       if (S.mode === "practice") remotePractice.activate();
     } catch (error) {
       S.practiceError = "Mortal \uC5F0\uC2B5\uC744 \uC0C8\uB85C \uC2DC\uC791\uD574 \uC8FC\uC138\uC694.";
@@ -5542,6 +5767,11 @@ function finishPractice(view = null) {
   const p = S.practice, current = seriesProgress(p);
   if (p.results.some((r) => handId({ board: r.board ?? r.index + 1, honba: r.honba ?? 0 }) === current.handId)) return;
   const result = { ...current, index: current.handNumber - 1, seat: p.seat, score: view?.players[p.seat].score ?? p.game.players[p.seat].score, reference: null, referenceStatus: "loading", continues: !!(p.aiPolicy === "mortal" ? S.practiceRemote?.nextHand : localNextPlan(p))?.continues, seatScores: (view?.players ?? p.game.players).map((player) => player.score), members: Array.from({ length: 4 }, (_, seat5) => ({ seat: seat5, name: seat5 === p.seat ? "\uB098" : `AI ${(seat5 - p.seat + 4) % 4}`, ai: seat5 !== p.seat })) };
+  try {
+    result.actionStats = Array.from({ length: 4 }, (_, seat5) => actionStatsFromGame(view ?? p.game, seat5));
+  } catch {
+    result.actionStats = null;
+  }
   if (challengeForPractice(p)) result.dailyStats = dailyStatsFromGame(p.game, p.seat);
   p.results.push(result);
   savePractice();
@@ -5557,13 +5787,14 @@ function finishPractice(view = null) {
   }
   try {
     S.worker?.terminate();
-    S.worker = new Worker(new URL("./baseline-worker.mjs?v=f9052a72189cc9c3", import.meta.url), { type: "module" });
+    S.worker = new Worker(new URL("./baseline-worker.mjs?v=a569dce95e238264", import.meta.url), { type: "module" });
     S.worker.onmessage = (e) => {
       if (e.data.error) {
         result.referenceStatus = "error";
         toast("AI \uAE30\uC900 \uB300\uAD6D\uC744 \uACC4\uC0B0\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.");
       } else {
         result.reference = e.data.score;
+        result.referenceStats = e.data.stats;
         result.referenceStatus = "done";
       }
       savePractice();
@@ -5586,6 +5817,7 @@ function finishPractice(view = null) {
         driveAI(game, [], 2e3);
         if (game.phase !== "end") throw Error("AI limit");
         result.reference = game.players[job.seat].score;
+        result.referenceStats = actionStatsFromGame(game, job.seat);
         result.referenceStatus = "done";
       } catch {
         result.referenceStatus = "error";
@@ -5724,8 +5956,8 @@ function renderTable() {
     $("seat-label").textContent = "";
     return;
   }
-  const context3 = progress(), board = context3.board, count = S.mode === "practice" ? S.practice.count : S.online.boardCount;
-  $("board-label").textContent = `${S.mode === "practice" ? "\uC5F0\uC2B5" : "\uC628\uB77C\uC778"} \xB7 ${board}/${count}\uAE30\uBCF8\uAD6D \xB7 \uB300\uAD6D ${context3.handNumber}`;
+  const context3 = progress(), board = context3.board, count2 = S.mode === "practice" ? S.practice.count : S.online.boardCount;
+  $("board-label").textContent = `${S.mode === "practice" ? "\uC5F0\uC2B5" : "\uC628\uB77C\uC778"} \xB7 ${board}/${count2}\uAE30\uBCF8\uAD6D \xB7 \uB300\uAD6D ${context3.handNumber}`;
   $("seat-label").textContent = `\uB0B4 \uC790\uB9AC ${winds2[(v.seat - v.dealer + 4) % 4]}`;
   $("round-name").textContent = handLabel({ ...context3, game: v });
   $("board-number").textContent = `DEAL ${context3.handId}`;
@@ -5905,7 +6137,7 @@ function renderEnd() {
     const payments2 = document.createElement("dl");
     payments2.className = "winner-payments";
     const paymentRow = (label, value, { net = false, total = false } = {}) => {
-      const term = textNode("dt", label, total ? "payment-total" : ""), valueNode = textNode("dd", value === null ? "\uD655\uC778 \uBD88\uAC00" : `${net ? signed2(value) : number3(value)}\uC810`, total ? "payment-total" : "");
+      const term = textNode("dt", label, total ? "payment-total" : ""), valueNode = textNode("dd", value === null ? "\uD655\uC778 \uBD88\uAC00" : `${net ? signed3(value) : number3(value)}\uC810`, total ? "payment-total" : "");
       payments2.append(term, valueNode);
     };
     paymentRow("\uAE30\uBCF8 \uD654\uB8CC \uC218\uC785 (\uBCF8\uC7A5\xB7\uACF5\uD0C1 \uC81C\uC678)", summary2.baseReceipt);
@@ -5937,7 +6169,7 @@ function renderEnd() {
     const row = document.createElement("div");
     row.className = `end-score-row ${seat5 === v.seat ? "self" : ""}`;
     const name = activeRoom()?.members?.find((p) => p.seat === seat5)?.name ?? (seat5 === v.seat ? "\uB098" : `AI ${(seat5 - v.seat + 4) % 4}`);
-    row.append(textNode("span", `${winds2[(seat5 - v.dealer + 4) % 4]} \xB7 ${name ?? "\uD50C\uB808\uC774\uC5B4"}`), textNode("b", signed2(v.players[seat5].score), v.players[seat5].score > 0 ? "positive" : v.players[seat5].score < 0 ? "negative" : ""));
+    row.append(textNode("span", `${winds2[(seat5 - v.dealer + 4) % 4]} \xB7 ${name ?? "\uD50C\uB808\uC774\uC5B4"}`), textNode("b", signed3(v.players[seat5].score), v.players[seat5].score > 0 ? "positive" : v.players[seat5].score < 0 ? "negative" : ""));
     points2.append(row);
   }
   $("next-board").textContent = hasNext() ? currentNextHand()?.continues ? "\uC5F0\uC7A5 \uB300\uAD6D" : "\uB2E4\uC74C \uAD6D" : S.mode === "practice" ? "\uC0C8 \uC5F0\uC2B5" : "\uB300\uD68C \uC644\uB8CC";
@@ -5945,12 +6177,24 @@ function renderEnd() {
 }
 function setMetric(id, value) {
   const el = $(id);
-  el.textContent = signed2(value);
+  el.textContent = signed3(value);
   el.classList.toggle("positive", value > 0);
   el.classList.toggle("negative", value < 0);
 }
 function finalRows(room) {
   return room?.tournament?.finalResults?.standings ?? [];
+}
+function summedPracticeStats(group, read) {
+  try {
+    const total = emptyActionStats();
+    for (const row of group) {
+      const stats = validateActionStats(read(row), 1);
+      for (const key of Object.keys(total)) total[key] += stats[key];
+    }
+    return validateActionStats(total, group.length);
+  } catch {
+    return null;
+  }
 }
 function renderRoundScorePanel() {
   const panel = $("round-score-panel");
@@ -5958,8 +6202,8 @@ function renderRoundScorePanel() {
   if (!S.view) return;
   let rows = S.mode === "online" ? S.online?.roundResults ?? [] : null;
   if (!rows) {
-    const practice = S.practice, history2 = practice?.results ?? [], count = practice?.count ?? 8;
-    rows = Array.from({ length: count }, (_, index) => {
+    const practice = S.practice, history2 = practice?.results ?? [], count2 = practice?.count ?? 8;
+    rows = Array.from({ length: count2 }, (_, index) => {
       const board = index + 1, group = history2.filter((row) => (row.board ?? row.index + 1) === board), next = currentNextHand();
       const complete = group.some((row) => row.continues === false) || history2.some((row) => (row.board ?? row.index + 1) > board) || progress().board === board && S.view.phase === "end" && next && !next.continues;
       const entries = [];
@@ -5967,9 +6211,18 @@ function renderRoundScorePanel() {
         const available = group.every((row) => Array.isArray(row.seatScores) && Number.isFinite(row.seatScores[seat5]));
         if (!available && seat5 !== practice.seat) continue;
         const member = group.at(-1).members?.find((member2) => member2.seat === seat5) ?? { name: seat5 === practice.seat ? "\uB098" : `AI ${(seat5 - practice.seat + 4) % 4}`, ai: seat5 !== practice.seat };
-        entries.push({ tableId: "\uC5F0\uC2B5", name: member.name, seat: seat5, ai: member.ai, score: group.reduce((sum, row) => sum + (available ? row.seatScores[seat5] : row.score), 0), hands: group.length });
+        entries.push({ tableId: "\uC5F0\uC2B5", name: member.name, seat: seat5, ai: member.ai, score: group.reduce((sum, row) => sum + (available ? row.seatScores[seat5] : row.score), 0), hands: group.length, actionStats: summedPracticeStats(group, (row) => row.actionStats?.[seat5]) });
       }
-      return { board, status: complete && group.length ? "complete" : "waiting", entries, averages: [], referenceLabel: "AI \uAE30\uC900", referenceMean: complete && group.length && group.every((row) => Number.isFinite(row.reference)) ? group.reduce((sum, row) => sum + row.reference, 0) : null };
+      return {
+        board,
+        status: complete && group.length ? "complete" : "waiting",
+        entries,
+        averages: [],
+        referenceLabel: "AI \uAE30\uC900",
+        referenceMean: complete && group.length && group.every((row) => Number.isFinite(row.reference)) ? group.reduce((sum, row) => sum + row.reference, 0) : null,
+        referenceActionStats: complete && group.length && group.every((row) => row.referenceStatus === "done") ? summedPracticeStats(group, (row) => row.referenceStats) : null,
+        referenceHands: group.length
+      };
     });
   }
   renderRoundResults(panel, rows, { currentBoard: progress().board, seat: S.view.seat, ownTableId: S.mode === "online" ? S.online?.tableId : "\uC5F0\uC2B5", ai: false });
@@ -5985,7 +6238,7 @@ function renderComparison() {
   setMetric("reference-result", online ? record?.mean : record?.reference);
   setMetric("difference-result", online ? tournament && scoring.method === "imp" ? record?.imp : record?.difference : record?.reference !== null && record?.reference !== void 0 ? record.score - record.reference : null);
   $("scoring-result-details").hidden = !tournament || !final;
-  $("scoring-result-details").textContent = tournament && final ? `\uC6D0\uC810\uC218 \uD3C9\uADE0 \uB300\uBE44 ${signed2(record?.difference)}\uC810 \xB7 IMP ${signed2(record?.imp)} \xB7 ${scoring.impUnit.toLocaleString("ko-KR")}\uC810 \uB2E8\uC704 \xB7 \uAC19\uC740 \uCD5C\uCD08 \uC790\uB9AC ${record?.samples ?? 0}\uBA85 (${record?.ai ? "AI" : "\uC0AC\uB78C"})` : "";
+  $("scoring-result-details").textContent = tournament && final ? `\uC6D0\uC810\uC218 \uD3C9\uADE0 \uB300\uBE44 ${signed3(record?.difference)}\uC810 \xB7 IMP ${signed3(record?.imp)} \xB7 ${scoring.impUnit.toLocaleString("ko-KR")}\uC810 \uB2E8\uC704 \xB7 \uAC19\uC740 \uCD5C\uCD08 \uC790\uB9AC ${record?.samples ?? 0}\uBA85 (${record?.ai ? "AI" : "\uC0AC\uB78C"})` : "";
   $("comparison-note").textContent = tournament ? !final ? "\uBAA8\uB4E0 \uCC38\uAC00 \uD0C1\uC774 \uB300\uD68C\uB97C \uB9C8\uCE58\uBA74 \uC131\uC801\uC744 \uC790\uB3D9 \uD655\uC815\uD569\uB2C8\uB2E4. \uBCF8\uC7A5\uC744 \uD3EC\uD568\uD55C \uAD6D\uBCC4 \uC810\uC218 \uC99D\uAC10\uC744 \uAC19\uC740 \uCD5C\uCD08 \uC790\uB9AC\uB07C\uB9AC \uBE44\uAD50\uD569\uB2C8\uB2E4." : record?.samples >= 2 ? "\uD655\uC815 \uC131\uC801 \xB7 \uBCF8\uC7A5\uC744 \uD3EC\uD568\uD55C \uAD6D\uBCC4 \uBE44\uAD50\uC785\uB2C8\uB2E4. \uC6D0\uC810\uC218\uC640 IMP\uB97C \uD568\uAED8 \uD45C\uC2DC\uD558\uBA70 \uC0AC\uB78C\uACFC AI\uB294 \uB530\uB85C \uBE44\uAD50\uD569\uB2C8\uB2E4." : "\uAC19\uC740 \uCD5C\uCD08 \uC790\uB9AC\uC758 \uAC19\uC740 \uAD6C\uBD84 \uCC38\uAC00\uC790\uAC00 2\uBA85 \uBBF8\uB9CC\uC774\uBBC0\uB85C \uD3C9\uADE0 \uB300\uBE44\xB7IMP\xB7\uC21C\uC704\uB97C \uD45C\uC2DC\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4." : online ? record?.boards?.some((row) => row.contextMismatch) ? "\uBCF8\uC7A5\xB7\uACF5\uD0C1\xB7\uC2DC\uC791 \uC810\uC218\uAC00 \uB2E4\uB978 \uD0C1\uC740 \uC810\uC218 \uBE44\uAD50\uC5D0\uC11C \uC81C\uC678\uD569\uB2C8\uB2E4. \uAC19\uC740 \uC870\uAC74\uC758 \uC644\uB8CC \uB300\uAD6D\uC774 2\uAC1C \uC774\uC0C1\uC77C \uB54C \uD3C9\uADE0\uC744 \uD45C\uC2DC\uD569\uB2C8\uB2E4." : record?.samples >= 2 ? `\uC644\uB8CC\uB41C \uC0AC\uB78C \uCC38\uAC00\uC790 ${record.samples}\uBA85 \xB7 \uAC19\uC740 \uBC30\uD328\xB7\uC790\uB9AC\xB7\uBCF8\uC7A5\xB7\uC2DC\uC791 \uC810\uC218\xB7\uACF5\uD0C1 \uC870\uAC74\uC758 \uBE44\uAD50\uC785\uB2C8\uB2E4.` : "\uAC19\uC740 \uBC30\uD328\xB7\uC790\uB9AC\xB7\uBCF8\uC7A5\xB7\uC2DC\uC791 \uC810\uC218\xB7\uACF5\uD0C1 \uC870\uAC74\uC5D0\uC11C \uC644\uB8CC\uD55C \uC0AC\uB78C\uC774 2\uBA85 \uC774\uC0C1\uC774\uBA74 \uD3C9\uADE0\uC744 \uD45C\uC2DC\uD569\uB2C8\uB2E4." : record?.referenceStatus === "loading" ? "\uAC19\uC740 \uBC30\uD328\uC758 AI \uAE30\uC900 \uB300\uAD6D\uC744 \uACC4\uC0B0 \uC911\uC785\uB2C8\uB2E4." : record?.referenceStatus === "done" ? "\uAC19\uC740 \uBC30\uD328\xB7\uBCF8\uC7A5\xB7\uC2DC\uC791 \uC810\uC218\xB7\uACF5\uD0C1\uC758 \uAE30\uBCF8 AI \uAE30\uC900\uC785\uB2C8\uB2E4. \uC774\uD6C4 \uC9C4\uD589 \uACBD\uB85C\uB294 \uB530\uB85C \uBE44\uAD50\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4." : record?.referenceStatus === "error" ? "AI \uAE30\uC900 \uB300\uAD6D \uACC4\uC0B0\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4." : "\uAD6D\uC774 \uB05D\uB098\uBA74 \uAC19\uC740 \uC790\uB9AC\uC758 \uACB0\uACFC\uB97C \uBE44\uAD50\uD569\uB2C8\uB2E4.";
   const history2 = $("result-history");
   history2.replaceChildren();
@@ -5994,7 +6247,7 @@ function renderComparison() {
     const row = document.createElement("div");
     row.className = "result-history-row";
     const difference = online ? tournament && scoring.method === "imp" ? r.imp : r.difference : r.reference === null ? null : r.score - r.reference;
-    row.append(textNode("span", tournament ? `${r.board}\uAD6D \xB7 \uBCF8\uC7A5 \uD3EC\uD568` : `${r.board}\uAD6D \xB7 ${r.honba ?? 0}\uBCF8\uC7A5`), textNode("span", signed2(r.score)), textNode("span", difference === null ? "\uBE44\uAD50 \uB300\uAE30" : `${signed2(difference)}${tournament && scoring.method === "imp" ? " IMP" : ""}`, difference > 0 ? "positive" : difference < 0 ? "negative" : ""));
+    row.append(textNode("span", tournament ? `${r.board}\uAD6D \xB7 \uBCF8\uC7A5 \uD3EC\uD568` : `${r.board}\uAD6D \xB7 ${r.honba ?? 0}\uBCF8\uC7A5`), textNode("span", signed3(r.score)), textNode("span", difference === null ? "\uBE44\uAD50 \uB300\uAE30" : `${signed3(difference)}${tournament && scoring.method === "imp" ? " IMP" : ""}`, difference > 0 ? "positive" : difference < 0 ? "negative" : ""));
     history2.append(row);
   }
   $("standings-open").hidden = !online || tournament && !final || !S.online?.standings?.length;
@@ -6361,7 +6614,7 @@ function showStandings() {
   table.append(head);
   const body = document.createElement("tbody");
   for (const p of rows) {
-    const r = document.createElement("tr"), values = modern ? [p.rank ?? "\u2014", p.name, p.ai ? "AI" : "\uC0AC\uB78C", winds2[p.seat], signed2(p.score), signed2(p.difference), signed2(p.imp), p.samples] : [p.name, p.ai ? "AI" : "\uC0AC\uB78C", `${p.completedBoards}\uAD6D`, signed2(p.score), signed2(p.difference)];
+    const r = document.createElement("tr"), values = modern ? [p.rank ?? "\u2014", p.name, p.ai ? "AI" : "\uC0AC\uB78C", winds2[p.seat], signed3(p.score), signed3(p.difference), signed3(p.imp), p.samples] : [p.name, p.ai ? "AI" : "\uC0AC\uB78C", `${p.completedBoards}\uAD6D`, signed3(p.score), signed3(p.difference)];
     for (const value of values) r.append(textNode("td", value));
     body.append(r);
   }
