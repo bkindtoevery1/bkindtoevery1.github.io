@@ -4394,7 +4394,7 @@ function winnerPaymentSummary(view, winnerSeat) {
 // duplicate/daily-challenge.mjs
 var DAILY_VERSION = 1;
 var DAILY_STORAGE_KEY = "duplicate.daily-results.v1";
-var DAILY_SHARE_NOTICE = "\uACF5\uC720\uC790\uAC00 \uC81C\uACF5\uD55C \uAE30\uB85D\uC785\uB2C8\uB2E4. \uACF5\uC2DD \uC21C\uC704\uB098 \uC2E4\uB825 \uD310\uC815\uC774 \uC544\uB2D9\uB2C8\uB2E4.";
+var DAILY_SHARE_NOTICE = "\uACF5\uC720\uC790\uAC00 \uC81C\uACF5\uD55C \uAE30\uB85D\uC785\uB2C8\uB2E4.";
 var DAY = 864e5;
 var MAX_HASH = 2048;
 var MAX_HANDS = 1e3;
@@ -4596,7 +4596,6 @@ function resultForDailyPractice(practice) {
 }
 
 // duplicate/daily-share-view.mjs
-var FUN_NOTICE = "\uD50C\uB808\uC774 \uAE30\uB85D\uC73C\uB85C \uB9CC\uB4E0 \uC7AC\uBBF8\uC6A9 \uC720\uD615 \xB7 \uC2E4\uB825/\uC2EC\uB9AC \uC9C4\uB2E8 \uC544\uB2D8";
 var RULES = "\uBC18\uC7A5\uC804 \xB7 \uC2DC\uC791 \uC790\uB9AC \uB79C\uB364 \xB7 \uAE30\uBCF8 AI \xB7 \uAE30\uBCF8 \uADDC\uCE59 \xB7 \uCE5C \uC5F0\uC7A5";
 var WINDS = ["\u6771", "\u5357", "\u897F", "\u5317"];
 var number2 = (value) => Number(value).toLocaleString("ko-KR");
@@ -4775,7 +4774,6 @@ function mountDailyShare({ document: document2, onStart, toast: toast2 = () => {
     const stats = node(document2, "dl", "daily-card-stats");
     for (const [label, value] of [["\uB9AC\uCE58", result.stats.riichi], ["\uD6C4\uB85C", result.stats.call], ["\uD654\uB8CC", result.stats.win], ["\uAE61", result.stats.kan]]) stats.append(fact(document2, label, `${value}\uD68C`));
     card.append(stats, node(document2, "p", "daily-card-meta", `${result.hands}\uAD6D \uC644\uB8CC \xB7 \uC2DC\uC791 \uC790\uB9AC ${WINDS[result.seat]} \xB7 \uBC84\uB9BC ${result.stats.discard}\uD68C \xB7 \uC2DC\uB4DC ${result.seed}`));
-    card.append(node(document2, "p", "daily-card-fun", FUN_NOTICE));
     return card;
   }
   function openResult(value, { shared: shared2 = false } = {}) {
@@ -4826,8 +4824,7 @@ function mountDailyShare({ document: document2, onStart, toast: toast2 = () => {
   }
   async function shareResult(result, shared2) {
     const url = buildDailyShareURL(getBaseURL(), result), persona = dailyPersona(result), text3 = `${dateLabel(result.date)} \uC624\uB298\uC758 \uD328\uC0B0 \xB7 ${persona.title}
-\uC810\uC218 \uC99D\uAC10 ${signed(result.net)}\uC810 \xB7 ${result.hands}\uAD6D \xB7 \uC2DC\uC791 \uC790\uB9AC ${WINDS[result.seat]}
-${FUN_NOTICE}`;
+\uC810\uC218 \uC99D\uAC10 ${signed(result.net)}\uC810 \xB7 ${result.hands}\uAD6D \xB7 \uC2DC\uC791 \uC790\uB9AC ${WINDS[result.seat]}`;
     const navigator2 = window2.navigator;
     if (navigator2.share) {
       try {
@@ -4977,9 +4974,6 @@ function renderDailyResultCanvas(value, { document: document2 = globalThis.docum
   context3.fillText(`${result.hands}\uAD6D \uC644\uB8CC \xB7 \uC2DC\uC791 \uC790\uB9AC ${WINDS[result.seat]} \xB7 \uBC84\uB9BC ${result.stats.discard}\uD68C`, 540, 1123);
   context3.font = "400 20px system-ui, -apple-system, sans-serif";
   context3.fillText(`\uC2DC\uB4DC ${result.seed}`, 540, 1158);
-  context3.fillStyle = "#6f7965";
-  context3.font = "400 20px system-ui, -apple-system, sans-serif";
-  context3.fillText(FUN_NOTICE, 540, 1194);
   context3.fillStyle = "#c5ceb6";
   context3.font = "400 20px system-ui, -apple-system, sans-serif";
   context3.fillText(shared2 ? "\uACF5\uC720\uC790\uAC00 \uC81C\uACF5\uD55C \uACB0\uACFC \xB7 \uACF5\uC2DD \uAC80\uC99D \uC544\uB2D8" : "\uC774 \uBE0C\uB77C\uC6B0\uC800\uC5D0\uC11C \uB9CC\uB4E0 \uD50C\uB808\uC774 \uC694\uC57D", 540, 1294);
