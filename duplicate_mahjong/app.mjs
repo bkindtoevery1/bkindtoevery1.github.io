@@ -58,9 +58,9 @@ function shuffledWall(seed) {
 
 // duplicate/shared/base-score.mjs
 var DEFAULT_RULES = { sevenPairsQuadAsTwo: false };
-function decompositions(tiles2, melds = [], r = DEFAULT_RULES) {
-  const c = counts(tiles2), out = [];
-  if (c.some((x) => x > 4) || tiles2.length !== 14 - 3 * melds.length) return out;
+function decompositions(tiles3, melds = [], r = DEFAULT_RULES) {
+  const c = counts(tiles3), out = [];
+  if (c.some((x) => x > 4) || tiles3.length !== 14 - 3 * melds.length) return out;
   if (!melds.length && (r.sevenPairsQuadAsTwo ? c.every((x) => x % 2 === 0) : c.filter((x) => x === 2).length === 7)) out.push({ kind: "sevenPairs", groups: [], pair: -1 });
   function visit(groups, pair) {
     const i = c.findIndex((x) => x > 0);
@@ -493,9 +493,9 @@ function end(s, reason) {
   event(s, { type: "end", reason });
 }
 function win(s, seat5, method, source, id, { finish = true } = {}) {
-  const p = s.players[seat5], tiles2 = handTypes(p);
-  if (method === "ron") tiles2.push(typeOf(id));
-  const score2 = scoreRiichi(tiles2, p.melds, context(s, seat5, method, id), s.rules);
+  const p = s.players[seat5], tiles3 = handTypes(p);
+  if (method === "ron") tiles3.push(typeOf(id));
+  const score2 = scoreRiichi(tiles3, p.melds, context(s, seat5, method, id), s.rules);
   if (!score2) throw new Error("Illegal riichi win");
   const first = s.ledger.length;
   const pao = p.pao && score2.yakuman && score2.yakuEntries.some((y) => y.id === p.pao.yaku) ? p.pao : null;
@@ -578,9 +578,9 @@ function canRon(s, seat5) {
 }
 function riichiAnkanAllowed(p, t, rules) {
   if (typeOf(p.drawn) !== t) return false;
-  const tiles2 = handTypes(p), next = tiles2.filter((x) => x !== t), melds = [...p.melds, { type: "kan", tile: t, open: false }];
+  const tiles3 = handTypes(p), next = tiles3.filter((x) => x !== t), melds = [...p.melds, { type: "kan", tile: t, open: false }];
   if (!same(shapeWaits(next, melds, rules), p.riichiWaits)) return false;
-  const before = [...tiles2];
+  const before = [...tiles3];
   before.splice(before.indexOf(t), 1);
   return p.riichiWaits.every((wait) => {
     const shapes2 = decompositions([...before, wait], p.melds, { sevenPairsQuadAsTwo: false });
@@ -597,9 +597,9 @@ function forbiddenForCall(a, t) {
 }
 function legalActions(s, seat5 = actor(s)) {
   if (seat5 === null || seat5 !== actor(s)) return [];
-  const p = s.players[seat5], tiles2 = handTypes(p), c = counts(tiles2), out = [];
+  const p = s.players[seat5], tiles3 = handTypes(p), c = counts(tiles3), out = [];
   if (s.phase === "turn") {
-    if (p.drawn !== null && scoreRiichi(tiles2, p.melds, context(s, seat5, "tsumo", p.drawn), s.rules)) out.push({ type: "tsumo" });
+    if (p.drawn !== null && scoreRiichi(tiles3, p.melds, context(s, seat5, "tsumo", p.drawn), s.rules)) out.push({ type: "tsumo" });
     if (p.drawn !== null && s.walls[seat5].length && s.kans < s.rules.maxKans) {
       for (let t = 0; t < 34; t++) if (c[t] === 4 && (!p.riichi || riichiAnkanAllowed(p, t, s.rules))) out.push({ type: "ankan", tile: t });
       if (!p.riichi) p.melds.forEach((m, i) => {
@@ -610,7 +610,7 @@ function legalActions(s, seat5 = actor(s)) {
       const tile3 = typeOf(id);
       out.push({ type: "discard", tile: tile3, id });
       if (!p.riichi && p.melds.every((m) => !m.open) && s.startingScores[seat5] + p.score >= 1e3 && remaining(s) >= 4 && s.walls[seat5].length && !threshold(s)) {
-        const next = [...tiles2];
+        const next = [...tiles3];
         next.splice(next.indexOf(tile3), 1);
         if (shapeWaits(next, p.melds, s.rules).length) out.push({ type: "riichi", tile: tile3, id });
       }
@@ -792,7 +792,7 @@ function publicEvents(s) {
     const types = callType === "chi" ? [tile3, tile3 + 1, tile3 + 2] : Array(count).fill(tile3);
     return types.filter((type) => Number.isInteger(type) && type >= 0 && type < 34).map((type) => ({ type, red: false }));
   };
-  const emit = (raw, kind, { tile: tile3 = null, tileId = null, source = null, callType = null, method = null, tiles: tiles2 } = {}) => {
+  const emit = (raw, kind, { tile: tile3 = null, tileId = null, source = null, callType = null, method = null, tiles: tiles3 } = {}) => {
     const id = physical4(tileId), type = id === null ? tile3 : typeOf(id);
     const item = {
       id: raw.n,
@@ -805,7 +805,7 @@ function publicEvents(s) {
       callType,
       method: ["ron", "tsumo"].includes(method) ? method : null
     };
-    if (tiles2?.length) item.tiles = tiles2;
+    if (tiles3?.length) item.tiles = tiles3;
     out.push(item);
     return item;
   };
@@ -1125,9 +1125,9 @@ function end2(s, reason) {
   event2(s, { type: "end", reason });
 }
 function win2(s, seat5, method, source, id, { finish = true } = {}) {
-  const p = s.players[seat5], tiles2 = handTypes2(p);
-  if (method === "ron") tiles2.push(typeOf(id));
-  const score2 = scoreRiichi(tiles2, p.melds, context2(s, seat5, method, id), s.rules);
+  const p = s.players[seat5], tiles3 = handTypes2(p);
+  if (method === "ron") tiles3.push(typeOf(id));
+  const score2 = scoreRiichi(tiles3, p.melds, context2(s, seat5, method, id), s.rules);
   if (!score2) throw new Error("Illegal riichi win");
   const first = s.ledger.length;
   const pao = p.pao && score2.yakuman && score2.yakuEntries.some((y) => y.id === p.pao.yaku) ? p.pao : null;
@@ -1211,9 +1211,9 @@ function canRon2(s, seat5) {
 }
 function riichiAnkanAllowed2(p, t, rules) {
   if (typeOf(p.drawn) !== t) return false;
-  const tiles2 = handTypes2(p), next = tiles2.filter((x) => x !== t), melds = [...p.melds, { type: "kan", tile: t, open: false }];
+  const tiles3 = handTypes2(p), next = tiles3.filter((x) => x !== t), melds = [...p.melds, { type: "kan", tile: t, open: false }];
   if (!same2(shapeWaits(next, melds, rules), p.riichiWaits)) return false;
-  const before = [...tiles2];
+  const before = [...tiles3];
   before.splice(before.indexOf(t), 1);
   return p.riichiWaits.every((wait) => {
     const shapes2 = decompositions([...before, wait], p.melds, { sevenPairsQuadAsTwo: false });
@@ -1230,9 +1230,9 @@ function forbiddenForCall2(a, t) {
 }
 function legalActions2(s, seat5 = actor2(s)) {
   if (seat5 === null || seat5 !== actor2(s)) return [];
-  const p = s.players[seat5], tiles2 = handTypes2(p), c = counts(tiles2), out = [];
+  const p = s.players[seat5], tiles3 = handTypes2(p), c = counts(tiles3), out = [];
   if (s.phase === "turn") {
-    if (p.drawn !== null && scoreRiichi(tiles2, p.melds, context2(s, seat5, "tsumo", p.drawn), s.rules)) out.push({ type: "tsumo" });
+    if (p.drawn !== null && scoreRiichi(tiles3, p.melds, context2(s, seat5, "tsumo", p.drawn), s.rules)) out.push({ type: "tsumo" });
     if (!s.milLastTurn && p.drawn !== null && s.walls[seat5].length && s.kans < s.rules.maxKans) {
       for (let t = 0; t < 34; t++) if (c[t] === 4 && (!p.riichi || riichiAnkanAllowed2(p, t, s.rules))) out.push({ type: "ankan", tile: t });
       if (!p.riichi) p.melds.forEach((m, i) => {
@@ -1243,7 +1243,7 @@ function legalActions2(s, seat5 = actor2(s)) {
       const tile3 = typeOf(id);
       out.push({ type: "discard", tile: tile3, id });
       if (!p.riichi && p.melds.every((m) => !m.open) && s.startingScores[seat5] + p.score >= 1e3 && remaining2(s) >= 4 && s.walls[seat5].length && !s.milLastTurn) {
-        const next = [...tiles2];
+        const next = [...tiles3];
         next.splice(next.indexOf(tile3), 1);
         if (shapeWaits(next, p.melds, s.rules).length) out.push({ type: "riichi", tile: tile3, id });
       }
@@ -1423,7 +1423,7 @@ function publicEvents2(s) {
     const types = callType === "chi" ? [tile3, tile3 + 1, tile3 + 2] : Array(count).fill(tile3);
     return types.filter((type) => Number.isInteger(type) && type >= 0 && type < 34).map((type) => ({ type, red: false }));
   };
-  const emit = (raw, kind, { tile: tile3 = null, tileId = null, source = null, callType = null, method = null, tiles: tiles2 } = {}) => {
+  const emit = (raw, kind, { tile: tile3 = null, tileId = null, source = null, callType = null, method = null, tiles: tiles3 } = {}) => {
     const id = physical4(tileId), type = id === null ? tile3 : typeOf(id);
     const item = {
       id: raw.n,
@@ -1436,7 +1436,7 @@ function publicEvents2(s) {
       callType,
       method: ["ron", "tsumo"].includes(method) ? method : null
     };
-    if (tiles2?.length) item.tiles = tiles2;
+    if (tiles3?.length) item.tiles = tiles3;
     out.push(item);
     return item;
   };
@@ -1754,7 +1754,7 @@ function fixedYakuhai(melds, view) {
   return melds.some((meld3) => meld3.type !== "chi" && (meld3.tile >= 31 || meld3.tile === wind || meld3.tile === round));
 }
 function credibleYaku(c, melds, view) {
-  return fixedYakuhai(melds, view) || view.rules?.kuitan === true && melds.every((meld3) => meldTypes(meld3).every(simple)) && c.every((number3, type) => !number3 || simple(type));
+  return fixedYakuhai(melds, view) || view.rules?.kuitan === true && melds.every((meld3) => meldTypes(meld3).every(simple)) && c.every((number4, type) => !number4 || simple(type));
 }
 function quality(c, meldCount, visible) {
   const d = distance2(c, meldCount);
@@ -1940,12 +1940,12 @@ function tile(value) {
 function meld(value) {
   insist(object(value) && ["chi", "pon", "kan"].includes(value.type) && typeof value.open === "boolean");
   insist(Number.isInteger(value.tile) && value.tile >= 0 && value.tile < 34 && Array.isArray(value.tiles));
-  const tiles2 = value.tiles.map(tile), count = value.type === "kan" ? 4 : 3;
-  insist(tiles2.length === count);
-  const types = tiles2.map((t) => t.type).sort((a, b) => a - b), expected = value.type === "chi" ? [value.tile, value.tile + 1, value.tile + 2] : Array(count).fill(value.tile);
+  const tiles3 = value.tiles.map(tile), count = value.type === "kan" ? 4 : 3;
+  insist(tiles3.length === count);
+  const types = tiles3.map((t) => t.type).sort((a, b) => a - b), expected = value.type === "chi" ? [value.tile, value.tile + 1, value.tile + 2] : Array(count).fill(value.tile);
   insist(value.type !== "chi" || value.tile < 27 && value.tile % 9 <= 6);
   insist(types.every((type, index) => type === expected[index]));
-  const result = { type: value.type, tile: value.tile, open: value.open, tiles: tiles2 };
+  const result = { type: value.type, tile: value.tile, open: value.open, tiles: tiles3 };
   if (value.from !== void 0) {
     insist(seat2(value.from));
     result.from = value.from;
@@ -1960,12 +1960,12 @@ function normalizeWinningHands(value) {
     insist(object(row) && seat2(row.seat) && !seen.has(row.seat) && ["ron", "tsumo"].includes(row.method));
     seen.add(row.seat);
     insist(Array.isArray(row.tiles) && Array.isArray(row.melds) && row.melds.length <= 4);
-    const tiles2 = row.tiles.map(tile), melds = row.melds.map(meld), winningTile = tile(row.winningTile);
-    insist(tiles2.length === 14 - 3 * melds.length);
-    const all = [...tiles2, ...melds.flatMap((m) => m.tiles)], ids = all.map((t) => t.id);
-    insist(new Set(ids).size === ids.length && tiles2.filter((t) => t.id === winningTile.id).length === 1);
-    insist(tiles2.some((t) => t.id === winningTile.id && t.type === winningTile.type && t.red === winningTile.red));
-    return { seat: row.seat, method: row.method, tiles: tiles2, melds, winningTile };
+    const tiles3 = row.tiles.map(tile), melds = row.melds.map(meld), winningTile = tile(row.winningTile);
+    insist(tiles3.length === 14 - 3 * melds.length);
+    const all = [...tiles3, ...melds.flatMap((m) => m.tiles)], ids = all.map((t) => t.id);
+    insist(new Set(ids).size === ids.length && tiles3.filter((t) => t.id === winningTile.id).length === 1);
+    insist(tiles3.some((t) => t.id === winningTile.id && t.type === winningTile.type && t.red === winningTile.red));
+    return { seat: row.seat, method: row.method, tiles: tiles3, melds, winningTile };
   });
   insist(hands.length <= 1 || hands.every((row) => row.method === "ron"));
   return hands;
@@ -1981,13 +1981,13 @@ function engineWinningHands(game) {
     insist(seat2(winner));
     const player = game.players[winner];
     insist(player?.won === true && Array.isArray(player.hand) && Array.isArray(player.melds) && ["ron", "tsumo"].includes(player.win?.method));
-    const winningTile = asTile(player.win.tile), tiles2 = player.hand.map(asTile);
-    if (player.win.method === "ron" && !tiles2.some((tile3) => tile3.id === winningTile.id)) tiles2.push(winningTile);
+    const winningTile = asTile(player.win.tile), tiles3 = player.hand.map(asTile);
+    if (player.win.method === "ron" && !tiles3.some((tile3) => tile3.id === winningTile.id)) tiles3.push(winningTile);
     const melds = player.melds.map((value) => {
       insist(object(value) && Array.isArray(value.ids));
       return { type: value.type, tile: value.tile, open: value.open, ...value.from === void 0 ? {} : { from: value.from }, tiles: value.ids.map(asTile) };
     });
-    return { seat: winner, method: player.win.method, tiles: tiles2, melds, winningTile };
+    return { seat: winner, method: player.win.method, tiles: tiles3, melds, winningTile };
   });
   return normalizeWinningHands(hands);
 }
@@ -2041,14 +2041,14 @@ function eightBamboo(svg) {
     }
   }
 }
-function tileFace(type, { button = false, small = false } = {}) {
-  const tile3 = document.createElement(button ? "button" : "span");
+function tileFace(type, { button: button2 = false, small = false } = {}) {
+  const tile3 = document.createElement(button2 ? "button" : "span");
   tile3.className = `tile-face ${small ? "tile-small" : "tile"}`;
   tile3.dataset.type = String(type);
   tile3.dataset.suit = type < 27 ? ["m", "p", "s"][Math.floor(type / 9)] : "z";
   tile3.title = tileName(type);
   tile3.setAttribute("aria-label", tileName(type));
-  if (button) tile3.type = "button";
+  if (button2) tile3.type = "button";
   if (type < 9) {
     tile3.append(span(["\u4E00", "\u4E8C", "\u4E09", "\u56DB", "\u4E94", "\u516D", "\u4E03", "\u516B", "\u4E5D"][type], "tile-number"), span("\u842C", "tile-man"));
   } else if (type < 27) {
@@ -2080,7 +2080,7 @@ function renderWinningHands(container, hands, { document: doc = container?.owner
   container.replaceChildren();
   container.hidden = normalized.length === 0;
   if (!normalized.length) return container;
-  const node = (tag, className, text3) => {
+  const node2 = (tag, className, text3) => {
     const element4 = doc.createElement(tag);
     element4.className = className;
     if (text3 !== void 0) element4.textContent = text3;
@@ -2097,24 +2097,24 @@ function renderWinningHands(container, hands, { document: doc = container?.owner
     return element4;
   };
   for (const hand of normalized) {
-    const section = node("section", "winning-hand");
+    const section = node2("section", "winning-hand");
     section.dataset.seat = String(hand.seat);
     const wind = Number.isInteger(dealer) && dealer >= 0 && dealer < 4 ? ` \xB7 ${["\u6771", "\u5357", "\u897F", "\u5317"][(hand.seat - dealer + 4) % 4]}` : "";
-    section.append(node("h4", "winning-hand-heading", `${hand.seat + 1}\uBC88 \uC790\uB9AC${wind} \xB7 ${hand.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"}`));
-    const row = node("div", "winning-hand-tiles"), concealed = node("div", "winning-hand-concealed");
+    section.append(node2("h4", "winning-hand-heading", `${hand.seat + 1}\uBC88 \uC790\uB9AC${wind} \xB7 ${hand.method === "ron" ? "\uB860" : "\uCBD4\uBAA8"}`));
+    const row = node2("div", "winning-hand-tiles"), concealed = node2("div", "winning-hand-concealed");
     concealed.setAttribute("aria-label", "\uD654\uB8CC \uC190\uD328");
-    const tiles2 = hand.tiles.filter((tile3) => tile3.id !== hand.winningTile.id).sort((a, b) => a.type - b.type || Number(a.red) - Number(b.red) || a.id - b.id);
-    for (const tile3 of tiles2) concealed.append(face(tile3));
-    const winning = node("div", "winning-hand-winning-tile");
+    const tiles3 = hand.tiles.filter((tile3) => tile3.id !== hand.winningTile.id).sort((a, b) => a.type - b.type || Number(a.red) - Number(b.red) || a.id - b.id);
+    for (const tile3 of tiles3) concealed.append(face(tile3));
+    const winning = node2("div", "winning-hand-winning-tile");
     winning.setAttribute("aria-label", "\uD654\uB8CC\uD328");
-    winning.append(node("span", "winning-hand-winning-label", "\uD654\uB8CC\uD328"), face(hand.winningTile, true));
+    winning.append(node2("span", "winning-hand-winning-label", "\uD654\uB8CC\uD328"), face(hand.winningTile, true));
     row.append(concealed, winning);
     section.append(row);
     if (hand.melds.length) {
-      const melds = node("div", "winning-hand-melds");
+      const melds = node2("div", "winning-hand-melds");
       melds.setAttribute("aria-label", "\uD654\uB8CC \uD6C4\uB85C");
       for (const meld3 of hand.melds) {
-        const group = node("span", "winning-hand-meld");
+        const group = node2("span", "winning-hand-meld");
         group.title = meld3.type === "chi" ? "\uCE58" : meld3.type === "pon" ? "\uD401" : meld3.open ? "\uBA85\uAE61" : "\uC548\uAE61";
         for (const tile3 of meld3.tiles) group.append(face(tile3));
         melds.append(group);
@@ -2134,10 +2134,10 @@ var finite = (value) => typeof value === "number" && Number.isFinite(value);
 var format = new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 2 });
 var score = (value) => `${value > 0 ? "+" : ""}${format.format(value)}\uC810`;
 function element2(document2, tag, className, text3) {
-  const node = document2.createElement(tag);
-  if (className) node.className = className;
-  if (text3 !== void 0) node.textContent = text3;
-  return node;
+  const node2 = document2.createElement(tag);
+  if (className) node2.className = className;
+  if (text3 !== void 0) node2.textContent = text3;
+  return node2;
 }
 function renderRoundResults(container, rows, { seat: seat5, ai = false, ownTableId, currentBoard, document: document2 = container?.ownerDocument } = {}) {
   if (!container || !document2?.createElement) throw new TypeError("A round-results container and document are required");
@@ -2441,8 +2441,8 @@ function normalizeNewCompetitionScoring(options = {}, profile = "custom") {
 }
 
 // duplicate/hand-order.mjs
-function orderedHandTiles(tiles2 = []) {
-  return [...tiles2].sort((a, b) => Number(!!a.drawn) - Number(!!b.drawn) || a.id - b.id);
+function orderedHandTiles(tiles3 = []) {
+  return [...tiles3].sort((a, b) => Number(!!a.drawn) - Number(!!b.drawn) || a.id - b.id);
 }
 function orderedHandActions(view, type = "discard") {
   const actions = new Map((view?.legalActions ?? []).filter((action) => action.type === type).map((action) => [action.id, action]));
@@ -2515,10 +2515,10 @@ var CONTROL_OPTIONS = [
   ["autoWin", "\uC790\uB3D9 \uD654\uB8CC", "\uB860\xB7\uCBD4\uBAA8\uAC00 \uAC00\uB2A5\uD558\uBA74 \uC790\uB3D9\uC73C\uB85C \uD654\uB8CC\uD569\uB2C8\uB2E4."]
 ];
 function element3(document2, tag, className, text3) {
-  const node = document2.createElement(tag);
-  if (className) node.className = className;
-  if (text3 !== void 0) node.textContent = text3;
-  return node;
+  const node2 = document2.createElement(tag);
+  if (className) node2.className = className;
+  if (text3 !== void 0) node2.textContent = text3;
+  return node2;
 }
 function mountPersonalSettings(container, { value, onChange, onPreview } = {}) {
   if (!container?.ownerDocument) throw new TypeError("A settings container is required");
@@ -2689,14 +2689,14 @@ function coalesceFeedbackEvents(events, { view = null, relatedEvents = [] } = {}
   return shown;
 }
 function createFeedbackTracker() {
-  let mounted = false, board = null, cursor = -1, history = [], lastDiscard = null;
-  const result = (events = [], newBoard = false, view = null) => ({ events: coalesceFeedbackEvents(events, { view, relatedEvents: history }), history: coalesceFeedbackEvents(history, { view }).slice(-6), lastDiscard: copy(lastDiscard), newBoard });
+  let mounted = false, board = null, cursor = -1, history2 = [], lastDiscard = null;
+  const result = (events = [], newBoard = false, view = null) => ({ events: coalesceFeedbackEvents(events, { view, relatedEvents: history2 }), history: coalesceFeedbackEvents(history2, { view }).slice(-6), lastDiscard: copy(lastDiscard), newBoard });
   return { update(view, boardKey) {
     if (!view) {
       mounted = false;
       board = null;
       cursor = -1;
-      history = [];
+      history2 = [];
       lastDiscard = null;
       return result();
     }
@@ -2705,14 +2705,14 @@ function createFeedbackTracker() {
       mounted = true;
       board = boardKey;
       cursor = latest;
-      history = incoming.slice(-32);
+      history2 = incoming.slice(-32);
       lastDiscard = incoming.findLast((event3) => event3.kind === "discard") ?? null;
       return result([], true, view);
     }
     if (latest <= cursor) return result([], false, view);
-    const events = incoming.filter((event3) => event3.id > cursor), merged = new Map(history.map((event3) => [event3.id, event3]));
+    const events = incoming.filter((event3) => event3.id > cursor), merged = new Map(history2.map((event3) => [event3.id, event3]));
     for (const event3 of incoming) merged.set(event3.id, event3);
-    history = [...merged.values()].sort((a, b) => a.id - b.id).slice(-32);
+    history2 = [...merged.values()].sort((a, b) => a.id - b.id).slice(-32);
     lastDiscard = incoming.findLast((event3) => event3.kind === "discard") ?? lastDiscard;
     cursor = latest;
     return result(events, false, view);
@@ -2737,32 +2737,32 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
   const media = window2?.matchMedia?.("(prefers-reduced-motion: reduce)");
   const timers = /* @__PURE__ */ new Map(), ghosts = /* @__PURE__ */ new Set(), transientMarks = /* @__PURE__ */ new Set(), voices = /* @__PURE__ */ new Set(), seen = /* @__PURE__ */ new Set();
   let view = null, lastDiscard = null, preferences = {}, logItems = [], initialized = false, destroyed = false, delay = 0, audio = null;
-  const node = (tag, className, text3) => {
+  const node2 = (tag, className, text3) => {
     const el = document2.createElement(tag);
     el.className = className;
     if (text3 !== void 0) el.textContent = text3;
     return el;
   };
-  const layer = node("div", "feedback-layer");
+  const layer = node2("div", "feedback-layer");
   layer.setAttribute("aria-hidden", "true");
   const callouts = POSITIONS.map((position) => {
-    const el = node("div", `feedback-callout feedback-${position}`);
+    const el = node2("div", `feedback-callout feedback-${position}`);
     el.hidden = true;
     layer.append(el);
     return el;
   });
   const calloutEvents = Array(4).fill(null);
   const riichiMarkers = POSITIONS.map((position) => {
-    const el = node("div", `feedback-riichi-marker feedback-riichi-${position}`);
+    const el = node2("div", `feedback-riichi-marker feedback-riichi-${position}`);
     el.hidden = true;
-    el.append(node("span", "feedback-riichi-stick"), node("span", "feedback-riichi-label", "\u7ACB\u76F4"));
+    el.append(node2("span", "feedback-riichi-stick"), node2("span", "feedback-riichi-label", "\u7ACB\u76F4"));
     layer.append(el);
     return el;
   });
-  const winner = node("div", "feedback-win-banner");
+  const winner = node2("div", "feedback-win-banner");
   winner.hidden = true;
   layer.append(winner);
-  const announcement = node("div", "feedback-announcement");
+  const announcement = node2("div", "feedback-announcement");
   announcement.setAttribute("role", "status");
   announcement.setAttribute("aria-live", "polite");
   announcement.setAttribute("aria-atomic", "true");
@@ -2896,13 +2896,13 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
     const candidates = Array.from(table.querySelectorAll(".river [data-discard-id]")).filter((el) => !validSeat2(seat5) || Number(el.dataset.seat) === seat5);
     const physical4 = discard.tileId ?? (Number.isInteger(discard.tile?.id) ? discard.tile.id : null);
     if (physical4 !== null && physical4 !== void 0) {
-      const exact = candidates.find((el) => el.dataset.tileId === String(physical4) || el.dataset.id === String(physical4) || el.dataset.discardId === String(physical4));
-      if (exact) return exact;
+      const exact2 = candidates.find((el) => el.dataset.tileId === String(physical4) || el.dataset.id === String(physical4) || el.dataset.discardId === String(physical4));
+      if (exact2) return exact2;
     }
     const discardId = discard.discardId ?? (physical4 === null || physical4 === void 0 ? discard.id : null);
     if (discardId !== null && discardId !== void 0) {
-      const exact = candidates.find((el) => el.dataset.discardId === String(discardId));
-      if (exact) return exact;
+      const exact2 = candidates.find((el) => el.dataset.discardId === String(discardId));
+      if (exact2) return exact2;
     }
     const type = validTile(discard.tile) ? discard.tile : discard.type;
     const matches = validTile(type) ? candidates.filter((el) => Number(el.dataset.type) === type) : candidates;
@@ -2935,14 +2935,14 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
     historyContainer.hidden = !preferences.recentActions || !logItems.length;
     historyContainer.replaceChildren();
     if (historyContainer.hidden) return;
-    const heading = node("div", "feedback-history-heading", "\uCD5C\uADFC \uC120\uD0DD");
-    const list = node("ol", "feedback-history-list");
+    const heading = node2("div", "feedback-history-heading", "\uCD5C\uADFC \uC120\uD0DD");
+    const list = node2("ol", "feedback-history-list");
     for (const event3 of logItems.slice(-6)) {
-      const item = node("li", `feedback-history-item feedback-history-${event3.kind}`);
-      item.append(node("span", "feedback-history-player", name(event3.seat)), node("b", "feedback-history-action", actionName(event3, preferences.discardDisplay)));
-      if (validTile(event3.tile)) item.append(node("span", "feedback-history-tile", `${event3.red ? "\uC801 " : ""}${tileName(event3.tile)}`));
+      const item = node2("li", `feedback-history-item feedback-history-${event3.kind}`);
+      item.append(node2("span", "feedback-history-player", name(event3.seat)), node2("b", "feedback-history-action", actionName(event3, preferences.discardDisplay)));
+      if (validTile(event3.tile)) item.append(node2("span", "feedback-history-tile", `${event3.red ? "\uC801 " : ""}${tileName(event3.tile)}`));
       const source = sourceSeat(event3);
-      if (source !== null && source !== event3.seat) item.append(node("span", "feedback-history-source", `\u2190 ${name(source)}`));
+      if (source !== null && source !== event3.seat) item.append(node2("span", "feedback-history-source", `\u2190 ${name(source)}`));
       list.append(item);
     }
     historyContainer.append(heading, list);
@@ -2954,9 +2954,9 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
     box.dataset.kind = event3.kind;
     box.dataset.seat = String(event3.seat);
     calloutEvents[index] = { kind: event3.kind, callType: event3.callType, method: event3.method, ...typeof event3.tsumogiri === "boolean" ? { tsumogiri: event3.tsumogiri } : {} };
-    box.append(node("div", "feedback-callout-player", `${preview2 ? "\uBBF8\uB9AC\uBCF4\uAE30 \xB7 " : ""}${name(event3.seat)}`));
-    const line = node("div", "feedback-callout-main");
-    line.append(node("strong", `feedback-callout-action${discardDetail(event3, preferences.discardDisplay) ? " feedback-discard-detail" : ""}`, actionName(event3, preferences.discardDisplay)));
+    box.append(node2("div", "feedback-callout-player", `${preview2 ? "\uBBF8\uB9AC\uBCF4\uAE30 \xB7 " : ""}${name(event3.seat)}`));
+    const line = node2("div", "feedback-callout-main");
+    line.append(node2("strong", `feedback-callout-action${discardDetail(event3, preferences.discardDisplay) ? " feedback-discard-detail" : ""}`, actionName(event3, preferences.discardDisplay)));
     if (validTile(event3.tile)) {
       const tile3 = tileFace(event3.tile, { small: true });
       tile3.classList.toggle("red", !!event3.red);
@@ -2964,7 +2964,7 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
     }
     box.append(line);
     const source = sourceSeat(event3);
-    if (source !== null && source !== event3.seat) box.append(node("div", "feedback-callout-source", `\u2190 ${name(source)}`));
+    if (source !== null && source !== event3.seat) box.append(node2("div", "feedback-callout-source", `\u2190 ${name(source)}`));
     box.hidden = false;
     box.classList.remove("feedback-enter");
     if (preferences.motion) {
@@ -3055,9 +3055,9 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
   }
   function announceWins(events) {
     if (!events.length || !preferences.actionBubbles) return;
-    winner.replaceChildren(node("span", "feedback-win-eyebrow", events.length > 1 ? `${events.length}\uBA85 \uB3D9\uC2DC \uD654\uB8CC` : "\uD654\uB8CC"));
-    const line = node("div", "feedback-win-names");
-    for (const event3 of events) line.append(node("strong", "", `${name(event3.seat)} \xB7 ${actionName(event3)}`));
+    winner.replaceChildren(node2("span", "feedback-win-eyebrow", events.length > 1 ? `${events.length}\uBA85 \uB3D9\uC2DC \uD654\uB8CC` : "\uD654\uB8CC"));
+    const line = node2("div", "feedback-win-names");
+    for (const event3 of events) line.append(node2("strong", "", `${name(event3.seat)} \xB7 ${actionName(event3)}`));
     winner.append(line);
     winner.hidden = false;
     winner.classList.toggle("feedback-enter", preferences.motion);
@@ -3068,7 +3068,7 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
       delay = 0;
     }, 1600);
   }
-  function update({ view: nextView, events = [], history = [], lastDiscard: nextDiscard = null, newBoard = false } = {}) {
+  function update({ view: nextView, events = [], history: history2 = [], lastDiscard: nextDiscard = null, newBoard = false } = {}) {
     if (destroyed) return { winDelayMs: 0 };
     const firstUpdate = !initialized, previousView = view, before = syncPreferences();
     view = nextView ?? null;
@@ -3088,7 +3088,7 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
       renderHistory();
       return { winDelayMs: 0 };
     }
-    const presented = coalesceFeedbackEvents(events, { view, relatedEvents: [...logItems, ...history] }), visibleHistory = coalesceFeedbackEvents(history, { view, relatedEvents: logItems });
+    const presented = coalesceFeedbackEvents(events, { view, relatedEvents: [...logItems, ...history2] }), visibleHistory = coalesceFeedbackEvents(history2, { view, relatedEvents: logItems });
     const eventId = (event3) => String(event3.id ?? `${event3.kind}:${event3.seat}:${event3.tileId ?? event3.tile}:${sourceSeat(event3)}`), visibleEvents = new Map(presented.map((event3) => [eventId(event3), event3]));
     if ((!initialized || newBoard) && preferences.recentActions) logItems = visibleHistory.filter((event3) => validSeat2(event3.seat)).slice(-6);
     if (!initialized || newBoard) initialized = true;
@@ -3151,7 +3151,7 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
     if (preferences.recentActions && historyContainer) {
       renderHistory();
       historyContainer.hidden = false;
-      const demo = node("div", "feedback-history-preview", `\uBBF8\uB9AC\uBCF4\uAE30 \xB7 ${textFor(event3)}`);
+      const demo = node2("div", "feedback-history-preview", `\uBBF8\uB9AC\uBCF4\uAE30 \xB7 ${textFor(event3)}`);
       historyContainer.prepend(demo);
       later("preview-history", renderHistory, 1600);
     }
@@ -4391,12 +4391,610 @@ function winnerPaymentSummary(view, winnerSeat) {
   return result;
 }
 
+// duplicate/daily-challenge.mjs
+var DAILY_VERSION = 1;
+var DAILY_STORAGE_KEY = "duplicate.daily-results.v1";
+var DAILY_SHARE_NOTICE = "\uACF5\uC720\uC790\uAC00 \uC81C\uACF5\uD55C \uAE30\uB85D\uC785\uB2C8\uB2E4. \uACF5\uC2DD \uC21C\uC704\uB098 \uC2E4\uB825 \uD310\uC815\uC774 \uC544\uB2D9\uB2C8\uB2E4.";
+var DAY = 864e5;
+var MAX_HASH = 2048;
+var MAX_HANDS = 1e3;
+var MAX_SCORE = 1e8;
+var STAT_KEYS = ["discard", "riichi", "call", "kan", "win"];
+var RESULT_KEYS = ["v", "date", "seed", "seat", "net", "referenceDifference", "hands", "stats"];
+var DAILY_RULES = Object.freeze({
+  id: "duplicate-riichi-v1",
+  variant: "D",
+  dora: true,
+  kanDora: true,
+  uraDora: true,
+  redDora: true,
+  deadWall: false,
+  exhaustLimit: 1,
+  kuitan: true,
+  multipleRon: "all",
+  startingPoints: 25e3,
+  maxKans: 4,
+  roundWind: 27,
+  abortFourKans: false
+});
+var integer2 = (n, min, max) => Number.isSafeInteger(n) && n >= min && n <= max;
+var plain = (o) => !!o && typeof o === "object" && !Array.isArray(o) && [Object.prototype, null].includes(Object.getPrototypeOf(o));
+var exact = (o, keys2) => plain(o) && Object.keys(o).length === keys2.length && Object.keys(o).every((key) => keys2.includes(key));
+function checkedDate(date) {
+  if (typeof date !== "string" || !/^20\d\d-\d\d-\d\d$/.test(date)) throw Error("Invalid daily date");
+  const value = /* @__PURE__ */ new Date(`${date}T00:00:00.000Z`);
+  if (!Number.isFinite(value.getTime()) || value.toISOString().slice(0, 10) !== date) throw Error("Invalid daily date");
+  return date;
+}
+function dailyDate(now = /* @__PURE__ */ new Date()) {
+  const value = now instanceof Date ? now.getTime() : new Date(now).getTime();
+  if (!Number.isFinite(value)) throw Error("Invalid daily clock");
+  return checkedDate(new Date(value + 9 * 36e5).toISOString().slice(0, 10));
+}
+function dailySeed(date = dailyDate()) {
+  let hash = 2166136261;
+  for (const character of `duplicate-daily-v${DAILY_VERSION}:${checkedDate(date)}`) hash = Math.imul(hash ^ character.charCodeAt(0), 16777619) >>> 0;
+  return hash || 1;
+}
+function dailyChallenge(date = dailyDate()) {
+  return {
+    version: DAILY_VERSION,
+    date: checkedDate(date),
+    seed: dailySeed(date),
+    seatChoice: "random",
+    aiPolicy: "simple",
+    duplicateProfile: "mil-riichi",
+    matchRules: { format: "hanchan", dealerContinuation: true, agariYame: false },
+    rules: normalizeProfileRules(DAILY_RULES, "mil-riichi")
+  };
+}
+var emptyDailyStats = () => Object.fromEntries(STAT_KEYS.map((key) => [key, 0]));
+function dailyStatsFromGame(game, seat5 = 0) {
+  if (game?.phase !== "end" || !integer2(seat5, 0, 3)) throw Error("Daily hand has not ended");
+  const player = game.players?.[seat5];
+  if (!Array.isArray(player?.river) || !Array.isArray(player.melds) || !Array.isArray(game.winners)) throw Error("Missing daily hand outcomes");
+  return {
+    discard: player.river.filter((tile3) => !tile3.robbedKan).length,
+    riichi: player.river.filter((tile3) => tile3.riichi && !tile3.robbedKan).length,
+    call: player.melds.filter((meld3) => meld3.open).length,
+    kan: player.melds.filter((meld3) => meld3.type === "kan").length,
+    win: Number(game.winners.includes(seat5))
+  };
+}
+function validStats(stats, hands) {
+  return exact(stats, STAT_KEYS) && STAT_KEYS.every((key) => integer2(stats[key], 0, key === "discard" ? hands * 140 : ["kan", "call"].includes(key) ? hands * 4 : hands)) && stats.riichi <= stats.discard;
+}
+function validateDailyResult(value) {
+  if (!exact(value, RESULT_KEYS) || value.v !== DAILY_VERSION || !integer2(value.seat, 0, 3) || !integer2(value.hands, 1, MAX_HANDS) || !integer2(value.net, -MAX_SCORE, MAX_SCORE) || !(value.referenceDifference === null || integer2(value.referenceDifference, -MAX_SCORE, MAX_SCORE)) || !validStats(value.stats, value.hands)) throw Error("Invalid daily result");
+  checkedDate(value.date);
+  if (value.seed !== dailySeed(value.date)) throw Error("Daily date and seed differ");
+  return {
+    v: DAILY_VERSION,
+    date: value.date,
+    seed: value.seed,
+    seat: value.seat,
+    net: value.net,
+    referenceDifference: value.referenceDifference,
+    hands: value.hands,
+    stats: Object.fromEntries(STAT_KEYS.map((key) => [key, value.stats[key]]))
+  };
+}
+function resultFromDailySeries({ date, seed, seat: seat5, results } = {}) {
+  if (!Array.isArray(results) || !integer2(results.length, 1, MAX_HANDS)) throw Error("Missing daily results");
+  const stats = emptyDailyStats();
+  let net = 0, reference = 0, referenceReady = true;
+  for (const row of results) {
+    if (!integer2(row?.score, -MAX_SCORE, MAX_SCORE) || !validStats(row.dailyStats, 1)) throw Error("Invalid daily hand result");
+    net += row.score;
+    for (const key of STAT_KEYS) stats[key] += row.dailyStats[key];
+    if (row.referenceStatus === "done" && integer2(row.reference, -MAX_SCORE, MAX_SCORE)) reference += row.reference;
+    else referenceReady = false;
+  }
+  return validateDailyResult({ v: DAILY_VERSION, date, seed, seat: seat5, net, referenceDifference: referenceReady ? net - reference : null, hands: results.length, stats });
+}
+function dailyPersona(result) {
+  const { stats: s, hands } = validateDailyResult(result);
+  if (s.kan > 0 && s.kan >= s.call && s.kan >= s.riichi) return { id: "kan-curious", title: "\uAE61 \uD0C0\uC774\uBC0D \uC218\uC9D1\uAC00", description: `${hands}\uAD6D\uC5D0\uC11C \uAE61 ${s.kan}\uD68C! \uC624\uB298\uC740 \uB124 \uC7A5\uC744 \uBAA8\uC740 \uC21C\uAC04\uC774 \uB208\uC5D0 \uB744\uC5C8\uC5B4\uC694.` };
+  if (s.call > s.riichi && s.call > 0) return { id: "open-path", title: "\uD6C4\uB85C \uAC1C\uCC99\uC790", description: `\uCE58\xB7\uD401\xB7\uBA85\uAE61\uC73C\uB85C \uD328\uB97C \uC5F0 \uD69F\uC218 ${s.call}\uD68C. \uC774\uBC88 \uB300\uAD6D\uC5D0\uC11C\uB294 \uD6C4\uB85C\uB85C \uAE38\uC744 \uB9CC\uB4E4\uC5C8\uC5B4\uC694.` };
+  if (s.riichi > s.call && s.riichi > 0) return { id: "riichi-path", title: "\uB9AC\uCE58 \uC9C1\uC9C4\uD30C", description: `\uB9AC\uCE58 \uC120\uC5B8 ${s.riichi}\uD68C. \uC774\uBC88 \uB300\uAD6D\uC5D0\uC11C\uB294 \uB9AC\uCE58\uB85C \uC2B9\uBD80\uB97C \uAC78\uC5C8\uC5B4\uC694.` };
+  if (s.win >= 2) return { id: "chance-finder", title: "\uD654\uB8CC \uCC2C\uC2A4 \uD3EC\uCC29\uAC00", description: `${hands}\uAD6D\uC5D0\uC11C \uD654\uB8CC ${s.win}\uD68C. \uC624\uB298\uC758 \uD654\uB8CC \uC21C\uAC04\uC744 \uCE74\uB4DC\uC5D0 \uB2F4\uC558\uC5B4\uC694.` };
+  if (s.call + s.riichi > 0) return { id: "flexible", title: "\uC720\uC5F0\uD55C \uC804\uD658\uAC00", description: `\uB9AC\uCE58 ${s.riichi}\uD68C, \uD6C4\uB85C ${s.call}\uD68C. \uC774\uBC88\uC5D0\uB294 \uB450 \uC120\uD0DD\uC744 \uD568\uAED8 \uC368 \uBD24\uC5B4\uC694.` };
+  return { id: "quiet-path", title: "\uD55C \uC7A5\uC529 \uD0D0\uD5D8\uAC00", description: `\uBC84\uB9BC ${s.discard}\uD68C. \uC774\uBC88 \uB300\uAD6D\uC758 \uC120\uD0DD\uC744 \uD55C \uC7A5\uC529 \uC313\uC558\uC5B4\uC694.` };
+}
+function encodeDailyShare(result) {
+  const bytes = new TextEncoder().encode(JSON.stringify(validateDailyResult(result)));
+  const encoded = btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+  if (encoded.length + 7 > MAX_HASH) throw Error("Daily result is too large");
+  return `#daily=${encoded}`;
+}
+function parseDailyShare(hash) {
+  if (typeof hash !== "string" || hash.length > MAX_HASH || !/^#daily=[A-Za-z0-9_-]+$/.test(hash)) return null;
+  try {
+    const encoded = hash.slice(7), binary = atob(encoded.replaceAll("-", "+").replaceAll("_", "/") + "=".repeat((4 - encoded.length % 4) % 4));
+    const value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(Uint8Array.from(binary, (c) => c.charCodeAt(0))));
+    const result = validateDailyResult(value);
+    return encodeDailyShare(result) === hash ? result : null;
+  } catch {
+    return null;
+  }
+}
+function buildDailyShareURL(baseURL, result) {
+  const url = new URL(baseURL);
+  if (!["https:", "http:"].includes(url.protocol)) throw Error("Invalid daily share URL");
+  url.search = "";
+  url.username = "";
+  url.password = "";
+  url.hash = encodeDailyShare(result);
+  return url.href;
+}
+function loadDailyResults(storage, now = /* @__PURE__ */ new Date()) {
+  try {
+    const raw = storage.getItem(DAILY_STORAGE_KEY);
+    if (!raw || raw.length > 32768) return [];
+    const saved2 = JSON.parse(raw);
+    if (!exact(saved2, ["v", "results"]) || saved2.v !== DAILY_VERSION || !Array.isArray(saved2.results) || saved2.results.length > 30) return [];
+    const today = Date.parse(`${dailyDate(now)}T00:00:00Z`), byDate = /* @__PURE__ */ new Map();
+    for (const value of saved2.results) {
+      let result;
+      try {
+        result = validateDailyResult(value);
+      } catch {
+        continue;
+      }
+      const age = (today - Date.parse(`${result.date}T00:00:00Z`)) / DAY;
+      if (age >= 0 && age < 30 && !byDate.has(result.date)) byDate.set(result.date, result);
+    }
+    return [...byDate.values()].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30);
+  } catch {
+    return [];
+  }
+}
+function saveDailyResult(storage, result, now = /* @__PURE__ */ new Date()) {
+  try {
+    const checked = validateDailyResult(result), today = Date.parse(`${dailyDate(now)}T00:00:00Z`), age = (today - Date.parse(`${checked.date}T00:00:00Z`)) / DAY;
+    if (age < 0 || age >= 30) return false;
+    const results = [checked, ...loadDailyResults(storage, now).filter((row) => row.date !== checked.date)].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30);
+    storage.setItem(DAILY_STORAGE_KEY, JSON.stringify({ v: DAILY_VERSION, results }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// duplicate/daily-practice.mjs
+function createDailyPractice(date, { seat: seat5, draw: draw3 } = {}) {
+  const challenge = dailyChallenge(date);
+  const choice = seat5 === void 0 ? "random" : String(seat5), selected = resolvePracticeSeat(choice, draw3);
+  return { ...createPracticeSeries({ ...challenge, seat: selected }), seatChoice: choice, daily: { v: challenge.version, date: challenge.date } };
+}
+function challengeForPractice(practice) {
+  try {
+    const tag = practice?.daily;
+    if (!tag || tag.v !== 1) return null;
+    const challenge = dailyChallenge(tag.date), match = practice.matchRules;
+    if (practice.seed !== challenge.seed || !Number.isInteger(practice.seat) || practice.seat < 0 || practice.seat > 3 || practice.count !== 8 || practice.aiPolicy !== "simple" || practice.duplicateProfile !== "mil-riichi" || match?.format !== "hanchan" || match.dealerContinuation !== true || match.agariYame !== false || practice.game?.duplicateProfile !== "mil-riichi") return null;
+    for (const [key, value] of Object.entries(challenge.rules)) {
+      const currentValue = key === "roundWind" ? 27 + Math.floor((practice.board - 1) / 4) : value;
+      if (practice.rules?.[key] !== value || practice.game.rules[key] !== currentValue) return null;
+    }
+    return { ...challenge, seat: practice.seat };
+  } catch {
+    return null;
+  }
+}
+function resultForDailyPractice(practice) {
+  const challenge = challengeForPractice(practice);
+  if (!challenge || practice.game.phase !== "end") return null;
+  try {
+    if (!localNextPlan(practice).complete) return null;
+    const results = practice.results, boards = new Set(results.map((row) => row.board)), last = results.at(-1), current = seriesProgress(practice);
+    if (boards.size !== 8 || !Array.from({ length: 8 }, (_, i) => i + 1).every((board) => boards.has(board)) || last.board !== current.board || (last.honba ?? 0) !== current.honba) return null;
+    return resultFromDailySeries({ date: challenge.date, seed: challenge.seed, seat: practice.seat, results });
+  } catch {
+    return null;
+  }
+}
+
+// duplicate/daily-share-view.mjs
+var FUN_NOTICE = "\uD50C\uB808\uC774 \uAE30\uB85D\uC73C\uB85C \uB9CC\uB4E0 \uC7AC\uBBF8\uC6A9 \uC720\uD615 \xB7 \uC2E4\uB825/\uC2EC\uB9AC \uC9C4\uB2E8 \uC544\uB2D8";
+var RULES = "\uBC18\uC7A5\uC804 \xB7 \uC2DC\uC791 \uC790\uB9AC \uB79C\uB364 \xB7 \uAE30\uBCF8 AI \xB7 \uAE30\uBCF8 \uADDC\uCE59 \xB7 \uCE5C \uC5F0\uC7A5";
+var WINDS = ["\u6771", "\u5357", "\u897F", "\u5317"];
+var number2 = (value) => Number(value).toLocaleString("ko-KR");
+var signed = (value) => `${value > 0 ? "+" : ""}${number2(value)}`;
+var dateLabel = (date) => date.replaceAll("-", ".");
+var referenceLabel = (result, shared2 = false) => result.referenceDifference === null ? shared2 ? "\uBE44\uAD50 \uC5C6\uC74C" : "\uC9D1\uACC4 \uC911" : signed(result.referenceDifference) + "\uC810";
+function node(document2, tag, className, text3) {
+  const element4 = document2.createElement(tag);
+  if (className) element4.className = className;
+  if (text3 !== void 0) element4.textContent = text3;
+  return element4;
+}
+function button(document2, label, action, { id, className = "" } = {}) {
+  const element4 = node(document2, "button", className, label);
+  element4.type = "button";
+  if (id) element4.id = id;
+  element4.addEventListener("click", action);
+  return element4;
+}
+function tiles2(document2) {
+  const row = node(document2, "div", "daily-tiles");
+  row.setAttribute("aria-hidden", "true");
+  for (const text3 of ["\u6771", "\u767C", "\u4E2D"]) row.append(node(document2, "span", `daily-tile${text3 === "\u4E2D" ? " daily-tile-red" : ""}`, text3));
+  return row;
+}
+function fact(document2, label, value) {
+  const cell = node(document2, "div", "daily-stat");
+  cell.append(node(document2, "dt", "", label), node(document2, "dd", "", value));
+  return cell;
+}
+function mountDailyShare({ document: document2, onStart, toast: toast2 = () => {
+}, getBaseURL = () => document2.defaultView.location.href, onOpen = () => {
+}, onClose = () => {
+} }) {
+  const window2 = document2.defaultView, dialog = node(document2, "dialog", "daily-share-dialog");
+  dialog.id = "daily-share-dialog";
+  dialog.setAttribute("aria-labelledby", "daily-share-title");
+  const shell = node(document2, "div", "daily-share-shell"), header = node(document2, "header", "daily-share-header");
+  const heading = node(document2, "div", "daily-heading"), eyebrow = node(document2, "span", "daily-eyebrow", "DUPLICATE MAHJONG");
+  const title = node(document2, "h2", "", "\uC624\uB298\uC758 \uD328\uC0B0");
+  title.id = "daily-share-title";
+  title.tabIndex = -1;
+  const closeButton = button(document2, "\uB2EB\uAE30", () => closeDialog(), { id: "daily-share-close", className: "daily-close" });
+  heading.append(eyebrow, title);
+  header.append(heading, closeButton);
+  const body = node(document2, "div", "daily-share-body"), footer = node(document2, "footer", "daily-share-footer");
+  const status = node(document2, "p", "daily-status");
+  status.setAttribute("role", "status");
+  status.setAttribute("aria-live", "polite");
+  const fallback = node(document2, "div", "daily-copy-fallback");
+  fallback.hidden = true;
+  const fallbackLabel = node(document2, "label", "", "\uC544\uB798 \uB0B4\uC6A9\uC744 \uC120\uD0DD\uD574 \uBCF5\uC0AC\uD574 \uC8FC\uC138\uC694.");
+  fallbackLabel.htmlFor = "daily-copy-value";
+  const fallbackInput = node(document2, "textarea", "");
+  fallbackInput.id = "daily-copy-value";
+  fallbackInput.readOnly = true;
+  fallbackInput.rows = 3;
+  fallback.append(fallbackLabel, fallbackInput);
+  footer.append(status, fallback);
+  shell.append(header, body, footer);
+  dialog.append(shell);
+  document2.body.append(dialog);
+  let currentResult = null, currentShared = false, open = false, lastTrigger = null, destroyed = false;
+  function report(message) {
+    status.textContent = message;
+  }
+  function show(view) {
+    if (destroyed) return;
+    dialog.dataset.dailyView = view;
+    fallback.hidden = true;
+    fallbackInput.value = "";
+    report("");
+    if (!dialog.open) {
+      lastTrigger = document2.activeElement;
+      onOpen();
+      dialog.showModal();
+      open = true;
+    }
+    body.scrollTop = 0;
+    title.focus({ preventScroll: true });
+  }
+  function finishClose() {
+    if (!open) return;
+    open = false;
+    onClose();
+    if (lastTrigger?.isConnected) lastTrigger.focus({ preventScroll: true });
+  }
+  function closeDialog() {
+    if (dialog.open) {
+      dialog.close();
+      finishClose();
+    }
+  }
+  dialog.addEventListener("close", () => {
+    if (!dialog.open) finishClose();
+  });
+  dialog.addEventListener("click", (event3) => {
+    if (event3.target !== dialog) return;
+    const rect = dialog.getBoundingClientRect();
+    if (event3.clientX < rect.left || event3.clientX > rect.right || event3.clientY < rect.top || event3.clientY > rect.bottom) closeDialog();
+  });
+  async function start(date, { resume = false, seat: seat5 } = {}) {
+    closeDialog();
+    try {
+      await onStart(date, { resume, ...Number.isInteger(seat5) ? { seat: seat5 } : {} });
+    } catch (error) {
+      toast2(error?.message || "\uC624\uB298\uC758 \uD328\uC0B0\uC744 \uC2DC\uC791\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.");
+    }
+  }
+  async function copy2(text3, success) {
+    try {
+      if (!window2.navigator.clipboard?.writeText) throw Error("Clipboard unavailable");
+      await window2.navigator.clipboard.writeText(text3);
+      fallback.hidden = true;
+      report(success);
+    } catch {
+      fallback.hidden = false;
+      fallbackInput.value = text3;
+      fallbackInput.focus();
+      fallbackInput.select();
+      report("\uC790\uB3D9 \uBCF5\uC0AC\uB97C \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uC5B4 \uBCF5\uC0AC\uD560 \uB0B4\uC6A9\uC744 \uD3BC\uCCE4\uC2B5\uB2C8\uB2E4. \uAE38\uAC8C \uB204\uB974\uAC70\uB098 Ctrl/Cmd+C\uB85C \uBCF5\uC0AC\uD574 \uC8FC\uC138\uC694.");
+    }
+  }
+  function seedLine(challenge) {
+    const line = node(document2, "div", "daily-seed-row");
+    const label = node(document2, "div", "");
+    label.append(node(document2, "span", "daily-field-label", "\uD328\uC0B0 \uC2DC\uB4DC"), node(document2, "code", "", String(challenge.seed)));
+    line.append(label, button(document2, "\uC2DC\uB4DC \uBCF5\uC0AC", () => copy2(String(challenge.seed), "\uD328\uC0B0 \uC2DC\uB4DC\uB97C \uBCF5\uC0AC\uD588\uC2B5\uB2C8\uB2E4."), { className: "daily-seed-copy" }));
+    return line;
+  }
+  function openDaily2({ challenge = dailyChallenge(), active = false, savedResults = [] } = {}) {
+    currentResult = null;
+    currentShared = false;
+    title.textContent = "\uC624\uB298\uC758 \uD328\uC0B0";
+    body.replaceChildren();
+    const hero = node(document2, "section", "daily-hub-hero");
+    const kicker = node(document2, "p", "daily-date", dateLabel(challenge.date));
+    hero.append(kicker, tiles2(document2), node(document2, "h3", "", "\uAC19\uC740 \uD328\uC0B0, \uB098\uB9CC\uC758 \uC120\uD0DD"), node(document2, "p", "daily-lead", "\uB9E4\uC77C \uAC19\uC740 \uBC30\uD328\uC640 \uAC1C\uC778 \uD328\uC0B0\uC73C\uB85C \uB3C4\uC804\uD558\uACE0, \uB098\uC758 \uD50C\uB808\uC774 \uC720\uD615\uC744 \uCE74\uB4DC\uB85C \uB098\uB220 \uBCF4\uC138\uC694."));
+    hero.append(seedLine(challenge), node(document2, "p", "daily-rules", RULES));
+    const cta = button(document2, active ? "\uC9C4\uD589 \uC911\uC778 \uB3C4\uC804 \uACC4\uC18D\uD558\uAE30" : "\uC624\uB298\uC758 \uD328\uC0B0 \uB3C4\uC804", () => start(challenge.date, { resume: active }), { id: "daily-start", className: "primary daily-start" });
+    hero.append(cta, node(document2, "p", "daily-note", "\uD55C\uAD6D \uC2DC\uAC04 \uC790\uC815\uC5D0 \uC0C8 \uC2DC\uB4DC\uAC00 \uC5F4\uB9BD\uB2C8\uB2E4. \uB2E4\uB978 \uB0A0\uC9DC\uC758 \uACB0\uACFC\uB3C4 \uAC19\uC740 \uD328\uC0B0\uC73C\uB85C \uB2E4\uC2DC \uB3C4\uC804\uD560 \uC218 \uC788\uC5B4\uC694."));
+    body.append(hero);
+    const saved2 = savedResults.slice(0, 5).flatMap((result) => {
+      try {
+        return [validateDailyResult(result)];
+      } catch {
+        return [];
+      }
+    });
+    if (saved2.length) {
+      const history2 = node(document2, "section", "daily-history");
+      history2.append(node(document2, "h3", "", "\uB0B4 \uB3C4\uC804 \uCE74\uB4DC"));
+      history2.append(node(document2, "p", "daily-note", "\uC774 \uBE0C\uB77C\uC6B0\uC800\uC5D0 \uC800\uC7A5\uB41C \uCD5C\uADFC \uACB0\uACFC\uC785\uB2C8\uB2E4."));
+      const list = node(document2, "ul", "daily-result-list");
+      for (const result of saved2) {
+        const item = node(document2, "li", "daily-result-item"), summary2 = node(document2, "div", "daily-result-summary");
+        summary2.append(node(document2, "span", "daily-result-date", `${dateLabel(result.date)} \xB7 \uC2DC\uC791 \uC790\uB9AC ${WINDS[result.seat]}`), node(document2, "strong", "", dailyPersona(result).title), node(document2, "span", `daily-result-net${result.net < 0 ? " is-negative" : ""}`, `${signed(result.net)}\uC810 \xB7 ${result.hands}\uAD6D`));
+        item.append(summary2, button(document2, "\uB0B4 \uACB0\uACFC \uBCF4\uAE30", () => openResult(result), { className: "daily-open-result" }));
+        list.append(item);
+      }
+      history2.append(list);
+      body.append(history2);
+    }
+    show("daily");
+  }
+  function resultCard(result, shared2) {
+    const persona = dailyPersona(result), card = node(document2, "article", "daily-persona-card");
+    card.append(node(document2, "div", "daily-card-topline", `${dateLabel(result.date)} \xB7 \uC624\uB298\uC758 \uD328\uC0B0`), tiles2(document2));
+    card.append(node(document2, "p", "daily-card-kicker", "\uC774\uBC88 \uB300\uAD6D\uC758 \uB098\uB294"), node(document2, "h3", "daily-persona-title", persona.title), node(document2, "p", "daily-persona-description", persona.description));
+    const score2 = node(document2, "div", `daily-card-score${Math.abs(result.net) >= 1e6 ? " long-value" : ""}`);
+    score2.append(node(document2, "span", "", "\uB300\uAD6D \uC810\uC218 \uC99D\uAC10"), node(document2, "strong", result.net < 0 ? "is-negative" : "", `${signed(result.net)}`), node(document2, "small", "", "\uC810"));
+    card.append(score2);
+    const reference = node(document2, "div", "daily-card-reference");
+    reference.append(node(document2, "span", "", "\uAE30\uBCF8 AI \uAC19\uC740 \uC790\uB9AC \uB300\uBE44"), node(document2, "strong", "", referenceLabel(result, shared2)));
+    card.append(reference);
+    const stats = node(document2, "dl", "daily-card-stats");
+    for (const [label, value] of [["\uB9AC\uCE58", result.stats.riichi], ["\uD6C4\uB85C", result.stats.call], ["\uD654\uB8CC", result.stats.win], ["\uAE61", result.stats.kan]]) stats.append(fact(document2, label, `${value}\uD68C`));
+    card.append(stats, node(document2, "p", "daily-card-meta", `${result.hands}\uAD6D \uC644\uB8CC \xB7 \uC2DC\uC791 \uC790\uB9AC ${WINDS[result.seat]} \xB7 \uBC84\uB9BC ${result.stats.discard}\uD68C \xB7 \uC2DC\uB4DC ${result.seed}`));
+    card.append(node(document2, "p", "daily-card-fun", FUN_NOTICE));
+    return card;
+  }
+  function openResult(value, { shared: shared2 = false } = {}) {
+    const result = validateDailyResult(value);
+    currentResult = result;
+    currentShared = shared2;
+    title.textContent = shared2 ? "\uACF5\uC720\uD55C \uB3C4\uC804 \uCE74\uB4DC" : "\uB0B4 \uB3C4\uC804 \uCE74\uB4DC";
+    body.replaceChildren();
+    if (shared2) body.append(node(document2, "p", "daily-unverified", DAILY_SHARE_NOTICE));
+    body.append(resultCard(result, shared2));
+    const actions = node(document2, "div", "daily-card-actions");
+    const share = button(document2, "\uACB0\uACFC \uACF5\uC720", () => withAction(share, () => shareResult(result, shared2)), { id: "daily-share-result", className: "primary" });
+    const save = button(document2, "\uC774\uBBF8\uC9C0 \uC800\uC7A5", () => withAction(save, () => downloadImage(result, shared2)), { id: "daily-save-image" });
+    const link = button(document2, "\uB9C1\uD06C \uBCF5\uC0AC", () => copy2(buildDailyShareURL(getBaseURL(), result), "\uACB0\uACFC \uB9C1\uD06C\uB97C \uBCF5\uC0AC\uD588\uC2B5\uB2C8\uB2E4. \uAC19\uC740 \uD328\uC0B0 \uB3C4\uC804\uB3C4 \uD568\uAED8 \uC5F4\uB9BD\uB2C8\uB2E4."), { id: "daily-copy-link" });
+    actions.append(share, save, link);
+    body.append(actions);
+    body.append(button(document2, "\uC774 \uD328\uC0B0 \uB3C4\uC804", () => start(result.date, { seat: result.seat }), { id: "daily-retry", className: "daily-retry" }));
+    body.append(node(document2, "p", "daily-note", "\uACF5\uC720 \uB9C1\uD06C\uC5D0\uB294 \uB0A0\uC9DC\xB7\uC2DC\uB4DC\xB7\uC2DC\uC791 \uC790\uB9AC\xB7\uC810\uC218\uC640 \uD589\uB3D9 \uD69F\uC218\uB9CC \uB2F4\uAE41\uB2C8\uB2E4. \uB2C9\uB124\uC784\xB7\uC190\uD328\xB7\uD328\uBCF4\uB294 \uD3EC\uD568\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4."));
+    if (!shared2) body.append(node(document2, "p", "daily-note", "\uACB0\uACFC\uB294 \uC774 \uBE0C\uB77C\uC6B0\uC800\uC5D0 \uC800\uC7A5\uB429\uB2C8\uB2E4. \uC0AC\uC774\uD2B8 \uB370\uC774\uD130\uB97C \uC9C0\uC6B0\uBA74 \uC0AC\uB77C\uC9C8 \uC218 \uC788\uC5B4\uC694."));
+    show("result");
+  }
+  async function withAction(target, action) {
+    target.disabled = true;
+    report("\uACF5\uC720 \uC774\uBBF8\uC9C0\uB97C \uC900\uBE44\uD558\uACE0 \uC788\uC2B5\uB2C8\uB2E4.");
+    try {
+      await action();
+    } catch (error) {
+      report(error?.message || "\uC774\uBBF8\uC9C0\uB97C \uB9CC\uB4E4\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. \uB9C1\uD06C \uBCF5\uC0AC\uB97C \uC774\uC6A9\uD574 \uC8FC\uC138\uC694.");
+    } finally {
+      target.disabled = false;
+    }
+  }
+  async function imageBlob(result, shared2) {
+    if (document2.fonts?.ready) await document2.fonts.ready;
+    const canvas = renderDailyResultCanvas(result, { document: document2, shared: shared2 });
+    return new Promise((resolve3, reject) => canvas.toBlob((blob) => blob ? resolve3(blob) : reject(Error("\uC774\uBBF8\uC9C0\uB97C \uB9CC\uB4E4\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. \uB9C1\uD06C \uBCF5\uC0AC\uB97C \uC774\uC6A9\uD574 \uC8FC\uC138\uC694.")), "image/png"));
+  }
+  async function downloadImage(result, shared2) {
+    const blob = await imageBlob(result, shared2), url = window2.URL.createObjectURL(blob), anchor = node(document2, "a", "");
+    anchor.href = url;
+    anchor.download = `duplicate-mahjong-${result.date}.png`;
+    anchor.hidden = true;
+    document2.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    window2.setTimeout(() => window2.URL.revokeObjectURL(url), 3e4);
+    report("\uACB0\uACFC \uC774\uBBF8\uC9C0 \uC800\uC7A5\uC744 \uC694\uCCAD\uD588\uC2B5\uB2C8\uB2E4. \uBE0C\uB77C\uC6B0\uC800\uC758 \uB2E4\uC6B4\uB85C\uB4DC\uB97C \uD655\uC778\uD574 \uC8FC\uC138\uC694.");
+  }
+  async function shareResult(result, shared2) {
+    const url = buildDailyShareURL(getBaseURL(), result), persona = dailyPersona(result), text3 = `${dateLabel(result.date)} \uC624\uB298\uC758 \uD328\uC0B0 \xB7 ${persona.title}
+\uC810\uC218 \uC99D\uAC10 ${signed(result.net)}\uC810 \xB7 ${result.hands}\uAD6D \xB7 \uC2DC\uC791 \uC790\uB9AC ${WINDS[result.seat]}
+${FUN_NOTICE}`;
+    const navigator2 = window2.navigator;
+    if (navigator2.share) {
+      try {
+        const blob = await imageBlob(result, shared2), file = new window2.File([blob], `duplicate-mahjong-${result.date}.png`, { type: "image/png" });
+        if (navigator2.canShare?.({ files: [file] })) await navigator2.share({ title: "Duplicate Mahjong \xB7 \uC624\uB298\uC758 \uD328\uC0B0", text: text3, url, files: [file] });
+        else await navigator2.share({ title: "Duplicate Mahjong \xB7 \uC624\uB298\uC758 \uD328\uC0B0", text: text3, url });
+        report("\uACF5\uC720 \uCC3D\uC744 \uB2EB\uC558\uC2B5\uB2C8\uB2E4.");
+        return;
+      } catch (error) {
+        if (error?.name === "AbortError") {
+          report("\uACF5\uC720\uB97C \uCDE8\uC18C\uD588\uC2B5\uB2C8\uB2E4.");
+          return;
+        }
+      }
+    }
+    await copy2(`${text3}
+${url}`, "\uACB0\uACFC\uC640 \uB9C1\uD06C\uB97C \uBCF5\uC0AC\uD588\uC2B5\uB2C8\uB2E4. \uC6D0\uD558\uB294 \uACF3\uC5D0 \uBD99\uC5EC \uB123\uC5B4 \uACF5\uC720\uD574 \uC8FC\uC138\uC694.");
+  }
+  return {
+    openDaily: openDaily2,
+    openResult,
+    close: closeDialog,
+    updateResult(result) {
+      if (dialog.open && currentResult && !currentShared && currentResult.date === result.date) openResult(result);
+    },
+    destroy() {
+      closeDialog();
+      destroyed = true;
+      dialog.remove();
+    }
+  };
+}
+function roundRect(context3, x, y, w, h, r) {
+  context3.beginPath();
+  context3.moveTo(x + r, y);
+  context3.arcTo(x + w, y, x + w, y + h, r);
+  context3.arcTo(x + w, y + h, x, y + h, r);
+  context3.arcTo(x, y + h, x, y, r);
+  context3.arcTo(x, y, x + w, y, r);
+  context3.closePath();
+}
+function fitText(context3, text3, maxWidth, size, { weight = 700, min = 18 } = {}) {
+  while (size > min) {
+    context3.font = `${weight} ${size}px system-ui, -apple-system, sans-serif`;
+    if (context3.measureText(text3).width <= maxWidth) break;
+    size -= 1;
+  }
+  return size;
+}
+function wrapText(context3, text3, x, y, maxWidth, lineHeight) {
+  let line = "";
+  let offset = 0;
+  for (const character of text3) {
+    const next = line + character;
+    if (line && context3.measureText(next).width > maxWidth) {
+      context3.fillText(line, x, y + offset);
+      line = character;
+      offset += lineHeight;
+    } else line = next;
+  }
+  if (line) context3.fillText(line, x, y + offset);
+  return y + offset + lineHeight;
+}
+function renderDailyResultCanvas(value, { document: document2 = globalThis.document, width = 1080, shared: shared2 = false } = {}) {
+  const result = validateDailyResult(value), persona = dailyPersona(result), canvas = document2.createElement("canvas");
+  canvas.width = Number.isFinite(width) ? Math.min(2160, Math.max(360, Math.round(width))) : 1080;
+  canvas.height = Math.round(canvas.width * 1.3);
+  const context3 = canvas.getContext("2d");
+  if (!context3) throw Error("\uC774 \uBE0C\uB77C\uC6B0\uC800\uC5D0\uC11C\uB294 \uACB0\uACFC \uC774\uBBF8\uC9C0\uB97C \uB9CC\uB4E4 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. \uB9C1\uD06C \uBCF5\uC0AC\uB97C \uC774\uC6A9\uD574 \uC8FC\uC138\uC694.");
+  const scale = canvas.width / 1080;
+  context3.scale(scale, scale);
+  context3.textAlign = "center";
+  const gradient = context3.createLinearGradient(0, 0, 1080, 1404);
+  gradient.addColorStop(0, "#183b2e");
+  gradient.addColorStop(1, "#101f1a");
+  context3.fillStyle = gradient;
+  context3.fillRect(0, 0, 1080, 1404);
+  context3.strokeStyle = "#6e805d";
+  context3.lineWidth = 2;
+  roundRect(context3, 38, 38, 1004, 1328, 24);
+  context3.stroke();
+  context3.fillStyle = "#d6c58f";
+  context3.font = "700 24px system-ui, -apple-system, sans-serif";
+  context3.fillText("D U P L I C A T E   M A H J O N G", 540, 105);
+  context3.fillStyle = "#e4e9d8";
+  context3.font = "500 26px system-ui, -apple-system, sans-serif";
+  context3.fillText(`${dateLabel(result.date)}  \xB7  \uC624\uB298\uC758 \uD328\uC0B0`, 540, 151);
+  context3.fillStyle = "#f0ecdf";
+  roundRect(context3, 83, 195, 914, 1052, 30);
+  context3.fill();
+  for (const [i, glyph] of ["\u6771", "\u767C", "\u4E2D"].entries()) {
+    const x = 414 + i * 90;
+    context3.fillStyle = "#c9d0b4";
+    roundRect(context3, x, 245, 72, 98, 7);
+    context3.fill();
+    context3.fillStyle = "#fffdf0";
+    roundRect(context3, x, 239, 72, 98, 7);
+    context3.fill();
+    context3.fillStyle = glyph === "\u4E2D" ? "#a44b42" : "#275b41";
+    context3.font = "700 52px serif";
+    context3.fillText(glyph, x + 36, 307);
+  }
+  context3.fillStyle = "#6b755f";
+  context3.font = "500 24px system-ui, -apple-system, sans-serif";
+  context3.fillText("\uC774\uBC88 \uB300\uAD6D\uC758 \uB098\uB294", 540, 394);
+  context3.fillStyle = "#224532";
+  fitText(context3, persona.title, 796, 64);
+  context3.fillText(persona.title, 540, 475);
+  context3.fillStyle = "#65715e";
+  context3.font = "400 27px system-ui, -apple-system, sans-serif";
+  wrapText(context3, persona.description, 540, 534, 740, 42);
+  context3.fillStyle = "#65715e";
+  context3.font = "600 25px system-ui, -apple-system, sans-serif";
+  context3.fillText("\uB300\uAD6D \uC810\uC218 \uC99D\uAC10", 540, 679);
+  context3.fillStyle = result.net < 0 ? "#a25343" : "#28543c";
+  fitText(context3, signed(result.net), 780, 116, { weight: 750, min: 68 });
+  context3.fillText(signed(result.net), 540, 796);
+  context3.fillStyle = "#65715e";
+  context3.font = "500 24px system-ui, -apple-system, sans-serif";
+  context3.fillText("\uC810", 540, 840);
+  context3.strokeStyle = "#cbd0bb";
+  context3.lineWidth = 1;
+  context3.beginPath();
+  context3.moveTo(170, 882);
+  context3.lineTo(910, 882);
+  context3.stroke();
+  context3.textAlign = "left";
+  context3.fillStyle = "#5f6d59";
+  context3.font = "500 25px system-ui, -apple-system, sans-serif";
+  context3.fillText("\uAE30\uBCF8 AI \uAC19\uC740 \uC790\uB9AC \uB300\uBE44", 176, 931);
+  context3.textAlign = "right";
+  context3.fillStyle = "#325039";
+  fitText(context3, referenceLabel(result, shared2), 340, 29);
+  context3.fillText(referenceLabel(result, shared2), 904, 931);
+  context3.textAlign = "center";
+  for (const [i, [label, value2]] of [["\uB9AC\uCE58", result.stats.riichi], ["\uD6C4\uB85C", result.stats.call], ["\uD654\uB8CC", result.stats.win], ["\uAE61", result.stats.kan]].entries()) {
+    const x = 260 + i * 187;
+    context3.fillStyle = "#687560";
+    context3.font = "500 24px system-ui, -apple-system, sans-serif";
+    context3.fillText(label, x, 1008);
+    context3.fillStyle = "#2b4b35";
+    context3.font = "700 42px system-ui, -apple-system, sans-serif";
+    context3.fillText(`${value2}\uD68C`, x, 1067);
+  }
+  context3.fillStyle = "#6f7965";
+  context3.font = "400 22px system-ui, -apple-system, sans-serif";
+  context3.fillText(`${result.hands}\uAD6D \uC644\uB8CC \xB7 \uC2DC\uC791 \uC790\uB9AC ${WINDS[result.seat]} \xB7 \uBC84\uB9BC ${result.stats.discard}\uD68C`, 540, 1123);
+  context3.font = "400 20px system-ui, -apple-system, sans-serif";
+  context3.fillText(`\uC2DC\uB4DC ${result.seed}`, 540, 1158);
+  context3.fillStyle = "#6f7965";
+  context3.font = "400 20px system-ui, -apple-system, sans-serif";
+  context3.fillText(FUN_NOTICE, 540, 1194);
+  context3.fillStyle = "#c5ceb6";
+  context3.font = "400 20px system-ui, -apple-system, sans-serif";
+  context3.fillText(shared2 ? "\uACF5\uC720\uC790\uAC00 \uC81C\uACF5\uD55C \uACB0\uACFC \xB7 \uACF5\uC2DD \uAC80\uC99D \uC544\uB2D8" : "\uC774 \uBE0C\uB77C\uC6B0\uC800\uC5D0\uC11C \uB9CC\uB4E0 \uD50C\uB808\uC774 \uC694\uC57D", 540, 1294);
+  context3.fillStyle = "#b2c09f";
+  context3.font = "500 18px system-ui, -apple-system, sans-serif";
+  context3.fillText("\uAC19\uC740 \uD328\uC0B0, \uB098\uB9CC\uC758 \uC120\uD0DD.", 540, 1330);
+  return canvas;
+}
+
 // duplicate/app.mjs
 var DEFAULT_SERVER = "https://wellness-mahjong-h-lab.chayhyeon.chatgpt.site";
 var snapshot4 = (game, seat5) => withWinningHands(game, withDiscardMetadata(game, snapshot3(game, seat5)));
 var $ = (id) => document.getElementById(id);
-var number2 = (n) => Number(n).toLocaleString("ko-KR");
-var signed = (n) => n === null || n === void 0 ? "\u2014" : `${n > 0 ? "+" : ""}${number2(n)}`;
+var number3 = (n) => Number(n).toLocaleString("ko-KR");
+var signed2 = (n) => n === null || n === void 0 ? "\u2014" : `${n > 0 ? "+" : ""}${number3(n)}`;
 var winds2 = ["\u6771", "\u5357", "\u897F", "\u5317"];
 var positions = ["bottom", "right", "top", "left"];
 var milFixed = ["dora", "kanDora", "uraDora", "redDora", "deadWall", "exhaustLimit", "multipleRon", "abortFourKans"];
@@ -4567,6 +5165,77 @@ var remotePractice = createRemotePractice({ getServer: () => S.server, onState: 
     render();
   }
 } });
+var dailySaved = /* @__PURE__ */ new Map();
+var dailyStorageWarned = false;
+var dailyUI = mountDailyShare({
+  document,
+  toast,
+  getBaseURL: () => new URL("./", location.href).href,
+  onStart: startDailyChallenge,
+  onOpen: () => {
+    S.dailyPaused = true;
+    clearPlayTimer();
+  },
+  onClose: () => {
+    S.dailyPaused = false;
+    if (S.mode === "practice") schedulePractice();
+    else scheduleOnlineAuto();
+  }
+});
+function persistDailyResult() {
+  const result = resultForDailyPractice(S.practice);
+  if (!result) return null;
+  const signature = JSON.stringify(result);
+  if (dailySaved.get(result.date) !== signature) {
+    dailySaved.set(result.date, signature);
+    const age = (Date.parse(dailyDate()) - Date.parse(result.date)) / 864e5;
+    if (age >= 0 && age < 30 && !saveDailyResult(localStorage, result) && !dailyStorageWarned) {
+      dailyStorageWarned = true;
+      toast("\uC774 \uBE0C\uB77C\uC6B0\uC800\uC5D0 \uB3C4\uC804 \uACB0\uACFC\uB97C \uC800\uC7A5\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. \uACB0\uACFC \uCE74\uB4DC\uC758 \uC774\uBBF8\uC9C0\uB098 \uB9C1\uD06C\uB85C \uBCF4\uAD00\uD574 \uC8FC\uC138\uC694.");
+    }
+    dailyUI.updateResult(result);
+  }
+  return result;
+}
+function renderDailyEntry() {
+  const today = dailyChallenge(), active = challengeForPractice(S.practice), result = resultForDailyPractice(S.practice);
+  $("daily-entry-date").textContent = `${today.date} \xB7 \uD55C\uAD6D \uC2DC\uAC04`;
+  $("daily-entry-seed").textContent = String(today.seed);
+  $("daily-entry-status").textContent = active?.date === today.date ? result ? "\uC624\uB298\uC758 \uB3C4\uC804 \uC644\uB8CC \xB7 \uCE74\uB4DC\uB85C \uACF5\uC720\uD558\uC138\uC694." : `\uC624\uB298\uC758 \uB3C4\uC804 \uC9C4\uD589 \uC911 \xB7 ${S.practice.board}/8\uAD6D` : "\uAC19\uC740 \uD328\uC0B0\uC73C\uB85C \uB3C4\uC804\uD558\uACE0 \uB098\uC758 \uD50C\uB808\uC774 \uC720\uD615\uC744 \uACF5\uC720\uD574 \uBCF4\uC138\uC694.";
+  $("daily-result-summary").hidden = !result;
+  $("daily-result-open").hidden = S.mode !== "practice" || !result;
+}
+function openDaily() {
+  persistDailyResult();
+  const challenge = dailyChallenge(), active = challengeForPractice(S.practice);
+  dailyUI.openDaily({ challenge, active: active?.date === challenge.date && !resultForDailyPractice(S.practice), savedResults: loadDailyResults(localStorage) });
+}
+function openDailyResult() {
+  const result = persistDailyResult();
+  if (result) dailyUI.openResult(result);
+  else openDaily();
+}
+function clearDailyHash() {
+  if (location.hash === "#today" || location.hash.startsWith("#daily=")) {
+    const url = new URL(location.href);
+    url.hash = "";
+    history.replaceState(null, "", url.href);
+  }
+}
+async function startDailyChallenge(date, { resume = false, seat: seat5 } = {}) {
+  if (S.busy) {
+    toast("\uC9C4\uD589 \uC911\uC778 \uC694\uCCAD\uC744 \uB9C8\uCE5C \uB4A4 \uB2E4\uC2DC \uC2DC\uC791\uD574 \uC8FC\uC138\uC694.");
+    return;
+  }
+  const current = challengeForPractice(S.practice);
+  if (resume && current?.date === date) {
+    setMode("practice");
+    clearDailyHash();
+    return;
+  }
+  await newPractice({ dailyDate: date, dailySeat: seat5 });
+  if (challengeForPractice(S.practice)?.date === date && (seat5 === void 0 || S.practice.seat === seat5)) clearDailyHash();
+}
 var activeRoom = () => S.mode === "online" ? S.online : S.practiceRemote;
 function playerName(seat5, view = S.view) {
   if (!view) return winds2[seat5] ?? "\uD50C\uB808\uC774\uC5B4";
@@ -4674,10 +5343,10 @@ function ruleSummary() {
 function syncGameLayout() {
   const active = !!S.view && S.panel !== "settings", focused = active && S.largeBoard;
   document.body.classList.toggle("game-focus", focused);
-  const button = $("game-view-toggle");
-  button.hidden = !active;
-  button.textContent = focused ? "\uB3CC\uC544\uAC00\uAE30" : "\uB300\uAD6D \uD06C\uAC8C \uBCF4\uAE30";
-  button.setAttribute("aria-expanded", String(!focused));
+  const button2 = $("game-view-toggle");
+  button2.hidden = !active;
+  button2.textContent = focused ? "\uB3CC\uC544\uAC00\uAE30" : "\uB300\uAD6D \uD06C\uAC8C \uBCF4\uAE30";
+  button2.setAttribute("aria-expanded", String(!focused));
 }
 function showPanel(panel) {
   S.panel = panel;
@@ -4725,16 +5394,17 @@ function applyPreferences(value) {
   if (S.mode === "practice") schedulePractice();
   else scheduleOnlineAuto();
 }
-async function newPractice() {
+async function newPractice(options = {}) {
   if (S.busy) return;
-  const raw = $("practice-seed").value.trim();
+  const challenge = options.dailyDate ? dailyChallenge(options.dailyDate) : null;
+  const raw = challenge ? String(challenge.seed) : $("practice-seed").value.trim();
   if (!/^\d{1,10}$/.test(raw) || Number(raw) > 4294967295) {
     toast("\uBC30\uD328 \uBC88\uD638\uB294 0\uBD80\uD130 4294967295\uAE4C\uC9C0 \uC785\uB825\uD574 \uC8FC\uC138\uC694.");
     return;
   }
   clearPlayTimer();
   if (!await savePracticeReplayBeforeReset()) return;
-  const aiPolicy = $("practice-ai").value;
+  const aiPolicy = challenge ? "simple" : $("practice-ai").value;
   if (aiPolicy === "mortal") {
     S.busy = true;
     renderAIOptions();
@@ -4751,11 +5421,16 @@ async function newPractice() {
   clearPlayTimer();
   S.worker?.terminate();
   S.worker = null;
-  const seed = Number(raw), seatChoice = $("practice-seat").value, seat5 = resolvePracticeSeat(seatChoice, randomSeed), matchRules = normalizeMatchRules({ ...S.practiceMatchRules, format: $("practice-count").value }), count = matchBoardCount(matchRules);
+  const seed = Number(raw), seatChoice = challenge ? options.dailySeat === void 0 ? "random" : String(options.dailySeat) : $("practice-seat").value, seat5 = resolvePracticeSeat(seatChoice, randomSeed), matchRules = challenge?.matchRules ?? normalizeMatchRules({ ...S.practiceMatchRules, format: $("practice-count").value }), count = matchBoardCount(matchRules);
   remotePractice.clear();
   S.practiceRemote = null;
   S.practiceError = "";
-  S.practice = { ...createPracticeSeries({ seed, seat: seat5, matchRules, rules: S.settings, duplicateProfile: S.practiceDuplicateProfile, aiPolicy }), seatChoice };
+  persistDailyResult();
+  S.practice = challenge ? { ...createDailyPractice(challenge.date, { seat: seat5 }), seatChoice } : { ...createPracticeSeries({ seed, seat: seat5, matchRules, rules: S.settings, duplicateProfile: S.practiceDuplicateProfile, aiPolicy }), seatChoice };
+  $("practice-seed").value = String(seed);
+  $("practice-seat").value = seatChoice;
+  $("practice-count").value = matchRules.format;
+  $("practice-ai").value = aiPolicy;
   S.gameEpoch++;
   S.mode = "practice";
   S.endHidden = false;
@@ -4781,6 +5456,10 @@ async function newPractice() {
   }
 }
 function schedulePractice() {
+  if (S.dailyPaused) {
+    clearPlayTimer();
+    return;
+  }
   if (S.practice?.aiPolicy === "mortal") {
     clearPlayTimer();
     const v = S.view;
@@ -4869,8 +5548,10 @@ function finishPractice(view = null) {
   const p = S.practice, current = seriesProgress(p);
   if (p.results.some((r) => handId({ board: r.board ?? r.index + 1, honba: r.honba ?? 0 }) === current.handId)) return;
   const result = { ...current, index: current.handNumber - 1, seat: p.seat, score: view?.players[p.seat].score ?? p.game.players[p.seat].score, reference: null, referenceStatus: "loading", continues: !!(p.aiPolicy === "mortal" ? S.practiceRemote?.nextHand : localNextPlan(p))?.continues, seatScores: (view?.players ?? p.game.players).map((player) => player.score), members: Array.from({ length: 4 }, (_, seat5) => ({ seat: seat5, name: seat5 === p.seat ? "\uB098" : `AI ${(seat5 - p.seat + 4) % 4}`, ai: seat5 !== p.seat })) };
+  if (challengeForPractice(p)) result.dailyStats = dailyStatsFromGame(p.game, p.seat);
   p.results.push(result);
   savePractice();
+  persistDailyResult();
   let job;
   try {
     job = practiceBaselineOptions(p, view, S.practiceRemote?.handContext);
@@ -4892,6 +5573,7 @@ function finishPractice(view = null) {
         result.referenceStatus = "done";
       }
       savePractice();
+      persistDailyResult();
       if (S.mode === "practice") renderComparison();
       S.worker?.terminate();
       S.worker = null;
@@ -4899,6 +5581,7 @@ function finishPractice(view = null) {
     S.worker.onerror = () => {
       result.referenceStatus = "error";
       savePractice();
+      persistDailyResult();
       renderComparison();
     };
     S.worker.postMessage(job);
@@ -4914,6 +5597,7 @@ function finishPractice(view = null) {
         result.referenceStatus = "error";
       }
       savePractice();
+      persistDailyResult();
       if (S.mode === "practice") renderComparison();
     }, 30);
   }
@@ -4975,7 +5659,7 @@ function renderHand() {
   }
   const self = v.players[v.seat], ownName = activeRoom()?.members?.find((p) => p.seat === v.seat)?.name ?? "\uB098";
   $("self-name").replaceChildren(textNode("b", `${ownName}${self.riichi ? " \xB7 \uB9AC\uCE58" : ""}`), textNode("span", winds2[(v.seat - v.dealer + 4) % 4]));
-  $("self-points").textContent = number2(self.points ?? v.rules.startingPoints + self.score);
+  $("self-points").textContent = number3(self.points ?? v.rules.startingPoints + self.score);
   $("self-wall").textContent = `\uAC1C\uC778 \uD328\uC0B0 ${v.ownWallRemaining}\uC7A5${self.exhausted ? " \xB7 \uC18C\uC9C4" : ""}`;
   for (const tile3 of orderedHandTiles(v.handTiles)) {
     const el = tileFace(tile3.type, { button: true });
@@ -5075,7 +5759,7 @@ function renderTable() {
       label.className = `player-label ${shownActor === seat5 && v.phase !== "end" ? "active" : ""}`;
       label.append(textNode("span", winds2[(seat5 - v.dealer + 4) % 4], "player-wind"), textNode("span", member?.name ?? "\uB300\uAE30 \uC911"));
       if (player.riichi) label.append(textNode("span", "\u7ACB\u76F4", "player-status"));
-      panel.append(label, textNode("div", number2(player.points ?? v.rules.startingPoints + player.score), "player-score"), textNode("div", player.exhausted ? "\uD328\uC0B0 \uC18C\uC9C4" : `\uD328\uC0B0 ${player.wallRemaining}`, `player-wall ${player.exhausted ? "exhausted" : ""}`));
+      panel.append(label, textNode("div", number3(player.points ?? v.rules.startingPoints + player.score), "player-score"), textNode("div", player.exhausted ? "\uD328\uC0B0 \uC18C\uC9C4" : `\uD328\uC0B0 ${player.wallRemaining}`, `player-wall ${player.exhausted ? "exhausted" : ""}`));
       if (position === "top") {
         const backs = document.createElement("div");
         backs.className = "tile-backs";
@@ -5109,16 +5793,16 @@ function callPreview(action, view) {
   box.className = "call-preview";
   box.setAttribute("aria-hidden", "true");
   const source = view.lastDiscard, hand = [...view.handTiles].sort((a, b) => Number(!!a.red) - Number(!!b.red));
-  let tiles2 = [];
+  let tiles3 = [];
   if (action.type === "kakan") {
     const meld3 = view.melds[action.meld];
     if (!meld3) return box;
-    tiles2 = [...meld3.tiles ?? [], hand.find((t) => t.type === meld3.tile)].filter(Boolean);
-  } else if (action.type === "ankan") tiles2 = hand.filter((t) => t.type === action.tile);
+    tiles3 = [...meld3.tiles ?? [], hand.find((t) => t.type === meld3.tile)].filter(Boolean);
+  } else if (action.type === "ankan") tiles3 = hand.filter((t) => t.type === action.tile);
   else {
     const wanted = action.type === "chi" ? [action.tile, action.tile + 1, action.tile + 2] : Array(action.type === "minkan" ? 4 : 3).fill(action.tile);
     let claimed = false;
-    tiles2 = wanted.map((type) => {
+    tiles3 = wanted.map((type) => {
       if (!claimed && type === (source?.type ?? source?.tile)) {
         claimed = true;
         return { type, red: !!source.red, claimed: true };
@@ -5127,7 +5811,7 @@ function callPreview(action, view) {
       return index < 0 ? { type } : hand.splice(index, 1)[0];
     });
   }
-  for (const t of tiles2) {
+  for (const t of tiles3) {
     const face = tileFace(t.type, { small: true });
     face.classList.toggle("red", !!t.red);
     face.classList.toggle("call-target", !!t.claimed);
@@ -5163,31 +5847,31 @@ function renderActions() {
   }
   $("action-hint").textContent = S.riichiSelecting ? "\uB9AC\uCE58\uD560 \uBC84\uB9BC\uD328\uB97C \uC120\uD0DD\uD558\uC138\uC694." : v.phase === "reaction" ? "\uB860\xB7\uCE58\xB7\uD401\xB7\uAE61 \uB610\uB294 \uB118\uAE30\uAE30\uB97C \uC120\uD0DD\uD558\uC138\uC694." : S.selected !== null ? "\uC120\uD0DD\uD55C \uD328\uB97C \uB2E4\uC2DC \uB204\uB974\uBA74 \uBC84\uB9BD\uB2C8\uB2E4." : "\uD328\uB97C \uB450 \uBC88 \uB204\uB974\uAC70\uB098 \uC120\uD0DD \uD6C4 \uBC84\uB9AC\uAE30\uB97C \uB204\uB974\uC138\uC694.";
   for (const action of legal.filter((a) => !["discard", "riichi"].includes(a.type))) {
-    const button = textNode("button", `${actionNames[action.type] ?? action.type}${action.type === "chi" ? ` ${tileName(action.tile)}\uBD80\uD130` : ["ankan", "minkan"].includes(action.type) ? ` ${tileName(action.tile)}` : ""}`, ["tsumo", "ron"].includes(action.type) ? "win-action" : "secondary");
+    const button2 = textNode("button", `${actionNames[action.type] ?? action.type}${action.type === "chi" ? ` ${tileName(action.tile)}\uBD80\uD130` : ["ankan", "minkan"].includes(action.type) ? ` ${tileName(action.tile)}` : ""}`, ["tsumo", "ron"].includes(action.type) ? "win-action" : "secondary");
     if (S.preferences.callPreview && ["chi", "pon", "minkan", "ankan", "kakan"].includes(action.type)) {
-      button.classList.add("call-preview-button");
-      button.append(callPreview(action, v));
+      button2.classList.add("call-preview-button");
+      button2.append(callPreview(action, v));
     }
-    button.disabled = S.busy;
-    button.onclick = () => play(action);
-    box.append(button);
+    button2.disabled = S.busy;
+    button2.onclick = () => play(action);
+    box.append(button2);
   }
   if (legal.some((a) => a.type === "riichi")) {
-    const button = textNode("button", S.riichiSelecting ? "\uB9AC\uCE58 \uCDE8\uC18C" : "\uB9AC\uCE58", "riichi-action");
-    button.disabled = S.busy;
-    button.onclick = () => {
+    const button2 = textNode("button", S.riichiSelecting ? "\uB9AC\uCE58 \uCDE8\uC18C" : "\uB9AC\uCE58", "riichi-action");
+    button2.disabled = S.busy;
+    button2.onclick = () => {
       S.riichiSelecting = !S.riichiSelecting;
       S.selected = null;
       renderHand();
       renderActions();
     };
-    box.append(button);
+    box.append(button2);
   }
   if (legal.some((a) => a.type === "discard")) {
-    const action = legal.find((a) => a.type === (S.riichiSelecting ? "riichi" : "discard") && a.id === S.selected), button = textNode("button", S.riichiSelecting ? "\uB9AC\uCE58 \uC120\uC5B8" : "\uBC84\uB9AC\uAE30", "primary");
-    button.disabled = !action || S.busy;
-    button.onclick = () => play(action);
-    box.append(button);
+    const action = legal.find((a) => a.type === (S.riichiSelecting ? "riichi" : "discard") && a.id === S.selected), button2 = textNode("button", S.riichiSelecting ? "\uB9AC\uCE58 \uC120\uC5B8" : "\uBC84\uB9AC\uAE30", "primary");
+    button2.disabled = !action || S.busy;
+    button2.onclick = () => play(action);
+    box.append(button2);
   }
 }
 function hasNext() {
@@ -5198,6 +5882,7 @@ function hasNext() {
 function renderEnd() {
   const v = S.view, ended3 = v?.phase === "end";
   $("resume-result").hidden = !ended3;
+  $("daily-result-open").hidden = S.mode !== "practice" || !resultForDailyPractice(S.practice);
   if (!ended3) {
     $("end-overlay").hidden = true;
     S.endKey = null;
@@ -5226,7 +5911,7 @@ function renderEnd() {
     const payments2 = document.createElement("dl");
     payments2.className = "winner-payments";
     const paymentRow = (label, value, { net = false, total = false } = {}) => {
-      const term = textNode("dt", label, total ? "payment-total" : ""), valueNode = textNode("dd", value === null ? "\uD655\uC778 \uBD88\uAC00" : `${net ? signed(value) : number2(value)}\uC810`, total ? "payment-total" : "");
+      const term = textNode("dt", label, total ? "payment-total" : ""), valueNode = textNode("dd", value === null ? "\uD655\uC778 \uBD88\uAC00" : `${net ? signed2(value) : number3(value)}\uC810`, total ? "payment-total" : "");
       payments2.append(term, valueNode);
     };
     paymentRow("\uAE30\uBCF8 \uD654\uB8CC \uC218\uC785 (\uBCF8\uC7A5\xB7\uACF5\uD0C1 \uC81C\uC678)", summary2.baseReceipt);
@@ -5250,7 +5935,7 @@ function renderEnd() {
   }
   if (v.end === "exhaustive-draw") {
     details.append(textNode("p", `\uC18C\uC9C4 ${v.exhaustedSeats.length}\uBA85 \xB7 \uD150\uD30C\uC774 \uBC8C\uC810 \uC815\uC0B0`, "hint"));
-    if (v.pot) details.append(textNode("p", currentMatchRules() ? `\uB0A8\uC740 \uB9AC\uCE58 \uACF5\uD0C1 ${number2(v.pot)}\uC810 \xB7 ${hasNext() ? "\uB2E4\uC74C \uB300\uAD6D\uC73C\uB85C \uC774\uC5B4\uC9D1\uB2C8\uB2E4." : "\uBBF8\uC218\uB839 \uC0C1\uD0DC\uB85C \uD45C\uC2DC\uD558\uBA70 \uC784\uC758\uB85C \uBC30\uBD84\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4."}` : `\uB0A8\uC740 \uB9AC\uCE58 \uACF5\uD0C1 ${number2(v.pot)}\uC810\uC740 \uC774\uBC88 \uAD6D\uC758 \uC810\uC218 \uBCC0\uD654\uC5D0 \uD3EC\uD568\uB429\uB2C8\uB2E4.`, "hint"));
+    if (v.pot) details.append(textNode("p", currentMatchRules() ? `\uB0A8\uC740 \uB9AC\uCE58 \uACF5\uD0C1 ${number3(v.pot)}\uC810 \xB7 ${hasNext() ? "\uB2E4\uC74C \uB300\uAD6D\uC73C\uB85C \uC774\uC5B4\uC9D1\uB2C8\uB2E4." : "\uBBF8\uC218\uB839 \uC0C1\uD0DC\uB85C \uD45C\uC2DC\uD558\uBA70 \uC784\uC758\uB85C \uBC30\uBD84\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4."}` : `\uB0A8\uC740 \uB9AC\uCE58 \uACF5\uD0C1 ${number3(v.pot)}\uC810\uC740 \uC774\uBC88 \uAD6D\uC758 \uC810\uC218 \uBCC0\uD654\uC5D0 \uD3EC\uD568\uB429\uB2C8\uB2E4.`, "hint"));
   }
   const points2 = $("end-points");
   points2.replaceChildren(textNode("h3", "\uC774 \uAD6D \uC810\uC218 \uC99D\uAC10", "end-points-heading"));
@@ -5258,7 +5943,7 @@ function renderEnd() {
     const row = document.createElement("div");
     row.className = `end-score-row ${seat5 === v.seat ? "self" : ""}`;
     const name = activeRoom()?.members?.find((p) => p.seat === seat5)?.name ?? (seat5 === v.seat ? "\uB098" : `AI ${(seat5 - v.seat + 4) % 4}`);
-    row.append(textNode("span", `${winds2[(seat5 - v.dealer + 4) % 4]} \xB7 ${name ?? "\uD50C\uB808\uC774\uC5B4"}`), textNode("b", signed(v.players[seat5].score), v.players[seat5].score > 0 ? "positive" : v.players[seat5].score < 0 ? "negative" : ""));
+    row.append(textNode("span", `${winds2[(seat5 - v.dealer + 4) % 4]} \xB7 ${name ?? "\uD50C\uB808\uC774\uC5B4"}`), textNode("b", signed2(v.players[seat5].score), v.players[seat5].score > 0 ? "positive" : v.players[seat5].score < 0 ? "negative" : ""));
     points2.append(row);
   }
   $("next-board").textContent = hasNext() ? currentNextHand()?.continues ? "\uC5F0\uC7A5 \uB300\uAD6D" : "\uB2E4\uC74C \uAD6D" : S.mode === "practice" ? "\uC0C8 \uC5F0\uC2B5" : "\uB300\uD68C \uC644\uB8CC";
@@ -5266,7 +5951,7 @@ function renderEnd() {
 }
 function setMetric(id, value) {
   const el = $(id);
-  el.textContent = signed(value);
+  el.textContent = signed2(value);
   el.classList.toggle("positive", value > 0);
   el.classList.toggle("negative", value < 0);
 }
@@ -5279,10 +5964,10 @@ function renderRoundScorePanel() {
   if (!S.view) return;
   let rows = S.mode === "online" ? S.online?.roundResults ?? [] : null;
   if (!rows) {
-    const practice = S.practice, history = practice?.results ?? [], count = practice?.count ?? 8;
+    const practice = S.practice, history2 = practice?.results ?? [], count = practice?.count ?? 8;
     rows = Array.from({ length: count }, (_, index) => {
-      const board = index + 1, group = history.filter((row) => (row.board ?? row.index + 1) === board), next = currentNextHand();
-      const complete = group.some((row) => row.continues === false) || history.some((row) => (row.board ?? row.index + 1) > board) || progress().board === board && S.view.phase === "end" && next && !next.continues;
+      const board = index + 1, group = history2.filter((row) => (row.board ?? row.index + 1) === board), next = currentNextHand();
+      const complete = group.some((row) => row.continues === false) || history2.some((row) => (row.board ?? row.index + 1) > board) || progress().board === board && S.view.phase === "end" && next && !next.continues;
       const entries = [];
       if (complete && group.length) for (let seat5 = 0; seat5 < 4; seat5++) {
         const available = group.every((row) => Array.isArray(row.seatScores) && Number.isFinite(row.seatScores[seat5]));
@@ -5306,17 +5991,17 @@ function renderComparison() {
   setMetric("reference-result", online ? record?.mean : record?.reference);
   setMetric("difference-result", online ? tournament && scoring.method === "imp" ? record?.imp : record?.difference : record?.reference !== null && record?.reference !== void 0 ? record.score - record.reference : null);
   $("scoring-result-details").hidden = !tournament || !final;
-  $("scoring-result-details").textContent = tournament && final ? `\uC6D0\uC810\uC218 \uD3C9\uADE0 \uB300\uBE44 ${signed(record?.difference)}\uC810 \xB7 IMP ${signed(record?.imp)} \xB7 ${scoring.impUnit.toLocaleString("ko-KR")}\uC810 \uB2E8\uC704 \xB7 \uAC19\uC740 \uCD5C\uCD08 \uC790\uB9AC ${record?.samples ?? 0}\uBA85 (${record?.ai ? "AI" : "\uC0AC\uB78C"})` : "";
+  $("scoring-result-details").textContent = tournament && final ? `\uC6D0\uC810\uC218 \uD3C9\uADE0 \uB300\uBE44 ${signed2(record?.difference)}\uC810 \xB7 IMP ${signed2(record?.imp)} \xB7 ${scoring.impUnit.toLocaleString("ko-KR")}\uC810 \uB2E8\uC704 \xB7 \uAC19\uC740 \uCD5C\uCD08 \uC790\uB9AC ${record?.samples ?? 0}\uBA85 (${record?.ai ? "AI" : "\uC0AC\uB78C"})` : "";
   $("comparison-note").textContent = tournament ? !final ? "\uBAA8\uB4E0 \uCC38\uAC00 \uD0C1\uC774 \uB300\uD68C\uB97C \uB9C8\uCE58\uBA74 \uC131\uC801\uC744 \uC790\uB3D9 \uD655\uC815\uD569\uB2C8\uB2E4. \uBCF8\uC7A5\uC744 \uD3EC\uD568\uD55C \uAD6D\uBCC4 \uC810\uC218 \uC99D\uAC10\uC744 \uAC19\uC740 \uCD5C\uCD08 \uC790\uB9AC\uB07C\uB9AC \uBE44\uAD50\uD569\uB2C8\uB2E4." : record?.samples >= 2 ? "\uD655\uC815 \uC131\uC801 \xB7 \uBCF8\uC7A5\uC744 \uD3EC\uD568\uD55C \uAD6D\uBCC4 \uBE44\uAD50\uC785\uB2C8\uB2E4. \uC6D0\uC810\uC218\uC640 IMP\uB97C \uD568\uAED8 \uD45C\uC2DC\uD558\uBA70 \uC0AC\uB78C\uACFC AI\uB294 \uB530\uB85C \uBE44\uAD50\uD569\uB2C8\uB2E4." : "\uAC19\uC740 \uCD5C\uCD08 \uC790\uB9AC\uC758 \uAC19\uC740 \uAD6C\uBD84 \uCC38\uAC00\uC790\uAC00 2\uBA85 \uBBF8\uB9CC\uC774\uBBC0\uB85C \uD3C9\uADE0 \uB300\uBE44\xB7IMP\xB7\uC21C\uC704\uB97C \uD45C\uC2DC\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4." : online ? record?.boards?.some((row) => row.contextMismatch) ? "\uBCF8\uC7A5\xB7\uACF5\uD0C1\xB7\uC2DC\uC791 \uC810\uC218\uAC00 \uB2E4\uB978 \uD0C1\uC740 \uC810\uC218 \uBE44\uAD50\uC5D0\uC11C \uC81C\uC678\uD569\uB2C8\uB2E4. \uAC19\uC740 \uC870\uAC74\uC758 \uC644\uB8CC \uB300\uAD6D\uC774 2\uAC1C \uC774\uC0C1\uC77C \uB54C \uD3C9\uADE0\uC744 \uD45C\uC2DC\uD569\uB2C8\uB2E4." : record?.samples >= 2 ? `\uC644\uB8CC\uB41C \uC0AC\uB78C \uCC38\uAC00\uC790 ${record.samples}\uBA85 \xB7 \uAC19\uC740 \uBC30\uD328\xB7\uC790\uB9AC\xB7\uBCF8\uC7A5\xB7\uC2DC\uC791 \uC810\uC218\xB7\uACF5\uD0C1 \uC870\uAC74\uC758 \uBE44\uAD50\uC785\uB2C8\uB2E4.` : "\uAC19\uC740 \uBC30\uD328\xB7\uC790\uB9AC\xB7\uBCF8\uC7A5\xB7\uC2DC\uC791 \uC810\uC218\xB7\uACF5\uD0C1 \uC870\uAC74\uC5D0\uC11C \uC644\uB8CC\uD55C \uC0AC\uB78C\uC774 2\uBA85 \uC774\uC0C1\uC774\uBA74 \uD3C9\uADE0\uC744 \uD45C\uC2DC\uD569\uB2C8\uB2E4." : record?.referenceStatus === "loading" ? "\uAC19\uC740 \uBC30\uD328\uC758 AI \uAE30\uC900 \uB300\uAD6D\uC744 \uACC4\uC0B0 \uC911\uC785\uB2C8\uB2E4." : record?.referenceStatus === "done" ? "\uAC19\uC740 \uBC30\uD328\xB7\uBCF8\uC7A5\xB7\uC2DC\uC791 \uC810\uC218\xB7\uACF5\uD0C1\uC758 \uAE30\uBCF8 AI \uAE30\uC900\uC785\uB2C8\uB2E4. \uC774\uD6C4 \uC9C4\uD589 \uACBD\uB85C\uB294 \uB530\uB85C \uBE44\uAD50\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4." : record?.referenceStatus === "error" ? "AI \uAE30\uC900 \uB300\uAD6D \uACC4\uC0B0\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4." : "\uAD6D\uC774 \uB05D\uB098\uBA74 \uAC19\uC740 \uC790\uB9AC\uC758 \uACB0\uACFC\uB97C \uBE44\uAD50\uD569\uB2C8\uB2E4.";
-  const history = $("result-history");
-  history.replaceChildren();
+  const history2 = $("result-history");
+  history2.replaceChildren();
   const rows = tournament ? record?.rounds ?? [] : online ? record?.boards ?? [] : S.practice?.results ?? [];
   for (const r of rows.filter((row) => (row.board ?? row.index + 1) === progress().board).slice(-8)) {
     const row = document.createElement("div");
     row.className = "result-history-row";
     const difference = online ? tournament && scoring.method === "imp" ? r.imp : r.difference : r.reference === null ? null : r.score - r.reference;
-    row.append(textNode("span", tournament ? `${r.board}\uAD6D \xB7 \uBCF8\uC7A5 \uD3EC\uD568` : `${r.board}\uAD6D \xB7 ${r.honba ?? 0}\uBCF8\uC7A5`), textNode("span", signed(r.score)), textNode("span", difference === null ? "\uBE44\uAD50 \uB300\uAE30" : `${signed(difference)}${tournament && scoring.method === "imp" ? " IMP" : ""}`, difference > 0 ? "positive" : difference < 0 ? "negative" : ""));
-    history.append(row);
+    row.append(textNode("span", tournament ? `${r.board}\uAD6D \xB7 \uBCF8\uC7A5 \uD3EC\uD568` : `${r.board}\uAD6D \xB7 ${r.honba ?? 0}\uBCF8\uC7A5`), textNode("span", signed2(r.score)), textNode("span", difference === null ? "\uBE44\uAD50 \uB300\uAE30" : `${signed2(difference)}${tournament && scoring.method === "imp" ? " IMP" : ""}`, difference > 0 ? "positive" : difference < 0 ? "negative" : ""));
+    history2.append(row);
   }
   $("standings-open").hidden = !online || tournament && !final || !S.online?.standings?.length;
 }
@@ -5375,6 +6060,7 @@ function render() {
   }
   renderEnd();
   renderComparison();
+  renderDailyEntry();
   $("open-current-replay").disabled = openingReplay || S.view?.phase !== "end";
   $("game-footnote").textContent = online ? "\uB300\uD68C\uB294 \uC0DD\uC131 \uD6C4 6\uC2DC\uAC04 \uC720\uC9C0\uB429\uB2C8\uB2E4. \uC644\uB8CC\uD55C \uAD6D\uC740 \uD328\uBCF4\uC2E4\uC5D0\uC11C \uB2E4\uC2DC \uBCFC \uC218 \uC788\uC2B5\uB2C8\uB2E4." : S.practice?.aiPolicy === "mortal" ? "Mortal \uC5F0\uC2B5\uC740 \uC11C\uBC84 \uC5F0\uACB0\uC774 \uD544\uC694\uD569\uB2C8\uB2E4. \uAC19\uC740 \uD0ED\uC5D0\uC11C \uC0C8\uB85C\uACE0\uCE68\uD558\uBA74 \uC9C4\uD589\uC744 \uBCF5\uC6D0\uD569\uB2C8\uB2E4." : "\uC644\uB8CC\uD55C \uAD6D\uC740 \uD328\uBCF4\uC2E4\uC5D0 \uC800\uC7A5\uB429\uB2C8\uB2E4. \uD328\uB97C \uB450 \uBC88 \uB204\uB974\uAC70\uB098 \uC120\uD0DD \uD6C4 \uBC84\uB9AC\uC138\uC694. \u2190 \u2192 / Enter / Esc \uC9C0\uC6D0.";
 }
@@ -5480,6 +6166,10 @@ async function pollRoom() {
   }
 }
 function scheduleOnlineAuto() {
+  if (S.dailyPaused) {
+    clearPlayTimer();
+    return;
+  }
   clearPlayTimer();
   if (S.mode !== "online" || S.busy || !S.view || S.view.phase === "end" || S.view.actor !== S.view.seat) return;
   const action = automaticPlayerAction(S.view, { autoWin: S.autoWin });
@@ -5677,7 +6367,7 @@ function showStandings() {
   table.append(head);
   const body = document.createElement("tbody");
   for (const p of rows) {
-    const r = document.createElement("tr"), values = modern ? [p.rank ?? "\u2014", p.name, p.ai ? "AI" : "\uC0AC\uB78C", winds2[p.seat], signed(p.score), signed(p.difference), signed(p.imp), p.samples] : [p.name, p.ai ? "AI" : "\uC0AC\uB78C", `${p.completedBoards}\uAD6D`, signed(p.score), signed(p.difference)];
+    const r = document.createElement("tr"), values = modern ? [p.rank ?? "\u2014", p.name, p.ai ? "AI" : "\uC0AC\uB78C", winds2[p.seat], signed2(p.score), signed2(p.difference), signed2(p.imp), p.samples] : [p.name, p.ai ? "AI" : "\uC0AC\uB78C", `${p.completedBoards}\uAD6D`, signed2(p.score), signed2(p.difference)];
     for (const value of values) r.append(textNode("td", value));
     body.append(r);
   }
@@ -5791,6 +6481,8 @@ $("practice-disconnect").onclick = () => {
   render();
 };
 $("open-current-replay").onclick = openCurrentReplay;
+for (const id of ["daily-open", "daily-open-game", "daily-open-practice"]) $(id).onclick = openDaily;
+$("daily-result-open").onclick = $("daily-result-summary").onclick = openDailyResult;
 $("game-view-toggle").onclick = () => {
   S.largeBoard = !document.body.classList.contains("game-focus");
   showPanel(S.mode);
@@ -5946,3 +6638,20 @@ if (parameters.get("create") === "1" && !S.credentials) {
   setMode("online");
   openRules("room", true);
 }
+persistDailyResult();
+function openDailyHash() {
+  const hash = location.hash;
+  if (hash === "#today") {
+    openDaily();
+    return;
+  }
+  if (!hash.startsWith("#daily=")) return;
+  const result = parseDailyShare(hash);
+  if (result) dailyUI.openResult(result, { shared: true });
+  else {
+    openDaily();
+    toast("\uACB0\uACFC \uB9C1\uD06C\uB97C \uD655\uC778\uD560 \uC218 \uC5C6\uC5B4 \uC624\uB298\uC758 \uD328\uC0B0\uC744 \uC5F4\uC5C8\uC2B5\uB2C8\uB2E4.");
+  }
+}
+window.addEventListener("hashchange", openDailyHash);
+openDailyHash();
