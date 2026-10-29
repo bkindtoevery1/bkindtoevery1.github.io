@@ -135,7 +135,7 @@ function validateNickname(value) {
   return { nickname, normalized: nickname.toLowerCase() };
 }
 function validatePassword(value) {
-  if (typeof value !== "string" || [...value].length < 15 || [...value].length > 128 || encoder.encode(value).length > 512) throw Error("\uBE44\uBC00\uBC88\uD638\uB294 15\u2013128\uC790\uB85C \uC785\uB825\uD574 \uC8FC\uC138\uC694.");
+  if (typeof value !== "string" || [...value].length < 8 || [...value].length > 128 || encoder.encode(value).length > 512) throw Error("\uBE44\uBC00\uBC88\uD638\uB294 8\u2013128\uC790\uB85C \uC785\uB825\uD574 \uC8FC\uC138\uC694.");
   return value;
 }
 var encode = (value) => {
@@ -356,7 +356,7 @@ function mountAccountPanel(container, { client, onSessionChange = () => {
     input.type = password ? "password" : "text";
     input.autocomplete = password ? fresh ? "new-password" : "current-password" : "username";
     if (password) {
-      input.minLength = 15;
+      input.minLength = 8;
       input.maxLength = 128;
     } else if (name === "nickname") {
       input.maxLength = 40;
@@ -446,7 +446,7 @@ function mountAccountPanel(container, { client, onSessionChange = () => {
       content.append(tabs);
       if (mode === "login") form("\uB2C9\uB124\uC784\uC73C\uB85C \uB85C\uADF8\uC778", "\uB85C\uADF8\uC778", (f) => ({ nickname: field(f, "\uB2C9\uB124\uC784", "nickname"), password: field(f, "\uBE44\uBC00\uBC88\uD638", "password", { password: true }) }), (data) => client.login(data));
       if (mode === "register") {
-        const f = form("\uACC4\uC815 \uB9CC\uB4E4\uAE30", "\uACC4\uC815 \uB9CC\uB4E4\uAE30", (f2) => ({ nickname: field(f2, "\uB2C9\uB124\uC784 \xB7 1\u201320\uC790", "nickname"), password: field(f2, "\uBE44\uBC00\uBC88\uD638 \xB7 15\u2013128\uC790", "password", { password: true, fresh: true }) }), (data) => client.register({ ...data, privacyVersion: PRIVACY_VERSION }));
+        const f = form("\uACC4\uC815 \uB9CC\uB4E4\uAE30", "\uACC4\uC815 \uB9CC\uB4E4\uAE30", (f2) => ({ nickname: field(f2, "\uB2C9\uB124\uC784 \xB7 1\u201320\uC790", "nickname"), password: field(f2, "\uBE44\uBC00\uBC88\uD638 \xB7 8\u2013128\uC790", "password", { password: true, fresh: true }) }), (data) => client.register({ ...data, privacyVersion: PRIVACY_VERSION }));
         const note = node3("p", void 0, "hint"), link = node3("a", "\uAC1C\uC778\uC815\uBCF4 \uCC98\uB9AC \uC548\uB0B4");
         link.href = privacyUrl;
         link.target = "_blank";
@@ -454,7 +454,7 @@ function mountAccountPanel(container, { client, onSessionChange = () => {
         note.append(link, node3("span", "\uB97C \uC77D\uC5B4 \uC8FC\uC138\uC694. \uC774\uBA54\uC77C\uC740 \uBC1B\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uB2C9\uB124\uC784\uC740 \uC911\uBCF5\uB418\uC9C0 \uC54A\uC544\uC57C \uD558\uBA70 \uBE44\uBC00\uBC88\uD638\uB294 \uC774 \uBE0C\uB77C\uC6B0\uC800\uC5D0 \uC800\uC7A5\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4."));
         f.prepend(note);
       }
-      if (mode === "recover") form("\uBCF5\uAD6C \uCF54\uB4DC\uB85C \uBE44\uBC00\uBC88\uD638 \uC7AC\uC124\uC815", "\uACC4\uC815 \uBCF5\uAD6C", (f) => ({ nickname: field(f, "\uB2C9\uB124\uC784", "nickname"), recoveryCode: field(f, "\uBCF5\uAD6C \uCF54\uB4DC", "recoveryCode", { password: true }), newPassword: field(f, "\uC0C8 \uBE44\uBC00\uBC88\uD638 \xB7 15\u2013128\uC790", "newPassword", { password: true, fresh: true }) }), (data) => client.recover(data));
+      if (mode === "recover") form("\uBCF5\uAD6C \uCF54\uB4DC\uB85C \uBE44\uBC00\uBC88\uD638 \uC7AC\uC124\uC815", "\uACC4\uC815 \uBCF5\uAD6C", (f) => ({ nickname: field(f, "\uB2C9\uB124\uC784", "nickname"), recoveryCode: field(f, "\uBCF5\uAD6C \uCF54\uB4DC", "recoveryCode", { password: true }), newPassword: field(f, "\uC0C8 \uBE44\uBC00\uBC88\uD638 \xB7 8\u2013128\uC790", "newPassword", { password: true, fresh: true }) }), (data) => client.recover(data));
       content.append(node3("p", "\uACC4\uC815 \uC11C\uBE44\uC2A4\uAC00 \uAEBC\uC838 \uC788\uC5B4\uB3C4 \uC190\uB2D8 \uAC8C\uC784\uC740 \uACC4\uC18D \uC774\uC6A9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4. \uBE44\uBC00\uBC88\uD638 \uBD99\uC5EC\uB123\uAE30\uC640 \uBE44\uBC00\uBC88\uD638 \uAD00\uB9AC\uC790\uB97C \uC0AC\uC6A9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.", "hint"));
       return;
     }
@@ -487,7 +487,7 @@ function mountAccountPanel(container, { client, onSessionChange = () => {
       return f;
     }
     settings("\uB2C9\uB124\uC784 \uBCC0\uACBD", "\uB2C9\uB124\uC784 \uBCC0\uACBD", (f) => ({ nickname: field(f, "\uC0C8 \uB2C9\uB124\uC784", "nickname"), password: field(f, "\uD604\uC7AC \uBE44\uBC00\uBC88\uD638", "password", { password: true }) }), (data) => client.rename(data));
-    settings("\uBE44\uBC00\uBC88\uD638 \uBCC0\uACBD", "\uBE44\uBC00\uBC88\uD638 \uBCC0\uACBD", (f) => ({ password: field(f, "\uD604\uC7AC \uBE44\uBC00\uBC88\uD638", "password", { password: true }), newPassword: field(f, "\uC0C8 \uBE44\uBC00\uBC88\uD638", "newPassword", { password: true, fresh: true }) }), (data) => client.changePassword(data));
+    settings("\uBE44\uBC00\uBC88\uD638 \uBCC0\uACBD", "\uBE44\uBC00\uBC88\uD638 \uBCC0\uACBD", (f) => ({ password: field(f, "\uD604\uC7AC \uBE44\uBC00\uBC88\uD638", "password", { password: true }), newPassword: field(f, "\uC0C8 \uBE44\uBC00\uBC88\uD638 \xB7 8\u2013128\uC790", "newPassword", { password: true, fresh: true }) }), (data) => client.changePassword(data));
     settings("\uBCF5\uAD6C \uCF54\uB4DC \uC7AC\uBC1C\uAE09", "\uBCF5\uAD6C \uCF54\uB4DC \uC7AC\uBC1C\uAE09", (f) => ({ password: field(f, "\uD604\uC7AC \uBE44\uBC00\uBC88\uD638", "password", { password: true }) }), (data) => client.resetRecovery(data));
     settings("\uACC4\uC815 \uC0AD\uC81C", "\uACC4\uC815 \uC0AD\uC81C", (f) => ({ password: field(f, "\uD604\uC7AC \uBE44\uBC00\uBC88\uD638", "password", { password: true }) }), async (data) => {
       if (!confirm?.("\uACC4\uC815\uC744 \uC0AD\uC81C\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C? \uC774 \uC791\uC5C5\uC740 \uB418\uB3CC\uB9B4 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.")) return;

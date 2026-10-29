@@ -3728,7 +3728,7 @@ function validateNickname(value) {
   return { nickname, normalized: nickname.toLowerCase() };
 }
 function validatePassword(value) {
-  if (typeof value !== "string" || [...value].length < 15 || [...value].length > 128 || encoder.encode(value).length > 512) throw Error("\uBE44\uBC00\uBC88\uD638\uB294 15\u2013128\uC790\uB85C \uC785\uB825\uD574 \uC8FC\uC138\uC694.");
+  if (typeof value !== "string" || [...value].length < 8 || [...value].length > 128 || encoder.encode(value).length > 512) throw Error("\uBE44\uBC00\uBC88\uD638\uB294 8\u2013128\uC790\uB85C \uC785\uB825\uD574 \uC8FC\uC138\uC694.");
   return value;
 }
 var encode = (value) => {
