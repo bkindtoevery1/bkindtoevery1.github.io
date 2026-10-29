@@ -458,190 +458,87 @@ function add(left, right) {
   return total;
 }
 var totalOf = (stats) => stats.tiles.reduce(add, 0);
-var emptyDiscardStats = () => ({ tiles: Array(34).fill(0), tsumogiri: 0, tedashi: 0, unknown: 0, claimed: 0 });
 function validateDiscardStats(stats, expectedTotal) {
   if (!plain2(stats) || Reflect.ownKeys(stats).length !== KEYS.length || !Reflect.ownKeys(stats).every((key) => KEYS.includes(key)) || !Array.isArray(stats.tiles) || stats.tiles.length !== 34 || !Array.from(stats.tiles).every(integer2) || ![...MODES, "claimed"].every((key) => integer2(stats[key]))) throw Error("Invalid discard statistics");
   const total = totalOf(stats), kinds = MODES.reduce((sum, key) => add(sum, stats[key]), 0);
   if (kinds !== total || stats.claimed > total || expectedTotal !== void 0 && (!integer2(expectedTotal) || expectedTotal !== total)) throw Error("Inconsistent discard statistics");
   return { tiles: [...stats.tiles], tsumogiri: stats.tsumogiri, tedashi: stats.tedashi, unknown: stats.unknown, claimed: stats.claimed };
 }
-function sumDiscardStats(records) {
-  if (!Array.isArray(records)) throw Error("Missing discard-statistics records");
-  const combined = emptyDiscardStats();
-  for (const record of records) {
-    const stats = validateDiscardStats(record);
-    for (let type = 0; type < 34; type++) combined.tiles[type] = add(combined.tiles[type], stats.tiles[type]);
-    for (const key of [...MODES, "claimed"]) combined[key] = add(combined[key], stats[key]);
-  }
-  return validateDiscardStats(combined);
-}
-function compareDiscardStats(own, peers) {
-  const checked = validateDiscardStats(own), ownTotal = totalOf(checked);
-  if (!Array.isArray(peers)) throw Error("Missing discard-statistics peers");
-  const checkedPeers = peers.map((value) => {
-    const stats = validateDiscardStats(value);
-    return { stats, total: totalOf(stats) };
-  });
-  const positive = checkedPeers.filter((peer) => peer.total > 0), peerSamples = positive.length;
-  const combined = sumDiscardStats(checkedPeers.map((peer) => peer.stats)), peerTotal = totalOf(combined);
-  function compare(ownCount, peerCount, read) {
-    const ownPercent = ownTotal ? ownCount / ownTotal * 100 : null;
-    const peerPercent = peerSamples ? positive.reduce((sum, peer) => sum + read(peer.stats) / peer.total * 100 / peerSamples, 0) : null;
-    let difference = ownPercent === null || peerPercent === null ? null : ownPercent - peerPercent;
-    if (difference !== null && Math.abs(difference) <= Number.EPSILON * Math.max(1, ownPercent, peerPercent) * peerSamples * 8) difference = 0;
-    return { ownCount, ownPercent, peerCount, peerPercent, difference };
-  }
-  const tiles = checked.tiles.map((count, type) => ({ type, ...compare(count, combined.tiles[type], (stats) => stats.tiles[type]) }));
-  const modes = Object.fromEntries(MODES.map((key) => [key, compare(checked[key], combined[key], (stats) => stats[key])]));
-  return { ownTotal, peerSamples, peerTotal, tiles, ...modes };
-}
-
-// duplicate/shared/tiles.mjs
-var tileName = (t) => t < 27 ? `${t % 9 + 1}${["\uB9CC", "\uD1B5", "\uC0AD"][Math.floor(t / 9)]}` : ["\uB3D9", "\uB0A8", "\uC11C", "\uBD81", "\uBC31", "\uBC1C", "\uC911"][t - 27];
-
-// duplicate/tile-view.mjs
-var SVG = "http://www.w3.org/2000/svg";
-var dots = { 1: [[50, 50]], 2: [[50, 24], [50, 76]], 3: [[24, 22], [50, 50], [76, 78]], 4: [[24, 24], [76, 24], [24, 76], [76, 76]], 5: [[24, 24], [76, 24], [50, 50], [24, 76], [76, 76]], 6: [[24, 18], [76, 18], [24, 50], [76, 50], [24, 82], [76, 82]], 7: [[24, 16], [50, 31], [76, 16], [24, 57], [76, 57], [24, 84], [76, 84]], 8: [[24, 13], [76, 13], [24, 38], [76, 38], [24, 63], [76, 63], [24, 88], [76, 88]], 9: [[22, 16], [50, 16], [78, 16], [22, 50], [50, 50], [78, 50], [22, 84], [50, 84], [78, 84]] };
-function element(tag, attributes) {
-  const el = document.createElementNS(SVG, tag);
-  for (const [key, value] of Object.entries(attributes)) el.setAttribute(key, String(value));
-  return el;
-}
-function span(text, cls) {
-  const el = document.createElement("span");
-  el.className = cls;
-  el.textContent = text;
-  return el;
-}
-function bird(svg) {
-  svg.setAttribute("data-design", "bamboo-bird");
-  for (const d of ["M47 60 Q16 66 17 98 Q38 91 51 67", "M49 62 Q32 81 37 103 Q54 92 56 65", "M54 62 Q54 86 69 99 Q76 78 62 60"]) svg.append(element("path", { d, fill: "#1a7952", stroke: "#125c40", "stroke-width": 2 }));
-  svg.append(element("path", { d: "M28 47 Q22 30 34 19 Q48 13 55 27 L65 43 Q77 55 63 68 Q48 78 34 65 Q25 58 28 47Z", fill: "#1a7952" }));
-  svg.append(element("path", { d: "M34 46 Q45 35 63 48 Q61 63 41 66 Q49 55 34 46Z", fill: "#2d526f" }));
-  svg.append(element("path", { d: "M53 24 L72 32 L55 35Z", fill: "#b12739" }));
-  svg.append(element("circle", { cx: 45, cy: 25, r: 4, fill: "#fff7dc" }), element("circle", { cx: 46, cy: 25, r: 2, fill: "#173d32" }));
-  svg.append(element("path", { d: "M32 17 L27 10 M38 15 L37 7 M49 68 L50 82 M50 82 L42 86 M50 82 L58 85", fill: "none", stroke: "#b12739", "stroke-width": 3, "stroke-linecap": "round" }));
-}
-function eightBamboo(svg) {
-  svg.setAttribute("data-design", "bamboo-eight");
-  for (const points of [[[5, 18], [24, 43], [43, 18]], [[57, 18], [76, 43], [95, 18]], [[5, 92], [24, 67], [43, 92]], [[57, 92], [76, 67], [95, 92]]]) {
-    svg.append(element("path", { d: points.map(([x, y], i) => `${i ? "L" : "M"}${x} ${y}`).join(" "), fill: "none", stroke: "#166b46", "stroke-width": 8, "stroke-linecap": "butt", "stroke-linejoin": "miter", "stroke-miterlimit": 2 }));
-    for (let i = 0; i < 2; i++) {
-      const [x1, y1] = points[i], [x2, y2] = points[i + 1], length = Math.hypot(x2 - x1, y2 - y1), dx = (y2 - y1) / length * 3.5, dy = -(x2 - x1) / length * 3.5, g = element("g", { "data-bamboo-stem": "true" });
-      for (const t of [0.3, 0.7]) {
-        const x = x1 + (x2 - x1) * t, y = y1 + (y2 - y1) * t;
-        g.append(element("path", { d: `M${x - dx} ${y - dy} L${x + dx} ${y + dy}`, fill: "none", stroke: "#0d4e33", "stroke-width": 1.7 }));
-      }
-      svg.append(g);
-    }
-  }
-}
-function tileFace(type, { button = false, small = false } = {}) {
-  const tile = document.createElement(button ? "button" : "span");
-  tile.className = `tile-face ${small ? "tile-small" : "tile"}`;
-  tile.dataset.type = String(type);
-  tile.dataset.suit = type < 27 ? ["m", "p", "s"][Math.floor(type / 9)] : "z";
-  tile.title = tileName(type);
-  tile.setAttribute("aria-label", tileName(type));
-  if (button) tile.type = "button";
-  if (type < 9) {
-    tile.append(span(["\u4E00", "\u4E8C", "\u4E09", "\u56DB", "\u4E94", "\u516D", "\u4E03", "\u516B", "\u4E5D"][type], "tile-number"), span("\u842C", "tile-man"));
-  } else if (type < 27) {
-    const n = type % 9 + 1, svg = element("svg", { viewBox: "0 0 100 110", class: "tile-symbol", "aria-hidden": "true", focusable: "false" });
-    if (type === 18) bird(svg);
-    else if (type === 25) eightBamboo(svg);
-    else for (const [index, [x, y]] of dots[n].entries()) {
-      if (type < 18) {
-        const color = "#222222";
-        svg.append(element("circle", { cx: x, cy: y + 5, r: n === 1 ? 25 : n < 6 ? 14 : 10, fill: "none", stroke: color, "stroke-width": n === 1 ? 8 : 6 }));
-        svg.append(element("circle", { cx: x, cy: y + 5, r: n === 1 ? 11 : 3, fill: color }));
-      } else {
-        const color = n === 7 && index < 3 ? "#b12739" : "#1a7952", length = n === 1 ? 56 : n < 4 ? 30 : 20, thick = n === 1 ? 13 : 7;
-        svg.append(element("path", { d: `M ${x} ${y + 5 - length / 2} v ${length} M ${x - thick / 2} ${y + 5 - length / 2 + 4} h ${thick} M ${x - thick / 2} ${y + 5 + length / 2 - 4} h ${thick}`, fill: "none", stroke: color, "stroke-width": thick, "stroke-linecap": "round" }));
-      }
-    }
-    tile.append(svg);
-  } else if (type === 31) {
-    tile.append(span("", "tile-white"));
-  } else tile.append(span({ 27: "\u6771", 28: "\u5357", 29: "\u897F", 30: "\u5317", 32: "\u767C", 33: "\u4E2D" }[type], "tile-honor"));
-  for (const child of tile.children) child.setAttribute("aria-hidden", "true");
-  return tile;
-}
 
 // duplicate/discard-statistics-view.mjs
 var percentage = (value) => value === null ? "\u2014" : `${Number(value).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}%`;
 var pointDifference = (value) => value === null ? "\u2014" : `${value > 0 ? "+" : value < 0 ? "\u2212" : ""}${Number(Math.abs(value)).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}%p`;
 var node = (doc, tag, text, className) => {
-  const element2 = doc.createElement(tag);
-  if (text !== void 0) element2.textContent = text;
-  if (className) element2.className = className;
-  return element2;
+  const element = doc.createElement(tag);
+  if (text !== void 0) element.textContent = text;
+  if (className) element.className = className;
+  return element;
 };
-function renderDiscardStatistics(container, { own, peers = [], compare = false, title = "\uBC84\uB9BC\uD328 \uBD84\uD3EC", document: doc = container.ownerDocument, tileRenderer = tileFace } = {}) {
+var knownTotal = (stats) => stats.tsumogiri + stats.tedashi;
+var add2 = (left, right) => {
+  const value = left + right;
+  if (!Number.isSafeInteger(value)) throw Error("\uBC84\uB9BC \uAD6C\uBD84 \uD569\uACC4\uAC00 \uB108\uBB34 \uD07D\uB2C8\uB2E4.");
+  return value;
+};
+function compareRecordedDiscards(own, peers = []) {
+  const stats = validateDiscardStats(own);
+  if (!Array.isArray(peers)) throw Error("\uBE44\uAD50 \uAE30\uB85D\uC744 \uC77D\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+  const checked = peers.map((value) => validateDiscardStats(value)), positive = checked.filter((value) => knownTotal(value) > 0), ownTotal = knownTotal(stats), peerSamples = positive.length, peerTotal = positive.reduce((sum, value) => add2(sum, knownTotal(value)), 0);
+  const result = { ownTotal, peerSamples, peerTotal };
+  for (const key of ["tsumogiri", "tedashi"]) {
+    const ownCount = stats[key], peerCount = positive.reduce((sum, value) => add2(sum, value[key]), 0), ownPercent = ownTotal ? ownCount / ownTotal * 100 : null, peerPercent = peerSamples ? positive.reduce((sum, value) => sum + value[key] / knownTotal(value) * 100 / peerSamples, 0) : null;
+    let difference = ownPercent === null || peerPercent === null ? null : ownPercent - peerPercent;
+    if (difference !== null && Math.abs(difference) <= Number.EPSILON * Math.max(1, ownPercent, peerPercent) * peerSamples * 8) difference = 0;
+    result[key] = { ownCount, ownPercent, peerCount, peerPercent, difference };
+  }
+  return result;
+}
+function renderDiscardStatistics(container, { own, peers = [], compare = false, title = "\uCBD4\uBAA8\uAE30\uB9AC\xB7\uD14C\uB2E4\uC2DC", document: doc = container.ownerDocument } = {}) {
   container.replaceChildren();
   if (own === null || own === void 0) {
-    container.append(node(doc, "p", "\uC774 \uAE30\uB85D\uC5D0\uB294 \uBC84\uB9BC\uD328 \uD1B5\uACC4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.", "hint"));
+    container.append(node(doc, "p", "\uC774 \uAE30\uB85D\uC5D0\uB294 \uBC84\uB9BC \uAD6C\uBD84 \uD1B5\uACC4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.", "hint"));
     return null;
   }
-  let stats, comparison;
+  let comparison;
   try {
-    stats = validateDiscardStats(own);
-    comparison = compareDiscardStats(stats, peers);
+    comparison = compareRecordedDiscards(own, peers);
   } catch {
-    container.append(node(doc, "p", "\uBC84\uB9BC\uD328 \uD1B5\uACC4\uB97C \uC77D\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.", "hint"));
+    container.append(node(doc, "p", "\uBC84\uB9BC \uAD6C\uBD84 \uD1B5\uACC4\uB97C \uC77D\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.", "hint"));
     return null;
   }
   const section = node(doc, "section", void 0, `discard-distribution${compare ? " is-comparison" : ""}`);
   section.append(node(doc, "h3", title, "discard-distribution-title"));
-  const total = `\uBC84\uB9BC ${comparison.ownTotal.toLocaleString("ko-KR")}\uD68C \xB7 \uD6C4\uB85C\uB41C \uBC84\uB9BC ${stats.claimed.toLocaleString("ko-KR")}\uD68C`;
-  section.append(node(doc, "p", compare ? `${total} \xB7 \uBE44\uAD50 ${comparison.peerSamples}\uBA85 / \uBC84\uB9BC \uD569\uACC4 ${comparison.peerTotal.toLocaleString("ko-KR")}\uD68C` : total, "hint"));
-  if (compare) section.append(node(doc, "p", "\uAC01 \uCE78\uC740 \uB0B4 \uBE44\uC728 / \uB2E4\uB978 \uC0AC\uB78C \uD3C9\uADE0 \uBE44\uC728 / \uCC28\uC774\uC785\uB2C8\uB2E4. \uB2E4\uB978 \uC0AC\uB78C \uD3C9\uADE0\uC740 \uC0AC\uB78C\uB9C8\uB2E4 \uAC19\uC740 \uBE44\uC911\uC73C\uB85C \uACC4\uC0B0\uD569\uB2C8\uB2E4.", "hint"));
+  const total = `\uBD84\uB958\uAC00 \uAE30\uB85D\uB41C \uBC84\uB9BC ${comparison.ownTotal.toLocaleString("ko-KR")}\uD68C`;
+  section.append(node(doc, "p", compare ? `${total} \xB7 \uBE44\uAD50 ${comparison.peerSamples}\uBA85` : total, "hint"));
   const modes = node(doc, "dl", void 0, "discard-mode-stats");
-  for (const [key, label] of [["tsumogiri", "\uCBD4\uBAA8\uAE30\uB9AC"], ["tedashi", "\uD14C\uB2E4\uC2DC"], ["unknown", "\uAD6C\uBD84 \uBD88\uBA85"]]) {
+  for (const [key, label] of [["tsumogiri", "\uCBD4\uBAA8\uAE30\uB9AC"], ["tedashi", "\uD14C\uB2E4\uC2DC"]]) {
     const metric = comparison[key], cell = node(doc, "div");
     cell.append(node(doc, "dt", label), node(doc, "dd", `${metric.ownCount}\uD68C \xB7 ${percentage(metric.ownPercent)}`));
     if (compare) cell.append(node(doc, "small", `\uD3C9\uADE0 ${percentage(metric.peerPercent)} \xB7 ${pointDifference(metric.difference)}`));
     modes.append(cell);
   }
-  section.append(modes);
-  for (const [label, start, end] of [["\uB9CC\uC218", 0, 9], ["\uD1B5\uC218", 9, 18], ["\uC0AD\uC218", 18, 27], ["\uC790\uD328", 27, 34]]) {
-    const group = node(doc, "section", void 0, "discard-suit-group");
-    group.append(node(doc, "h4", label));
-    const tiles = node(doc, "div", void 0, "discard-tile-grid");
-    for (const metric of comparison.tiles.slice(start, end)) {
-      const card = node(doc, "div", void 0, `discard-tile-stat${metric.ownCount === 0 ? " is-zero" : ""}`), face = tileRenderer(metric.type, { small: true }), count = node(doc, "strong", `${metric.ownCount}\uD68C`), ownPercent = node(doc, "span", percentage(metric.ownPercent), "discard-own-percent");
-      card.setAttribute("aria-label", `${tileName(metric.type)}: \uB0B4 \uBC84\uB9BC ${metric.ownCount}\uD68C ${percentage(metric.ownPercent)}${compare ? `, \uC0AC\uB78C \uD3C9\uADE0 ${percentage(metric.peerPercent)}, \uCC28\uC774 ${pointDifference(metric.difference)}` : ""}`);
-      card.append(face, count, ownPercent);
-      if (compare) {
-        card.append(node(doc, "span", percentage(metric.peerPercent), "discard-peer-percent"), node(doc, "span", pointDifference(metric.difference), "discard-percent-difference"));
-      }
-      tiles.append(card);
-    }
-    group.append(tiles);
-    section.append(group);
-  }
-  if (compare && !comparison.peerSamples) section.append(node(doc, "p", "\uD604\uC7AC \uD45C\uC2DC\uB41C \uAC19\uC740 \uC790\uB9AC\uC758 \uB2E4\uB978 \uC0AC\uB78C\uC5D0\uAC8C \uBE44\uAD50 \uAC00\uB2A5\uD55C \uBC84\uB9BC\uD328 \uAE30\uB85D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.", "hint"));
-  section.append(node(doc, "p", "\uC801\uB3C4\uB77C\uB294 \uAC19\uC740 \uD328 \uC885\uB958\uC5D0 \uD569\uCE69\uB2C8\uB2E4. \uAD6C\uBD84 \uBD88\uBA85\uC740 \uCBD4\uBAA8\uAE30\uB9AC\xB7\uD14C\uB2E4\uC2DC \uAE30\uB85D\uC774 \uC5C6\uB294 \uBC84\uB9BC\uC774\uBA70, \uC54C\uB824\uC9C4 \uAE30\uB85D\uACFC \uB530\uB85C \uC9D1\uACC4\uD569\uB2C8\uB2E4.", "hint"));
+  section.append(modes, node(doc, "p", "\uCBD4\uBAA8\uAE30\uB9AC\xB7\uD14C\uB2E4\uC2DC\uAC00 \uAE30\uB85D\uB41C \uBC84\uB9BC\uB9CC \uACC4\uC0B0\uD569\uB2C8\uB2E4.", "hint"));
+  if (compare) section.append(node(doc, "p", comparison.peerSamples ? "\uB2E4\uB978 \uC0AC\uB78C \uD3C9\uADE0\uC740 \uC0AC\uB78C\uB9C8\uB2E4 \uAC19\uC740 \uBE44\uC911\uC73C\uB85C \uACC4\uC0B0\uD569\uB2C8\uB2E4." : "\uD604\uC7AC \uD45C\uC2DC\uB41C \uAC19\uC740 \uC790\uB9AC\uC758 \uB2E4\uB978 \uC0AC\uB78C\uC5D0\uAC8C \uBE44\uAD50 \uAC00\uB2A5\uD55C \uBC84\uB9BC \uAD6C\uBD84 \uAE30\uB85D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.", "hint"));
   container.append(section);
   return comparison;
 }
 
 // duplicate/profile.mjs
 var DEFAULT_SERVER = "https://wellness-mahjong-h-lab.chayhyeon.chatgpt.site";
-var SVG2 = "http://www.w3.org/2000/svg";
+var SVG = "http://www.w3.org/2000/svg";
 var number = (value) => Number(value).toLocaleString("ko-KR", { maximumFractionDigits: 1 });
 var signed = (value) => `${value > 0 ? "+" : ""}${number(value)}`;
 var node2 = (document2, tag, text, className) => {
-  const element2 = document2.createElement(tag);
-  if (text !== void 0) element2.textContent = text;
-  if (className) element2.className = className;
-  return element2;
+  const element = document2.createElement(tag);
+  if (text !== void 0) element.textContent = text;
+  if (className) element.className = className;
+  return element;
 };
 var svgNode = (document2, tag, attributes = {}, text) => {
-  const element2 = document2.createElementNS(SVG2, tag);
-  for (const [key, value] of Object.entries(attributes)) element2.setAttribute(key, String(value));
-  if (text !== void 0) element2.textContent = text;
-  return element2;
+  const element = document2.createElementNS(SVG, tag);
+  for (const [key, value] of Object.entries(attributes)) element.setAttribute(key, String(value));
+  if (text !== void 0) element.textContent = text;
+  return element;
 };
 var safeStorage = (window, key) => {
   try {
@@ -900,7 +797,7 @@ function mountProfile(document2, { location = document2.defaultView.location, wi
       ["\uBC84\uB9BC \uD69F\uC218", raw ? `${number(raw.discard)}\uD68C` : "\u2014", c.actionHands && raw ? `100\uAD6D\uB2F9 ${number(raw.discard / c.actionHands * 100)}\uD68C` : "\uD589\uB3D9 \uAE30\uB85D \uC5C6\uC74C"]
     ]) cell(actions, label, value, detail, "profile-action");
     $("profile-actions-note").textContent = `\uD6C4\uB85C\uC728\uC740 \uD55C \uBC88 \uC774\uC0C1 \uD6C4\uB85C\uD55C \uAD6D\uC758 \uBE44\uC728\uC785\uB2C8\uB2E4. \uD6C4\uB85C \uD69F\uC218\uB294 ${raw ? `${number(raw.call)}\uD68C` : "\uC790\uB8CC \uC5C6\uC74C"}${raw && c.actionHands ? ` \xB7 100\uAD6D\uB2F9 ${number(raw.call / c.actionHands * 100)}\uD68C` : ""}\uB85C \uBCC4\uB3C4 \uC9D1\uACC4\uD569\uB2C8\uB2E4. \uC790\uB8CC\uAC00 \uC5C6\uB294 \uC9C0\uD45C\uB294 \u2014\uB85C \uD45C\uC2DC\uD558\uBA70 0\uD68C\xB70%\uC640 \uAD6C\uBD84\uD569\uB2C8\uB2E4.`;
-    $("profile-discard-note").textContent = `\uBC84\uB9BC\uD328 \uAE30\uB85D ${number(c.discardGames)}\uACBD\uAE30 \xB7 ${number(c.discardHands)}\uAD6D\uC758 \uBD84\uD3EC\uC785\uB2C8\uB2E4. \uC815\uBCF4\uAC00 \uC5C6\uB294 \uACFC\uAC70 \uB300\uAD6D\uC740 0\uD68C\uB85C \uCC44\uC6B0\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.`;
+    $("profile-discard-note").textContent = `\uBC84\uB9BC\uD328 \uAE30\uB85D ${number(c.discardGames)}\uACBD\uAE30 \xB7 ${number(c.discardHands)}\uAD6D\uC758 \uCBD4\uBAA8\uAE30\uB9AC\xB7\uD14C\uB2E4\uC2DC \uAE30\uB85D\uC785\uB2C8\uB2E4. \uC815\uBCF4\uAC00 \uC5C6\uB294 \uACFC\uAC70 \uB300\uAD6D\uC740 0\uD68C\uB85C \uCC44\uC6B0\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.`;
     $("profile-discard-details").open = false;
     $("profile-discards").replaceChildren();
   }

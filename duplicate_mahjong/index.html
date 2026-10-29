@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="./personal-settings.css?v=cea2b6be29b28663">
   <link rel="stylesheet" href="./feedback.css?v=2c15e6fa46e9a875">
   <link rel="stylesheet" href="./daily-share.css?v=7cb334df80f3d9d2">
-  <script type="module" src="./app.mjs?v=1d057c2f4fcac8d8"></script>
+  <script type="module" src="./app.mjs?v=e2002efe7e681ea2"></script>
 </head>
 <body>
   <header class="topbar">
@@ -23,7 +23,7 @@
       <section id="practice-panel" class="panel">
         <div class="panel-heading"><span class="eyebrow">PRACTICE</span><h1>한 수씩, 같은 조건에서.</h1></div>
         <p class="intro">AI 3명과 대국하고, 같은 패로 진행한 AI 기준 대국과 결과를 비교하세요.</p>
-        <div class="daily-entry"><div><small>DAILY CHALLENGE · 반장전 · 첫 기록 자리 랜덤</small><strong id="daily-entry-date"></strong><code id="daily-entry-seed"></code></div><p id="daily-entry-status"></p><button id="daily-open-practice" type="button" class="secondary full">오늘의 시드 · 도전 카드</button></div>
+        <div class="daily-entry"><div><small>DAILY CHALLENGE · 반장전 · 첫 기록 자리 랜덤</small><strong id="daily-entry-date"></strong><code id="daily-entry-seed"></code></div><p id="daily-entry-status"></p><button id="daily-open-practice" type="button" class="secondary full">오늘의 도전 시작·이어하기</button></div>
         <label class="field">배패 번호 <div class="input-row"><input id="practice-seed" inputmode="numeric" maxlength="10" aria-label="배패 번호"><button id="random-seed" class="square-button" title="새 배패 번호">↻</button></div></label>
         <div class="two-fields"><label class="field">내 자리<span id="practice-seat-access" class="daily-seat-access" role="group" aria-label="내 자리" tabindex="-1"><select id="practice-seat"><option value="random" selected>랜덤</option><option value="0">동 자리</option><option value="1">남 자리</option><option value="2">서 자리</option><option value="3">북 자리</option></select><span id="practice-seat-tooltip" class="daily-seat-tooltip" role="tooltip" hidden>오늘의 도전을 완료해야 합니다!</span></span></label><label class="field">진행 형식<select id="practice-count"><option value="hanchan" selected>반장전</option><option value="east">동풍전</option></select></label></div>
         <label class="field">AI 상대<select id="practice-ai"><option value="simple">기본 AI · 로컬</option><option value="mortal" disabled>Mortal · 연결 확인 중</option></select></label><p id="practice-ai-status" class="hint" role="status">기본 AI는 브라우저에서 실행됩니다.</p><button id="ai-refresh" class="text-button full">AI 연결 확인</button>

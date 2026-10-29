@@ -8,3 +8,5 @@
 .profile-summary,.profile-actions,.profile-recent-summary{margin-bottom:0;padding:0}
 
 .profile-count{white-space:nowrap}
+
+.discard-mode-stats{grid-template-columns:repeat(2,minmax(0,1fr))}

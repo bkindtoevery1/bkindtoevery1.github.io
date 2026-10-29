@@ -3341,6 +3341,13 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
   };
 }
 
+// duplicate/poll-timing.mjs
+function gamePollDelay(state, { idleMs = 1200 } = {}) {
+  const game = state?.game, actor4 = game?.actor;
+  if (!["turn", "reaction"].includes(game?.phase) || !Number.isInteger(actor4) || actor4 < 0 || actor4 > 3 || !Array.isArray(state?.members)) return idleMs;
+  return state.members.some((member) => member?.seat === actor4 && member.ai === true) ? Math.min(idleMs, 700) : idleMs;
+}
+
 // duplicate/remote-practice.mjs
 var STORAGE_KEY = "duplicate.mortal-practice.v1";
 var sameMatch = (a, b) => JSON.stringify(a ? normalizeMatchRules(a) : null) === JSON.stringify(b ? normalizeMatchRules(b) : null);
@@ -3356,7 +3363,7 @@ function createRemotePractice({ getServer, getSession = () => null, onState, onE
   };
   function schedule() {
     clearTimeout(timer);
-    if (active && credentials) timer = setTimeout(poll, pollMs);
+    if (active && credentials) timer = setTimeout(poll, gamePollDelay(state, { idleMs: pollMs }));
   }
   async function request2(server, path, body, key, accountToken) {
     const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 15e3);
@@ -3951,7 +3958,7 @@ function createDailyRankedClient({ getServer, getSession, onState = () => {
   }
   function schedule() {
     clearTimeout(timer);
-    if (active && credentials && !result) timer = setTimeout(() => void poll(), pollMs);
+    if (active && credentials && !result) timer = setTimeout(() => void poll(), gamePollDelay(state, { idleMs: pollMs }));
   }
   function sessionFor(current = context3) {
     const session = getSession?.();
@@ -5998,6 +6005,14 @@ function openDailyResult() {
   if (result) showDailyResult(result, { ranked: isRankedDaily() });
   else openDaily();
 }
+function enterDaily() {
+  const date = dailyDate(), account = accountSession(), marker = S.practice?.dailyRanked;
+  if (marker?.date === date && marker.accountId === account?.user.id && marker.server === S.server && S.dailyRankedResult?.date === date) {
+    openDailyResult();
+    return;
+  }
+  void startRankedDaily(date);
+}
 function clearDailyHash() {
   if (location.hash === "#today" || location.hash.startsWith("#daily=")) {
     const url = new URL(location.href);
@@ -7049,7 +7064,7 @@ async function connectRoom(create) {
 }
 function schedulePoll() {
   clearTimeout(S.poll);
-  if (S.credentials) S.poll = setTimeout(pollRoom, 1200);
+  if (S.credentials) S.poll = setTimeout(pollRoom, gamePollDelay(S.online));
 }
 async function pollRoom() {
   const credentials = S.credentials;
@@ -7401,7 +7416,7 @@ $("practice-disconnect").onclick = () => {
   render();
 };
 $("open-current-replay").onclick = openCurrentReplay;
-for (const id of ["daily-open", "daily-open-game", "daily-open-practice"]) $(id).onclick = openDaily;
+for (const id of ["daily-open", "daily-open-game", "daily-open-practice"]) $(id).onclick = enterDaily;
 $("daily-result-open").onclick = $("daily-result-summary").onclick = openDailyResult;
 $("game-view-toggle").onclick = () => {
   S.largeBoard = !document.body.classList.contains("game-focus");
