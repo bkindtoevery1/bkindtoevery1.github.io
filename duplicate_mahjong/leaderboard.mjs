@@ -691,6 +691,21 @@ function renderDiscardStatistics(container, { own, peers = [], compare = false, 
   return comparison;
 }
 
+// duplicate/daily-benchmark-catalog.mjs
+var DAILY_BENCHMARK_POLICIES = Object.freeze([
+  Object.freeze({ id: "attack-1", label: "\uACF5\uACA9 1", style: "attack", level: 1, description: "\uC704\uD5D8 \uAC10\uC810\uC744 \uB0AE\uCD94\uACE0, \uC720\uD6A8\uD328\uB97C \uC720\uC9C0\uD558\uB294 \uD6C4\uB85C\uB97C \uC870\uAE08 \uB354 \uD5C8\uC6A9\uD569\uB2C8\uB2E4." }),
+  Object.freeze({ id: "basic-1", label: "\uACF5\uACA9 2", style: "attack", level: 2, description: "\uC704\uD5D8\uBCF4\uB2E4 \uC9C4\uD589\uC744 \uC6B0\uC120\uD558\uACE0, \uC720\uD6A8\uD328\uAC00 \uC870\uAE08 \uC904\uC5B4\uB3C4 \uD6C4\uB85C\uB97C \uC120\uD0DD\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." }),
+  Object.freeze({ id: "attack-3", label: "\uACF5\uACA9 3", style: "attack", level: 3, description: "\uB9AC\uCE58 \uC704\uD5D8\xB7\uB3C4\uB77C \uBCF4\uC874 \uAC10\uC810\uC744 \uBE7C\uACE0, \uD6C4\uB85C \uD5C8\uC6A9 \uD3ED\uC744 \uB113\uD614\uC2B5\uB2C8\uB2E4." }),
+  Object.freeze({ id: "defense-1", label: "\uC218\uBE44 1", style: "defense", level: 1, description: "\uB9AC\uCE58 \uC704\uD5D8 \uAC10\uC810\uC744 \uB192\uC774\uACE0, \uC0C1\uB300\uC801\uC73C\uB85C \uC548\uC804\uD55C \uD328\uB85C\uB9CC \uB9AC\uCE58\uD569\uB2C8\uB2E4." }),
+  Object.freeze({ id: "basic-3", label: "\uC218\uBE44 2", style: "defense", level: 2, description: "\uB9AC\uCE58 \uC0C1\uB300\uC758 \uC548\uC804\uD328\uB97C \uD06C\uAC8C \uC6B0\uC120\uD558\uACE0, \uC704\uD5D8\uD55C \uD6C4\uB85C\uB97C \uBA48\uCDA5\uB2C8\uB2E4." }),
+  Object.freeze({ id: "defense-3", label: "\uC218\uBE44 3", style: "defense", level: 3, description: "\uB9AC\uCE58 \uC704\uD5D8\uACFC \uB3C4\uB77C \uBCF4\uC874 \uAC00\uC911\uCE58\uB97C \uAC00\uC7A5 \uB192\uAC8C \uB454 \uC218\uBE44 \uBCC0\uD615\uC785\uB2C8\uB2E4." }),
+  Object.freeze({ id: "balance-1", label: "\uADE0\uD615 1", style: "balance", level: 1, description: "\uAE30\uBCF8\uBCF4\uB2E4 \uC704\uD5D8 \uAC10\uC810\uC744 \uB0AE\uCD94\uACE0, \uC720\uD6A8\uD328 \uC720\uC9C0 \uD6C4\uB85C\uB97C \uC870\uAE08 \uB354 \uD5C8\uC6A9\uD569\uB2C8\uB2E4." }),
+  Object.freeze({ id: "basic-2", label: "\uADE0\uD615 2", style: "balance", level: 2, description: "\uAC8C\uC784\uC758 \uAE30\uC874 \uAE30\uBCF8 AI \uD310\uB2E8\uC744 \uADF8\uB300\uB85C \uC0AC\uC6A9\uD569\uB2C8\uB2E4." }),
+  Object.freeze({ id: "balance-3", label: "\uADE0\uD615 3", style: "balance", level: 3, description: "\uAE30\uBCF8\uBCF4\uB2E4 \uC704\uD5D8 \uAC10\uC810\uC744 \uB192\uC774\uACE0, \uB9AC\uCE58 \uC120\uC5B8\uC744 \uB354 \uC2E0\uC911\uD558\uAC8C \uACE0\uB985\uB2C8\uB2E4." })
+]);
+var DAILY_BENCHMARK_POLICY_IDS = Object.freeze(["attack-1", "basic-1", "attack-3", "defense-1", "basic-3", "defense-3", "balance-1", "basic-2", "balance-3"]);
+var DAILY_BENCHMARK_RECORD_LIMIT = 36;
+
 // duplicate/leaderboard.mjs
 var DEFAULT_SERVER = "https://wellness-mahjong-h-lab.chayhyeon.chatgpt.site";
 var WINDS = ["\u6771", "\u5357", "\u897F", "\u5317"];
@@ -763,10 +778,10 @@ function leaderboardRows(value) {
   });
 }
 function leaderboardBenchmarks(value = []) {
-  if (!Array.isArray(value) || value.length > 12) throw Error("AI \uAE30\uC900 \uAE30\uB85D\uC744 \uC77D\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+  if (!Array.isArray(value) || value.length > DAILY_BENCHMARK_RECORD_LIMIT) throw Error("AI \uAE30\uC900 \uAE30\uB85D\uC744 \uC77D\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
   const seen = /* @__PURE__ */ new Set();
   return value.map((entry) => {
-    if (entry?.kind !== "ai" || !["basic-1", "basic-2", "basic-3"].includes(entry.policy)) throw Error("AI \uAE30\uC900 \uAE30\uB85D\uC744 \uC77D\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+    if (entry?.kind !== "ai" || !DAILY_BENCHMARK_POLICY_IDS.includes(entry.policy)) throw Error("AI \uAE30\uC900 \uAE30\uB85D\uC744 \uC77D\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
     const key = `${entry.policy}:${entry.seat}`;
     if (seen.has(key)) throw Error("\uC911\uBCF5\uB41C AI \uAE30\uC900 \uAE30\uB85D\uC785\uB2C8\uB2E4.");
     seen.add(key);
@@ -909,19 +924,34 @@ function mountLeaderboard(document2, { location = document2.defaultView.location
   function renderBenchmarks(entries) {
     const host = $("leaderboard-benchmark-list"), status2 = $("leaderboard-benchmark-status");
     host.replaceChildren();
-    status2.textContent = entries.length ? "AI\uB294 \uC0AC\uB78C \uC21C\uC704\xB7\uCC38\uAC00\uC790 \uC218\xB7\uB2E4\uB978 \uC0AC\uB78C \uD3C9\uADE0\uC5D0 \uD3EC\uD568\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uBE44\uAD50\uD558\uB294 \uC790\uB9AC\uB9CC \uACF5\uACA9\xB7\uADE0\uD615\xB7\uC218\uBE44 \uC131\uD5A5\uC744 \uC801\uC6A9\uD558\uACE0, \uB098\uBA38\uC9C0 \uC138 \uC0C1\uB300\uB294 \uAE30\uBCF8 AI\uB85C \uACE0\uC815\uD569\uB2C8\uB2E4. \uAC19\uC740 \uACB0\uACFC\uAC00 \uB098\uC62C \uC218\uB3C4 \uC788\uC2B5\uB2C8\uB2E4." : "AI \uAE30\uC900 \uAE30\uB85D\uC744 \uC900\uBE44\uD558\uACE0 \uC788\uC2B5\uB2C8\uB2E4. \uC7A0\uC2DC \uD6C4 \uC0C8\uB85C\uACE0\uCE68\uD574 \uC8FC\uC138\uC694.";
-    for (const [index, policy] of ["basic-1", "basic-2", "basic-3"].entries()) {
-      const records = entries.filter((entry) => entry.policy === policy).sort((a, b) => a.seat - b.seat), card = node2(document2, "article", void 0, "benchmark-card");
-      card.append(node2(document2, "h3", `\uAE30\uBCF8 AI ${index + 1}`), node2(document2, "p", ["\uACF5\uACA9\uD615 \xB7 \uD654\uB8CC \uAE30\uD68C \uC6B0\uC120", "\uADE0\uD615\uD615 \xB7 \uAE30\uC874 \uAE30\uBCF8 AI", "\uC218\uBE44\uD615 \xB7 \uACF5\uAC1C\uB41C \uC704\uD5D8 \uC815\uBCF4 \uBC18\uC601"][index], "benchmark-policy-label"));
-      if (!records.length) card.append(node2(document2, "p", "\uAE30\uB85D \uC900\uBE44 \uC911", "hint"));
-      for (const entry of records) {
-        const details = node2(document2, "details", void 0, "benchmark-record"), summary = node2(document2, "summary"), label = node2(document2, "span", `\uC2DC\uC791 ${WINDS[entry.seat]}`), score = node2(document2, "strong", `${signed(entry.net)}\uC810`, entry.net < 0 ? "is-negative" : "");
-        summary.append(label, score);
-        details.append(summary, node2(document2, "p", `${entry.hands}\uAD6D \uC644\uB8CC`, "hint"));
-        actionDetails(details, entry);
-        card.append(details);
+    status2.textContent = entries.length ? "\uAC19\uC740 \uC2DC\uC791 \uC790\uB9AC\uC758 AI 9\uAC1C \uAE30\uC900\uACFC \uBE44\uAD50\uD569\uB2C8\uB2E4. AI\uB294 \uC0AC\uB78C \uC21C\uC704\xB7\uCC38\uAC00\uC790 \uC218\xB7\uB2E4\uB978 \uC0AC\uB78C \uD3C9\uADE0\uC5D0\uC11C \uC81C\uC678\uD569\uB2C8\uB2E4. \uC804\uCCB4 \uC790\uB9AC\uC5D0\uC11C\uB294 \uAE30\uC900\uB9C8\uB2E4 \uB3D9\xB7\uB0A8\xB7\uC11C\xB7\uBD81 \uAE30\uB85D\uC744 \uBCF4\uC5EC \uC90D\uB2C8\uB2E4." : "AI \uAE30\uC900 \uAE30\uB85D\uC744 \uC900\uBE44\uD558\uACE0 \uC788\uC2B5\uB2C8\uB2E4. \uACF5\uACA9\xB7\uC218\uBE44\xB7\uADE0\uD615 \uAC01 3\uAC1C \uAE30\uC900\uC740 \uC900\uBE44\uB418\uB294 \uB300\uB85C \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
+    for (const [style, label, description] of [
+      ["attack", "\uACF5\uACA9\uD615", "\uD328 \uD6A8\uC728\xB7\uD6C4\uB85C\xB7\uCD94\uACA9 \uB9AC\uCE58\uB97C \uC6B0\uC120\uD558\uB294 3\uAC00\uC9C0 \uD310\uB2E8"],
+      ["defense", "\uC218\uBE44\uD615", "\uC0C1\uB300 \uB9AC\uCE58\uC758 \uC704\uD5D8\uC744 \uD53C\uD558\uACE0 \uD6C4\uB85C\uB97C \uC5B5\uC81C\uD558\uB294 3\uAC00\uC9C0 \uD310\uB2E8"],
+      ["balance", "\uADE0\uD615\uD615", "\uD328 \uD6A8\uC728\uACFC \uC548\uC804\uC744 \uD568\uAED8 \uACE0\uB824\uD558\uB294 3\uAC00\uC9C0 \uD310\uB2E8"]
+    ]) {
+      const group = node2(document2, "section", void 0, "benchmark-style-group");
+      group.dataset.style = style;
+      const groupHead = node2(document2, "div", void 0, "benchmark-style-heading");
+      groupHead.append(node2(document2, "h3", label), node2(document2, "p", description));
+      group.append(groupHead);
+      const cards = node2(document2, "div", void 0, "benchmark-style-cards");
+      for (const metadata of DAILY_BENCHMARK_POLICIES.filter((policy) => policy.style === style)) {
+        const records = entries.filter((entry) => entry.policy === metadata.id).sort((a, b) => a.seat - b.seat), card = node2(document2, "article", void 0, "benchmark-card");
+        card.dataset.policy = metadata.id;
+        card.append(node2(document2, "h4", metadata.label), node2(document2, "p", metadata.description, "benchmark-policy-label"));
+        if (!records.length) card.append(node2(document2, "p", "\uAE30\uB85D \uC900\uBE44 \uC911", "hint"));
+        for (const entry of records) {
+          const details = node2(document2, "details", void 0, "benchmark-record"), summary = node2(document2, "summary"), seatLabel = node2(document2, "span", `\uC2DC\uC791 ${WINDS[entry.seat]}`), score = node2(document2, "strong", `${signed(entry.net)}\uC810`, entry.net < 0 ? "is-negative" : "");
+          summary.append(seatLabel, score);
+          details.append(summary, node2(document2, "p", `${entry.hands}\uAD6D \uC644\uB8CC`, "hint"));
+          actionDetails(details, entry);
+          card.append(details);
+        }
+        cards.append(card);
       }
-      host.append(card);
+      group.append(cards);
+      host.append(group);
     }
   }
   function renderOwnDiscards() {
