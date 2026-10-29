@@ -1807,9 +1807,9 @@ function replacementQuality(c, melds, view, visible) {
     const remaining3 = 4 - visible[type];
     if (remaining3 <= 0 || c[type] >= 4) continue;
     c[type]++;
-    const complete = distance2(c, melds.length) === -1 && credibleYaku(c, melds, view), seen = [...visible];
+    const complete2 = distance2(c, melds.length) === -1 && credibleYaku(c, melds, view), seen = [...visible];
     seen[type]++;
-    const value = complete ? { d: -1, ukeire: 0 } : bestDiscard(c, melds, view, seen);
+    const value = complete2 ? { d: -1, ukeire: 0 } : bestDiscard(c, melds, view, seen);
     c[type]--;
     if (!value) return null;
     weight += remaining3;
@@ -2279,12 +2279,12 @@ function renderRoundResults(container, rows, { seat: seat5, ai = false, ownTable
     const title = element2(document2, "div", "round-score-card-heading");
     title.append(element2(document2, "h3", "", `${winds[Math.floor((row.board - 1) / 4)]}${(row.board - 1) % 4 + 1}\uAD6D`), element2(document2, "span", "round-score-scope", "\uBCF8\uC7A5 \uD569\uC0B0"));
     card.append(title);
-    const complete = row.status === "complete", average = complete && validSeat(seat5) && Array.isArray(row.averages) ? row.averages.find((value) => value?.seat === seat5 && value.ai === ai) : null;
-    const referenceRequested = complete && row.referenceLabel === "AI \uAE30\uC900", reference = referenceRequested && finite(row.referenceMean);
+    const complete2 = row.status === "complete", average = complete2 && validSeat(seat5) && Array.isArray(row.averages) ? row.averages.find((value) => value?.seat === seat5 && value.ai === ai) : null;
+    const referenceRequested = complete2 && row.referenceLabel === "AI \uAE30\uC900", reference = referenceRequested && finite(row.referenceMean);
     const comparable = average && Number.isInteger(average.samples) && average.samples >= 2 && finite(average.mean);
-    card.append(element2(document2, "strong", "round-score-mean", !complete ? "\uBE44\uAD50 \uB300\uAE30" : referenceRequested ? reference ? `AI \uAE30\uC900 ${score(row.referenceMean)}` : "AI \uAE30\uC900 \uBE44\uAD50 \uB300\uAE30" : comparable ? `\uD3C9\uADE0 \uC810\uC218 \uC99D\uAC10 ${score(average.mean)}` : "\uBE44\uAD50\uB300\uC0C1 \uBD80\uC871"));
-    if (complete && validSeat(seat5)) card.append(element2(document2, "p", "round-score-cohort", `${winds[seat5]} \uC2DC\uC791 \uC790\uB9AC \xB7 ${referenceRequested ? "AI \uAE30\uC900 \uB300\uAD6D" : `${ai ? "AI" : "\uC0AC\uB78C"}${comparable ? ` ${average.samples}\uBA85` : ""}`}`));
-    const publicEntries = complete && Array.isArray(row.entries) ? row.entries.filter((entry) => entry && typeof entry.tableId === "string" && typeof entry.name === "string" && validSeat(entry.seat) && Number.isSafeInteger(entry.score)) : [];
+    card.append(element2(document2, "strong", "round-score-mean", !complete2 ? "\uBE44\uAD50 \uB300\uAE30" : referenceRequested ? reference ? `AI \uAE30\uC900 ${score(row.referenceMean)}` : "AI \uAE30\uC900 \uBE44\uAD50 \uB300\uAE30" : comparable ? `\uD3C9\uADE0 \uC810\uC218 \uC99D\uAC10 ${score(average.mean)}` : "\uBE44\uAD50\uB300\uC0C1 \uBD80\uC871"));
+    if (complete2 && validSeat(seat5)) card.append(element2(document2, "p", "round-score-cohort", `${winds[seat5]} \uC2DC\uC791 \uC790\uB9AC \xB7 ${referenceRequested ? "AI \uAE30\uC900 \uB300\uAD6D" : `${ai ? "AI" : "\uC0AC\uB78C"}${comparable ? ` ${average.samples}\uBA85` : ""}`}`));
+    const publicEntries = complete2 && Array.isArray(row.entries) ? row.entries.filter((entry) => entry && typeof entry.tableId === "string" && typeof entry.name === "string" && validSeat(entry.seat) && Number.isSafeInteger(entry.score)) : [];
     const knownTable = typeof ownTableId === "string" && ownTableId.length > 0 && publicEntries.some((entry) => entry.tableId === ownTableId);
     const entries = knownTable ? publicEntries.filter((entry) => entry.tableId !== ownTableId) : [];
     const own = knownTable ? publicEntries.find((entry) => entry.tableId === ownTableId && entry.seat === seat5 && entry.ai === true === ai) : null;
@@ -2331,7 +2331,7 @@ function renderRoundResults(container, rows, { seat: seat5, ai = false, ownTable
       table.append(body);
       details.append(table);
       card.append(details);
-    } else if (complete) card.append(element2(document2, "p", "round-score-empty", knownTable ? "\uB2E4\uB978 \uCC38\uC5EC \uD0C1\uC774 \uC5C6\uC2B5\uB2C8\uB2E4." : "\uB0B4 \uD0C1 \uC815\uBCF4\uB97C \uD655\uC778\uD560 \uC218 \uC5C6\uC5B4 \uB2E4\uB978 \uD0C1\uC758 \uACB0\uACFC\uB97C \uAD6C\uBD84\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4."));
+    } else if (complete2) card.append(element2(document2, "p", "round-score-empty", knownTable ? "\uB2E4\uB978 \uCC38\uC5EC \uD0C1\uC774 \uC5C6\uC2B5\uB2C8\uB2E4." : "\uB0B4 \uD0C1 \uC815\uBCF4\uB97C \uD655\uC778\uD560 \uC218 \uC5C6\uC5B4 \uB2E4\uB978 \uD0C1\uC758 \uACB0\uACFC\uB97C \uAD6C\uBD84\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4."));
     root.append(card);
   }
   if (!seen.size) root.append(element2(document2, "p", "round-score-empty", "\uAD6D\uBCC4 \uACB0\uACFC\uB294 \uB300\uAD6D\uC774 \uB05D\uB09C \uB4A4 \uD45C\uC2DC\uB429\uB2C8\uB2E4."));
@@ -2392,7 +2392,7 @@ function nextHandPlan({ board, repeat = 0, honba = 0, handNumber = 1, boardCount
   const pot = game.pot ?? 0;
   if (!nonnegative(pot) || pot % 1e3) throw new Error("Invalid final pot");
   let finalPoints = null;
-  const complete = (reason2) => ({
+  const complete2 = (reason2) => ({
     complete: true,
     continues: false,
     reason: reason2,
@@ -2405,7 +2405,7 @@ function nextHandPlan({ board, repeat = 0, honba = 0, handNumber = 1, boardCount
     pendingPotNote: pot ? "\uB0A8\uC740 \uB9AC\uCE58 \uACF5\uD0C1\uC740 \uBBF8\uC218\uB839 \uC0C1\uD0DC\uB85C \uD45C\uC2DC\uD558\uBA70 \uC784\uC758\uB85C \uBC30\uBD84\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4." : null
   });
   if (config === null) {
-    if (board === count2) return complete("legacy-complete");
+    if (board === count2) return complete2("legacy-complete");
     if (!positive(handNumber + 1)) throw new Error("Hand number exceeds the supported range");
     return { complete: false, continues: false, reason: "legacy-next", board: board + 1, repeat: 0, honba: 0, handNumber: handNumber + 1, pot: 0, startingScores: null, pendingPotNote: null };
   }
@@ -2429,8 +2429,8 @@ function nextHandPlan({ board, repeat = 0, honba = 0, handNumber = 1, boardCount
     nextHonba = honba + 1;
   } else throw new Error("Unsupported match hand result");
   const leader = [0, 1, 2, 3].sort((a, b) => finalPoints[b] - finalPoints[a] || a - b)[0];
-  if (board === count2 && continues && config.agariYame && leader === game.dealer && ["win", "exhaustive-draw"].includes(game.end)) return complete("all-last-leader");
-  if (!continues && board === count2) return complete("match-complete");
+  if (board === count2 && continues && config.agariYame && leader === game.dealer && ["win", "exhaustive-draw"].includes(game.end)) return complete2("all-last-leader");
+  if (!continues && board === count2) return complete2("match-complete");
   const nextBoard = continues ? board : board + 1, nextRepeat = continues ? repeat + 1 : 0, nextNumber = handNumber + 1;
   if (!uint32(nextRepeat) || !nonnegative(nextHonba) || !positive(nextNumber)) throw new Error("Match counters exceed the supported range");
   return {
@@ -3494,164 +3494,188 @@ function createRemotePractice({ getServer, onState, onError = () => {
   };
 }
 
-// duplicate/observer-delay.mjs
-var DEFAULT_OBSERVER_DELAY_SECONDS = 300;
-var factor = (unit) => {
-  if (!["seconds", "minutes"].includes(unit)) throw Error("\uC9C0\uC5F0 \uB2E8\uC704\uB97C \uD655\uC778\uD558\uC138\uC694.");
-  return unit === "minutes" ? 60 : 1;
-};
-function observerDelaySeconds(value, unit = "seconds", { minimumSeconds = 5 } = {}) {
-  if (!["number", "string"].includes(typeof value) || String(value).trim() === "") throw Error("\uC911\uACC4 \uC9C0\uC5F0 \uC2DC\uAC04\uC744 \uC785\uB825\uD558\uC138\uC694.");
-  const seconds = Number(value) * factor(unit), rounded = Math.round(seconds);
-  if (!Number.isFinite(seconds) || Math.abs(seconds - rounded) > 1e-7 || !Number.isSafeInteger(rounded)) throw Error("\uC911\uACC4 \uC9C0\uC5F0\uC740 1\uCD08 \uB2E8\uC704\uB85C \uC785\uB825\uD558\uC138\uC694. \uBD84 \uB2E8\uC704 \uC18C\uC218\uB97C \uC0AC\uC6A9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.");
-  if (!Number.isInteger(minimumSeconds) || minimumSeconds < 5 || minimumSeconds > 21600) throw Error("\uCD5C\uC18C \uC911\uACC4 \uC9C0\uC5F0\uC744 \uD655\uC778\uD558\uC138\uC694.");
-  if (rounded < minimumSeconds || rounded > 21600) throw Error(`\uC911\uACC4 \uC9C0\uC5F0\uC740 ${minimumSeconds}\u201321600\uCD08 \uBC94\uC704\uB85C \uC785\uB825\uD558\uC138\uC694.`);
-  return rounded;
+// duplicate/daily-challenge.mjs
+var DAILY_VERSION = 1;
+var DAILY_RESULT_VERSION = 2;
+var DAILY_STORAGE_KEY = "duplicate.daily-results.v1";
+var DAILY_SHARE_NOTICE = "\uACF5\uC720\uC790\uAC00 \uC81C\uACF5\uD55C \uAE30\uB85D\uC785\uB2C8\uB2E4.";
+var DAY = 864e5;
+var MAX_HASH = 2048;
+var MAX_HANDS2 = 1e3;
+var MAX_SCORE = 1e8;
+var STAT_KEYS2 = ["discard", "riichi", "call", "kan", "win"];
+var RESULT_KEYS = ["v", "date", "seed", "seat", "net", "referenceDifference", "hands", "stats"];
+var DAILY_RULES = Object.freeze({
+  id: "duplicate-riichi-v1",
+  variant: "D",
+  dora: true,
+  kanDora: true,
+  uraDora: true,
+  redDora: true,
+  deadWall: false,
+  exhaustLimit: 1,
+  kuitan: true,
+  multipleRon: "all",
+  startingPoints: 25e3,
+  maxKans: 4,
+  roundWind: 27,
+  abortFourKans: false
+});
+var integer2 = (n, min, max) => Number.isSafeInteger(n) && n >= min && n <= max;
+var plain2 = (o) => !!o && typeof o === "object" && !Array.isArray(o) && [Object.prototype, null].includes(Object.getPrototypeOf(o));
+var exact = (o, keys2) => plain2(o) && Object.keys(o).length === keys2.length && Object.keys(o).every((key) => keys2.includes(key));
+function checkedDate(date) {
+  if (typeof date !== "string" || !/^20\d\d-\d\d-\d\d$/.test(date)) throw Error("Invalid daily date");
+  const value = /* @__PURE__ */ new Date(`${date}T00:00:00.000Z`);
+  if (!Number.isFinite(value.getTime()) || value.toISOString().slice(0, 10) !== date) throw Error("Invalid daily date");
+  return date;
 }
-function observerDelayValue(seconds, unit = "seconds") {
-  return String(observerDelaySeconds(seconds) / factor(unit));
+function dailyDate(now = /* @__PURE__ */ new Date()) {
+  const value = now instanceof Date ? now.getTime() : new Date(now).getTime();
+  if (!Number.isFinite(value)) throw Error("Invalid daily clock");
+  return checkedDate(new Date(value + 9 * 36e5).toISOString().slice(0, 10));
 }
-function observerDelayLabel(seconds) {
-  const value = observerDelaySeconds(seconds);
-  return value % 60 === 0 ? `${value / 60}\uBD84 (${value}\uCD08)` : `${value}\uCD08`;
+function dailySeed(date = dailyDate()) {
+  let hash = 2166136261;
+  for (const character of `duplicate-daily-v${DAILY_VERSION}:${checkedDate(date)}`) hash = Math.imul(hash ^ character.charCodeAt(0), 16777619) >>> 0;
+  return hash || 1;
 }
-function bindObserverDelayInput(input, select, { seconds = 300, minimumSeconds = 5, onError = () => {
-} } = {}) {
-  let unit = select.value || "minutes", minimum = minimumSeconds;
-  function constraints() {
-    const scale = factor(unit);
-    input.min = String(minimum / scale);
-    input.max = String(21600 / scale);
-    input.step = unit === "minutes" ? "any" : "1";
-    input.inputMode = unit === "minutes" ? "decimal" : "numeric";
-    input.setAttribute("aria-label", `\uC911\uACC4 \uC9C0\uC5F0 ${unit === "minutes" ? "\uBD84" : "\uCD08"}`);
-  }
-  function setSeconds(value) {
-    const canonical2 = observerDelaySeconds(value);
-    input.value = observerDelayValue(canonical2, unit);
-    constraints();
-  }
-  const change = () => {
-    try {
-      const value = observerDelaySeconds(input.value, unit);
-      const next = select.value;
-      factor(next);
-      unit = next;
-      setSeconds(value);
-    } catch (error) {
-      select.value = unit;
-      onError(error.message);
-    }
-  };
-  select.addEventListener("change", change);
-  setSeconds(seconds);
+function dailyChallenge(date = dailyDate()) {
   return {
-    getSeconds: () => observerDelaySeconds(input.value, unit, { minimumSeconds: minimum }),
-    setSeconds,
-    setMinimum(value) {
-      observerDelaySeconds(value);
-      minimum = value;
-      constraints();
-    },
-    destroy() {
-      select.removeEventListener("change", change);
-    }
+    version: DAILY_VERSION,
+    date: checkedDate(date),
+    seed: dailySeed(date),
+    seatChoice: "random",
+    aiPolicy: "simple",
+    duplicateProfile: "mil-riichi",
+    matchRules: { format: "hanchan", dealerContinuation: true, agariYame: false },
+    rules: normalizeProfileRules(DAILY_RULES, "mil-riichi")
   };
 }
-
-// duplicate/observer-links.mjs
-var CODE = /^[A-Z2-9]{8}$/;
-var KEY = /^[a-f0-9]{64}$/;
-function observerLink({ baseUrl, code, key, server, delaySeconds = DEFAULT_OBSERVER_DELAY_SECONDS }) {
-  if (!CODE.test(code ?? "") || !KEY.test(key ?? "") || !Number.isSafeInteger(delaySeconds) || delaySeconds < 5 || delaySeconds > 21600) throw new Error("\uAD00\uC804 \uB9C1\uD06C \uC815\uBCF4\uAC00 \uC62C\uBC14\uB974\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
-  const api = new URL(server);
-  if (!["https:", "http:"].includes(api.protocol) || api.username || api.password || api.pathname !== "/" || api.search || api.hash) throw new Error("\uC11C\uBC84 \uC8FC\uC18C\uB97C \uD655\uC778\uD558\uC138\uC694.");
-  if (api.protocol === "http:" && !["localhost", "127.0.0.1", "[::1]"].includes(api.hostname)) throw new Error("\uACF5\uAC1C \uC11C\uBC84\uB294 HTTPS \uC8FC\uC18C\uB97C \uC0AC\uC6A9\uD558\uC138\uC694.");
-  const url = new URL("./tournament/observer.html", baseUrl);
+function dailyStatsFromGame(game, seat5 = 0) {
+  return actionStatsFromGame(game, seat5);
+}
+function validStats(stats, hands) {
+  return exact(stats, STAT_KEYS2) && STAT_KEYS2.every((key) => integer2(stats[key], 0, key === "discard" ? hands * 140 : ["kan", "call"].includes(key) ? hands * 4 : hands)) && stats.riichi <= stats.discard;
+}
+function validateDailyResult(value) {
+  const modern = value?.v === DAILY_RESULT_VERSION;
+  if (!exact(value, modern ? [...RESULT_KEYS, "comparison"] : RESULT_KEYS) || ![1, DAILY_RESULT_VERSION].includes(value.v) || !integer2(value.seat, 0, 3) || !integer2(value.hands, 1, MAX_HANDS2) || !integer2(value.net, -MAX_SCORE, MAX_SCORE) || !(value.referenceDifference === null || integer2(value.referenceDifference, -MAX_SCORE, MAX_SCORE)) || !modern && !validStats(value.stats, value.hands)) throw Error("Invalid daily result");
+  checkedDate(value.date);
+  if (value.seed !== dailySeed(value.date)) throw Error("Daily date and seed differ");
+  const stats = modern ? validateActionStats(value.stats, value.hands) : Object.fromEntries(STAT_KEYS2.map((key) => [key, value.stats[key]]));
+  const result = { v: value.v, date: value.date, seed: value.seed, seat: value.seat, net: value.net, referenceDifference: value.referenceDifference, hands: value.hands, stats };
+  if (modern) {
+    let comparison = null;
+    if (value.comparison !== null) {
+      const c = value.comparison;
+      if (!exact(c, ["source", "hands", "stats"]) || c.source !== "ai" || c.hands !== value.hands) throw Error("Invalid daily comparison");
+      comparison = { source: "ai", hands: c.hands, stats: validateActionStats(c.stats, c.hands) };
+    }
+    result.comparison = comparison;
+  }
+  return result;
+}
+function resultFromDailySeries({ date, seed, seat: seat5, results } = {}) {
+  if (!Array.isArray(results) || !integer2(results.length, 1, MAX_HANDS2)) throw Error("Missing daily results");
+  const modern = results.every((row) => plain2(row?.dailyStats) && Object.hasOwn(row.dailyStats, "dealIn"));
+  const stats = modern ? emptyActionStats() : Object.fromEntries(STAT_KEYS2.map((key) => [key, 0])), referenceStats = emptyActionStats();
+  let net = 0, reference = 0, referenceReady = true, statsReady = modern;
+  for (const row of results) {
+    if (!integer2(row?.score, -MAX_SCORE, MAX_SCORE)) throw Error("Invalid daily hand result");
+    if (Object.hasOwn(row?.dailyStats ?? {}, "dealIn")) validateActionStats(row.dailyStats, 1);
+    else if (!validStats(row.dailyStats, 1)) throw Error("Invalid daily hand result");
+    net += row.score;
+    for (const key of Object.keys(stats)) stats[key] += row.dailyStats[key];
+    if (row.referenceStatus === "done" && integer2(row.reference, -MAX_SCORE, MAX_SCORE)) reference += row.reference;
+    else referenceReady = false;
+    try {
+      if (row.referenceStatus !== "done") throw Error("Pending reference");
+      const other = validateActionStats(row.referenceStats, 1);
+      for (const key of Object.keys(referenceStats)) referenceStats[key] += other[key];
+    } catch {
+      statsReady = false;
+    }
+  }
+  return validateDailyResult({
+    v: modern ? DAILY_RESULT_VERSION : 1,
+    date,
+    seed,
+    seat: seat5,
+    net,
+    referenceDifference: referenceReady ? net - reference : null,
+    hands: results.length,
+    stats,
+    ...modern ? { comparison: statsReady ? { source: "ai", hands: results.length, stats: referenceStats } : null } : {}
+  });
+}
+function dailyPersona(result) {
+  const { stats: s, hands } = validateDailyResult(result);
+  if (s.kan > 0 && s.kan >= s.call && s.kan >= s.riichi) return { id: "kan-curious", title: "\uAE61 \uD0C0\uC774\uBC0D \uC218\uC9D1\uAC00", description: `${hands}\uAD6D\uC5D0\uC11C \uAE61 ${s.kan}\uD68C! \uC624\uB298\uC740 \uB124 \uC7A5\uC744 \uBAA8\uC740 \uC21C\uAC04\uC774 \uB208\uC5D0 \uB744\uC5C8\uC5B4\uC694.` };
+  if (s.call > s.riichi && s.call > 0) return { id: "open-path", title: "\uD6C4\uB85C \uAC1C\uCC99\uC790", description: `\uCE58\xB7\uD401\xB7\uBA85\uAE61\uC73C\uB85C \uD328\uB97C \uC5F0 \uD69F\uC218 ${s.call}\uD68C. \uC774\uBC88 \uB300\uAD6D\uC5D0\uC11C\uB294 \uD6C4\uB85C\uB85C \uAE38\uC744 \uB9CC\uB4E4\uC5C8\uC5B4\uC694.` };
+  if (s.riichi > s.call && s.riichi > 0) return { id: "riichi-path", title: "\uB9AC\uCE58 \uC9C1\uC9C4\uD30C", description: `\uB9AC\uCE58 \uC120\uC5B8 ${s.riichi}\uD68C. \uC774\uBC88 \uB300\uAD6D\uC5D0\uC11C\uB294 \uB9AC\uCE58\uB85C \uC2B9\uBD80\uB97C \uAC78\uC5C8\uC5B4\uC694.` };
+  if (s.win >= 2) return { id: "chance-finder", title: "\uD654\uB8CC \uCC2C\uC2A4 \uD3EC\uCC29\uAC00", description: `${hands}\uAD6D\uC5D0\uC11C \uD654\uB8CC ${s.win}\uD68C. \uC624\uB298\uC758 \uD654\uB8CC \uC21C\uAC04\uC744 \uCE74\uB4DC\uC5D0 \uB2F4\uC558\uC5B4\uC694.` };
+  if (s.call + s.riichi > 0) return { id: "flexible", title: "\uC720\uC5F0\uD55C \uC804\uD658\uAC00", description: `\uB9AC\uCE58 ${s.riichi}\uD68C, \uD6C4\uB85C ${s.call}\uD68C. \uC774\uBC88\uC5D0\uB294 \uB450 \uC120\uD0DD\uC744 \uD568\uAED8 \uC368 \uBD24\uC5B4\uC694.` };
+  return { id: "quiet-path", title: "\uD55C \uC7A5\uC529 \uD0D0\uD5D8\uAC00", description: `\uBC84\uB9BC ${s.discard}\uD68C. \uC774\uBC88 \uB300\uAD6D\uC758 \uC120\uD0DD\uC744 \uD55C \uC7A5\uC529 \uC313\uC558\uC5B4\uC694.` };
+}
+function encodeDailyShare(result) {
+  const bytes = new TextEncoder().encode(JSON.stringify(validateDailyResult(result)));
+  const encoded = btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+  if (encoded.length + 7 > MAX_HASH) throw Error("Daily result is too large");
+  return `#daily=${encoded}`;
+}
+function parseDailyShare(hash) {
+  if (typeof hash !== "string" || hash.length > MAX_HASH || !/^#daily=[A-Za-z0-9_-]+$/.test(hash)) return null;
+  try {
+    const encoded = hash.slice(7), binary = atob(encoded.replaceAll("-", "+").replaceAll("_", "/") + "=".repeat((4 - encoded.length % 4) % 4));
+    const value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(Uint8Array.from(binary, (c) => c.charCodeAt(0))));
+    const result = validateDailyResult(value);
+    return encodeDailyShare(result) === hash ? result : null;
+  } catch {
+    return null;
+  }
+}
+function buildDailyShareURL(baseURL, result) {
+  const url = new URL(baseURL);
+  if (!["https:", "http:"].includes(url.protocol)) throw Error("Invalid daily share URL");
   url.search = "";
-  url.hash = "";
-  url.searchParams.set("code", code);
-  url.searchParams.set("server", api.origin);
-  url.searchParams.set("delay", String(delaySeconds));
-  url.hash = new URLSearchParams({ key }).toString();
+  url.username = "";
+  url.password = "";
+  url.hash = encodeDailyShare(result);
   return url.href;
 }
-function mountObserverLinks({ document: document2, getRoom, getServer, request: request2, toast: toast2, baseUrl = globalThis.location?.href, clipboard = globalThis.navigator?.clipboard }) {
-  const $2 = (id) => document2.getElementById(id), open = $2("observer-links-open"), dialog = $2("observer-links-dialog"), create = $2("observer-links-create"), delay = $2("observer-min-delay");
-  const delayInput = bindObserverDelayInput(delay, $2("observer-min-delay-unit"), { onError: toast2 });
-  let issuing = false, roomCode = null;
-  function clear() {
-    for (const role of ["viewer", "caster"]) {
-      $2(`observer-${role}-url`).value = "";
-      $2(`observer-${role}-open`).removeAttribute("href");
-    }
-    $2("observer-issued-links").hidden = true;
-  }
-  function update() {
-    const room = getRoom();
-    open.hidden = !room?.organizer;
-    open.disabled = issuing;
-    if (room?.code !== roomCode) {
-      roomCode = room?.code ?? null;
-      clear();
-      delayInput.setSeconds(room?.observer?.minimumDelaySeconds ?? DEFAULT_OBSERVER_DELAY_SECONDS);
-      if (dialog.open) dialog.close();
-    }
-    create.disabled = issuing || !room?.organizer;
-  }
-  open.addEventListener("click", () => {
-    update();
-    if (!getRoom()?.organizer) return;
-    dialog.showModal();
-  });
-  create.addEventListener("click", async () => {
-    const room = getRoom();
-    if (issuing || !room?.organizer) return;
-    let value;
-    try {
-      value = delayInput.getSeconds();
-    } catch (error) {
-      toast2(error.message);
-      delay.focus();
-      return;
-    }
-    issuing = true;
-    update();
-    create.textContent = "\uC911\uACC4 \uB9C1\uD06C\uB97C \uB9CC\uB4E4\uACE0 \uC788\uC2B5\uB2C8\uB2E4\u2026";
-    try {
-      const result = await request2(`/${room.code}/observer-access`, { delaySeconds: value });
-      if (getRoom()?.code !== room.code || !getRoom()?.organizer) return;
-      if (result.code !== room.code || !KEY.test(result.viewerKey ?? "") || !KEY.test(result.casterKey ?? "") || result.viewerKey === result.casterKey || result.delaySeconds < 5) throw new Error("\uC911\uACC4 \uB9C1\uD06C \uC751\uB2F5\uC744 \uD655\uC778\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
-      for (const role of ["viewer", "caster"]) {
-        const url = observerLink({ baseUrl, code: result.code, key: result[`${role}Key`], server: getServer(), delaySeconds: result.delaySeconds });
-        $2(`observer-${role}-url`).value = url;
-        $2(`observer-${role}-open`).href = url;
+function loadDailyResults(storage, now = /* @__PURE__ */ new Date()) {
+  try {
+    const raw = storage.getItem(DAILY_STORAGE_KEY);
+    if (!raw || raw.length > 32768) return [];
+    const saved2 = JSON.parse(raw);
+    if (!exact(saved2, ["v", "results"]) || saved2.v !== DAILY_VERSION || !Array.isArray(saved2.results) || saved2.results.length > 30) return [];
+    const today = Date.parse(`${dailyDate(now)}T00:00:00Z`), byDate = /* @__PURE__ */ new Map();
+    for (const value of saved2.results) {
+      let result;
+      try {
+        result = validateDailyResult(value);
+      } catch {
+        continue;
       }
-      $2("observer-issued-links").hidden = false;
-      $2("observer-link-status").textContent = `\uCD5C\uC18C ${observerDelayLabel(result.delaySeconds)} \uC9C0\uC5F0${room.tournament ? " \xB7 \uC804\uD0C1\uC758 \uAC19\uC740 \uAD6D\xB7\uBCF8\uC7A5 \uC885\uB8CC\xB7\uD1B5\uACFC \uD6C4 \uAE30\uB85D \uACF5\uAC1C" : ""} \xB7 \uAE30\uC874 \uB9C1\uD06C\uB294 \uC885\uB8CC\uB418\uC5C8\uC2B5\uB2C8\uB2E4. \uAD00\uC804 \uCC3D\uC5D0\uC11C \uB354 \uAE34 \uC9C0\uC5F0\uC744 \uC124\uC815\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.`;
-      toast2("\uAD00\uC804\xB7\uC911\uACC4 \uB9C1\uD06C\uB97C \uB9CC\uB4E4\uC5C8\uC2B5\uB2C8\uB2E4.");
-    } catch (error) {
-      toast2(error.message);
-    } finally {
-      issuing = false;
-      create.textContent = "\uB9C1\uD06C \uB9CC\uB4E4\uAE30 \xB7 \uC7AC\uBC1C\uAE09";
-      update();
+      const age = (today - Date.parse(`${result.date}T00:00:00Z`)) / DAY;
+      if (age >= 0 && age < 30 && !byDate.has(result.date)) byDate.set(result.date, result);
     }
-  });
-  for (const role of ["viewer", "caster"]) $2(`observer-${role}-copy`).addEventListener("click", async () => {
-    const input = $2(`observer-${role}-url`);
-    if (!input.value) return;
-    try {
-      await clipboard.writeText(input.value);
-      toast2(role === "caster" ? "\uC911\uACC4\uC790 \uC804\uC6A9 \uB9C1\uD06C\uB97C \uBCF5\uC0AC\uD588\uC2B5\uB2C8\uB2E4." : "\uC77C\uBC18 \uAD00\uC804 \uB9C1\uD06C\uB97C \uBCF5\uC0AC\uD588\uC2B5\uB2C8\uB2E4.");
-    } catch {
-      input.focus();
-      input.select();
-      toast2("\uC120\uD0DD\uB41C \uB9C1\uD06C\uB97C \uBCF5\uC0AC\uD574 \uC8FC\uC138\uC694.");
-    }
-  });
-  update();
-  return { update };
+    return [...byDate.values()].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30);
+  } catch {
+    return [];
+  }
+}
+function saveDailyResult(storage, result, now = /* @__PURE__ */ new Date()) {
+  try {
+    const checked = validateDailyResult(result), today = Date.parse(`${dailyDate(now)}T00:00:00Z`), age = (today - Date.parse(`${checked.date}T00:00:00Z`)) / DAY;
+    if (age < 0 || age >= 30) return false;
+    const results = [checked, ...loadDailyResults(storage, now).filter((row) => row.date !== checked.date)].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30);
+    storage.setItem(DAILY_STORAGE_KEY, JSON.stringify({ v: DAILY_VERSION, results }));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // duplicate/accounts/protocol.mjs
@@ -3901,6 +3925,399 @@ function createAccountClient({ server, storage = globalThis.sessionStorage, fetc
   };
 }
 
+// duplicate/daily-ranked-client.mjs
+var STORAGE_KEY2 = "duplicate.daily-ranked-practice.v1";
+var CODE = /^[A-Z2-9]{8}$/;
+var KEY = /^[a-f0-9]{64}$/;
+var complete = (state) => state?.seriesComplete === true || state?.nextHand?.complete === true || state?.phase === "complete";
+function createDailyRankedClient({ getServer, getSession, onState = () => {
+}, onResult = () => {
+}, onAttempt = () => {
+}, onError = () => {
+}, storage = globalThis.sessionStorage, fetchImpl = globalThis.fetch, pollMs = 1200 } = {}) {
+  let credentials = null, context3 = null, state = null, result = null, timer = null, active = false, epoch = 0, polling = null, finalizing = null, lastError = "";
+  const controllers = /* @__PURE__ */ new Set();
+  function persist() {
+    try {
+      if (context3) storage?.setItem(STORAGE_KEY2, JSON.stringify({ credentials, context: context3 }));
+      else storage?.removeItem(STORAGE_KEY2);
+    } catch {
+    }
+  }
+  function stopRequests() {
+    for (const controller of controllers) controller.abort();
+    controllers.clear();
+  }
+  function schedule() {
+    clearTimeout(timer);
+    if (active && credentials && !result) timer = setTimeout(() => void poll(), pollMs);
+  }
+  function sessionFor(current = context3) {
+    const session = getSession?.();
+    if (!session || current && session.user.id !== current.accountId) throw Object.assign(Error("\uB370\uC77C\uB9AC \uCCAB \uAE30\uB85D\uC5D0 \uB3C4\uC804\uD558\uB824\uBA74 \uB2E4\uC2DC \uB85C\uADF8\uC778\uD574 \uC8FC\uC138\uC694."), { status: 401 });
+    return session;
+  }
+  async function request2(server, path, body, { key, account = false, current = context3 } = {}) {
+    const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 15e3);
+    controllers.add(controller);
+    try {
+      const headers = { Accept: "application/json", ...body === null ? {} : { "Content-Type": "application/json" }, ...key ? { Authorization: `Bearer ${key}` } : {} };
+      if (account) headers["X-Duplicate-Account-Token"] = sessionFor(current).token;
+      const response = await fetchImpl(`${server}/api/duplicate${path}`, { method: body === null ? "GET" : "POST", headers, body: body === null ? void 0 : JSON.stringify(body), signal: controller.signal, cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer" });
+      let data;
+      try {
+        data = await response.json();
+      } catch {
+        throw Error("\uB370\uC77C\uB9AC \uC11C\uBC84 \uC751\uB2F5\uC744 \uC77D\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+      }
+      if (!response.ok) throw Object.assign(Error(data?.error ?? "\uB370\uC77C\uB9AC \uB3C4\uC804 \uC11C\uBC84\uC5D0 \uC5F0\uACB0\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4."), { status: response.status });
+      return data;
+    } catch (error) {
+      if (error.name === "AbortError") throw Error("\uB370\uC77C\uB9AC \uB3C4\uC804 \uC11C\uBC84 \uC751\uB2F5\uC774 \uB2A6\uC2B5\uB2C8\uB2E4. \uB2E4\uC2DC \uC5F0\uACB0\uD558\uACE0 \uC788\uC2B5\uB2C8\uB2E4.");
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+      controllers.delete(controller);
+    }
+  }
+  function validRoom(value, current = context3) {
+    const challenge = dailyChallenge(current.date), match = value?.matchRules;
+    if (value?.practice !== true || !CODE.test(value.code ?? "") || !Number.isInteger(value.seat) || value.seat < 0 || value.seat > 3 || value.boardCount !== 8 || value.aiPolicy !== "simple" || value.duplicateProfile !== "mil-riichi" || match?.format !== "hanchan" || match.dealerContinuation !== true || match.agariYame !== false || !Number.isSafeInteger(value.revision) || value.revision < 0 || typeof value.tableId !== "string" || !value.tableId) throw Error("\uB370\uC77C\uB9AC \uB3C4\uC804 \uC5F0\uACB0 \uC815\uBCF4\uAC00 \uC77C\uCE58\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uB9AC\uB354\uBCF4\uB4DC\uC5D0\uC11C \uB2E4\uC2DC \uC774\uC5B4 \uC8FC\uC138\uC694.");
+    for (const [name, expected] of Object.entries(challenge.rules)) if (value.rules?.[name] !== expected) throw Error("\uB370\uC77C\uB9AC \uB3C4\uC804 \uADDC\uCE59\uC774 \uC77C\uCE58\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
+    if (credentials && (value.code !== credentials.code || value.seat !== credentials.seat)) throw Error("\uB370\uC77C\uB9AC \uB3C4\uC804 \uC790\uB9AC\uAC00 \uBCC0\uACBD\uB418\uC5C8\uC2B5\uB2C8\uB2E4. \uB9AC\uB354\uBCF4\uB4DC\uC5D0\uC11C \uB2E4\uC2DC \uC774\uC5B4 \uC8FC\uC138\uC694.");
+  }
+  function apply(value, generation) {
+    if (generation !== epoch || !credentials || !context3 || getSession?.()?.user?.id !== context3.accountId) return false;
+    validRoom(value);
+    if (state && value.revision < state.revision) return false;
+    state = value;
+    lastError = "";
+    onState(value);
+    if (complete(value)) void finalize(generation).catch((error) => reportError(error, generation));
+    return true;
+  }
+  function applyAttempt(value, generation) {
+    if (generation !== epoch || !context3 || getSession?.()?.user?.id !== context3.accountId) return false;
+    if (value?.date !== context3.date || value.ranked !== true || !["playing", "completed", "expired"].includes(value.status)) throw Error("\uB370\uC77C\uB9AC \uCCAB \uAE30\uB85D \uC815\uBCF4\uB97C \uD655\uC778\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+    if (value.result) {
+      const checked = validateDailyResult(value.result);
+      if (value.status !== "completed" || checked.date !== context3.date || state && checked.seat !== state.seat) throw Error("\uB370\uC77C\uB9AC \uACB0\uACFC\uAC00 \uB3C4\uC804 \uC815\uBCF4\uC640 \uC77C\uCE58\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
+      result = checked;
+      onResult(checked);
+    } else if (value.status === "completed") throw Error("\uC644\uB8CC\uD55C \uB370\uC77C\uB9AC \uACB0\uACFC\uB97C \uD655\uC778\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+    onAttempt({ date: value.date, status: value.status, ranked: true, result });
+    if (value.status === "expired") {
+      credentials = null;
+      persist();
+    }
+    return true;
+  }
+  function reportError(error, generation) {
+    if (generation !== epoch) return;
+    const terminal = [401, 403, 404, 410].includes(error.status);
+    if (terminal) {
+      credentials = null;
+      persist();
+    }
+    if (lastError !== error.message) {
+      lastError = error.message;
+      onError(error, { terminal });
+    }
+  }
+  async function finalize(generation = epoch) {
+    if (generation !== epoch || !context3 || result) return result;
+    if (finalizing?.generation === generation) return finalizing.promise;
+    const current = { ...context3 }, promise = request2(current.server, "/daily/finalize", { date: current.date }, { account: true, current }).then((value) => {
+      applyAttempt(value, generation);
+      return generation === epoch ? result : null;
+    });
+    finalizing = { generation, promise };
+    try {
+      return await promise;
+    } finally {
+      if (finalizing?.promise === promise) finalizing = null;
+      schedule();
+    }
+  }
+  async function poll() {
+    if (!active || !credentials || result) return;
+    if (polling?.generation === epoch) return polling.promise;
+    const generation = epoch, current = credentials, promise = request2(current.server, `/competitions/${current.code}/state`, null, { key: current.key }).then((value) => {
+      apply(value, generation);
+    }).catch((error) => reportError(error, generation));
+    polling = { generation, promise };
+    try {
+      await promise;
+    } finally {
+      if (polling?.promise === promise) polling = null;
+      schedule();
+    }
+  }
+  async function operation(name, action) {
+    if (!credentials || !state) throw Error("\uB9AC\uB354\uBCF4\uB4DC\uC5D0\uC11C \uB370\uC77C\uB9AC \uCCAB \uB3C4\uC804\uC744 \uB2E4\uC2DC \uC774\uC5B4 \uC8FC\uC138\uC694.");
+    const generation = epoch, current = credentials, value = await request2(current.server, `/competitions/${current.code}/${name}`, { ...name === "action" ? { action } : {}, revision: state.revision, actionId: crypto.randomUUID() }, { key: current.key });
+    apply(value, generation);
+    schedule();
+    return generation === epoch ? state : null;
+  }
+  return {
+    restore(expected) {
+      try {
+        const saved2 = JSON.parse(storage?.getItem(STORAGE_KEY2) || "null"), c = saved2?.credentials, p = saved2?.context, date = expected?.dailyRanked?.date ?? expected?.date;
+        if (!p || p.date !== date || normalizeAccountServer(p.server) !== normalizeAccountServer(getServer()) || p.accountId !== sessionFor().user.id || expected?.dailyRanked?.accountId && expected.dailyRanked.accountId !== p.accountId || !c || !CODE.test(c.code ?? "") || !KEY.test(c.key ?? "") || c.server !== p.server || !Number.isInteger(c.seat) || c.seat < 0 || c.seat > 3) return false;
+        dailyChallenge(p.date);
+        credentials = c;
+        context3 = p;
+        result = null;
+        state = null;
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    async start(date) {
+      const challenge = dailyChallenge(date), server = normalizeAccountServer(getServer()), session = sessionFor(null), generation = ++epoch;
+      clearTimeout(timer);
+      stopRequests();
+      credentials = null;
+      state = null;
+      result = null;
+      lastError = "";
+      context3 = { date: challenge.date, accountId: session.user.id, server };
+      persist();
+      const current = { ...context3 }, value = await request2(server, "/daily/start", { date: challenge.date }, { account: true, current });
+      if (generation !== epoch) return null;
+      if (value?.date !== current.date || value.ranked !== true || !["playing", "completed", "expired"].includes(value.status)) throw Error("\uB370\uC77C\uB9AC \uCCAB \uAE30\uB85D \uC815\uBCF4\uB97C \uD655\uC778\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+      if (value?.practice) {
+        const room = value.practice;
+        validRoom(room, current);
+        if (!KEY.test(room.key ?? "")) throw Error("\uB370\uC77C\uB9AC \uB3C4\uC804 \uC811\uC18D \uC815\uBCF4\uB97C \uD655\uC778\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+        credentials = { code: room.code, key: room.key, seat: room.seat, tableId: room.tableId, server };
+        persist();
+        apply(room, generation);
+      }
+      applyAttempt(value, generation);
+      schedule();
+      return value;
+    },
+    async me(date) {
+      const checked = dailyChallenge(date).date, server = normalizeAccountServer(getServer()), session = sessionFor(null);
+      return request2(server, `/daily/me?date=${encodeURIComponent(checked)}`, null, { account: true, current: { accountId: session.user.id } });
+    },
+    act: (action) => operation("action", action),
+    next: () => operation("next"),
+    finalize,
+    async replays() {
+      if (!credentials) throw Error("\uB9AC\uB354\uBCF4\uB4DC\uC5D0\uC11C \uB370\uC77C\uB9AC \uCCAB \uB3C4\uC804\uC744 \uB2E4\uC2DC \uC774\uC5B4 \uC8FC\uC138\uC694.");
+      const current = credentials;
+      return request2(current.server, `/competitions/${current.code}/replays`, null, { key: current.key });
+    },
+    async replay(handId2) {
+      if (!credentials) throw Error("\uB9AC\uB354\uBCF4\uB4DC\uC5D0\uC11C \uB370\uC77C\uB9AC \uCCAB \uB3C4\uC804\uC744 \uB2E4\uC2DC \uC774\uC5B4 \uC8FC\uC138\uC694.");
+      const parts = typeof handId2 === "string" && handId2.match(/^([1-9]\d?):(0|[1-9]\d*)$/);
+      if (!parts || Number(parts[1]) > 16 || !Number.isSafeInteger(Number(parts[2]))) throw Error("\uB9AC\uD50C\uB808\uC774 \uAD6D\xB7\uBCF8\uC7A5 \uBC88\uD638\uB97C \uD655\uC778\uD558\uC138\uC694.");
+      const current = credentials;
+      return request2(current.server, `/competitions/${current.code}/replays?handId=${encodeURIComponent(handId2)}`, null, { key: current.key });
+    },
+    activate() {
+      active = true;
+      void poll();
+    },
+    deactivate() {
+      active = false;
+      clearTimeout(timer);
+    },
+    clear() {
+      epoch++;
+      active = false;
+      clearTimeout(timer);
+      stopRequests();
+      credentials = null;
+      context3 = null;
+      state = null;
+      result = null;
+      lastError = "";
+      persist();
+    },
+    poll,
+    get connected() {
+      return !!credentials;
+    },
+    get state() {
+      return state;
+    },
+    get result() {
+      return result;
+    },
+    get date() {
+      return context3?.date ?? null;
+    },
+    get server() {
+      return context3?.server ?? null;
+    }
+  };
+}
+
+// duplicate/observer-delay.mjs
+var DEFAULT_OBSERVER_DELAY_SECONDS = 300;
+var factor = (unit) => {
+  if (!["seconds", "minutes"].includes(unit)) throw Error("\uC9C0\uC5F0 \uB2E8\uC704\uB97C \uD655\uC778\uD558\uC138\uC694.");
+  return unit === "minutes" ? 60 : 1;
+};
+function observerDelaySeconds(value, unit = "seconds", { minimumSeconds = 5 } = {}) {
+  if (!["number", "string"].includes(typeof value) || String(value).trim() === "") throw Error("\uC911\uACC4 \uC9C0\uC5F0 \uC2DC\uAC04\uC744 \uC785\uB825\uD558\uC138\uC694.");
+  const seconds = Number(value) * factor(unit), rounded = Math.round(seconds);
+  if (!Number.isFinite(seconds) || Math.abs(seconds - rounded) > 1e-7 || !Number.isSafeInteger(rounded)) throw Error("\uC911\uACC4 \uC9C0\uC5F0\uC740 1\uCD08 \uB2E8\uC704\uB85C \uC785\uB825\uD558\uC138\uC694. \uBD84 \uB2E8\uC704 \uC18C\uC218\uB97C \uC0AC\uC6A9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.");
+  if (!Number.isInteger(minimumSeconds) || minimumSeconds < 5 || minimumSeconds > 21600) throw Error("\uCD5C\uC18C \uC911\uACC4 \uC9C0\uC5F0\uC744 \uD655\uC778\uD558\uC138\uC694.");
+  if (rounded < minimumSeconds || rounded > 21600) throw Error(`\uC911\uACC4 \uC9C0\uC5F0\uC740 ${minimumSeconds}\u201321600\uCD08 \uBC94\uC704\uB85C \uC785\uB825\uD558\uC138\uC694.`);
+  return rounded;
+}
+function observerDelayValue(seconds, unit = "seconds") {
+  return String(observerDelaySeconds(seconds) / factor(unit));
+}
+function observerDelayLabel(seconds) {
+  const value = observerDelaySeconds(seconds);
+  return value % 60 === 0 ? `${value / 60}\uBD84 (${value}\uCD08)` : `${value}\uCD08`;
+}
+function bindObserverDelayInput(input, select, { seconds = 300, minimumSeconds = 5, onError = () => {
+} } = {}) {
+  let unit = select.value || "minutes", minimum = minimumSeconds;
+  function constraints() {
+    const scale = factor(unit);
+    input.min = String(minimum / scale);
+    input.max = String(21600 / scale);
+    input.step = unit === "minutes" ? "any" : "1";
+    input.inputMode = unit === "minutes" ? "decimal" : "numeric";
+    input.setAttribute("aria-label", `\uC911\uACC4 \uC9C0\uC5F0 ${unit === "minutes" ? "\uBD84" : "\uCD08"}`);
+  }
+  function setSeconds(value) {
+    const canonical2 = observerDelaySeconds(value);
+    input.value = observerDelayValue(canonical2, unit);
+    constraints();
+  }
+  const change = () => {
+    try {
+      const value = observerDelaySeconds(input.value, unit);
+      const next = select.value;
+      factor(next);
+      unit = next;
+      setSeconds(value);
+    } catch (error) {
+      select.value = unit;
+      onError(error.message);
+    }
+  };
+  select.addEventListener("change", change);
+  setSeconds(seconds);
+  return {
+    getSeconds: () => observerDelaySeconds(input.value, unit, { minimumSeconds: minimum }),
+    setSeconds,
+    setMinimum(value) {
+      observerDelaySeconds(value);
+      minimum = value;
+      constraints();
+    },
+    destroy() {
+      select.removeEventListener("change", change);
+    }
+  };
+}
+
+// duplicate/observer-links.mjs
+var CODE2 = /^[A-Z2-9]{8}$/;
+var KEY2 = /^[a-f0-9]{64}$/;
+function observerLink({ baseUrl, code, key, server, delaySeconds = DEFAULT_OBSERVER_DELAY_SECONDS }) {
+  if (!CODE2.test(code ?? "") || !KEY2.test(key ?? "") || !Number.isSafeInteger(delaySeconds) || delaySeconds < 5 || delaySeconds > 21600) throw new Error("\uAD00\uC804 \uB9C1\uD06C \uC815\uBCF4\uAC00 \uC62C\uBC14\uB974\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
+  const api = new URL(server);
+  if (!["https:", "http:"].includes(api.protocol) || api.username || api.password || api.pathname !== "/" || api.search || api.hash) throw new Error("\uC11C\uBC84 \uC8FC\uC18C\uB97C \uD655\uC778\uD558\uC138\uC694.");
+  if (api.protocol === "http:" && !["localhost", "127.0.0.1", "[::1]"].includes(api.hostname)) throw new Error("\uACF5\uAC1C \uC11C\uBC84\uB294 HTTPS \uC8FC\uC18C\uB97C \uC0AC\uC6A9\uD558\uC138\uC694.");
+  const url = new URL("./tournament/observer.html", baseUrl);
+  url.search = "";
+  url.hash = "";
+  url.searchParams.set("code", code);
+  url.searchParams.set("server", api.origin);
+  url.searchParams.set("delay", String(delaySeconds));
+  url.hash = new URLSearchParams({ key }).toString();
+  return url.href;
+}
+function mountObserverLinks({ document: document2, getRoom, getServer, request: request2, toast: toast2, baseUrl = globalThis.location?.href, clipboard = globalThis.navigator?.clipboard }) {
+  const $2 = (id) => document2.getElementById(id), open = $2("observer-links-open"), dialog = $2("observer-links-dialog"), create = $2("observer-links-create"), delay = $2("observer-min-delay");
+  const delayInput = bindObserverDelayInput(delay, $2("observer-min-delay-unit"), { onError: toast2 });
+  let issuing = false, roomCode = null;
+  function clear() {
+    for (const role of ["viewer", "caster"]) {
+      $2(`observer-${role}-url`).value = "";
+      $2(`observer-${role}-open`).removeAttribute("href");
+    }
+    $2("observer-issued-links").hidden = true;
+  }
+  function update() {
+    const room = getRoom();
+    open.hidden = !room?.organizer;
+    open.disabled = issuing;
+    if (room?.code !== roomCode) {
+      roomCode = room?.code ?? null;
+      clear();
+      delayInput.setSeconds(room?.observer?.minimumDelaySeconds ?? DEFAULT_OBSERVER_DELAY_SECONDS);
+      if (dialog.open) dialog.close();
+    }
+    create.disabled = issuing || !room?.organizer;
+  }
+  open.addEventListener("click", () => {
+    update();
+    if (!getRoom()?.organizer) return;
+    dialog.showModal();
+  });
+  create.addEventListener("click", async () => {
+    const room = getRoom();
+    if (issuing || !room?.organizer) return;
+    let value;
+    try {
+      value = delayInput.getSeconds();
+    } catch (error) {
+      toast2(error.message);
+      delay.focus();
+      return;
+    }
+    issuing = true;
+    update();
+    create.textContent = "\uC911\uACC4 \uB9C1\uD06C\uB97C \uB9CC\uB4E4\uACE0 \uC788\uC2B5\uB2C8\uB2E4\u2026";
+    try {
+      const result = await request2(`/${room.code}/observer-access`, { delaySeconds: value });
+      if (getRoom()?.code !== room.code || !getRoom()?.organizer) return;
+      if (result.code !== room.code || !KEY2.test(result.viewerKey ?? "") || !KEY2.test(result.casterKey ?? "") || result.viewerKey === result.casterKey || result.delaySeconds < 5) throw new Error("\uC911\uACC4 \uB9C1\uD06C \uC751\uB2F5\uC744 \uD655\uC778\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+      for (const role of ["viewer", "caster"]) {
+        const url = observerLink({ baseUrl, code: result.code, key: result[`${role}Key`], server: getServer(), delaySeconds: result.delaySeconds });
+        $2(`observer-${role}-url`).value = url;
+        $2(`observer-${role}-open`).href = url;
+      }
+      $2("observer-issued-links").hidden = false;
+      $2("observer-link-status").textContent = `\uCD5C\uC18C ${observerDelayLabel(result.delaySeconds)} \uC9C0\uC5F0${room.tournament ? " \xB7 \uC804\uD0C1\uC758 \uAC19\uC740 \uAD6D\xB7\uBCF8\uC7A5 \uC885\uB8CC\xB7\uD1B5\uACFC \uD6C4 \uAE30\uB85D \uACF5\uAC1C" : ""} \xB7 \uAE30\uC874 \uB9C1\uD06C\uB294 \uC885\uB8CC\uB418\uC5C8\uC2B5\uB2C8\uB2E4. \uAD00\uC804 \uCC3D\uC5D0\uC11C \uB354 \uAE34 \uC9C0\uC5F0\uC744 \uC124\uC815\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.`;
+      toast2("\uAD00\uC804\xB7\uC911\uACC4 \uB9C1\uD06C\uB97C \uB9CC\uB4E4\uC5C8\uC2B5\uB2C8\uB2E4.");
+    } catch (error) {
+      toast2(error.message);
+    } finally {
+      issuing = false;
+      create.textContent = "\uB9C1\uD06C \uB9CC\uB4E4\uAE30 \xB7 \uC7AC\uBC1C\uAE09";
+      update();
+    }
+  });
+  for (const role of ["viewer", "caster"]) $2(`observer-${role}-copy`).addEventListener("click", async () => {
+    const input = $2(`observer-${role}-url`);
+    if (!input.value) return;
+    try {
+      await clipboard.writeText(input.value);
+      toast2(role === "caster" ? "\uC911\uACC4\uC790 \uC804\uC6A9 \uB9C1\uD06C\uB97C \uBCF5\uC0AC\uD588\uC2B5\uB2C8\uB2E4." : "\uC77C\uBC18 \uAD00\uC804 \uB9C1\uD06C\uB97C \uBCF5\uC0AC\uD588\uC2B5\uB2C8\uB2E4.");
+    } catch {
+      input.focus();
+      input.select();
+      toast2("\uC120\uD0DD\uB41C \uB9C1\uD06C\uB97C \uBCF5\uC0AC\uD574 \uC8FC\uC138\uC694.");
+    }
+  });
+  update();
+  return { update };
+}
+
 // duplicate/replay-core.mjs
 var ENGINE_REPLAY_SCHEMA = "duplicate-engine-replay-v1";
 var FRAME_REPLAY_SCHEMA = "duplicate-frame-replay-v1";
@@ -3908,7 +4325,7 @@ var REPLAY_LIMITS = Object.freeze({ bytes: 32 * 1024 * 1024, actions: 2048, fram
 var roles = /* @__PURE__ */ new Set(["private", "participant", "viewer", "caster"]);
 var kinds = /* @__PURE__ */ new Set(["discard", "call", "kan", "riichi", "win"]);
 var object3 = (v) => v && typeof v === "object" && !Array.isArray(v);
-var integer2 = Number.isSafeInteger;
+var integer3 = Number.isSafeInteger;
 var clone = (v) => structuredClone(v);
 var sort = (v) => Array.isArray(v) ? v.map(sort) : object3(v) ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sort(v[k])])) : v;
 var canonical = (v) => JSON.stringify(sort(v));
@@ -3927,11 +4344,11 @@ var keys = (v, allowed) => {
   require2(Object.keys(v).every((k) => allowed.includes(k)), "\uC7AC\uC0DD \uD30C\uC77C\uC5D0 \uD5C8\uC6A9\uB418\uC9C0 \uC54A\uC740 \uC815\uBCF4\uAC00 \uC788\uC2B5\uB2C8\uB2E4.");
 };
 var seat3 = (v) => {
-  require2(integer2(v) && v >= 0 && v < 4, "\uC7AC\uC0DD \uC88C\uC11D\uC744 \uD655\uC778\uD558\uC138\uC694.");
+  require2(integer3(v) && v >= 0 && v < 4, "\uC7AC\uC0DD \uC88C\uC11D\uC744 \uD655\uC778\uD558\uC138\uC694.");
   return v;
 };
 var number = (v, min = 0, max = Number.MAX_SAFE_INTEGER) => {
-  require2(integer2(v) && v >= min && v <= max);
+  require2(integer3(v) && v >= min && v <= max);
   return v;
 };
 var text = (v, max = 160) => {
@@ -4534,190 +4951,6 @@ function winnerPaymentSummary(view, winnerSeat) {
   return result;
 }
 
-// duplicate/daily-challenge.mjs
-var DAILY_VERSION = 1;
-var DAILY_RESULT_VERSION = 2;
-var DAILY_STORAGE_KEY = "duplicate.daily-results.v1";
-var DAILY_SHARE_NOTICE = "\uACF5\uC720\uC790\uAC00 \uC81C\uACF5\uD55C \uAE30\uB85D\uC785\uB2C8\uB2E4.";
-var DAY = 864e5;
-var MAX_HASH = 2048;
-var MAX_HANDS2 = 1e3;
-var MAX_SCORE = 1e8;
-var STAT_KEYS2 = ["discard", "riichi", "call", "kan", "win"];
-var RESULT_KEYS = ["v", "date", "seed", "seat", "net", "referenceDifference", "hands", "stats"];
-var DAILY_RULES = Object.freeze({
-  id: "duplicate-riichi-v1",
-  variant: "D",
-  dora: true,
-  kanDora: true,
-  uraDora: true,
-  redDora: true,
-  deadWall: false,
-  exhaustLimit: 1,
-  kuitan: true,
-  multipleRon: "all",
-  startingPoints: 25e3,
-  maxKans: 4,
-  roundWind: 27,
-  abortFourKans: false
-});
-var integer3 = (n, min, max) => Number.isSafeInteger(n) && n >= min && n <= max;
-var plain2 = (o) => !!o && typeof o === "object" && !Array.isArray(o) && [Object.prototype, null].includes(Object.getPrototypeOf(o));
-var exact = (o, keys2) => plain2(o) && Object.keys(o).length === keys2.length && Object.keys(o).every((key) => keys2.includes(key));
-function checkedDate(date) {
-  if (typeof date !== "string" || !/^20\d\d-\d\d-\d\d$/.test(date)) throw Error("Invalid daily date");
-  const value = /* @__PURE__ */ new Date(`${date}T00:00:00.000Z`);
-  if (!Number.isFinite(value.getTime()) || value.toISOString().slice(0, 10) !== date) throw Error("Invalid daily date");
-  return date;
-}
-function dailyDate(now = /* @__PURE__ */ new Date()) {
-  const value = now instanceof Date ? now.getTime() : new Date(now).getTime();
-  if (!Number.isFinite(value)) throw Error("Invalid daily clock");
-  return checkedDate(new Date(value + 9 * 36e5).toISOString().slice(0, 10));
-}
-function dailySeed(date = dailyDate()) {
-  let hash = 2166136261;
-  for (const character of `duplicate-daily-v${DAILY_VERSION}:${checkedDate(date)}`) hash = Math.imul(hash ^ character.charCodeAt(0), 16777619) >>> 0;
-  return hash || 1;
-}
-function dailyChallenge(date = dailyDate()) {
-  return {
-    version: DAILY_VERSION,
-    date: checkedDate(date),
-    seed: dailySeed(date),
-    seatChoice: "random",
-    aiPolicy: "simple",
-    duplicateProfile: "mil-riichi",
-    matchRules: { format: "hanchan", dealerContinuation: true, agariYame: false },
-    rules: normalizeProfileRules(DAILY_RULES, "mil-riichi")
-  };
-}
-function dailyStatsFromGame(game, seat5 = 0) {
-  return actionStatsFromGame(game, seat5);
-}
-function validStats(stats, hands) {
-  return exact(stats, STAT_KEYS2) && STAT_KEYS2.every((key) => integer3(stats[key], 0, key === "discard" ? hands * 140 : ["kan", "call"].includes(key) ? hands * 4 : hands)) && stats.riichi <= stats.discard;
-}
-function validateDailyResult(value) {
-  const modern = value?.v === DAILY_RESULT_VERSION;
-  if (!exact(value, modern ? [...RESULT_KEYS, "comparison"] : RESULT_KEYS) || ![1, DAILY_RESULT_VERSION].includes(value.v) || !integer3(value.seat, 0, 3) || !integer3(value.hands, 1, MAX_HANDS2) || !integer3(value.net, -MAX_SCORE, MAX_SCORE) || !(value.referenceDifference === null || integer3(value.referenceDifference, -MAX_SCORE, MAX_SCORE)) || !modern && !validStats(value.stats, value.hands)) throw Error("Invalid daily result");
-  checkedDate(value.date);
-  if (value.seed !== dailySeed(value.date)) throw Error("Daily date and seed differ");
-  const stats = modern ? validateActionStats(value.stats, value.hands) : Object.fromEntries(STAT_KEYS2.map((key) => [key, value.stats[key]]));
-  const result = { v: value.v, date: value.date, seed: value.seed, seat: value.seat, net: value.net, referenceDifference: value.referenceDifference, hands: value.hands, stats };
-  if (modern) {
-    let comparison = null;
-    if (value.comparison !== null) {
-      const c = value.comparison;
-      if (!exact(c, ["source", "hands", "stats"]) || c.source !== "ai" || c.hands !== value.hands) throw Error("Invalid daily comparison");
-      comparison = { source: "ai", hands: c.hands, stats: validateActionStats(c.stats, c.hands) };
-    }
-    result.comparison = comparison;
-  }
-  return result;
-}
-function resultFromDailySeries({ date, seed, seat: seat5, results } = {}) {
-  if (!Array.isArray(results) || !integer3(results.length, 1, MAX_HANDS2)) throw Error("Missing daily results");
-  const modern = results.every((row) => plain2(row?.dailyStats) && Object.hasOwn(row.dailyStats, "dealIn"));
-  const stats = modern ? emptyActionStats() : Object.fromEntries(STAT_KEYS2.map((key) => [key, 0])), referenceStats = emptyActionStats();
-  let net = 0, reference = 0, referenceReady = true, statsReady = modern;
-  for (const row of results) {
-    if (!integer3(row?.score, -MAX_SCORE, MAX_SCORE)) throw Error("Invalid daily hand result");
-    if (Object.hasOwn(row?.dailyStats ?? {}, "dealIn")) validateActionStats(row.dailyStats, 1);
-    else if (!validStats(row.dailyStats, 1)) throw Error("Invalid daily hand result");
-    net += row.score;
-    for (const key of Object.keys(stats)) stats[key] += row.dailyStats[key];
-    if (row.referenceStatus === "done" && integer3(row.reference, -MAX_SCORE, MAX_SCORE)) reference += row.reference;
-    else referenceReady = false;
-    try {
-      if (row.referenceStatus !== "done") throw Error("Pending reference");
-      const other = validateActionStats(row.referenceStats, 1);
-      for (const key of Object.keys(referenceStats)) referenceStats[key] += other[key];
-    } catch {
-      statsReady = false;
-    }
-  }
-  return validateDailyResult({
-    v: modern ? DAILY_RESULT_VERSION : 1,
-    date,
-    seed,
-    seat: seat5,
-    net,
-    referenceDifference: referenceReady ? net - reference : null,
-    hands: results.length,
-    stats,
-    ...modern ? { comparison: statsReady ? { source: "ai", hands: results.length, stats: referenceStats } : null } : {}
-  });
-}
-function dailyPersona(result) {
-  const { stats: s, hands } = validateDailyResult(result);
-  if (s.kan > 0 && s.kan >= s.call && s.kan >= s.riichi) return { id: "kan-curious", title: "\uAE61 \uD0C0\uC774\uBC0D \uC218\uC9D1\uAC00", description: `${hands}\uAD6D\uC5D0\uC11C \uAE61 ${s.kan}\uD68C! \uC624\uB298\uC740 \uB124 \uC7A5\uC744 \uBAA8\uC740 \uC21C\uAC04\uC774 \uB208\uC5D0 \uB744\uC5C8\uC5B4\uC694.` };
-  if (s.call > s.riichi && s.call > 0) return { id: "open-path", title: "\uD6C4\uB85C \uAC1C\uCC99\uC790", description: `\uCE58\xB7\uD401\xB7\uBA85\uAE61\uC73C\uB85C \uD328\uB97C \uC5F0 \uD69F\uC218 ${s.call}\uD68C. \uC774\uBC88 \uB300\uAD6D\uC5D0\uC11C\uB294 \uD6C4\uB85C\uB85C \uAE38\uC744 \uB9CC\uB4E4\uC5C8\uC5B4\uC694.` };
-  if (s.riichi > s.call && s.riichi > 0) return { id: "riichi-path", title: "\uB9AC\uCE58 \uC9C1\uC9C4\uD30C", description: `\uB9AC\uCE58 \uC120\uC5B8 ${s.riichi}\uD68C. \uC774\uBC88 \uB300\uAD6D\uC5D0\uC11C\uB294 \uB9AC\uCE58\uB85C \uC2B9\uBD80\uB97C \uAC78\uC5C8\uC5B4\uC694.` };
-  if (s.win >= 2) return { id: "chance-finder", title: "\uD654\uB8CC \uCC2C\uC2A4 \uD3EC\uCC29\uAC00", description: `${hands}\uAD6D\uC5D0\uC11C \uD654\uB8CC ${s.win}\uD68C. \uC624\uB298\uC758 \uD654\uB8CC \uC21C\uAC04\uC744 \uCE74\uB4DC\uC5D0 \uB2F4\uC558\uC5B4\uC694.` };
-  if (s.call + s.riichi > 0) return { id: "flexible", title: "\uC720\uC5F0\uD55C \uC804\uD658\uAC00", description: `\uB9AC\uCE58 ${s.riichi}\uD68C, \uD6C4\uB85C ${s.call}\uD68C. \uC774\uBC88\uC5D0\uB294 \uB450 \uC120\uD0DD\uC744 \uD568\uAED8 \uC368 \uBD24\uC5B4\uC694.` };
-  return { id: "quiet-path", title: "\uD55C \uC7A5\uC529 \uD0D0\uD5D8\uAC00", description: `\uBC84\uB9BC ${s.discard}\uD68C. \uC774\uBC88 \uB300\uAD6D\uC758 \uC120\uD0DD\uC744 \uD55C \uC7A5\uC529 \uC313\uC558\uC5B4\uC694.` };
-}
-function encodeDailyShare(result) {
-  const bytes = new TextEncoder().encode(JSON.stringify(validateDailyResult(result)));
-  const encoded = btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
-  if (encoded.length + 7 > MAX_HASH) throw Error("Daily result is too large");
-  return `#daily=${encoded}`;
-}
-function parseDailyShare(hash) {
-  if (typeof hash !== "string" || hash.length > MAX_HASH || !/^#daily=[A-Za-z0-9_-]+$/.test(hash)) return null;
-  try {
-    const encoded = hash.slice(7), binary = atob(encoded.replaceAll("-", "+").replaceAll("_", "/") + "=".repeat((4 - encoded.length % 4) % 4));
-    const value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(Uint8Array.from(binary, (c) => c.charCodeAt(0))));
-    const result = validateDailyResult(value);
-    return encodeDailyShare(result) === hash ? result : null;
-  } catch {
-    return null;
-  }
-}
-function buildDailyShareURL(baseURL, result) {
-  const url = new URL(baseURL);
-  if (!["https:", "http:"].includes(url.protocol)) throw Error("Invalid daily share URL");
-  url.search = "";
-  url.username = "";
-  url.password = "";
-  url.hash = encodeDailyShare(result);
-  return url.href;
-}
-function loadDailyResults(storage, now = /* @__PURE__ */ new Date()) {
-  try {
-    const raw = storage.getItem(DAILY_STORAGE_KEY);
-    if (!raw || raw.length > 32768) return [];
-    const saved2 = JSON.parse(raw);
-    if (!exact(saved2, ["v", "results"]) || saved2.v !== DAILY_VERSION || !Array.isArray(saved2.results) || saved2.results.length > 30) return [];
-    const today = Date.parse(`${dailyDate(now)}T00:00:00Z`), byDate = /* @__PURE__ */ new Map();
-    for (const value of saved2.results) {
-      let result;
-      try {
-        result = validateDailyResult(value);
-      } catch {
-        continue;
-      }
-      const age = (today - Date.parse(`${result.date}T00:00:00Z`)) / DAY;
-      if (age >= 0 && age < 30 && !byDate.has(result.date)) byDate.set(result.date, result);
-    }
-    return [...byDate.values()].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30);
-  } catch {
-    return [];
-  }
-}
-function saveDailyResult(storage, result, now = /* @__PURE__ */ new Date()) {
-  try {
-    const checked = validateDailyResult(result), today = Date.parse(`${dailyDate(now)}T00:00:00Z`), age = (today - Date.parse(`${checked.date}T00:00:00Z`)) / DAY;
-    if (age < 0 || age >= 30) return false;
-    const results = [checked, ...loadDailyResults(storage, now).filter((row) => row.date !== checked.date)].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30);
-    storage.setItem(DAILY_STORAGE_KEY, JSON.stringify({ v: DAILY_VERSION, results }));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 // duplicate/daily-practice.mjs
 function createDailyPractice(date, { seat: seat5, draw: draw3 } = {}) {
   const challenge = dailyChallenge(date);
@@ -4758,7 +4991,7 @@ var WINDS = ["\u6771", "\u5357", "\u897F", "\u5317"];
 var number2 = (value) => Number(value).toLocaleString("ko-KR");
 var signed2 = (value) => `${value > 0 ? "+" : ""}${number2(value)}`;
 var dateLabel = (date) => date.replaceAll("-", ".");
-var referenceLabel = (result, shared2 = false) => result.referenceDifference === null ? shared2 ? "\uBE44\uAD50 \uC5C6\uC74C" : "\uC9D1\uACC4 \uC911" : signed2(result.referenceDifference) + "\uC810";
+var referenceLabel = (result, shared2 = false, ranked = false) => result.referenceDifference === null ? shared2 || ranked ? "\uBE44\uAD50 \uC5C6\uC74C" : "\uC9D1\uACC4 \uC911" : signed2(result.referenceDifference) + "\uC810";
 var rate = (value) => Number(Math.abs(value)).toLocaleString("ko-KR", { maximumFractionDigits: 1 });
 var signedRate = (value) => `${value > 0 ? "+" : value < 0 ? "\u2212" : ""}${rate(value)}`;
 var actionPeers = (result) => result.comparison ? [{ hands: result.comparison.hands, stats: result.comparison.stats }] : [];
@@ -4793,6 +5026,23 @@ function fact(document2, label, value) {
   cell.append(node2(document2, "dt", "", label), node2(document2, "dd", "", value));
   return cell;
 }
+function dailyNavigationURL(base, date, { target, ranked = false } = {}) {
+  const current = new URL(base), fallback = new URL(ranked ? "./" : "./leaderboard.html", current);
+  fallback.searchParams.set(ranked ? "dailyRanked" : "date", date);
+  try {
+    const server = normalizeAccountServer(current.searchParams.get("server"));
+    fallback.searchParams.set("server", server);
+  } catch {
+  }
+  if (target) {
+    try {
+      const supplied = new URL(target, current);
+      if (supplied.origin === current.origin && !supplied.username && !supplied.password && ["https:", "http:"].includes(supplied.protocol)) return supplied.href;
+    } catch {
+    }
+  }
+  return fallback.href;
+}
 function mountDailyShare({ document: document2, onStart, toast: toast2 = () => {
 }, getBaseURL = () => document2.defaultView.location.href, onOpen = () => {
 }, onClose = () => {
@@ -4825,7 +5075,7 @@ function mountDailyShare({ document: document2, onStart, toast: toast2 = () => {
   shell.append(header, body, footer);
   dialog.append(shell);
   document2.body.append(dialog);
-  let currentResult = null, currentShared = false, open = false, lastTrigger = null, destroyed = false;
+  let currentResult = null, currentShared = false, currentRanked = false, currentLeaderboardURL, open = false, lastTrigger = null, destroyed = false;
   function report(message) {
     status.textContent = message;
   }
@@ -4893,17 +5143,27 @@ function mountDailyShare({ document: document2, onStart, toast: toast2 = () => {
     line.append(label, button(document2, "\uC2DC\uB4DC \uBCF5\uC0AC", () => copy2(String(challenge.seed), "\uD328\uC0B0 \uC2DC\uB4DC\uB97C \uBCF5\uC0AC\uD588\uC2B5\uB2C8\uB2E4."), { className: "daily-seed-copy" }));
     return line;
   }
-  function openDaily2({ challenge = dailyChallenge(), active = false, savedResults = [] } = {}) {
+  function openDaily2({ challenge = dailyChallenge(), active = false, savedResults = [], leaderboardURL: leaderboardURL2, rankedURL, rankedActive = false, rankedCompleted = false } = {}) {
     currentResult = null;
     currentShared = false;
+    currentRanked = false;
+    currentLeaderboardURL = void 0;
     title.textContent = "\uC624\uB298\uC758 \uD328\uC0B0";
     body.replaceChildren();
     const hero = node2(document2, "section", "daily-hub-hero");
     const kicker = node2(document2, "p", "daily-date", dateLabel(challenge.date));
     hero.append(kicker, tiles2(document2), node2(document2, "h3", "", "\uAC19\uC740 \uD328\uC0B0, \uB098\uB9CC\uC758 \uC120\uD0DD"), node2(document2, "p", "daily-lead", "\uB9E4\uC77C \uAC19\uC740 \uBC30\uD328\uC640 \uAC1C\uC778 \uD328\uC0B0\uC73C\uB85C \uB3C4\uC804\uD558\uACE0, \uB098\uC758 \uD50C\uB808\uC774 \uC720\uD615\uC744 \uCE74\uB4DC\uB85C \uB098\uB220 \uBCF4\uC138\uC694."));
     hero.append(seedLine(challenge), node2(document2, "p", "daily-rules", RULES));
-    const cta = button(document2, active ? "\uC9C4\uD589 \uC911\uC778 \uB3C4\uC804 \uACC4\uC18D\uD558\uAE30" : "\uC624\uB298\uC758 \uD328\uC0B0 \uB3C4\uC804", () => start(challenge.date, { resume: active }), { id: "daily-start", className: "primary daily-start" });
-    hero.append(cta, node2(document2, "p", "daily-note", "\uD55C\uAD6D \uC2DC\uAC04 \uC790\uC815\uC5D0 \uC0C8 \uC2DC\uB4DC\uAC00 \uC5F4\uB9BD\uB2C8\uB2E4. \uB2E4\uB978 \uB0A0\uC9DC\uC758 \uACB0\uACFC\uB3C4 \uAC19\uC740 \uD328\uC0B0\uC73C\uB85C \uB2E4\uC2DC \uB3C4\uC804\uD560 \uC218 \uC788\uC5B4\uC694."));
+    const rankedEntry = node2(document2, "div", "daily-ranked-entry"), rankedLink = node2(document2, "a", "primary daily-leaderboard-link", rankedCompleted ? "\uB0B4 \uCCAB \uAE30\uB85D \uBCF4\uAE30" : rankedActive ? "\uB9AC\uB354\uBCF4\uB4DC \uB3C4\uC804 \uC774\uC5B4\uD558\uAE30" : "\uCCAB \uAE30\uB85D\uC73C\uB85C \uB3C4\uC804");
+    rankedLink.id = "daily-ranked-start";
+    rankedLink.href = dailyNavigationURL(getBaseURL(), challenge.date, { target: rankedCompleted ? leaderboardURL2 : rankedURL, ranked: !rankedCompleted });
+    const boardLink = node2(document2, "a", "daily-leaderboard-link", "\uB370\uC77C\uB9AC \uB9AC\uB354\uBCF4\uB4DC \uBCF4\uAE30");
+    boardLink.id = "daily-leaderboard-open";
+    boardLink.href = dailyNavigationURL(getBaseURL(), challenge.date, { target: leaderboardURL2 });
+    rankedEntry.append(rankedLink, boardLink, node2(document2, "p", "daily-note", "\uACC4\uC815\uB9C8\uB2E4 \uD558\uB8E8 \uCCAB \uB3C4\uC804\uB9CC \uB4F1\uB85D\uB429\uB2C8\uB2E4. \uCCAB \uAE30\uB85D \uB3C4\uC804\uC740 \uB85C\uADF8\uC778\uC774 \uD544\uC694\uD574\uC694."));
+    hero.append(rankedEntry);
+    const cta = button(document2, active ? "\uC9C4\uD589 \uC911\uC778 \uC5F0\uC2B5 \uACC4\uC18D\uD558\uAE30" : "\uACB0\uACFC\uB9CC \uBCF4\uB294 \uC5F0\uC2B5", () => start(challenge.date, { resume: active }), { id: "daily-start", className: "secondary daily-start" });
+    hero.append(cta, node2(document2, "p", "daily-note", "\uD55C\uAD6D \uC2DC\uAC04 \uC790\uC815\uC5D0 \uC0C8 \uC2DC\uB4DC\uAC00 \uC5F4\uB9BD\uB2C8\uB2E4. \uC5F0\uC2B5\uC740 \uC5EC\uB7EC \uBC88 \uD560 \uC218 \uC788\uACE0 \uB9AC\uB354\uBCF4\uB4DC\uC5D0\uB294 \uC9D1\uACC4\uB418\uC9C0 \uC54A\uC544\uC694."));
     body.append(hero);
     const saved2 = savedResults.slice(0, 5).flatMap((result) => {
       try {
@@ -4928,7 +5188,7 @@ function mountDailyShare({ document: document2, onStart, toast: toast2 = () => {
     }
     show("daily");
   }
-  function resultCard(result, shared2) {
+  function resultCard(result, shared2, ranked) {
     const persona = dailyPersona(result), card = node2(document2, "article", "daily-persona-card");
     card.append(node2(document2, "div", "daily-card-topline", `${dateLabel(result.date)} \xB7 \uC624\uB298\uC758 \uD328\uC0B0`), tiles2(document2));
     card.append(node2(document2, "p", "daily-card-kicker", "\uC774\uBC88 \uB300\uAD6D\uC758 \uB098\uB294"), node2(document2, "h3", "daily-persona-title", persona.title), node2(document2, "p", "daily-persona-description", persona.description));
@@ -4936,30 +5196,41 @@ function mountDailyShare({ document: document2, onStart, toast: toast2 = () => {
     score2.append(node2(document2, "span", "", "\uB300\uAD6D \uC810\uC218 \uC99D\uAC10"), node2(document2, "strong", result.net < 0 ? "is-negative" : "", `${signed2(result.net)}`), node2(document2, "small", "", "\uC810"));
     card.append(score2);
     const reference = node2(document2, "div", "daily-card-reference");
-    reference.append(node2(document2, "span", "", "\uAE30\uBCF8 AI \uAC19\uC740 \uC790\uB9AC \uB300\uBE44"), node2(document2, "strong", "", referenceLabel(result, shared2)));
+    reference.append(node2(document2, "span", "", "\uAE30\uBCF8 AI \uAC19\uC740 \uC790\uB9AC \uB300\uBE44"), node2(document2, "strong", "", referenceLabel(result, shared2, ranked)));
     card.append(reference);
     const stats = node2(document2, "dl", "daily-card-stats");
     for (const [label, value] of [["\uB9AC\uCE58", result.stats.riichi], ["\uD6C4\uB85C", result.stats.call], ["\uAE61", result.stats.kan], ["\uD654\uB8CC", result.stats.win], ["\uBC29\uCD1D", result.stats.dealIn]]) stats.append(fact(document2, label, Number.isInteger(value) ? `${value}\uD68C` : "\u2014"));
     const comparison = node2(document2, "div", "daily-action-comparison");
     renderActionComparison(comparison, { own: { hands: result.hands, stats: result.stats }, peers: actionPeers(result), sourceLabel: "\uAE30\uBCF8 AI \uAC19\uC740 \uC790\uB9AC", document: document2 });
+    if ((ranked || shared2) && !result.comparison) {
+      const note = comparison.querySelector(".action-comparison-sample");
+      if (note) note.textContent = "AI \uAE30\uC900 \uD589\uB3D9 \uAE30\uB85D \uC5C6\uC74C";
+    }
     card.append(stats, comparison, node2(document2, "p", "daily-card-meta", `${result.hands}\uAD6D \uC644\uB8CC \xB7 \uC2DC\uC791 \uC790\uB9AC ${WINDS[result.seat]} \xB7 \uBC84\uB9BC ${result.stats.discard}\uD68C \xB7 \uC2DC\uB4DC ${result.seed}`));
     return card;
   }
-  function openResult(value, { shared: shared2 = false } = {}) {
+  function openResult(value, { shared: shared2 = false, leaderboardURL: leaderboardURL2, ranked = false } = {}) {
     const result = validateDailyResult(value);
     currentResult = result;
     currentShared = shared2;
+    currentRanked = ranked;
+    currentLeaderboardURL = leaderboardURL2;
     title.textContent = shared2 ? "\uACF5\uC720\uD55C \uB3C4\uC804 \uCE74\uB4DC" : "\uB0B4 \uB3C4\uC804 \uCE74\uB4DC";
     body.replaceChildren();
     if (shared2) body.append(node2(document2, "p", "daily-unverified", DAILY_SHARE_NOTICE));
-    body.append(resultCard(result, shared2));
+    if (ranked && !shared2) body.append(node2(document2, "p", "daily-ranked-notice", "\uCCAB \uAE30\uB85D \uB4F1\uB85D \uC644\uB8CC \xB7 \uC774\uD6C4 \uC5F0\uC2B5 \uACB0\uACFC\uB294 \uB9AC\uB354\uBCF4\uB4DC\uC5D0 \uBC18\uC601\uB418\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4."));
+    body.append(resultCard(result, shared2, ranked));
     const actions = node2(document2, "div", "daily-card-actions");
-    const share = button(document2, "\uACB0\uACFC \uACF5\uC720", () => withAction(share, () => shareResult(result, shared2)), { id: "daily-share-result", className: "primary" });
-    const save = button(document2, "\uC774\uBBF8\uC9C0 \uC800\uC7A5", () => withAction(save, () => downloadImage(result, shared2)), { id: "daily-save-image" });
+    const share = button(document2, "\uACB0\uACFC \uACF5\uC720", () => withAction(share, () => shareResult(result, shared2, ranked)), { id: "daily-share-result", className: "primary" });
+    const save = button(document2, "\uC774\uBBF8\uC9C0 \uC800\uC7A5", () => withAction(save, () => downloadImage(result, shared2, ranked)), { id: "daily-save-image" });
     const link = button(document2, "\uB9C1\uD06C \uBCF5\uC0AC", () => copy2(buildDailyShareURL(getBaseURL(), result), "\uACB0\uACFC \uB9C1\uD06C\uB97C \uBCF5\uC0AC\uD588\uC2B5\uB2C8\uB2E4. \uAC19\uC740 \uD328\uC0B0 \uB3C4\uC804\uB3C4 \uD568\uAED8 \uC5F4\uB9BD\uB2C8\uB2E4."), { id: "daily-copy-link" });
     actions.append(share, save, link);
     body.append(actions);
-    body.append(button(document2, "\uC774 \uD328\uC0B0 \uB3C4\uC804", () => start(result.date, { seat: result.seat }), { id: "daily-retry", className: "daily-retry" }));
+    body.append(button(document2, "\uC774 \uD328\uC0B0\uC73C\uB85C \uB2E4\uC2DC \uC5F0\uC2B5", () => start(result.date, { seat: result.seat }), { id: "daily-retry", className: "daily-retry" }));
+    const boardLink = node2(document2, "a", "daily-leaderboard-link", "\uC774 \uB0A0\uC9DC\uC758 \uB9AC\uB354\uBCF4\uB4DC \uBCF4\uAE30");
+    boardLink.id = "daily-result-leaderboard";
+    boardLink.href = dailyNavigationURL(getBaseURL(), result.date, { target: leaderboardURL2 });
+    body.append(boardLink);
     body.append(node2(document2, "p", "daily-note", "\uACF5\uC720 \uB9C1\uD06C\uC5D0\uB294 \uB0A0\uC9DC\xB7\uC2DC\uB4DC\xB7\uC2DC\uC791 \uC790\uB9AC\xB7\uC810\uC218\uC640 \uD589\uB3D9 \uD69F\uC218\uB9CC \uB2F4\uAE41\uB2C8\uB2E4. \uB2C9\uB124\uC784\xB7\uC190\uD328\xB7\uD328\uBCF4\uB294 \uD3EC\uD568\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4."));
     if (!shared2) body.append(node2(document2, "p", "daily-note", "\uACB0\uACFC\uB294 \uC774 \uBE0C\uB77C\uC6B0\uC800\uC5D0 \uC800\uC7A5\uB429\uB2C8\uB2E4. \uC0AC\uC774\uD2B8 \uB370\uC774\uD130\uB97C \uC9C0\uC6B0\uBA74 \uC0AC\uB77C\uC9C8 \uC218 \uC788\uC5B4\uC694."));
     show("result");
@@ -4975,13 +5246,13 @@ function mountDailyShare({ document: document2, onStart, toast: toast2 = () => {
       target.disabled = false;
     }
   }
-  async function imageBlob(result, shared2) {
+  async function imageBlob(result, shared2, ranked) {
     if (document2.fonts?.ready) await document2.fonts.ready;
-    const canvas = renderDailyResultCanvas(result, { document: document2, shared: shared2 });
+    const canvas = renderDailyResultCanvas(result, { document: document2, shared: shared2, ranked });
     return new Promise((resolve3, reject) => canvas.toBlob((blob) => blob ? resolve3(blob) : reject(Error("\uC774\uBBF8\uC9C0\uB97C \uB9CC\uB4E4\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. \uB9C1\uD06C \uBCF5\uC0AC\uB97C \uC774\uC6A9\uD574 \uC8FC\uC138\uC694.")), "image/png"));
   }
-  async function downloadImage(result, shared2) {
-    const blob = await imageBlob(result, shared2), url = window2.URL.createObjectURL(blob), anchor = node2(document2, "a", "");
+  async function downloadImage(result, shared2, ranked) {
+    const blob = await imageBlob(result, shared2, ranked), url = window2.URL.createObjectURL(blob), anchor = node2(document2, "a", "");
     anchor.href = url;
     anchor.download = `duplicate-mahjong-${result.date}.png`;
     anchor.hidden = true;
@@ -4991,13 +5262,13 @@ function mountDailyShare({ document: document2, onStart, toast: toast2 = () => {
     window2.setTimeout(() => window2.URL.revokeObjectURL(url), 3e4);
     report("\uACB0\uACFC \uC774\uBBF8\uC9C0 \uC800\uC7A5\uC744 \uC694\uCCAD\uD588\uC2B5\uB2C8\uB2E4. \uBE0C\uB77C\uC6B0\uC800\uC758 \uB2E4\uC6B4\uB85C\uB4DC\uB97C \uD655\uC778\uD574 \uC8FC\uC138\uC694.");
   }
-  async function shareResult(result, shared2) {
+  async function shareResult(result, shared2, ranked) {
     const url = buildDailyShareURL(getBaseURL(), result), persona = dailyPersona(result), text3 = `${dateLabel(result.date)} \uC624\uB298\uC758 \uD328\uC0B0 \xB7 ${persona.title}
 \uC810\uC218 \uC99D\uAC10 ${signed2(result.net)}\uC810 \xB7 ${result.hands}\uAD6D \xB7 \uC2DC\uC791 \uC790\uB9AC ${WINDS[result.seat]}`;
     const navigator2 = window2.navigator;
     if (navigator2.share) {
       try {
-        const blob = await imageBlob(result, shared2), file = new window2.File([blob], `duplicate-mahjong-${result.date}.png`, { type: "image/png" });
+        const blob = await imageBlob(result, shared2, ranked), file = new window2.File([blob], `duplicate-mahjong-${result.date}.png`, { type: "image/png" });
         if (navigator2.canShare?.({ files: [file] })) await navigator2.share({ title: "Duplicate Mahjong \xB7 \uC624\uB298\uC758 \uD328\uC0B0", text: text3, url, files: [file] });
         else await navigator2.share({ title: "Duplicate Mahjong \xB7 \uC624\uB298\uC758 \uD328\uC0B0", text: text3, url });
         report("\uACF5\uC720 \uCC3D\uC744 \uB2EB\uC558\uC2B5\uB2C8\uB2E4.");
@@ -5017,7 +5288,7 @@ ${url}`, "\uACB0\uACFC\uC640 \uB9C1\uD06C\uB97C \uBCF5\uC0AC\uD588\uC2B5\uB2C8\u
     openResult,
     close: closeDialog,
     updateResult(result) {
-      if (dialog.open && currentResult && !currentShared && currentResult.date === result.date) openResult(result);
+      if (dialog.open && currentResult && !currentShared && currentResult.date === result.date) openResult(result, { ranked: currentRanked, leaderboardURL: currentLeaderboardURL });
     },
     destroy() {
       closeDialog();
@@ -5057,7 +5328,7 @@ function wrapText(context3, text3, x, y, maxWidth, lineHeight) {
   if (line) context3.fillText(line, x, y + offset);
   return y + offset + lineHeight;
 }
-function renderDailyResultCanvas(value, { document: document2 = globalThis.document, width = 1080, shared: shared2 = false } = {}) {
+function renderDailyResultCanvas(value, { document: document2 = globalThis.document, width = 1080, shared: shared2 = false, ranked = false } = {}) {
   const result = validateDailyResult(value), persona = dailyPersona(result), comparison = actionComparison(result), canvas = document2.createElement("canvas");
   canvas.width = Number.isFinite(width) ? Math.min(2160, Math.max(360, Math.round(width))) : 1080;
   canvas.height = Math.round(canvas.width * 1850 / 1080);
@@ -5126,8 +5397,8 @@ function renderDailyResultCanvas(value, { document: document2 = globalThis.docum
   context3.fillText("\uAE30\uBCF8 AI \uAC19\uC740 \uC790\uB9AC \uB300\uBE44", 176, 867);
   context3.textAlign = "right";
   context3.fillStyle = "#325039";
-  fitText(context3, referenceLabel(result, shared2), 340, 29);
-  context3.fillText(referenceLabel(result, shared2), 904, 867);
+  fitText(context3, referenceLabel(result, shared2, ranked), 340, 29);
+  context3.fillText(referenceLabel(result, shared2, ranked), 904, 867);
   context3.textAlign = "center";
   for (const [i, [label, value2]] of [["\uB9AC\uCE58", result.stats.riichi], ["\uD6C4\uB85C", result.stats.call], ["\uAE61", result.stats.kan], ["\uD654\uB8CC", result.stats.win], ["\uBC29\uCD1D", result.stats.dealIn]].entries()) {
     const x = 218 + i * 161;
@@ -5149,7 +5420,7 @@ function renderDailyResultCanvas(value, { document: document2 = globalThis.docum
   context3.fillText("\uAE30\uBCF8 AI \uAC19\uC740 \uC790\uB9AC \xB7 \uD589\uB3D9 \uBE44\uAD50", 176, 1060);
   context3.fillStyle = "#6f7965";
   context3.font = "400 22px system-ui, -apple-system, sans-serif";
-  context3.fillText(comparison?.samples ? `1\uD0C1 \uBE44\uAD50 \xB7 \uB098 ${result.hands}\uAD6D \xB7 \uBE44\uAD50 ${result.comparison.hands}\uAD6D` : result.v === 1 ? "\uC774\uC804 \uAE30\uB85D\uC5D0\uB294 \uBC29\uCD1D\xB7\uB2E4\uB978 \uD0C1 \uD589\uB3D9 \uC815\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4." : "\uB2E4\uB978 \uD0C1\uC758 \uD589\uB3D9 \uAE30\uB85D\uC744 \uAE30\uB2E4\uB9AC\uACE0 \uC788\uC2B5\uB2C8\uB2E4.", 176, 1099);
+  context3.fillText(comparison?.samples ? `1\uD0C1 \uBE44\uAD50 \xB7 \uB098 ${result.hands}\uAD6D \xB7 \uBE44\uAD50 ${result.comparison.hands}\uAD6D` : ranked || shared2 ? "AI \uAE30\uC900 \uD589\uB3D9 \uAE30\uB85D \uC5C6\uC74C" : result.v === 1 ? "\uC774\uC804 \uAE30\uB85D\uC5D0\uB294 \uBC29\uCD1D\xB7\uB2E4\uB978 \uD0C1 \uD589\uB3D9 \uC815\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4." : "\uB2E4\uB978 \uD0C1\uC758 \uD589\uB3D9 \uAE30\uB85D\uC744 \uAE30\uB2E4\uB9AC\uACE0 \uC788\uC2B5\uB2C8\uB2E4.", 176, 1099);
   const columns = [176, 454, 660, 904];
   for (const [i, label] of ["\uD589\uB3D9", "\uB098", "\uD0C1 \uD3C9\uADE0", "100\uAD6D\uB2F9 \uCC28\uC774"].entries()) {
     context3.textAlign = i === 0 ? "left" : "right";
@@ -5226,10 +5497,39 @@ function setupRules(raw = {}, profile = "mil-riichi") {
   return normalizeProfileRules(value, profile);
 }
 var switchDefinitions = [["dora", "\uB3C4\uB77C", "\uCCAB \uBC88\uC9F8 \uB3C4\uB77C \uD45C\uC2DC\uD328"], ["kanDora", "\uAE61\uB3C4\uB77C", "\uAE61\uB9C8\uB2E4 \uCD94\uAC00 \uB3C4\uB77C \uD45C\uC2DC\uD328"], ["uraDora", "\uC6B0\uB77C\uB3C4\uB77C", "\uB9AC\uCE58 \uD654\uB8CC \uC2DC \uACF5\uAC1C\uD558\uB294 \uB4B7 \uD45C\uC2DC\uD328"], ["redDora", "\uC801\uB3C4\uB77C", "\uB9CC\xB7\uD1B5\xB7\uC0AD\uC758 \uC8015 \uAC01 1\uC7A5"], ["deadWall", "\uC655\uD328", "\uD328\uC0B0\uC5D0\uC11C 14\uC7A5 \uC81C\uC678"], ["kuitan", "\uCFE0\uC774\uD0D5", "\uBA58\uC820\uC774 \uC544\uB2C8\uC5B4\uB3C4 \uD0D5\uC57C\uC624 \uC778\uC815"], ["abortFourKans", "\uC0AC\uAE61\uC0B0\uB8CC", "2\uBA85 \uC774\uC0C1\uC774 \uD569\uACC4 4\uAE61\uC774\uBA74 \uC720\uAD6D"]];
-var S = { mode: "practice", panel: "practice", largeBoard: true, practice: null, practiceRemote: null, practiceError: "", online: null, credentials: null, view: null, selected: null, riichiSelecting: false, busy: false, timer: null, poll: null, worker: null, endHidden: false, endKey: null, endRevealAt: 0, resultTimer: null, toastTimer: null, settings: null, roomRules: null, roomAI: "simple", aiCapabilities: null, ruleContext: "practice", ruleReadOnly: false, creatingRoom: false, boardCount: 8, practiceMatchRules: null, roomMatchRules: null, practiceDuplicateProfile: "mil-riichi", roomDuplicateProfile: "mil-riichi", roomScoring: normalizeNewCompetitionScoring({}, "mil-riichi"), preferences: { ...DEFAULT_PREFERENCES }, autoWin: true, server: DEFAULT_SERVER, gameEpoch: 0 };
+var S = { mode: "practice", panel: "practice", largeBoard: true, practice: null, practiceRemote: null, practiceError: "", dailyRankedResult: null, dailyRankedStatus: null, online: null, credentials: null, view: null, selected: null, riichiSelecting: false, busy: false, timer: null, poll: null, worker: null, endHidden: false, endKey: null, endRevealAt: 0, resultTimer: null, toastTimer: null, settings: null, roomRules: null, roomAI: "simple", aiCapabilities: null, ruleContext: "practice", ruleReadOnly: false, creatingRoom: false, boardCount: 8, practiceMatchRules: null, roomMatchRules: null, practiceDuplicateProfile: "mil-riichi", roomDuplicateProfile: "mil-riichi", roomScoring: normalizeNewCompetitionScoring({}, "mil-riichi"), preferences: { ...DEFAULT_PREFERENCES }, autoWin: true, server: DEFAULT_SERVER, gameEpoch: 0 };
 var personalSettingsUI;
 var gameAccountClient;
 var gameAccountServer;
+var isRankedDaily = (practice = S.practice) => !!practice?.dailyRanked;
+var isRemotePractice = (practice = S.practice) => isRankedDaily(practice) || practice?.aiPolicy === "mortal";
+var practiceClient = () => isRankedDaily() ? rankedPractice : remotePractice;
+var practiceLabel = () => isRankedDaily() ? "\uB370\uC77C\uB9AC \uCCAB \uAE30\uB85D" : S.practice?.aiPolicy === "mortal" ? "Mortal \uC5F0\uC2B5" : "\uB85C\uCEEC \uC5F0\uC2B5";
+function leaderboardURL(date) {
+  const url = new URL("./leaderboard.html", location.href);
+  if (date) url.searchParams.set("date", date);
+  if (S.server !== DEFAULT_SERVER) url.searchParams.set("server", S.server);
+  return url.href;
+}
+function rankedGameURL(date) {
+  const url = new URL("./", location.href);
+  url.searchParams.set("dailyRanked", date);
+  if (S.server !== DEFAULT_SERVER) url.searchParams.set("server", S.server);
+  return url.href;
+}
+function practiceDailyResult() {
+  return isRankedDaily() ? S.dailyRankedResult : resultForDailyPractice(S.practice);
+}
+function practiceDailyContext() {
+  if (isRankedDaily()) {
+    try {
+      return { ...dailyChallenge(S.practice.dailyRanked.date), seat: S.practice.seat };
+    } catch {
+      return null;
+    }
+  }
+  return challengeForPractice(S.practice);
+}
 var replayPending = /* @__PURE__ */ new Map();
 var replaySaved = /* @__PURE__ */ new Set();
 var replayErrors = /* @__PURE__ */ new Map();
@@ -5238,13 +5538,13 @@ var replayHistoryPending = /* @__PURE__ */ new Set();
 async function archiveRemoteHistory(mode, room) {
   if (!room?.code) return;
   const server = S.server, credentials = S.credentials;
-  const stillCurrent = () => S.server === server && (mode === "online" ? S.credentials === credentials && credentials?.code === room.code : remotePractice.state?.code === room.code);
+  const client = mode === "practice" ? practiceClient() : null, stillCurrent = () => S.server === server && (mode === "online" ? S.credentials === credentials && credentials?.code === room.code : practiceClient() === client && client.state?.code === room.code);
   const progressId = seriesProgress(room).handId, key = `${mode}:${server}:${room.code}:${room.tableId}:${progressId}:${room.game?.phase}`;
   if (replayHistoryPending.has(key)) return;
   replayHistoryPending.add(key);
   try {
     if (!stillCurrent()) return;
-    const listing = await (mode === "online" ? request(`/${room.code}/replays`) : remotePractice.replays());
+    const listing = await (mode === "online" ? request(`/${room.code}/replays`) : client.replays());
     for (const entry of listing.entries ?? []) {
       if (!entry.available || !stillCurrent()) continue;
       const id = `remote:${server}:${room.code}:${room.tableId}:${room.seat}:${entry.handId}`;
@@ -5255,7 +5555,7 @@ async function archiveRemoteHistory(mode, room) {
       }
       if (!stillCurrent()) return;
       await preserveReplay({ id, capture: async () => {
-        const record = await (mode === "online" ? request(`/${room.code}/replays?handId=${encodeURIComponent(entry.handId)}`) : remotePractice.replay(entry.handId));
+        const record = await (mode === "online" ? request(`/${room.code}/replays?handId=${encodeURIComponent(entry.handId)}`) : client.replay(entry.handId));
         if (record.source?.code !== room.code || record.source?.tableId !== room.tableId || record.context?.handId !== entry.handId) throw Error("\uD328\uBCF4\uC640 \uB300\uD68C \uC815\uBCF4\uAC00 \uC77C\uCE58\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
         return record;
       } });
@@ -5269,15 +5569,15 @@ function replayDescriptor(mode = S.mode) {
   if (mode === "practice") {
     const p = S.practice;
     if (!p) return null;
-    const remote = p.aiPolicy === "mortal", room2 = S.practiceRemote, game = p.game, view = remote ? room2?.game : game;
+    const remote = isRemotePractice(p), client = practiceClient(), room2 = S.practiceRemote, game = p.game, view = remote ? room2?.game : game;
     if (view?.phase !== "end") return null;
     if (!p.replaySeriesId) {
       p.replaySeriesId = crypto.randomUUID();
       savePractice();
     }
-    const context3 = { ...seriesProgress(p), mode: "practice", seriesId: p.replaySeriesId, matchRules: p.matchRules, label: `${handLabel(p)} \xB7 ${remote ? "Mortal" : "\uD63C\uC790 \uC5F0\uC2B5"}` };
+    const context3 = { ...seriesProgress(p), mode: "practice", seriesId: p.replaySeriesId, matchRules: p.matchRules, label: `${handLabel({ ...seriesProgress(p), game: view })} \xB7 ${remote ? practiceLabel() : "\uD63C\uC790 \uC5F0\uC2B5"}` };
     const id = remote ? `remote:${S.server}:${room2.code}:${room2.tableId}:${p.seat}:${context3.handId}` : `practice:${p.replaySeriesId}:${context3.handId}`;
-    return { id, capture: () => remote ? remotePractice.replay(context3.handId) : captureEngineReplay(game, { seat: p.seat, context: context3, source: { mode: "practice", aiPolicy: "simple" } }) };
+    return { id, capture: () => remote ? client.replay(context3.handId) : captureEngineReplay(game, { seat: p.seat, context: context3, source: { mode: "practice", aiPolicy: "simple" } }) };
   }
   const room = S.online, credentials = S.credentials;
   if (room?.game?.phase !== "end" || !credentials) return null;
@@ -5370,6 +5670,7 @@ function syncAccountUI() {
   const wikiURL = new URL("./wiki.html", location.href);
   if (S.server !== DEFAULT_SERVER) wikiURL.searchParams.set("server", S.server);
   $("wiki-nav-link").href = $("help-wiki-link").href = wikiURL.href;
+  if ($("daily-leaderboard-link")) $("daily-leaderboard-link").href = leaderboardURL();
   $("account-status").textContent = account ? `${account.user.nickname} \xB7 \uB85C\uADF8\uC778` : "\uAC8C\uC2A4\uD2B8 \xB7 \uACC4\uC815 \uB85C\uADF8\uC778\uC740 \uC6B4\uC601 \uD398\uC774\uC9C0";
   if (!S.credentials && account) $("online-name").value = account.user.nickname;
   $("online-name").disabled = !!S.credentials || !!account;
@@ -5384,6 +5685,34 @@ var remotePractice = createRemotePractice({ getServer: () => S.server, onState: 
     render();
   }
 } });
+var rankedPractice = createDailyRankedClient({
+  getServer: () => S.server,
+  getSession: accountSession,
+  onState: (state) => applyPrivatePractice(state, "daily"),
+  onResult: (result) => {
+    if (!isRankedDaily() || S.practice.dailyRanked.date !== result.date || S.practice.dailyRanked.accountId !== accountSession()?.user.id) return;
+    S.practice.seat = result.seat;
+    S.dailyRankedResult = result;
+    S.dailyRankedStatus = "completed";
+    savePractice();
+    persistDailyResult();
+    if (S.mode === "practice") render();
+  },
+  onAttempt: (value) => {
+    if (!isRankedDaily() || S.practice.dailyRanked.date !== value.date || S.practice.dailyRanked.accountId !== accountSession()?.user.id) return;
+    S.dailyRankedStatus = value.status;
+    if (value.status === "expired") S.practiceError = "\uCCAB \uB3C4\uC804\uC758 \uC774\uC5B4\uD558\uAE30 \uAE30\uAC04\uC774 \uB9CC\uB8CC\uB418\uC5C8\uC2B5\uB2C8\uB2E4. \uC624\uB298\uC758 \uD328\uC0B0\uC740 \uC5F0\uC2B5\uC73C\uB85C \uB2E4\uC2DC \uB3C4\uC804\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.";
+    if (S.mode === "practice") render();
+  },
+  onError: (error, { terminal }) => {
+    if (!isRankedDaily() || S.practice.dailyRanked.accountId !== accountSession()?.user.id) return;
+    S.practiceError = terminal ? "\uB9AC\uB354\uBCF4\uB4DC\uC5D0\uC11C \uCCAB \uB3C4\uC804\uC744 \uB2E4\uC2DC \uC774\uC5B4 \uC8FC\uC138\uC694." : "\uB370\uC77C\uB9AC \uC5F0\uACB0 \uC7AC\uC2DC\uB3C4 \uC911";
+    if (S.mode === "practice") {
+      toast(error.message);
+      render();
+    }
+  }
+});
 var dailySaved = /* @__PURE__ */ new Map();
 var dailyStorageWarned = false;
 var dailyUI = mountDailyShare({
@@ -5402,7 +5731,7 @@ var dailyUI = mountDailyShare({
   }
 });
 function persistDailyResult() {
-  const result = resultForDailyPractice(S.practice);
+  const result = practiceDailyResult();
   if (!result) return null;
   const signature = JSON.stringify(result);
   if (dailySaved.get(result.date) !== signature) {
@@ -5417,21 +5746,21 @@ function persistDailyResult() {
   return result;
 }
 function renderDailyEntry() {
-  const today = dailyChallenge(), active = challengeForPractice(S.practice), result = resultForDailyPractice(S.practice);
+  const today = dailyChallenge(), active = practiceDailyContext(), result = practiceDailyResult();
   $("daily-entry-date").textContent = `${today.date} \xB7 \uD55C\uAD6D \uC2DC\uAC04`;
   $("daily-entry-seed").textContent = String(today.seed);
-  $("daily-entry-status").textContent = active?.date === today.date ? result ? "\uC624\uB298\uC758 \uB3C4\uC804 \uC644\uB8CC \xB7 \uCE74\uB4DC\uB85C \uACF5\uC720\uD558\uC138\uC694." : `\uC624\uB298\uC758 \uB3C4\uC804 \uC9C4\uD589 \uC911 \xB7 ${S.practice.board}/8\uAD6D` : "\uAC19\uC740 \uD328\uC0B0\uC73C\uB85C \uB3C4\uC804\uD558\uACE0 \uB098\uC758 \uD50C\uB808\uC774 \uC720\uD615\uC744 \uACF5\uC720\uD574 \uBCF4\uC138\uC694.";
+  $("daily-entry-status").textContent = active?.date === today.date ? result ? isRankedDaily() ? "\uC624\uB298\uC758 \uCCAB \uAE30\uB85D \uB4F1\uB85D \uC644\uB8CC \xB7 \uCE74\uB4DC\uB85C \uACF5\uC720\uD558\uC138\uC694." : "\uC624\uB298\uC758 \uC5F0\uC2B5 \uC644\uB8CC \xB7 \uCE74\uB4DC\uB85C \uACF5\uC720\uD558\uC138\uC694." : isRankedDaily() ? S.dailyRankedStatus === "expired" ? "\uCCAB \uB3C4\uC804\uC758 \uC774\uC5B4\uD558\uAE30 \uAE30\uAC04\uC774 \uB9CC\uB8CC\uB418\uC5C8\uC2B5\uB2C8\uB2E4." : `\uC624\uB298\uC758 \uCCAB \uAE30\uB85D \uB3C4\uC804 \uC911 \xB7 ${S.practice.board}/8\uAD6D` : `\uC624\uB298\uC758 \uC5F0\uC2B5 \uC9C4\uD589 \uC911 \xB7 ${S.practice.board}/8\uAD6D` : "\uAC19\uC740 \uD328\uC0B0\uC73C\uB85C \uB3C4\uC804\uD558\uACE0 \uB098\uC758 \uD50C\uB808\uC774 \uC720\uD615\uC744 \uACF5\uC720\uD574 \uBCF4\uC138\uC694.";
   $("daily-result-summary").hidden = !result;
   $("daily-result-open").hidden = S.mode !== "practice" || !result;
 }
 function openDaily() {
   persistDailyResult();
   const challenge = dailyChallenge(), active = challengeForPractice(S.practice);
-  dailyUI.openDaily({ challenge, active: active?.date === challenge.date && !resultForDailyPractice(S.practice), savedResults: loadDailyResults(localStorage) });
+  dailyUI.openDaily({ challenge, active: active?.date === challenge.date && !resultForDailyPractice(S.practice), savedResults: loadDailyResults(localStorage), leaderboardURL: leaderboardURL(challenge.date), rankedURL: rankedGameURL(challenge.date), rankedActive: isRankedDaily() && S.practice.dailyRanked.date === challenge.date && !S.dailyRankedResult && S.dailyRankedStatus !== "expired", rankedCompleted: isRankedDaily() && S.dailyRankedResult?.date === challenge.date });
 }
 function openDailyResult() {
   const result = persistDailyResult();
-  if (result) dailyUI.openResult(result);
+  if (result) dailyUI.openResult(result, { ranked: isRankedDaily(), leaderboardURL: leaderboardURL(result.date) });
   else openDaily();
 }
 function clearDailyHash() {
@@ -5454,6 +5783,73 @@ async function startDailyChallenge(date, { resume = false, seat: seat5 } = {}) {
   }
   await newPractice({ dailyDate: date, dailySeat: seat5 });
   if (challengeForPractice(S.practice)?.date === date && (seat5 === void 0 || S.practice.seat === seat5)) clearDailyHash();
+}
+function clearRankedParameter() {
+  const url = new URL(location.href);
+  if (url.searchParams.has("dailyRanked")) {
+    url.searchParams.delete("dailyRanked");
+    history.replaceState(null, "", url.href);
+  }
+}
+async function startRankedDaily(date) {
+  if (S.busy) return;
+  let challenge;
+  try {
+    challenge = dailyChallenge(date);
+  } catch {
+    toast("\uB370\uC77C\uB9AC \uB3C4\uC804 \uB0A0\uC9DC\uB97C \uD655\uC778\uD574 \uC8FC\uC138\uC694.");
+    return;
+  }
+  const account = accountSession();
+  if (!account) {
+    const url = new URL(leaderboardURL(challenge.date));
+    url.hash = "account";
+    location.assign(url.href);
+    return;
+  }
+  if (!await savePracticeReplayBeforeReset()) return;
+  persistDailyResult();
+  clearPlayTimer();
+  S.worker?.terminate();
+  S.worker = null;
+  remotePractice.clear();
+  rankedPractice.clear();
+  S.practiceRemote = null;
+  S.practiceError = "";
+  S.dailyRankedResult = null;
+  S.dailyRankedStatus = "playing";
+  const practice = { ...createPracticeSeries({ ...challenge, seat: 0 }), seatChoice: "random", dailyRanked: { date: challenge.date, accountId: account.user.id, server: S.server } };
+  S.practice = practice;
+  S.gameEpoch++;
+  S.busy = true;
+  S.endKey = null;
+  S.endHidden = false;
+  S.selected = null;
+  S.riichiSelecting = false;
+  $("practice-seed").value = String(challenge.seed);
+  $("practice-seat").value = "random";
+  $("practice-count").value = "hanchan";
+  $("practice-ai").value = "simple";
+  savePractice();
+  setMode("practice");
+  try {
+    const value = await rankedPractice.start(challenge.date);
+    if (S.practice !== practice || !value) return;
+    if (value.status === "expired") toast(S.practiceError);
+    if (S.mode === "practice") rankedPractice.activate();
+  } catch (error) {
+    if (S.practice === practice) {
+      S.practiceError = "\uB9AC\uB354\uBCF4\uB4DC\uC5D0\uC11C \uCCAB \uB3C4\uC804\uC744 \uB2E4\uC2DC \uC774\uC5B4 \uC8FC\uC138\uC694.";
+      toast(error.message);
+    }
+  } finally {
+    if (S.practice === practice) {
+      S.busy = false;
+      render();
+      schedulePractice();
+      if (S.dailyRankedResult && S.mode === "practice") openDailyResult();
+    }
+  }
 }
 var activeRoom = () => S.mode === "online" ? S.online : S.practiceRemote;
 function playerName(seat5, view = S.view) {
@@ -5488,10 +5884,11 @@ function renderAIOptions() {
     option.disabled = !available;
     option.textContent = available ? "Mortal \xB7 \uCEE4\uBBA4\uB2C8\uD2F0 v3" : "Mortal \xB7 \uC5F0\uACB0 \uB300\uAE30";
   }
-  $("practice-ai-status").textContent = $("practice-ai").value === "mortal" ? available ? "Mortal \uC5F0\uACB0\uB428 \xB7 \uC11C\uBC84\uC5D0\uC11C \uB300\uAD6D\uD569\uB2C8\uB2E4." : "Mortal \uC5F0\uACB0 \uB300\uAE30 \xB7 AI \uC5F0\uACB0\uC744 \uD655\uC778\uD574 \uC8FC\uC138\uC694." : "\uAE30\uBCF8 AI\uB294 \uBE0C\uB77C\uC6B0\uC800\uC5D0\uC11C \uC2E4\uD589\uB429\uB2C8\uB2E4.";
+  $("practice-ai-status").textContent = isRankedDaily() ? "\uB370\uC77C\uB9AC \uCCAB \uAE30\uB85D\uC740 \uC11C\uBC84\uC758 \uAE30\uBCF8 AI\uC640 \uB300\uAD6D\uD569\uB2C8\uB2E4. \uC774\uD6C4 \uC5F0\uC2B5\uC740 \uC9D1\uACC4\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4." : $("practice-ai").value === "mortal" ? available ? "Mortal \uC5F0\uACB0\uB428 \xB7 \uC11C\uBC84\uC5D0\uC11C \uB300\uAD6D\uD569\uB2C8\uB2E4." : "Mortal \uC5F0\uACB0 \uB300\uAE30 \xB7 AI \uC5F0\uACB0\uC744 \uD655\uC778\uD574 \uC8FC\uC138\uC694." : "\uAE30\uBCF8 AI\uB294 \uBE0C\uB77C\uC6B0\uC800\uC5D0\uC11C \uC2E4\uD589\uB429\uB2C8\uB2E4.";
   $("room-ai-status").textContent = available ? "Mortal \uC5F0\uACB0\uB428. \uC120\uD0DD\uD55C AI\uB294 \uC774 \uB300\uD68C\uC758 \uBE48\uC790\uB9AC\uC5D0 \uC801\uC6A9\uB429\uB2C8\uB2E4." : "\uAE30\uBCF8 AI\uB97C \uC0AC\uC6A9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4. Mortal\uC740 \uC5F0\uACB0 \uB300\uAE30 \uC911\uC785\uB2C8\uB2E4.";
-  $("practice-disconnect").hidden = !remotePractice.connected;
+  $("practice-disconnect").hidden = !practiceClient().connected;
   $("practice-new").disabled = S.busy;
+  $("practice-disconnect").textContent = isRankedDaily() ? "\uCCAB \uB3C4\uC804 \uC5F0\uACB0 \uB2EB\uAE30" : "Mortal \uC5F0\uC2B5 \uC5F0\uACB0 \uC885\uB8CC";
   for (const id of ["practice-ai", "practice-seed", "practice-seat", "practice-count", "random-seed", "practice-disconnect"]) $(id).disabled = S.busy;
 }
 async function refreshAICapabilities() {
@@ -5509,13 +5906,13 @@ async function refreshAICapabilities() {
   }
 }
 function progress() {
-  return seriesProgress(S.mode === "online" ? S.online : S.practice?.aiPolicy === "mortal" ? S.practiceRemote ?? S.practice : S.practice);
+  return seriesProgress(S.mode === "online" ? S.online : isRemotePractice() ? S.practiceRemote ?? S.practice : S.practice);
 }
 function currentMatchRules() {
   return S.mode === "online" ? S.online?.matchRules ?? (S.online ? null : S.roomMatchRules) : S.practice?.matchRules ?? null;
 }
 function currentNextHand() {
-  return S.mode === "online" ? S.online?.nextHand : S.practice?.aiPolicy === "mortal" ? S.practiceRemote?.nextHand : S.practice?.game.phase === "end" ? localNextPlan(S.practice) : null;
+  return S.mode === "online" ? S.online?.nextHand : isRemotePractice() ? S.practiceRemote?.nextHand : S.practice?.game.phase === "end" ? localNextPlan(S.practice) : null;
 }
 function textNode(tag, value, className = "") {
   const el = document.createElement(tag);
@@ -5540,7 +5937,7 @@ function currentDuplicateProfile() {
   return normalizeDuplicateProfile(S.mode === "online" ? S.online?.duplicateProfile ?? (S.online ? "custom" : S.roomDuplicateProfile) : S.practice?.duplicateProfile ?? S.practice?.game?.duplicateProfile);
 }
 function currentRules() {
-  return S.mode === "online" ? S.online?.rules ?? S.roomRules : S.practice?.game.rules ?? S.settings;
+  return S.mode === "online" ? S.online?.rules ?? S.roomRules : isRemotePractice() ? S.practiceRemote?.game?.rules ?? S.practiceRemote?.rules ?? S.practice?.rules ?? S.settings : S.practice?.game.rules ?? S.settings;
 }
 function ruleSummary() {
   const r = currentRules(), box = $("rule-chips");
@@ -5585,6 +5982,7 @@ function setMode(mode) {
   S.largeBoard = true;
   clearPlayTimer();
   remotePractice.deactivate();
+  rankedPractice.deactivate();
   S.mode = mode;
   showPanel(mode);
   S.selected = null;
@@ -5596,9 +5994,9 @@ function setMode(mode) {
     render();
     if (S.credentials) pollRoom();
   } else {
-    S.view = S.practice.aiPolicy === "mortal" ? S.practiceRemote?.game ?? null : snapshot4(S.practice.game, S.practice.seat);
+    S.view = isRemotePractice() ? S.practiceRemote?.game ?? null : snapshot4(S.practice.game, S.practice.seat);
     render();
-    if (S.practice.aiPolicy === "mortal") remotePractice.activate();
+    if (isRemotePractice()) practiceClient().activate();
     schedulePractice();
   }
 }
@@ -5641,10 +6039,14 @@ async function newPractice(options = {}) {
   S.worker?.terminate();
   S.worker = null;
   const seed = Number(raw), seatChoice = challenge ? options.dailySeat === void 0 ? "random" : String(options.dailySeat) : $("practice-seat").value, seat5 = resolvePracticeSeat(seatChoice, randomSeed), matchRules = challenge?.matchRules ?? normalizeMatchRules({ ...S.practiceMatchRules, format: $("practice-count").value }), count2 = matchBoardCount(matchRules);
+  persistDailyResult();
   remotePractice.clear();
+  rankedPractice.clear();
   S.practiceRemote = null;
   S.practiceError = "";
-  persistDailyResult();
+  S.dailyRankedResult = null;
+  S.dailyRankedStatus = null;
+  clearRankedParameter();
   S.practice = challenge ? { ...createDailyPractice(challenge.date, { seat: seat5 }), seatChoice } : { ...createPracticeSeries({ seed, seat: seat5, matchRules, rules: S.settings, duplicateProfile: S.practiceDuplicateProfile, aiPolicy }), seatChoice };
   $("practice-seed").value = String(seed);
   $("practice-seat").value = seatChoice;
@@ -5679,7 +6081,7 @@ function schedulePractice() {
     clearPlayTimer();
     return;
   }
-  if (S.practice?.aiPolicy === "mortal") {
+  if (isRemotePractice()) {
     clearPlayTimer();
     const v = S.view;
     if (S.mode !== "practice" || !v || v.phase === "end" || v.actor !== v.seat || S.busy) return;
@@ -5723,13 +6125,13 @@ function afterPracticeStep() {
   render();
   schedulePractice();
 }
-function applyPrivatePractice(state) {
-  if (S.practice?.aiPolicy !== "mortal") return;
+function applyPrivatePractice(state, source = "mortal") {
+  if (!isRemotePractice() || source === "daily" !== isRankedDaily() || source === "daily" && S.practice.dailyRanked.accountId !== accountSession()?.user.id) return;
   const changed = !S.practiceRemote || S.practiceRemote.revision !== state.revision || S.practiceRemote.handId !== state.handId || S.practiceRemote.board !== state.board;
   const replayHandChanged = !S.practiceRemote || S.practiceRemote.handId !== state.handId || S.practiceRemote.board !== state.board;
   S.practiceRemote = state;
   S.practiceError = "";
-  Object.assign(S.practice, seriesProgress(state), { index: state.board - 1, count: state.boardCount, matchRules: state.matchRules ?? null, duplicateProfile: normalizeDuplicateProfile(state.duplicateProfile) });
+  Object.assign(S.practice, seriesProgress(state), { seat: state.seat, index: state.board - 1, count: state.boardCount, matchRules: state.matchRules ?? null, duplicateProfile: normalizeDuplicateProfile(state.duplicateProfile) });
   savePractice();
   if (state.game?.phase === "end") {
     finishPractice(state.game);
@@ -5751,12 +6153,13 @@ async function privateOperation(operation, action) {
   S.busy = true;
   clearPlayTimer();
   renderActions();
+  const client = practiceClient();
   try {
-    if (operation === "next") await remotePractice.next();
-    else await remotePractice.act(action);
+    if (operation === "next") await client.next();
+    else await client.act(action);
   } catch (error) {
     toast(error.message);
-    await remotePractice.poll();
+    await client.poll();
   } finally {
     S.busy = false;
     render();
@@ -5766,7 +6169,7 @@ async function privateOperation(operation, action) {
 function finishPractice(view = null) {
   const p = S.practice, current = seriesProgress(p);
   if (p.results.some((r) => handId({ board: r.board ?? r.index + 1, honba: r.honba ?? 0 }) === current.handId)) return;
-  const result = { ...current, index: current.handNumber - 1, seat: p.seat, score: view?.players[p.seat].score ?? p.game.players[p.seat].score, reference: null, referenceStatus: "loading", continues: !!(p.aiPolicy === "mortal" ? S.practiceRemote?.nextHand : localNextPlan(p))?.continues, seatScores: (view?.players ?? p.game.players).map((player) => player.score), members: Array.from({ length: 4 }, (_, seat5) => ({ seat: seat5, name: seat5 === p.seat ? "\uB098" : `AI ${(seat5 - p.seat + 4) % 4}`, ai: seat5 !== p.seat })) };
+  const result = { ...current, index: current.handNumber - 1, seat: p.seat, score: view?.players[p.seat].score ?? p.game.players[p.seat].score, reference: null, referenceStatus: isRankedDaily(p) ? "none" : "loading", continues: !!(isRemotePractice(p) ? S.practiceRemote?.nextHand : localNextPlan(p))?.continues, seatScores: (view?.players ?? p.game.players).map((player) => player.score), members: Array.from({ length: 4 }, (_, seat5) => ({ seat: seat5, name: seat5 === p.seat ? "\uB098" : `AI ${(seat5 - p.seat + 4) % 4}`, ai: seat5 !== p.seat })) };
   try {
     result.actionStats = Array.from({ length: 4 }, (_, seat5) => actionStatsFromGame(view ?? p.game, seat5));
   } catch {
@@ -5777,6 +6180,7 @@ function finishPractice(view = null) {
   savePractice();
   persistDailyResult();
   let job;
+  if (isRankedDaily(p)) return;
   try {
     job = practiceBaselineOptions(p, view, S.practiceRemote?.handContext);
     result.seed = job.seed;
@@ -5832,7 +6236,7 @@ async function play(action) {
   if (S.busy || !action) return;
   clearPlayTimer();
   if (S.mode === "practice") {
-    if (S.practice.aiPolicy === "mortal") {
+    if (isRemotePractice()) {
       await privateOperation("act", action);
       return;
     }
@@ -5943,21 +6347,21 @@ function renderTable() {
     }
   }
   if (!v) {
-    const privateGame = S.mode === "practice" && S.practice?.aiPolicy === "mortal";
-    $("round-name").textContent = privateGame ? "Mortal \uC5F0\uC2B5" : "\uB300\uD68C \uC900\uBE44";
+    const privateGame = S.mode === "practice" && isRemotePractice();
+    $("round-name").textContent = privateGame ? practiceLabel() : "\uB300\uD68C \uC900\uBE44";
     $("board-number").textContent = privateGame ? "PRACTICE" : "LOBBY";
     $("wall-count").textContent = "\u2014";
     $("pot-label").textContent = "\uB9AC\uCE58\uBD09 0";
     $("exhausted-label").textContent = "";
     $("turn-compass").replaceChildren();
     $("dora-tiles").replaceChildren();
-    $("table-status").textContent = privateGame ? S.practiceError || "Mortal \uC5F0\uC2B5\uC5D0 \uC5F0\uACB0\uD558\uACE0 \uC788\uC2B5\uB2C8\uB2E4." : S.online?.tournament?.status === "registration" ? "\uCC38\uAC00 \uB4F1\uB85D \uC911 \xB7 \uBA85\uB2E8 \uD655\uC815 \uB4A4 \uBAA8\uB4E0 \uD0C1\uC774 \uC2DC\uC791\uD569\uB2C8\uB2E4." : S.online?.phase === "lobby" ? "\uCC38\uAC00\uC790\uB97C \uAE30\uB2E4\uB9AC\uACE0 \uC788\uC2B5\uB2C8\uB2E4." : "\uB300\uD68C\uB97C \uB9CC\uB4E4\uAC70\uB098 \uCF54\uB4DC\uB85C \uCC38\uAC00\uD558\uC138\uC694.";
-    $("board-label").textContent = privateGame ? "Mortal \uC5F0\uC2B5 \uC900\uBE44" : S.online ? `\uC628\uB77C\uC778 \xB7 \uB300\uAE30\uC2E4 ${S.online.tableId ?? ""}` : "\uC628\uB77C\uC778 \uB300\uC804";
+    $("table-status").textContent = privateGame ? S.practiceError || `${practiceLabel()}\uC5D0 \uC5F0\uACB0\uD558\uACE0 \uC788\uC2B5\uB2C8\uB2E4.` : S.online?.tournament?.status === "registration" ? "\uCC38\uAC00 \uB4F1\uB85D \uC911 \xB7 \uBA85\uB2E8 \uD655\uC815 \uB4A4 \uBAA8\uB4E0 \uD0C1\uC774 \uC2DC\uC791\uD569\uB2C8\uB2E4." : S.online?.phase === "lobby" ? "\uCC38\uAC00\uC790\uB97C \uAE30\uB2E4\uB9AC\uACE0 \uC788\uC2B5\uB2C8\uB2E4." : "\uB300\uD68C\uB97C \uB9CC\uB4E4\uAC70\uB098 \uCF54\uB4DC\uB85C \uCC38\uAC00\uD558\uC138\uC694.";
+    $("board-label").textContent = privateGame ? `${practiceLabel()} \uC900\uBE44` : S.online ? `\uC628\uB77C\uC778 \xB7 \uB300\uAE30\uC2E4 ${S.online.tableId ?? ""}` : "\uC628\uB77C\uC778 \uB300\uC804";
     $("seat-label").textContent = "";
     return;
   }
   const context3 = progress(), board = context3.board, count2 = S.mode === "practice" ? S.practice.count : S.online.boardCount;
-  $("board-label").textContent = `${S.mode === "practice" ? "\uC5F0\uC2B5" : "\uC628\uB77C\uC778"} \xB7 ${board}/${count2}\uAE30\uBCF8\uAD6D \xB7 \uB300\uAD6D ${context3.handNumber}`;
+  $("board-label").textContent = `${S.mode === "practice" ? isRankedDaily() ? "\uB370\uC77C\uB9AC \uCCAB \uAE30\uB85D" : "\uC5F0\uC2B5" : "\uC628\uB77C\uC778"} \xB7 ${board}/${count2}\uAE30\uBCF8\uAD6D \xB7 \uB300\uAD6D ${context3.handNumber}`;
   $("seat-label").textContent = `\uB0B4 \uC790\uB9AC ${winds2[(v.seat - v.dealer + 4) % 4]}`;
   $("round-name").textContent = handLabel({ ...context3, game: v });
   $("board-number").textContent = `DEAL ${context3.handId}`;
@@ -6056,8 +6460,8 @@ function renderActions() {
   if (v.phase === "end") {
     $("action-hint").textContent = "\uAD6D\uC774 \uB05D\uB0AC\uC2B5\uB2C8\uB2E4. \uACB0\uACFC\uB97C \uD655\uC778\uD558\uC138\uC694.";
     if (S.mode === "practice" || S.online.host) {
-      const next = textNode("button", hasNext() ? currentNextHand()?.continues ? "\uC5F0\uC7A5 \uB300\uAD6D" : "\uB2E4\uC74C \uAD6D" : S.mode === "practice" ? "\uC0C8 \uC5F0\uC2B5" : "\uB300\uD68C \uC644\uB8CC", "primary");
-      next.disabled = S.busy || S.mode === "online" && !hasNext();
+      const next = textNode("button", nextButtonLabel(), "primary");
+      next.disabled = S.busy || S.mode === "online" && !hasNext() || S.mode === "practice" && isRankedDaily() && !hasNext() && !S.dailyRankedResult;
       next.onclick = () => advance();
       box.append(next);
     }
@@ -6102,13 +6506,16 @@ function renderActions() {
 }
 function hasNext() {
   if (S.mode === "online") return S.online?.hasNext ?? S.online?.board < S.online?.boardCount;
-  if (S.practice?.aiPolicy === "mortal") return S.practiceRemote?.hasNext ?? S.practiceRemote?.board < S.practiceRemote?.boardCount;
+  if (isRemotePractice()) return S.practiceRemote?.hasNext ?? S.practiceRemote?.board < S.practiceRemote?.boardCount;
   return S.practice?.game.phase === "end" ? !localNextPlan(S.practice).complete : false;
+}
+function nextButtonLabel() {
+  return hasNext() ? currentNextHand()?.continues ? "\uC5F0\uC7A5 \uB300\uAD6D" : "\uB2E4\uC74C \uAD6D" : S.mode === "practice" ? isRankedDaily() ? S.dailyRankedResult ? "\uACB0\uACFC \uCE74\uB4DC" : "\uCCAB \uAE30\uB85D \uC9D1\uACC4 \uC911" : "\uC0C8 \uC5F0\uC2B5" : "\uB300\uD68C \uC644\uB8CC";
 }
 function renderEnd() {
   const v = S.view, ended3 = v?.phase === "end";
   $("resume-result").hidden = !ended3;
-  $("daily-result-open").hidden = S.mode !== "practice" || !resultForDailyPractice(S.practice);
+  $("daily-result-open").hidden = S.mode !== "practice" || !practiceDailyResult();
   if (!ended3) {
     $("end-overlay").hidden = true;
     S.endKey = null;
@@ -6172,8 +6579,8 @@ function renderEnd() {
     row.append(textNode("span", `${winds2[(seat5 - v.dealer + 4) % 4]} \xB7 ${name ?? "\uD50C\uB808\uC774\uC5B4"}`), textNode("b", signed3(v.players[seat5].score), v.players[seat5].score > 0 ? "positive" : v.players[seat5].score < 0 ? "negative" : ""));
     points2.append(row);
   }
-  $("next-board").textContent = hasNext() ? currentNextHand()?.continues ? "\uC5F0\uC7A5 \uB300\uAD6D" : "\uB2E4\uC74C \uAD6D" : S.mode === "practice" ? "\uC0C8 \uC5F0\uC2B5" : "\uB300\uD68C \uC644\uB8CC";
-  $("next-board").disabled = S.busy || S.mode === "online" && (!S.online.host || !hasNext());
+  $("next-board").textContent = nextButtonLabel();
+  $("next-board").disabled = S.busy || S.mode === "online" && (!S.online.host || !hasNext()) || S.mode === "practice" && isRankedDaily() && !hasNext() && !S.dailyRankedResult;
 }
 function setMetric(id, value) {
   const el = $(id);
@@ -6200,14 +6607,14 @@ function renderRoundScorePanel() {
   const panel = $("round-score-panel");
   panel.hidden = !S.view;
   if (!S.view) return;
-  let rows = S.mode === "online" ? S.online?.roundResults ?? [] : null;
+  let rows = S.mode === "online" ? S.online?.roundResults ?? [] : isRankedDaily() ? S.practiceRemote?.roundResults ?? [] : null;
   if (!rows) {
     const practice = S.practice, history2 = practice?.results ?? [], count2 = practice?.count ?? 8;
     rows = Array.from({ length: count2 }, (_, index) => {
       const board = index + 1, group = history2.filter((row) => (row.board ?? row.index + 1) === board), next = currentNextHand();
-      const complete = group.some((row) => row.continues === false) || history2.some((row) => (row.board ?? row.index + 1) > board) || progress().board === board && S.view.phase === "end" && next && !next.continues;
+      const complete2 = group.some((row) => row.continues === false) || history2.some((row) => (row.board ?? row.index + 1) > board) || progress().board === board && S.view.phase === "end" && next && !next.continues;
       const entries = [];
-      if (complete && group.length) for (let seat5 = 0; seat5 < 4; seat5++) {
+      if (complete2 && group.length) for (let seat5 = 0; seat5 < 4; seat5++) {
         const available = group.every((row) => Array.isArray(row.seatScores) && Number.isFinite(row.seatScores[seat5]));
         if (!available && seat5 !== practice.seat) continue;
         const member = group.at(-1).members?.find((member2) => member2.seat === seat5) ?? { name: seat5 === practice.seat ? "\uB098" : `AI ${(seat5 - practice.seat + 4) % 4}`, ai: seat5 !== practice.seat };
@@ -6215,17 +6622,17 @@ function renderRoundScorePanel() {
       }
       return {
         board,
-        status: complete && group.length ? "complete" : "waiting",
+        status: complete2 && group.length ? "complete" : "waiting",
         entries,
         averages: [],
         referenceLabel: "AI \uAE30\uC900",
-        referenceMean: complete && group.length && group.every((row) => Number.isFinite(row.reference)) ? group.reduce((sum, row) => sum + row.reference, 0) : null,
-        referenceActionStats: complete && group.length && group.every((row) => row.referenceStatus === "done") ? summedPracticeStats(group, (row) => row.referenceStats) : null,
+        referenceMean: complete2 && group.length && group.every((row) => Number.isFinite(row.reference)) ? group.reduce((sum, row) => sum + row.reference, 0) : null,
+        referenceActionStats: complete2 && group.length && group.every((row) => row.referenceStatus === "done") ? summedPracticeStats(group, (row) => row.referenceStats) : null,
         referenceHands: group.length
       };
     });
   }
-  renderRoundResults(panel, rows, { currentBoard: progress().board, seat: S.view.seat, ownTableId: S.mode === "online" ? S.online?.tableId : "\uC5F0\uC2B5", ai: false });
+  renderRoundResults(panel, rows, { currentBoard: progress().board, seat: S.view.seat, ownTableId: S.mode === "online" ? S.online?.tableId : isRankedDaily() ? S.practiceRemote?.tableId : "\uC5F0\uC2B5", ai: false });
 }
 function renderComparison() {
   renderRoundScorePanel();
@@ -6251,6 +6658,16 @@ function renderComparison() {
     history2.append(row);
   }
   $("standings-open").hidden = !online || tournament && !final || !S.online?.standings?.length;
+  if (!online && isRankedDaily()) {
+    $("result-caption").textContent = "\uB370\uC77C\uB9AC \xB7 \uC11C\uBC84\uC758 \uCCAB \uAE30\uB85D";
+    $("my-result-label").textContent = "\uBC18\uC7A5 \uC810\uC218 \uC99D\uAC10 \uD569\uACC4";
+    $("reference-label").textContent = "\uAC19\uC740 \uC2DC\uC791 \uC790\uB9AC \uD3C9\uADE0";
+    $("difference-label").textContent = "\uD3C9\uADE0 \uB300\uBE44";
+    setMetric("my-result", S.dailyRankedResult?.net ?? S.practiceRemote?.comparison?.score ?? null);
+    setMetric("reference-result", null);
+    setMetric("difference-result", null);
+    $("comparison-note").textContent = S.dailyRankedResult ? "\uCCAB \uB3C4\uC804\uC758 \uAE30\uB85D\uC774 \uB4F1\uB85D\uB418\uC5C8\uC2B5\uB2C8\uB2E4. \uAC19\uC740 \uB0A0\uC9DC\xB7\uC2DC\uC791 \uC790\uB9AC \uCC38\uAC00\uC790\uC758 \uD3C9\uADE0\uACFC \uC21C\uC704\uB294 \uB9AC\uB354\uBCF4\uB4DC\uC5D0\uC11C \uBCFC \uC218 \uC788\uC2B5\uB2C8\uB2E4." : "\uCC98\uC74C \uC2DC\uC791\uD55C \uBC18\uC7A5\uC804\uB9CC \uB4F1\uB85D\uD569\uB2C8\uB2E4. \uC911\uB2E8\uD55C \uCCAB \uB3C4\uC804\uC740 \uAC19\uC740 \uACC4\uC815\uC73C\uB85C \uB9AC\uB354\uBCF4\uB4DC\uC5D0\uC11C \uC774\uC5B4\uAC08 \uC218 \uC788\uC2B5\uB2C8\uB2E4.";
+  }
 }
 function renderRoom() {
   observerLinks.update();
@@ -6282,7 +6699,7 @@ function renderRoom() {
 function render() {
   syncGameLayout();
   const online = S.mode === "online";
-  $("connection").replaceChildren(textNode("i", ""), textNode("span", online ? S.online ? `\uC628\uB77C\uC778 \xB7 \uD14C\uC774\uBE14 ${S.online.tableId}${S.online.aiPolicy === "mortal" ? " \xB7 Mortal" : ""}` : "\uC628\uB77C\uC778 \uC900\uBE44" : S.practice?.aiPolicy === "mortal" ? S.practiceError || "Mortal \uC5F0\uC2B5" : "\uB85C\uCEEC \uC5F0\uC2B5"));
+  $("connection").replaceChildren(textNode("i", ""), textNode("span", online ? S.online ? `\uC628\uB77C\uC778 \xB7 \uD14C\uC774\uBE14 ${S.online.tableId}${S.online.aiPolicy === "mortal" ? " \xB7 Mortal" : ""}` : "\uC628\uB77C\uC778 \uC900\uBE44" : isRemotePractice() ? S.practiceError || practiceLabel() : "\uB85C\uCEEC \uC5F0\uC2B5"));
   $("connection").classList.remove("error");
   ruleSummary();
   renderAIOptions();
@@ -6309,7 +6726,7 @@ function render() {
   renderComparison();
   renderDailyEntry();
   $("open-current-replay").disabled = openingReplay || S.view?.phase !== "end";
-  $("game-footnote").textContent = online ? "\uB300\uD68C\uB294 \uC0DD\uC131 \uD6C4 6\uC2DC\uAC04 \uC720\uC9C0\uB429\uB2C8\uB2E4. \uC644\uB8CC\uD55C \uAD6D\uC740 \uD328\uBCF4\uC2E4\uC5D0\uC11C \uB2E4\uC2DC \uBCFC \uC218 \uC788\uC2B5\uB2C8\uB2E4." : S.practice?.aiPolicy === "mortal" ? "Mortal \uC5F0\uC2B5\uC740 \uC11C\uBC84 \uC5F0\uACB0\uC774 \uD544\uC694\uD569\uB2C8\uB2E4. \uAC19\uC740 \uD0ED\uC5D0\uC11C \uC0C8\uB85C\uACE0\uCE68\uD558\uBA74 \uC9C4\uD589\uC744 \uBCF5\uC6D0\uD569\uB2C8\uB2E4." : "\uC644\uB8CC\uD55C \uAD6D\uC740 \uD328\uBCF4\uC2E4\uC5D0 \uC800\uC7A5\uB429\uB2C8\uB2E4. \uD328\uB97C \uB450 \uBC88 \uB204\uB974\uAC70\uB098 \uC120\uD0DD \uD6C4 \uBC84\uB9AC\uC138\uC694. \u2190 \u2192 / Enter / Esc \uC9C0\uC6D0.";
+  $("game-footnote").textContent = online ? "\uB300\uD68C\uB294 \uC0DD\uC131 \uD6C4 6\uC2DC\uAC04 \uC720\uC9C0\uB429\uB2C8\uB2E4. \uC644\uB8CC\uD55C \uAD6D\uC740 \uD328\uBCF4\uC2E4\uC5D0\uC11C \uB2E4\uC2DC \uBCFC \uC218 \uC788\uC2B5\uB2C8\uB2E4." : isRankedDaily() ? "\uACC4\uC815\uBCC4 \uCCAB \uB3C4\uC804\uB9CC \uB9AC\uB354\uBCF4\uB4DC\uC5D0 \uB4F1\uB85D\uB429\uB2C8\uB2E4. \uC911\uB2E8\uD55C \uB300\uAD6D\uC740 \uB9AC\uB354\uBCF4\uB4DC\uC5D0\uC11C \uC774\uC5B4\uAC08 \uC218 \uC788\uC2B5\uB2C8\uB2E4." : S.practice?.aiPolicy === "mortal" ? "Mortal \uC5F0\uC2B5\uC740 \uC11C\uBC84 \uC5F0\uACB0\uC774 \uD544\uC694\uD569\uB2C8\uB2E4. \uAC19\uC740 \uD0ED\uC5D0\uC11C \uC0C8\uB85C\uACE0\uCE68\uD558\uBA74 \uC9C4\uD589\uC744 \uBCF5\uC6D0\uD569\uB2C8\uB2E4." : "\uC644\uB8CC\uD55C \uAD6D\uC740 \uD328\uBCF4\uC2E4\uC5D0 \uC800\uC7A5\uB429\uB2C8\uB2E4. \uD328\uB97C \uB450 \uBC88 \uB204\uB974\uAC70\uB098 \uC120\uD0DD \uD6C4 \uBC84\uB9AC\uC138\uC694. \u2190 \u2192 / Enter / Esc \uC9C0\uC6D0.";
 }
 async function request(path = "", body = null, authenticated = true) {
   const headers = { "Content-Type": "application/json" };
@@ -6463,11 +6880,22 @@ async function advance() {
   }
   if (S.busy || !await savePracticeReplayBeforeReset()) return;
   if (!hasNext()) {
+    if (isRankedDaily()) {
+      if (!S.dailyRankedResult) {
+        try {
+          await rankedPractice.finalize();
+        } catch (error) {
+          toast(error.message);
+        }
+      }
+      openDailyResult();
+      return;
+    }
     $("practice-seed").value = String(randomSeed());
     newPractice();
     return;
   }
-  if (S.practice.aiPolicy === "mortal") {
+  if (isRemotePractice()) {
     await privateOperation("next");
     return;
   }
@@ -6637,7 +7065,7 @@ function mountIMPTable() {
   $("imp-scale-source").href = IMP_SCALE_SOURCE_URL;
 }
 function exportResult() {
-  const record = S.mode === "practice" ? { format: "duplicate-practice-v1", createdAt: (/* @__PURE__ */ new Date()).toISOString(), seed: S.practice.seed, seat: S.practice.seat, rules: S.practice.game.rules, duplicateProfile: S.practice.duplicateProfile, matchRules: S.practice.matchRules, progress: progress(), aiPolicy: S.practice.aiPolicy ?? "simple", modelSha256: S.practiceRemote?.aiModelSha256 ?? null, results: S.practice.results, game: S.practice.aiPolicy === "mortal" ? S.practiceRemote?.game ?? null : S.practice.game } : { format: "duplicate-online-result-v1", createdAt: (/* @__PURE__ */ new Date()).toISOString(), code: S.online?.code, tableId: S.online?.tableId, seat: S.online?.seat, rules: S.online?.rules, duplicateProfile: S.online?.duplicateProfile, scoring: S.online?.scoring, tournament: S.online?.tournament, matchRules: S.online?.matchRules, progress: progress(), comparison: S.online?.comparison, standings: S.online?.standings, game: S.view };
+  const record = S.mode === "practice" ? { format: "duplicate-practice-v1", createdAt: (/* @__PURE__ */ new Date()).toISOString(), seed: S.practice.seed, seat: S.practice.seat, rules: S.practice.game.rules, duplicateProfile: S.practice.duplicateProfile, matchRules: S.practice.matchRules, progress: progress(), aiPolicy: S.practice.aiPolicy ?? "simple", modelSha256: S.practiceRemote?.aiModelSha256 ?? null, results: S.practice.results, game: isRemotePractice() ? S.practiceRemote?.game ?? null : S.practice.game } : { format: "duplicate-online-result-v1", createdAt: (/* @__PURE__ */ new Date()).toISOString(), code: S.online?.code, tableId: S.online?.tableId, seat: S.online?.seat, rules: S.online?.rules, duplicateProfile: S.online?.duplicateProfile, scoring: S.online?.scoring, tournament: S.online?.tournament, matchRules: S.online?.matchRules, progress: progress(), comparison: S.online?.comparison, standings: S.online?.standings, game: S.view };
   const url = URL.createObjectURL(new Blob([JSON.stringify(record, null, 2)], { type: "application/json" })), a = document.createElement("a");
   a.href = url;
   a.download = `duplicate-${S.mode}-${Date.now()}.json`;
@@ -6721,10 +7149,11 @@ $("practice-ai").onchange = () => {
 };
 $("ai-refresh").onclick = refreshAICapabilities;
 $("practice-disconnect").onclick = () => {
-  remotePractice.clear();
+  const ranked = isRankedDaily();
+  practiceClient().clear();
   S.practiceRemote = null;
-  S.practiceError = "Mortal \uC5F0\uC2B5\uC744 \uC0C8\uB85C \uC2DC\uC791\uD574 \uC8FC\uC138\uC694.";
-  if (S.mode === "practice" && S.practice.aiPolicy === "mortal") S.view = null;
+  S.practiceError = ranked ? "\uB9AC\uB354\uBCF4\uB4DC\uC5D0\uC11C \uCCAB \uB3C4\uC804\uC744 \uC774\uC5B4\uAC08 \uC218 \uC788\uC2B5\uB2C8\uB2E4." : "Mortal \uC5F0\uC2B5\uC744 \uC0C8\uB85C \uC2DC\uC791\uD574 \uC8FC\uC138\uC694.";
+  if (S.mode === "practice" && isRemotePractice()) S.view = null;
   render();
 };
 $("open-current-replay").onclick = openCurrentReplay;
@@ -6768,7 +7197,7 @@ document.addEventListener("keydown", (event3) => {
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) {
     if (S.credentials) pollRoom();
-    if (S.mode === "practice" && S.practice?.aiPolicy === "mortal") remotePractice.activate();
+    if (S.mode === "practice" && isRemotePractice()) practiceClient().activate();
     void refreshAICapabilities();
   }
 });
@@ -6832,7 +7261,7 @@ $("practice-count").onchange = () => {
   S.practiceMatchRules = normalizeMatchRules({ ...S.practiceMatchRules, format: $("practice-count").value });
   writeStorage(localStorage, "duplicate.settings.v1", { rules: S.settings, duplicateProfile: S.practiceDuplicateProfile, matchRules: S.practiceMatchRules });
 };
-$("practice-ai").value = readStorage(localStorage, "duplicate.practice-ai.v1") ?? S.practice.aiPolicy ?? "simple";
+$("practice-ai").value = isRankedDaily() ? "simple" : readStorage(localStorage, "duplicate.practice-ai.v1") ?? S.practice.aiPolicy ?? "simple";
 function normalizeServer(value) {
   const url = new URL(value);
   if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) throw new Error("http \uB610\uB294 https \uC11C\uBC84 \uC8FC\uC18C\uB97C \uC785\uB825\uD574 \uC8FC\uC138\uC694.");
@@ -6848,13 +7277,14 @@ try {
   S.server = DEFAULT_SERVER;
   S.credentials = null;
 }
-if (S.practice.aiPolicy === "mortal") {
+if (isRankedDaily()) S.practiceError = "\uB370\uC77C\uB9AC \uCCAB \uAE30\uB85D\uC744 \uB2E4\uC2DC \uC5F0\uACB0\uD558\uACE0 \uC788\uC2B5\uB2C8\uB2E4.";
+else if (S.practice.aiPolicy === "mortal") {
   if (!remotePractice.restore(S.practice)) S.practiceError = "Mortal \uC5F0\uC2B5\uC744 \uC0C8\uB85C \uC2DC\uC791\uD574 \uC8FC\uC138\uC694.";
 } else S.practice.aiPolicy = "simple";
 $("server-base").value = S.server;
 $("server-save").onclick = () => {
-  if (S.credentials || remotePractice.connected) {
-    toast("\uB300\uD68C \uB610\uB294 Mortal \uC5F0\uC2B5 \uC5F0\uACB0\uC744 \uC885\uB8CC\uD55C \uB4A4 \uC11C\uBC84\uB97C \uBC14\uAFD4 \uC8FC\uC138\uC694.");
+  if (S.credentials || remotePractice.connected || rankedPractice.connected) {
+    toast("\uB300\uD68C \uB610\uB294 \uC11C\uBC84 \uC5F0\uC2B5 \uC5F0\uACB0\uC744 \uC885\uB8CC\uD55C \uB4A4 \uC11C\uBC84\uB97C \uBC14\uAFD4 \uC8FC\uC138\uC694.");
     return;
   }
   try {
@@ -6872,11 +7302,11 @@ if (invite && /^[A-Z2-9]{8}$/.test(invite)) {
   S.mode = "online";
 }
 if (S.credentials) S.mode = "online";
-S.view = S.mode === "practice" ? snapshot4(S.practice.game, S.practice.seat) : null;
+S.view = S.mode === "practice" && !isRemotePractice() ? snapshot4(S.practice.game, S.practice.seat) : null;
 setMode(S.mode);
 if (S.credentials) schedulePoll();
-if (S.practice.game.phase === "end" && !S.practice.results.some((r) => handId({ board: r.board ?? r.index + 1, honba: r.honba ?? 0 }) === seriesProgress(S.practice).handId)) finishPractice();
-if (S.practice.aiPolicy !== "mortal" && S.practice.game.phase === "end") archiveEndedReplay("practice");
+if (!isRemotePractice() && S.practice.game.phase === "end" && !S.practice.results.some((r) => handId({ board: r.board ?? r.index + 1, honba: r.honba ?? 0 }) === seriesProgress(S.practice).handId)) finishPractice();
+if (!isRemotePractice() && S.practice.game.phase === "end") archiveEndedReplay("practice");
 void refreshAICapabilities();
 setInterval(() => {
   if (!document.hidden) void refreshAICapabilities();
@@ -6902,3 +7332,12 @@ function openDailyHash() {
 }
 window.addEventListener("hashchange", openDailyHash);
 openDailyHash();
+var requestedRankedDate = parameters.get("dailyRanked");
+if (requestedRankedDate) void startRankedDaily(requestedRankedDate);
+else if (isRankedDaily() && S.mode === "practice") {
+  if (S.practice.dailyRanked.accountId === accountSession()?.user.id && S.practice.dailyRanked.server === S.server) void startRankedDaily(S.practice.dailyRanked.date);
+  else {
+    S.practiceError = "\uCCAB \uB3C4\uC804\uC744 \uC774\uC5B4\uAC00\uB824\uBA74 \uB9AC\uB354\uBCF4\uB4DC\uC5D0\uC11C \uB3C4\uC804\uD55C \uACC4\uC815\uC73C\uB85C \uB85C\uADF8\uC778\uD574 \uC8FC\uC138\uC694.";
+    render();
+  }
+}
