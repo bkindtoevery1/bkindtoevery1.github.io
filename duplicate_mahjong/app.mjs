@@ -4158,6 +4158,126 @@ function createDailyRankedClient({ getServer, getSession, onState = () => {
   };
 }
 
+// duplicate/daily-seat-access.mjs
+var DAILY_SEAT_LOCK_MESSAGE = "\uC624\uB298\uC758 \uB3C4\uC804\uC744 \uC644\uB8CC\uD574\uC57C \uD569\uB2C8\uB2E4!";
+function createDailySeatAccess({ getContext, readStatus, onChange = () => {
+} } = {}) {
+  let scope = null, generation = 0;
+  const values = /* @__PURE__ */ new Map(), pending = /* @__PURE__ */ new Map(), versions = /* @__PURE__ */ new Map();
+  function identity(date) {
+    try {
+      const checked = dailyChallenge(date).date, current2 = getContext?.() ?? {}, next = JSON.stringify([current2.accountId ?? null, current2.server ?? null, current2.day ?? null]);
+      if (next !== scope) {
+        scope = next;
+        generation++;
+        values.clear();
+        pending.clear();
+        versions.clear();
+      }
+      if (typeof current2.accountId !== "string" || !current2.accountId || typeof current2.server !== "string" || !current2.server || typeof current2.day !== "string") return null;
+      return { date: checked, accountId: current2.accountId, server: current2.server, day: current2.day, key: JSON.stringify([scope, checked]), generation };
+    } catch {
+      return null;
+    }
+  }
+  function current(captured) {
+    const value = identity(captured.date);
+    return value?.key === captured.key && value.generation === captured.generation;
+  }
+  function publish(captured, unlocked) {
+    if (!current(captured)) return false;
+    values.set(captured.key, unlocked);
+    onChange({ date: captured.date, unlocked });
+    return unlocked;
+  }
+  return {
+    unlocked(date) {
+      const value = identity(date);
+      return !!value && values.get(value.key) === true;
+    },
+    confirmCompleted({ date, accountId, server } = {}) {
+      const value = identity(date);
+      if (!value || value.accountId !== accountId || value.server !== server) return false;
+      versions.set(value.key, (versions.get(value.key) ?? 0) + 1);
+      pending.delete(value.key);
+      return publish(value, true);
+    },
+    async refresh(date) {
+      const value = identity(date);
+      if (!value) {
+        onChange({ date, unlocked: false });
+        return false;
+      }
+      if (pending.has(value.key)) return pending.get(value.key);
+      const version = (versions.get(value.key) ?? 0) + 1;
+      versions.set(value.key, version);
+      publish(value, false);
+      const task = Promise.resolve().then(() => readStatus(value.date)).then((status) => status?.date === value.date && status.status === "completed" && status.ranked === true).catch(() => false).then((unlocked) => {
+        if (!current(value) || versions.get(value.key) !== version) return false;
+        return publish(value, unlocked);
+      }).finally(() => {
+        if (pending.get(value.key) === task) pending.delete(value.key);
+      });
+      pending.set(value.key, task);
+      return task;
+    },
+    invalidate() {
+      generation++;
+      scope = null;
+      values.clear();
+      pending.clear();
+      versions.clear();
+    }
+  };
+}
+function practiceSeatControlState({ ranked = false, unlocked = false, busy = false } = {}) {
+  const locked = ranked && !unlocked;
+  return { locked, disabled: busy || locked, value: locked ? "random" : null, message: locked ? DAILY_SEAT_LOCK_MESSAGE : "" };
+}
+function mountPracticeSeatControl({ select, wrapper, tooltip } = {}) {
+  let locked = false;
+  const show = () => {
+    if (locked) wrapper.dataset.hintOpen = "true";
+  }, hide = () => {
+    delete wrapper.dataset.hintOpen;
+  };
+  const keydown = (event3) => {
+    if (!locked) return;
+    if (["Enter", " "].includes(event3.key)) {
+      event3.preventDefault();
+      show();
+    } else if (event3.key === "Escape") hide();
+  };
+  wrapper.addEventListener("click", show);
+  wrapper.addEventListener("keydown", keydown);
+  wrapper.addEventListener("blur", hide);
+  return {
+    update(options) {
+      const value = practiceSeatControlState(options);
+      locked = value.locked;
+      select.disabled = value.disabled;
+      if (value.value !== null) select.value = value.value;
+      wrapper.dataset.locked = String(locked);
+      wrapper.tabIndex = locked ? 0 : -1;
+      tooltip.hidden = !locked;
+      if (locked) {
+        wrapper.title = value.message;
+        wrapper.setAttribute("aria-describedby", tooltip.id);
+      } else {
+        wrapper.removeAttribute("title");
+        wrapper.removeAttribute("aria-describedby");
+        hide();
+      }
+      return value;
+    },
+    destroy() {
+      wrapper.removeEventListener("click", show);
+      wrapper.removeEventListener("keydown", keydown);
+      wrapper.removeEventListener("blur", hide);
+    }
+  };
+}
+
 // duplicate/observer-delay.mjs
 var DEFAULT_OBSERVER_DELAY_SECONDS = 300;
 var factor = (unit) => {
@@ -4986,8 +5106,10 @@ function resultForDailyPractice(practice) {
 }
 
 // duplicate/daily-share-view.mjs
-var RULES = "\uBC18\uC7A5\uC804 \xB7 \uC2DC\uC791 \uC790\uB9AC \uB79C\uB364 \xB7 \uAE30\uBCF8 AI \xB7 \uAE30\uBCF8 \uADDC\uCE59 \xB7 \uCE5C \uC5F0\uC7A5";
+var RULES = "\uBC18\uC7A5\uC804 \xB7 \uCCAB \uAE30\uB85D \uC790\uB9AC \uB79C\uB364 \uACE0\uC815 \xB7 \uAE30\uBCF8 AI \xB7 \uAE30\uBCF8 \uADDC\uCE59 \xB7 \uCE5C \uC5F0\uC7A5";
 var WINDS = ["\u6771", "\u5357", "\u897F", "\u5317"];
+var SEAT_LOCK_HINT = "\uC624\uB298\uC758 \uB3C4\uC804\uC744 \uC644\uB8CC\uD574\uC57C \uD569\uB2C8\uB2E4!";
+var normalizePracticeSeat = (value) => value === "random" ? "random" : ["0", "1", "2", "3"].includes(String(value)) ? String(value) : "random";
 var number2 = (value) => Number(value).toLocaleString("ko-KR");
 var signed2 = (value) => `${value > 0 ? "+" : ""}${number2(value)}`;
 var dateLabel = (date) => date.replaceAll("-", ".");
@@ -5037,7 +5159,10 @@ function dailyNavigationURL(base, date, { target, ranked = false } = {}) {
   if (target) {
     try {
       const supplied = new URL(target, current);
-      if (supplied.origin === current.origin && !supplied.username && !supplied.password && ["https:", "http:"].includes(supplied.protocol)) return supplied.href;
+      if (supplied.origin === current.origin && !supplied.username && !supplied.password && ["https:", "http:"].includes(supplied.protocol)) {
+        if (ranked) supplied.searchParams.delete("seat");
+        return supplied.href;
+      }
     } catch {
     }
   }
@@ -5075,7 +5200,7 @@ function mountDailyShare({ document: document2, onStart, toast: toast2 = () => {
   shell.append(header, body, footer);
   dialog.append(shell);
   document2.body.append(dialog);
-  let currentResult = null, currentShared = false, currentRanked = false, currentLeaderboardURL, open = false, lastTrigger = null, destroyed = false;
+  let currentResult = null, currentShared = false, currentRanked = false, currentLeaderboardURL, currentViewDate = null, currentSeatControl = null, open = false, lastTrigger = null, destroyed = false;
   function report(message) {
     status.textContent = message;
   }
@@ -5143,11 +5268,79 @@ function mountDailyShare({ document: document2, onStart, toast: toast2 = () => {
     line.append(label, button(document2, "\uC2DC\uB4DC \uBCF5\uC0AC", () => copy2(String(challenge.seed), "\uD328\uC0B0 \uC2DC\uB4DC\uB97C \uBCF5\uC0AC\uD588\uC2B5\uB2C8\uB2E4."), { className: "daily-seed-copy" }));
     return line;
   }
-  function openDaily2({ challenge = dailyChallenge(), active = false, savedResults = [], leaderboardURL: leaderboardURL2, rankedURL, rankedActive = false, rankedCompleted = false } = {}) {
+  function practiceSeatChoice({ date, unlocked = false, value = "random" }) {
+    const field = node2(document2, "div", "daily-seat-choice"), label = node2(document2, "label", "", "\uC5F0\uC2B5 \uC2DC\uC791 \uC790\uB9AC");
+    label.htmlFor = "daily-practice-seat";
+    const wrapper = node2(document2, "span", "daily-seat-access"), select = node2(document2, "select", "");
+    wrapper.setAttribute("role", "group");
+    select.id = "daily-practice-seat";
+    const tooltip = node2(document2, "span", "daily-seat-tooltip", SEAT_LOCK_HINT);
+    tooltip.id = "daily-practice-seat-tooltip";
+    tooltip.setAttribute("role", "tooltip");
+    for (const [value2, text3] of [["random", "\uB79C\uB364"], ["0", "\u6771 \xB7 \uB3D9 \uC790\uB9AC"], ["1", "\u5357 \xB7 \uB0A8 \uC790\uB9AC"], ["2", "\u897F \xB7 \uC11C \uC790\uB9AC"], ["3", "\u5317 \xB7 \uBD81 \uC790\uB9AC"]]) {
+      const option = node2(document2, "option", "", text3);
+      option.value = value2;
+      select.append(option);
+    }
+    let allowed = unlocked === true, preferred = normalizePracticeSeat(value);
+    function hint(open2) {
+      wrapper.dataset.hintOpen = String(open2 && !allowed);
+    }
+    function apply() {
+      select.disabled = !allowed;
+      select.value = allowed ? preferred : "random";
+      wrapper.dataset.locked = String(!allowed);
+      wrapper.tabIndex = allowed ? -1 : 0;
+      tooltip.hidden = allowed;
+      hint(false);
+      if (allowed) {
+        wrapper.removeAttribute("title");
+        wrapper.removeAttribute("aria-describedby");
+        wrapper.removeAttribute("aria-label");
+        wrapper.removeAttribute("aria-disabled");
+      } else {
+        wrapper.setAttribute("title", SEAT_LOCK_HINT);
+        wrapper.setAttribute("aria-describedby", tooltip.id);
+        wrapper.setAttribute("aria-label", "\uC5F0\uC2B5 \uC2DC\uC791 \uC790\uB9AC \xB7 \uB79C\uB364");
+        wrapper.setAttribute("aria-disabled", "true");
+      }
+    }
+    wrapper.addEventListener("click", () => hint(true));
+    wrapper.addEventListener("blur", () => hint(false));
+    wrapper.addEventListener("keydown", (event3) => {
+      if (!allowed && ["Enter", " ", "Spacebar"].includes(event3.key)) {
+        event3.preventDefault();
+        hint(true);
+      } else if (event3.key === "Escape") hint(false);
+    });
+    select.addEventListener("change", () => {
+      if (allowed) preferred = normalizePracticeSeat(select.value);
+      else select.value = "random";
+    });
+    wrapper.append(select, tooltip);
+    field.append(label, wrapper, node2(document2, "p", "daily-note", "\uCCAB \uAE30\uB85D \uB3C4\uC804\uC740 \uC11C\uBC84\uAC00 \uC815\uD55C \uB79C\uB364 \uC790\uB9AC\uB85C \uC9C4\uD589\uD569\uB2C8\uB2E4. \uC644\uB8CC \uD6C4\uC5D0\uB294 \uC5F0\uC2B5 \uC790\uB9AC\uB97C \uACE0\uB97C \uC218 \uC788\uC5B4\uC694."));
+    apply();
+    currentViewDate = date;
+    currentSeatControl = { setUnlocked(value2) {
+      allowed = value2 === true;
+      apply();
+    }, get unlocked() {
+      return allowed;
+    }, get choice() {
+      return preferred;
+    }, get selected() {
+      const value2 = normalizePracticeSeat(select.value);
+      return allowed && value2 !== "random" ? Number(value2) : void 0;
+    } };
+    return field;
+  }
+  function openDaily2({ challenge = dailyChallenge(), active = false, savedResults = [], leaderboardURL: leaderboardURL2, rankedURL, rankedActive = false, rankedCompleted = false, practiceSeatUnlocked = false, practiceSeat = "random" } = {}) {
     currentResult = null;
     currentShared = false;
     currentRanked = false;
     currentLeaderboardURL = void 0;
+    currentViewDate = challenge.date;
+    currentSeatControl = null;
     title.textContent = "\uC624\uB298\uC758 \uD328\uC0B0";
     body.replaceChildren();
     const hero = node2(document2, "section", "daily-hub-hero");
@@ -5162,8 +5355,11 @@ function mountDailyShare({ document: document2, onStart, toast: toast2 = () => {
     boardLink.href = dailyNavigationURL(getBaseURL(), challenge.date, { target: leaderboardURL2 });
     rankedEntry.append(rankedLink, boardLink, node2(document2, "p", "daily-note", "\uACC4\uC815\uB9C8\uB2E4 \uD558\uB8E8 \uCCAB \uB3C4\uC804\uB9CC \uB4F1\uB85D\uB429\uB2C8\uB2E4. \uCCAB \uAE30\uB85D \uB3C4\uC804\uC740 \uB85C\uADF8\uC778\uC774 \uD544\uC694\uD574\uC694."));
     hero.append(rankedEntry);
-    const cta = button(document2, active ? "\uC9C4\uD589 \uC911\uC778 \uC5F0\uC2B5 \uACC4\uC18D\uD558\uAE30" : "\uACB0\uACFC\uB9CC \uBCF4\uB294 \uC5F0\uC2B5", () => start(challenge.date, { resume: active }), { id: "daily-start", className: "secondary daily-start" });
-    hero.append(cta, node2(document2, "p", "daily-note", "\uD55C\uAD6D \uC2DC\uAC04 \uC790\uC815\uC5D0 \uC0C8 \uC2DC\uB4DC\uAC00 \uC5F4\uB9BD\uB2C8\uB2E4. \uC5F0\uC2B5\uC740 \uC5EC\uB7EC \uBC88 \uD560 \uC218 \uC788\uACE0 \uB9AC\uB354\uBCF4\uB4DC\uC5D0\uB294 \uC9D1\uACC4\uB418\uC9C0 \uC54A\uC544\uC694."));
+    hero.append(practiceSeatChoice({ date: challenge.date, unlocked: practiceSeatUnlocked, value: practiceSeat }));
+    const cta = button(document2, active ? "\uC9C4\uD589 \uC911\uC778 \uC5F0\uC2B5 \uACC4\uC18D\uD558\uAE30" : "\uACB0\uACFC\uB9CC \uBCF4\uB294 \uC5F0\uC2B5", () => start(challenge.date, active ? { resume: true } : { seat: currentSeatControl?.selected }), { id: "daily-start", className: "secondary daily-start" });
+    hero.append(cta);
+    if (active) hero.append(button(document2, "\uC120\uD0DD\uD55C \uC790\uB9AC\uB85C \uC0C8 \uC5F0\uC2B5", () => start(challenge.date, { seat: currentSeatControl?.selected }), { id: "daily-practice-new", className: "secondary daily-start daily-practice-new" }));
+    hero.append(node2(document2, "p", "daily-note", "\uD55C\uAD6D \uC2DC\uAC04 \uC790\uC815\uC5D0 \uC0C8 \uC2DC\uB4DC\uAC00 \uC5F4\uB9BD\uB2C8\uB2E4. \uC5F0\uC2B5\uC740 \uC5EC\uB7EC \uBC88 \uD560 \uC218 \uC788\uACE0 \uB9AC\uB354\uBCF4\uB4DC\uC5D0\uB294 \uC9D1\uACC4\uB418\uC9C0 \uC54A\uC544\uC694."));
     body.append(hero);
     const saved2 = savedResults.slice(0, 5).flatMap((result) => {
       try {
@@ -5180,7 +5376,7 @@ function mountDailyShare({ document: document2, onStart, toast: toast2 = () => {
       for (const result of saved2) {
         const item = node2(document2, "li", "daily-result-item"), summary2 = node2(document2, "div", "daily-result-summary");
         summary2.append(node2(document2, "span", "daily-result-date", `${dateLabel(result.date)} \xB7 \uC2DC\uC791 \uC790\uB9AC ${WINDS[result.seat]}`), node2(document2, "strong", "", dailyPersona(result).title), node2(document2, "span", `daily-result-net${result.net < 0 ? " is-negative" : ""}`, `${signed2(result.net)}\uC810 \xB7 ${result.hands}\uAD6D`));
-        item.append(summary2, button(document2, "\uB0B4 \uACB0\uACFC \uBCF4\uAE30", () => openResult(result), { className: "daily-open-result" }));
+        item.append(summary2, button(document2, "\uB0B4 \uACB0\uACFC \uBCF4\uAE30", () => openResult(result, { practiceSeatUnlocked: currentViewDate === result.date && currentSeatControl?.unlocked === true }), { className: "daily-open-result" }));
         list.append(item);
       }
       history2.append(list);
@@ -5209,12 +5405,14 @@ function mountDailyShare({ document: document2, onStart, toast: toast2 = () => {
     card.append(stats, comparison, node2(document2, "p", "daily-card-meta", `${result.hands}\uAD6D \uC644\uB8CC \xB7 \uC2DC\uC791 \uC790\uB9AC ${WINDS[result.seat]} \xB7 \uBC84\uB9BC ${result.stats.discard}\uD68C \xB7 \uC2DC\uB4DC ${result.seed}`));
     return card;
   }
-  function openResult(value, { shared: shared2 = false, leaderboardURL: leaderboardURL2, ranked = false } = {}) {
+  function openResult(value, { shared: shared2 = false, leaderboardURL: leaderboardURL2, ranked = false, practiceSeatUnlocked = false, practiceSeat } = {}) {
     const result = validateDailyResult(value);
     currentResult = result;
     currentShared = shared2;
     currentRanked = ranked;
     currentLeaderboardURL = leaderboardURL2;
+    currentViewDate = result.date;
+    currentSeatControl = null;
     title.textContent = shared2 ? "\uACF5\uC720\uD55C \uB3C4\uC804 \uCE74\uB4DC" : "\uB0B4 \uB3C4\uC804 \uCE74\uB4DC";
     body.replaceChildren();
     if (shared2) body.append(node2(document2, "p", "daily-unverified", DAILY_SHARE_NOTICE));
@@ -5226,7 +5424,8 @@ function mountDailyShare({ document: document2, onStart, toast: toast2 = () => {
     const link = button(document2, "\uB9C1\uD06C \uBCF5\uC0AC", () => copy2(buildDailyShareURL(getBaseURL(), result), "\uACB0\uACFC \uB9C1\uD06C\uB97C \uBCF5\uC0AC\uD588\uC2B5\uB2C8\uB2E4. \uAC19\uC740 \uD328\uC0B0 \uB3C4\uC804\uB3C4 \uD568\uAED8 \uC5F4\uB9BD\uB2C8\uB2E4."), { id: "daily-copy-link" });
     actions.append(share, save, link);
     body.append(actions);
-    body.append(button(document2, "\uC774 \uD328\uC0B0\uC73C\uB85C \uB2E4\uC2DC \uC5F0\uC2B5", () => start(result.date, { seat: result.seat }), { id: "daily-retry", className: "daily-retry" }));
+    body.append(practiceSeatChoice({ date: result.date, unlocked: practiceSeatUnlocked, value: practiceSeat ?? result.seat }));
+    body.append(button(document2, "\uC774 \uD328\uC0B0\uC73C\uB85C \uB2E4\uC2DC \uC5F0\uC2B5", () => start(result.date, { seat: currentSeatControl?.selected }), { id: "daily-retry", className: "daily-retry" }));
     const boardLink = node2(document2, "a", "daily-leaderboard-link", "\uC774 \uB0A0\uC9DC\uC758 \uB9AC\uB354\uBCF4\uB4DC \uBCF4\uAE30");
     boardLink.id = "daily-result-leaderboard";
     boardLink.href = dailyNavigationURL(getBaseURL(), result.date, { target: leaderboardURL2 });
@@ -5288,7 +5487,12 @@ ${url}`, "\uACB0\uACFC\uC640 \uB9C1\uD06C\uB97C \uBCF5\uC0AC\uD588\uC2B5\uB2C8\u
     openResult,
     close: closeDialog,
     updateResult(result) {
-      if (dialog.open && currentResult && !currentShared && currentResult.date === result.date) openResult(result, { ranked: currentRanked, leaderboardURL: currentLeaderboardURL });
+      if (dialog.open && currentResult && !currentShared && currentResult.date === result.date) openResult(result, { ranked: currentRanked, leaderboardURL: currentLeaderboardURL, practiceSeatUnlocked: currentSeatControl?.unlocked === true, practiceSeat: currentSeatControl?.choice });
+    },
+    updateSeatAccess({ date, unlocked } = {}) {
+      if (!dialog.open || date !== currentViewDate || !currentSeatControl) return false;
+      currentSeatControl.setUnlocked(unlocked);
+      return true;
     },
     destroy() {
       closeDialog();
@@ -5690,10 +5894,11 @@ var rankedPractice = createDailyRankedClient({
   getSession: accountSession,
   onState: (state) => applyPrivatePractice(state, "daily"),
   onResult: (result) => {
-    if (!isRankedDaily() || S.practice.dailyRanked.date !== result.date || S.practice.dailyRanked.accountId !== accountSession()?.user.id) return;
+    if (!isRankedDaily() || S.practice.dailyRanked.date !== result.date || S.practice.dailyRanked.accountId !== accountSession()?.user.id || S.practice.dailyRanked.server !== S.server) return;
     S.practice.seat = result.seat;
     S.dailyRankedResult = result;
     S.dailyRankedStatus = "completed";
+    dailySeatAccess.confirmCompleted({ date: result.date, accountId: S.practice.dailyRanked.accountId, server: S.server });
     savePractice();
     persistDailyResult();
     if (S.mode === "practice") render();
@@ -5730,6 +5935,28 @@ var dailyUI = mountDailyShare({
     else scheduleOnlineAuto();
   }
 });
+var mainSeatControl = mountPracticeSeatControl({ select: $("practice-seat"), wrapper: $("practice-seat-access"), tooltip: $("practice-seat-tooltip") });
+var dailySeatAccess = createDailySeatAccess({
+  getContext: () => ({ accountId: accountSession()?.user.id ?? null, server: S.server, day: dailyDate() }),
+  readStatus: (date) => rankedPractice.me(date),
+  onChange: ({ date, unlocked }) => {
+    dailyUI.updateSeatAccess?.({ date, unlocked });
+    if (isRankedDaily() && S.practice.dailyRanked.date === date) renderAIOptions();
+  }
+});
+function confirmedDailySeatAccess(date) {
+  const account = accountSession(), marker = S.practice?.dailyRanked;
+  if (S.dailyRankedResult?.date === date && marker?.date === date && marker.accountId === account?.user.id && marker.server === S.server) return dailySeatAccess.confirmCompleted({ date, accountId: marker.accountId, server: S.server });
+  return false;
+}
+function refreshDailySeatAccess(date) {
+  return confirmedDailySeatAccess(date) ? Promise.resolve(true) : dailySeatAccess.refresh(date);
+}
+function showDailyResult(result, options = {}) {
+  const unlocked = confirmedDailySeatAccess(result.date) || dailySeatAccess.unlocked(result.date);
+  dailyUI.openResult(result, { leaderboardURL: leaderboardURL(result.date), practiceSeatUnlocked: unlocked, practiceSeat: unlocked ? $("practice-seat").value : "random", ...options });
+  void refreshDailySeatAccess(result.date);
+}
 function persistDailyResult() {
   const result = practiceDailyResult();
   if (!result) return null;
@@ -5756,11 +5983,13 @@ function renderDailyEntry() {
 function openDaily() {
   persistDailyResult();
   const challenge = dailyChallenge(), active = challengeForPractice(S.practice);
-  dailyUI.openDaily({ challenge, active: active?.date === challenge.date && !resultForDailyPractice(S.practice), savedResults: loadDailyResults(localStorage), leaderboardURL: leaderboardURL(challenge.date), rankedURL: rankedGameURL(challenge.date), rankedActive: isRankedDaily() && S.practice.dailyRanked.date === challenge.date && !S.dailyRankedResult && S.dailyRankedStatus !== "expired", rankedCompleted: isRankedDaily() && S.dailyRankedResult?.date === challenge.date });
+  const unlocked = confirmedDailySeatAccess(challenge.date) || dailySeatAccess.unlocked(challenge.date);
+  dailyUI.openDaily({ challenge, active: active?.date === challenge.date && !resultForDailyPractice(S.practice), savedResults: loadDailyResults(localStorage), leaderboardURL: leaderboardURL(challenge.date), rankedURL: rankedGameURL(challenge.date), rankedActive: isRankedDaily() && S.practice.dailyRanked.date === challenge.date && !S.dailyRankedResult && S.dailyRankedStatus !== "expired", rankedCompleted: isRankedDaily() && S.dailyRankedResult?.date === challenge.date, practiceSeatUnlocked: unlocked, practiceSeat: unlocked ? $("practice-seat").value : "random" });
+  void refreshDailySeatAccess(challenge.date);
 }
 function openDailyResult() {
   const result = persistDailyResult();
-  if (result) dailyUI.openResult(result, { ranked: isRankedDaily(), leaderboardURL: leaderboardURL(result.date) });
+  if (result) showDailyResult(result, { ranked: isRankedDaily() });
   else openDaily();
 }
 function clearDailyHash() {
@@ -5780,6 +6009,14 @@ async function startDailyChallenge(date, { resume = false, seat: seat5 } = {}) {
     setMode("practice");
     clearDailyHash();
     return;
+  }
+  if (seat5 !== void 0) {
+    const epoch = S.gameEpoch, server = S.server, accountId = accountSession()?.user.id, mode = S.mode, day = dailyDate(), checked = await refreshDailySeatAccess(date);
+    if (S.gameEpoch !== epoch || S.server !== server || accountSession()?.user.id !== accountId || S.mode !== mode || dailyDate() !== day) return;
+    if (!checked && !dailySeatAccess.unlocked(date)) {
+      seat5 = void 0;
+      toast(DAILY_SEAT_LOCK_MESSAGE);
+    }
   }
   await newPractice({ dailyDate: date, dailySeat: seat5 });
   if (challengeForPractice(S.practice)?.date === date && (seat5 === void 0 || S.practice.seat === seat5)) clearDailyHash();
@@ -5890,6 +6127,7 @@ function renderAIOptions() {
   $("practice-new").disabled = S.busy;
   $("practice-disconnect").textContent = isRankedDaily() ? "\uCCAB \uB3C4\uC804 \uC5F0\uACB0 \uB2EB\uAE30" : "Mortal \uC5F0\uC2B5 \uC5F0\uACB0 \uC885\uB8CC";
   for (const id of ["practice-ai", "practice-seed", "practice-seat", "practice-count", "random-seed", "practice-disconnect"]) $(id).disabled = S.busy;
+  mainSeatControl.update({ ranked: isRankedDaily(), unlocked: isRankedDaily() && dailySeatAccess.unlocked(S.practice.dailyRanked.date), busy: S.busy });
 }
 async function refreshAICapabilities() {
   const server = S.server, controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 8e3);
@@ -7324,7 +7562,7 @@ function openDailyHash() {
   }
   if (!hash.startsWith("#daily=")) return;
   const result = parseDailyShare(hash);
-  if (result) dailyUI.openResult(result, { shared: true });
+  if (result) showDailyResult(result, { shared: true });
   else {
     openDaily();
     toast("\uACB0\uACFC \uB9C1\uD06C\uB97C \uD655\uC778\uD560 \uC218 \uC5C6\uC5B4 \uC624\uB298\uC758 \uD328\uC0B0\uC744 \uC5F4\uC5C8\uC2B5\uB2C8\uB2E4.");
