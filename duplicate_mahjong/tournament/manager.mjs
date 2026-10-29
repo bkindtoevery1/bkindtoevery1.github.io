@@ -556,6 +556,11 @@ function mountManager(doc = globalThis.document, win = globalThis.window, { fetc
   createURL.searchParams.set("create", "1");
   if (server !== DEFAULT_SERVER) createURL.searchParams.set("server", server);
   $("manager-create").href = createURL.href;
+  if ($("manager-profile-link")) {
+    const profileURL = new URL("../profile.html", win.location.href);
+    if (server !== DEFAULT_SERVER) profileURL.searchParams.set("server", server);
+    $("manager-profile-link").href = profileURL.href;
+  }
   const navigation = tournamentNavigationLinks({ baseUrl: siteRoot.href, server });
   for (const [id, target] of [["manager-brand", "game"], ["manager-game-link", "game"], ["manager-observer-link", "observer"], ["manager-wiki-link", "wiki"]]) if ($(id)) $(id).href = navigation[target];
   function stop() {

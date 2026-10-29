@@ -3344,7 +3344,7 @@ function createFeedbackPresenter({ table, handArea, historyContainer, getPrefere
 // duplicate/remote-practice.mjs
 var STORAGE_KEY = "duplicate.mortal-practice.v1";
 var sameMatch = (a, b) => JSON.stringify(a ? normalizeMatchRules(a) : null) === JSON.stringify(b ? normalizeMatchRules(b) : null);
-function createRemotePractice({ getServer, onState, onError = () => {
+function createRemotePractice({ getServer, getSession = () => null, onState, onError = () => {
 }, storage = globalThis.sessionStorage, fetchImpl = globalThis.fetch, pollMs = 1200 } = {}) {
   let credentials = null, context3 = null, state = null, timer = null, active = false, epoch = 0, loading = false, lastError = "";
   const persist = () => {
@@ -3358,10 +3358,10 @@ function createRemotePractice({ getServer, onState, onError = () => {
     clearTimeout(timer);
     if (active && credentials) timer = setTimeout(poll, pollMs);
   }
-  async function request2(server, path, body, key) {
+  async function request2(server, path, body, key, accountToken) {
     const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 15e3);
     try {
-      const response = await fetchImpl(`${server}/api/duplicate/competitions${path}`, { method: body === null ? "GET" : "POST", headers: { "Content-Type": "application/json", ...key ? { Authorization: `Bearer ${key}` } : {} }, body: body === null ? void 0 : JSON.stringify(body), signal: controller.signal });
+      const response = await fetchImpl(`${server}/api/duplicate/competitions${path}`, { method: body === null ? "GET" : "POST", headers: { "Content-Type": "application/json", ...key ? { Authorization: `Bearer ${key}` } : {}, ...accountToken ? { "X-Duplicate-Account-Token": accountToken } : {} }, body: body === null ? void 0 : JSON.stringify(body), signal: controller.signal, credentials: "omit", referrerPolicy: "no-referrer", redirect: "error" });
       const data = await response.json();
       if (!response.ok) throw Object.assign(new Error(data.error ?? "Mortal \uC5F0\uC2B5 \uC11C\uBC84\uC5D0 \uC5F0\uACB0\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4."), { status: response.status });
       return data;
@@ -3427,7 +3427,8 @@ function createRemotePractice({ getServer, onState, onError = () => {
       context3 = { seed: options.seed, seat: options.seat, count: count2, matchRules: config, duplicateProfile };
       state = null;
       persist();
-      const server = getServer(), value = await request2(server, "", { name: options.name ?? "\uB098", boardCount: count2, rules: options.rules, duplicateProfile, ...config ? { matchRules: config } : {}, aiPolicy: "mortal", practice: { seed: options.seed, seat: options.seat } }, null);
+      const server = getServer(), session = getSession(), accountToken = typeof session?.token === "string" && session.token ? session.token : void 0;
+      const value = await request2(server, "", { name: options.name ?? "\uB098", boardCount: count2, rules: options.rules, duplicateProfile, ...config ? { matchRules: config } : {}, aiPolicy: "mortal", practice: { seed: options.seed, seat: options.seat } }, null, accountToken);
       if (generation !== epoch) return null;
       if (typeof value.key !== "string" || !/^[a-f0-9]{64}$/.test(value.key)) throw new Error("Mortal \uC5F0\uC2B5 \uC811\uC18D \uC815\uBCF4\uB97C \uD655\uC778\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.");
       credentials = { code: value.code, key: value.key, seat: value.seat, tableId: value.tableId, server };
@@ -5875,6 +5876,11 @@ function syncAccountUI() {
   if (S.server !== DEFAULT_SERVER) wikiURL.searchParams.set("server", S.server);
   $("wiki-nav-link").href = $("help-wiki-link").href = wikiURL.href;
   if ($("daily-leaderboard-link")) $("daily-leaderboard-link").href = leaderboardURL();
+  if ($("profile-link")) {
+    const profileURL = new URL("./profile.html", location.href);
+    if (S.server !== DEFAULT_SERVER) profileURL.searchParams.set("server", S.server);
+    $("profile-link").href = profileURL.href;
+  }
   $("account-status").textContent = account ? `${account.user.nickname} \xB7 \uB85C\uADF8\uC778` : "\uAC8C\uC2A4\uD2B8 \xB7 \uACC4\uC815 \uB85C\uADF8\uC778\uC740 \uC6B4\uC601 \uD398\uC774\uC9C0";
   if (!S.credentials && account) $("online-name").value = account.user.nickname;
   $("online-name").disabled = !!S.credentials || !!account;
@@ -5882,7 +5888,7 @@ function syncAccountUI() {
 var observerLinks = mountObserverLinks({ document, getRoom: () => S.online, getServer: () => S.server, request: (...args) => request(...args), toast });
 var feedbackTracker = createFeedbackTracker();
 var feedback = createFeedbackPresenter({ table: $("table"), handArea: $("hand-area"), historyContainer: $("recent-actions"), getPreferences: () => S.preferences, getPlayerName: (seat5) => playerName(seat5) });
-var remotePractice = createRemotePractice({ getServer: () => S.server, onState: applyPrivatePractice, onError: (error, { terminal }) => {
+var remotePractice = createRemotePractice({ getServer: () => S.server, getSession: accountSession, onState: applyPrivatePractice, onError: (error, { terminal }) => {
   S.practiceError = terminal ? "Mortal \uC5F0\uC2B5\uC744 \uC0C8\uB85C \uC2DC\uC791\uD574 \uC8FC\uC138\uC694." : "\uC5F0\uACB0 \uC7AC\uC2DC\uB3C4 \uC911";
   if (S.mode === "practice" && S.practice?.aiPolicy === "mortal") {
     toast(error.message);
