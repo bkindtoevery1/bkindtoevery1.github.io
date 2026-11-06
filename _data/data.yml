@@ -255,6 +255,9 @@ award:
   title: Awards
 
   items:
+    - name: KML Classic Seoul Final — 1st Place
+      description: |
+        Placed first by total score in the Seoul final, the sixth and final event of the six-event series.
     - name: South Pole Bebop Invitational Tournament
       awarder: CEO of Sentience (AI Start-up company)
       date: Aug 30th, 2024
@@ -310,6 +313,9 @@ reference:
   title: Organizations
   
   items:
+    - name: KML Professional Player
+      description: |
+        Became a KML professional player in 2026.
     - name: Google Developer Student Clubs (GDSC)
       date: Jun, 2022 - Mar, 2023
       link: 'https://gdsc.community.dev/gwangju-institute-of-science-and-technology/'
@@ -335,7 +341,7 @@ interest:
   items:
     - item: Table Tennis
       link:
-    - item: Poker
+    - item: Mahjong
       link: 
     - item: Piano
       link:

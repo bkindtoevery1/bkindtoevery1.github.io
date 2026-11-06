@@ -245,6 +245,9 @@ award:
   title: 수상
 
   items:
+    - name: KML Classic 서울 최종전 1위
+      description: |
+        전체 6경기 중 6번째 경기인 서울 최종전에서 종합 점수 1위를 기록했습니다.
     - name: South Pole Bebop Invitational Tournament
       awarder: Sentience 대표 (AI 스타트업)
       date: 2024.08.30
@@ -284,6 +287,9 @@ reference:
   title: 활동 및 단체
 
   items:
+    - name: KML 프로 선수
+      description: |
+        2026년 KML 프로 선수가 되었습니다.
     - name: Google Developer Student Clubs (GDSC)
       date: 2022.06 - 2023.03
       link: 'https://gdsc.community.dev/gwangju-institute-of-science-and-technology/'
@@ -309,7 +315,7 @@ interest:
   items:
     - item: 탁구
       link:
-    - item: 포커
+    - item: 마작
       link:
     - item: 피아노
       link:
